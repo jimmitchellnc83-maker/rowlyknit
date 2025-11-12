@@ -28,6 +28,7 @@ import patternsRoutes from './routes/patterns';
 import yarnRoutes from './routes/yarn';
 import recipientsRoutes from './routes/recipients';
 import toolsRoutes from './routes/tools';
+import uploadsRoutes from './routes/uploads';
 
 // Create Express app
 const app: Application = express();
@@ -103,6 +104,7 @@ app.use('/api/patterns', patternsRoutes);
 app.use('/api/yarn', yarnRoutes);
 app.use('/api/recipients', recipientsRoutes);
 app.use('/api/tools', toolsRoutes);
+app.use('/api/uploads', uploadsRoutes);
 
 // API documentation
 app.get('/api', (req, res) => {
