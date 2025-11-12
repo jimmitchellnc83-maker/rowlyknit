@@ -4,7 +4,8 @@ FROM node:18-alpine AS builder
 WORKDIR /app
 
 # Upgrade npm to support lockfileVersion 3 (required for package-lock.json)
-RUN npm install -g npm@latest
+# Use npm 10.x which is compatible with Node 18
+RUN npm install -g npm@10
 
 # Copy package files
 COPY package*.json ./
@@ -29,7 +30,8 @@ FROM node:18-alpine
 WORKDIR /app
 
 # Upgrade npm to support lockfileVersion 3
-RUN npm install -g npm@latest
+# Use npm 10.x which is compatible with Node 18
+RUN npm install -g npm@10
 
 # Install dumb-init for proper signal handling
 RUN apk add --no-cache dumb-init
