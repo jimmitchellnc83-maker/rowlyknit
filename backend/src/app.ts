@@ -24,6 +24,10 @@ import { errorHandler, notFoundHandler } from './utils/errorHandler';
 // Import routes
 import authRoutes from './routes/auth';
 import projectsRoutes from './routes/projects';
+import patternsRoutes from './routes/patterns';
+import yarnRoutes from './routes/yarn';
+import recipientsRoutes from './routes/recipients';
+import toolsRoutes from './routes/tools';
 
 // Create Express app
 const app: Application = express();
@@ -95,6 +99,10 @@ app.get('/health', (req, res) => {
 // API routes
 app.use('/api/auth', authRoutes);
 app.use('/api/projects', projectsRoutes);
+app.use('/api/patterns', patternsRoutes);
+app.use('/api/yarn', yarnRoutes);
+app.use('/api/recipients', recipientsRoutes);
+app.use('/api/tools', toolsRoutes);
 
 // API documentation
 app.get('/api', (req, res) => {
