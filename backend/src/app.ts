@@ -72,8 +72,11 @@ app.use(cookieParser());
 // Compression middleware
 app.use(compression());
 
-// HTTP request logging
-app.use(morgan('combined', { stream: morganStream }));
+// HTTP request logging (skip health checks to reduce noise)
+app.use(morgan('combined', {
+  stream: morganStream,
+  skip: (req) => req.url === '/health'
+}));
 
 // Input sanitization
 app.use(sanitizeInput);
