@@ -23,7 +23,7 @@ RUN npm run build
 FROM nginx:alpine
 
 # Copy custom nginx config
-COPY deployment/nginx/default.conf /etc/nginx/conf.d/default.conf
+COPY nginx/default.conf /etc/nginx/conf.d/default.conf
 
 # Copy built application
 COPY --from=builder /app/dist /usr/share/nginx/html
