@@ -8,13 +8,14 @@ COPY package*.json ./
 COPY tsconfig.json ./
 COPY knexfile.ts ./
 
-# Install dependencies
-RUN npm ci --only=production && \
+# Install dependencies (including TypeScript)
+RUN npm ci && \
     npm cache clean --force
 
 # Copy source code
 COPY src ./src
 COPY migrations ./migrations
+COPY seeds ./seeds
 
 # Build TypeScript
 RUN npm run build
@@ -56,4 +57,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
 
 # Start application with dumb-init
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["node", "dist/app.js"]
+CMD ["node", "dist/src/app.js"]
