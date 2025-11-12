@@ -5,14 +5,12 @@ interface FileUploadProps {
   onUpload: (file: File) => Promise<void>;
   accept?: string;
   maxSize?: number; // in MB
-  label?: string;
 }
 
 export default function FileUpload({
   onUpload,
   accept = 'image/jpeg,image/jpg,image/png,image/webp',
   maxSize = 10,
-  label = 'Upload Photo',
 }: FileUploadProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
