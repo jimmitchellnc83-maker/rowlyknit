@@ -12,7 +12,7 @@ COPY tsconfig.json ./
 COPY knexfile.ts ./
 
 # Install dependencies (including TypeScript)
-RUN npm ci && \
+RUN npm install && \
     npm cache clean --force
 
 # Copy source code
@@ -40,7 +40,7 @@ RUN addgroup -g 1001 -S nodejs && \
 
 # Copy package files and install production dependencies
 COPY package*.json ./
-RUN npm ci --omit=dev && \
+RUN npm install --omit=dev && \
     npm cache clean --force
 
 # Copy built application from builder
