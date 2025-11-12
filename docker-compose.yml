@@ -19,7 +19,7 @@ services:
     networks:
       - rowly_network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-rowly_user}"]
+      test: ["CMD-SHELL", "pg_isready -U rowly_user -d rowly_production"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -37,7 +37,7 @@ services:
     networks:
       - rowly_network
     healthcheck:
-      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      test: ["CMD", "redis-cli", "-a", "rowly_redis_secure_2024", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
