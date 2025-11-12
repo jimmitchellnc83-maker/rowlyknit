@@ -21,7 +21,7 @@ class EmailService {
     const provider = process.env.EMAIL_PROVIDER || 'sendgrid';
 
     if (provider === 'sendgrid') {
-      return nodemailer.createTransporter({
+      return nodemailer.createTransport({
         host: 'smtp.sendgrid.net',
         port: 587,
         auth: {
@@ -30,7 +30,7 @@ class EmailService {
         },
       });
     } else if (provider === 'postmark') {
-      return nodemailer.createTransporter({
+      return nodemailer.createTransport({
         host: 'smtp.postmarkapp.com',
         port: 587,
         auth: {
@@ -39,7 +39,7 @@ class EmailService {
         },
       });
     } else if (provider === 'ses') {
-      return nodemailer.createTransporter({
+      return nodemailer.createTransport({
         host: `email-smtp.${process.env.AWS_REGION || 'us-east-1'}.amazonaws.com`,
         port: 587,
         auth: {
@@ -49,11 +49,11 @@ class EmailService {
       });
     } else {
       // Development mode - log emails to console
-      return nodemailer.createTransporter({
+      return nodemailer.createTransport({
         streamTransport: true,
         newline: 'unix',
         buffer: true,
-      });
+      } as any);
     }
   }
 

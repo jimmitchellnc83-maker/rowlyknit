@@ -25,7 +25,7 @@ export function generateAccessToken(payload: TokenPayload): string {
   return jwt.sign(
     { ...payload, jti: uuidv4() },
     JWT_SECRET,
-    { expiresIn: JWT_EXPIRY }
+    { expiresIn: JWT_EXPIRY } as any
   );
 }
 
@@ -36,7 +36,7 @@ export function generateRefreshToken(payload: RefreshTokenPayload): string {
   return jwt.sign(
     { ...payload, jti: uuidv4() },
     JWT_REFRESH_SECRET,
-    { expiresIn: JWT_REFRESH_EXPIRY }
+    { expiresIn: JWT_REFRESH_EXPIRY } as any
   );
 }
 

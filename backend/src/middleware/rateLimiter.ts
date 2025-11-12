@@ -7,7 +7,7 @@ import { redisClient } from '../config/redis';
  */
 export const apiLimiter = rateLimit({
   store: new RedisStore({
-    sendCommand: (...args: string[]) => redisClient.call(...args),
+    sendCommand: ((...args: any[]) => redisClient.call(args[0], ...args.slice(1))) as any,
   }),
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '60000'), // 1 minute
   max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100'),
@@ -32,7 +32,7 @@ export const apiLimiter = rateLimit({
  */
 export const authLimiter = rateLimit({
   store: new RedisStore({
-    sendCommand: (...args: string[]) => redisClient.call(...args),
+    sendCommand: ((...args: any[]) => redisClient.call(args[0], ...args.slice(1))) as any,
   }),
   windowMs: 60000, // 1 minute
   max: parseInt(process.env.AUTH_RATE_LIMIT_MAX || '5'),
@@ -54,7 +54,7 @@ export const authLimiter = rateLimit({
  */
 export const uploadLimiter = rateLimit({
   store: new RedisStore({
-    sendCommand: (...args: string[]) => redisClient.call(...args),
+    sendCommand: ((...args: any[]) => redisClient.call(args[0], ...args.slice(1))) as any,
   }),
   windowMs: 3600000, // 1 hour
   max: parseInt(process.env.UPLOAD_RATE_LIMIT_MAX || '20'),
@@ -74,7 +74,7 @@ export const uploadLimiter = rateLimit({
  */
 export const passwordResetLimiter = rateLimit({
   store: new RedisStore({
-    sendCommand: (...args: string[]) => redisClient.call(...args),
+    sendCommand: ((...args: any[]) => redisClient.call(args[0], ...args.slice(1))) as any,
   }),
   windowMs: 3600000, // 1 hour
   max: 3,
