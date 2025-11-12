@@ -1,7 +1,7 @@
 import type { Knex } from 'knex';
 
 export async function up(knex: Knex): Promise<void> {
-  return knex.schema.createTable('tools', (table) => {
+  await knex.schema.createTable('tools', (table) => {
     table.uuid('id').primary().defaultTo(knex.raw('gen_random_uuid()'));
     table.uuid('user_id').notNullable().references('id').inTable('users').onDelete('CASCADE');
     table.string('type', 50).notNullable(); // needle, hook, circular, dpn, accessory
@@ -29,7 +29,7 @@ export async function up(knex: Knex): Promise<void> {
   });
 
   // Junction table for linking tools to projects
-  return knex.schema.createTable('project_tools', (table) => {
+  await knex.schema.createTable('project_tools', (table) => {
     table.uuid('id').primary().defaultTo(knex.raw('gen_random_uuid()'));
     table.uuid('project_id').notNullable().references('id').inTable('projects').onDelete('CASCADE');
     table.uuid('tool_id').notNullable().references('id').inTable('tools').onDelete('CASCADE');

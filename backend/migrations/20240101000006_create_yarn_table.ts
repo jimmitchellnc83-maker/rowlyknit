@@ -1,7 +1,7 @@
 import type { Knex } from 'knex';
 
 export async function up(knex: Knex): Promise<void> {
-  return knex.schema.createTable('yarn', (table) => {
+  await knex.schema.createTable('yarn', (table) => {
     table.uuid('id').primary().defaultTo(knex.raw('gen_random_uuid()'));
     table.uuid('user_id').notNullable().references('id').inTable('users').onDelete('CASCADE');
     table.string('brand', 255);
@@ -42,7 +42,7 @@ export async function up(knex: Knex): Promise<void> {
   });
 
   // Junction table for linking yarn to projects
-  return knex.schema.createTable('project_yarn', (table) => {
+  await knex.schema.createTable('project_yarn', (table) => {
     table.uuid('id').primary().defaultTo(knex.raw('gen_random_uuid()'));
     table.uuid('project_id').notNullable().references('id').inTable('projects').onDelete('CASCADE');
     table.uuid('yarn_id').notNullable().references('id').inTable('yarn').onDelete('CASCADE');

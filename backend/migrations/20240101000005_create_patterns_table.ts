@@ -1,7 +1,7 @@
 import type { Knex } from 'knex';
 
 export async function up(knex: Knex): Promise<void> {
-  return knex.schema.createTable('patterns', (table) => {
+  await knex.schema.createTable('patterns', (table) => {
     table.uuid('id').primary().defaultTo(knex.raw('gen_random_uuid()'));
     table.uuid('user_id').notNullable().references('id').inTable('users').onDelete('CASCADE');
     table.string('name', 255).notNullable();
@@ -37,7 +37,7 @@ export async function up(knex: Knex): Promise<void> {
   });
 
   // Junction table for linking patterns to projects
-  return knex.schema.createTable('project_patterns', (table) => {
+  await knex.schema.createTable('project_patterns', (table) => {
     table.uuid('id').primary().defaultTo(knex.raw('gen_random_uuid()'));
     table.uuid('project_id').notNullable().references('id').inTable('projects').onDelete('CASCADE');
     table.uuid('pattern_id').notNullable().references('id').inTable('patterns').onDelete('CASCADE');

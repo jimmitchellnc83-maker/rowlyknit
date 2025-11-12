@@ -1,7 +1,7 @@
 import type { Knex } from 'knex';
 
 export async function up(knex: Knex): Promise<void> {
-  return knex.schema.createTable('recipients', (table) => {
+  await knex.schema.createTable('recipients', (table) => {
     table.uuid('id').primary().defaultTo(knex.raw('gen_random_uuid()'));
     table.uuid('user_id').notNullable().references('id').inTable('users').onDelete('CASCADE');
     table.string('first_name', 100).notNullable();
@@ -24,7 +24,7 @@ export async function up(knex: Knex): Promise<void> {
   });
 
   // Gift history table
-  return knex.schema.createTable('gifts', (table) => {
+  await knex.schema.createTable('gifts', (table) => {
     table.uuid('id').primary().defaultTo(knex.raw('gen_random_uuid()'));
     table.uuid('recipient_id').notNullable().references('id').inTable('recipients').onDelete('CASCADE');
     table.uuid('project_id').references('id').inTable('projects').onDelete('SET NULL');

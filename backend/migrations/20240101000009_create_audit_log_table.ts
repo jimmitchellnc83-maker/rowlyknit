@@ -1,7 +1,7 @@
 import type { Knex } from 'knex';
 
 export async function up(knex: Knex): Promise<void> {
-  return knex.schema.createTable('audit_logs', (table) => {
+  await knex.schema.createTable('audit_logs', (table) => {
     table.uuid('id').primary().defaultTo(knex.raw('gen_random_uuid()'));
     table.uuid('user_id').references('id').inTable('users').onDelete('SET NULL');
     table.string('action', 100).notNullable(); // create, update, delete, login, etc.
@@ -24,7 +24,7 @@ export async function up(knex: Knex): Promise<void> {
   });
 
   // Sessions table for JWT refresh tokens
-  return knex.schema.createTable('sessions', (table) => {
+  await knex.schema.createTable('sessions', (table) => {
     table.uuid('id').primary().defaultTo(knex.raw('gen_random_uuid()'));
     table.uuid('user_id').notNullable().references('id').inTable('users').onDelete('CASCADE');
     table.string('refresh_token', 500).notNullable().unique();
@@ -43,7 +43,7 @@ export async function up(knex: Knex): Promise<void> {
   });
 
   // Email verification and password reset tokens
-  return knex.schema.createTable('tokens', (table) => {
+  await knex.schema.createTable('tokens', (table) => {
     table.uuid('id').primary().defaultTo(knex.raw('gen_random_uuid()'));
     table.uuid('user_id').notNullable().references('id').inTable('users').onDelete('CASCADE');
     table.string('token', 500).notNullable().unique();

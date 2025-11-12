@@ -1,7 +1,7 @@
 import type { Knex } from 'knex';
 
 export async function up(knex: Knex): Promise<void> {
-  return knex.schema.createTable('counters', (table) => {
+  await knex.schema.createTable('counters', (table) => {
     table.uuid('id').primary().defaultTo(knex.raw('gen_random_uuid()'));
     table.uuid('project_id').notNullable().references('id').inTable('projects').onDelete('CASCADE');
     table.string('name', 255).notNullable();
@@ -24,7 +24,7 @@ export async function up(knex: Knex): Promise<void> {
   });
 
   // Create counter history table for undo functionality
-  return knex.schema.createTable('counter_history', (table) => {
+  await knex.schema.createTable('counter_history', (table) => {
     table.uuid('id').primary().defaultTo(knex.raw('gen_random_uuid()'));
     table.uuid('counter_id').notNullable().references('id').inTable('counters').onDelete('CASCADE');
     table.integer('old_value').notNullable();
