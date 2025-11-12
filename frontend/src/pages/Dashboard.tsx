@@ -1,11 +1,12 @@
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { FiFolder, FiBook, FiPackage, FiUsers, FiPlus } from 'react-icons/fi';
 import { useAuthStore } from '../stores/authStore';
+import axios from 'axios';
 
 export default function Dashboard() {
   const { user } = useAuthStore();
-
-  const stats = [
+  const [stats, setStats] = useState([
     {
       name: 'Active Projects',
       value: '0',
@@ -34,7 +35,62 @@ export default function Dashboard() {
       href: '/recipients',
       color: 'bg-orange-500',
     },
-  ];
+  ]);
+  const [loading, setLoading] = useState(true);
+  const [recentProjects, setRecentProjects] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  const fetchDashboardData = async () => {
+    try {
+      const [projectsRes, patternsRes, yarnRes, recipientsRes, recentProjectsRes] = await Promise.all([
+        axios.get('/api/projects/stats'),
+        axios.get('/api/patterns/stats'),
+        axios.get('/api/yarn/stats'),
+        axios.get('/api/recipients/stats'),
+        axios.get('/api/projects?limit=5'),
+      ]);
+
+      setStats([
+        {
+          name: 'Active Projects',
+          value: String(projectsRes.data.data.stats.active_count || 0),
+          icon: FiFolder,
+          href: '/projects',
+          color: 'bg-purple-500',
+        },
+        {
+          name: 'Patterns',
+          value: String(patternsRes.data.data.stats.total_count || 0),
+          icon: FiBook,
+          href: '/patterns',
+          color: 'bg-blue-500',
+        },
+        {
+          name: 'Yarn Skeins',
+          value: String(yarnRes.data.data.stats.total_skeins || 0),
+          icon: FiPackage,
+          href: '/yarn',
+          color: 'bg-green-500',
+        },
+        {
+          name: 'Recipients',
+          value: String(recipientsRes.data.data.stats.total_count || 0),
+          icon: FiUsers,
+          href: '/recipients',
+          color: 'bg-orange-500',
+        },
+      ]);
+
+      setRecentProjects(recentProjectsRes.data.data.projects || []);
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const quickActions = [
     {
@@ -74,26 +130,32 @@ export default function Dashboard() {
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        {stats.map((stat) => {
-          const Icon = stat.icon;
-          return (
-            <Link
-              key={stat.name}
-              to={stat.href}
-              className="bg-white rounded-lg shadow hover:shadow-lg transition p-6"
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">{stat.name}</p>
-                  <p className="text-3xl font-bold text-gray-900 mt-2">{stat.value}</p>
+        {loading ? (
+          <div className="col-span-full text-center py-8">
+            <div className="text-gray-500">Loading statistics...</div>
+          </div>
+        ) : (
+          stats.map((stat) => {
+            const Icon = stat.icon;
+            return (
+              <Link
+                key={stat.name}
+                to={stat.href}
+                className="bg-white rounded-lg shadow hover:shadow-lg transition p-6"
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">{stat.name}</p>
+                    <p className="text-3xl font-bold text-gray-900 mt-2">{stat.value}</p>
+                  </div>
+                  <div className={`${stat.color} p-3 rounded-lg`}>
+                    <Icon className="h-6 w-6 text-white" />
+                  </div>
                 </div>
-                <div className={`${stat.color} p-3 rounded-lg`}>
-                  <Icon className="h-6 w-6 text-white" />
-                </div>
-              </div>
-            </Link>
-          );
-        })}
+              </Link>
+            );
+          })
+        )}
       </div>
 
       {/* Quick Actions */}
@@ -125,18 +187,54 @@ export default function Dashboard() {
 
       {/* Recent Activity */}
       <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-xl font-bold text-gray-900 mb-4">Recent Activity</h2>
-        <div className="text-center py-12">
-          <FiFolder className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-          <p className="text-gray-500 mb-4">No projects yet</p>
-          <Link
-            to="/projects"
-            className="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
-          >
-            <FiPlus className="mr-2 h-4 w-4" />
-            Create Your First Project
-          </Link>
-        </div>
+        <h2 className="text-xl font-bold text-gray-900 mb-4">Recent Projects</h2>
+        {loading ? (
+          <div className="text-center py-12">
+            <div className="text-gray-500">Loading recent projects...</div>
+          </div>
+        ) : recentProjects.length === 0 ? (
+          <div className="text-center py-12">
+            <FiFolder className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+            <p className="text-gray-500 mb-4">No projects yet</p>
+            <Link
+              to="/projects"
+              className="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
+            >
+              <FiPlus className="mr-2 h-4 w-4" />
+              Create Your First Project
+            </Link>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {recentProjects.map((project) => (
+              <Link
+                key={project.id}
+                to={`/projects/${project.id}`}
+                className="flex items-center justify-between p-4 hover:bg-gray-50 rounded-lg transition"
+              >
+                <div className="flex items-center space-x-4">
+                  <div className="bg-purple-100 p-3 rounded-lg">
+                    <FiFolder className="h-5 w-5 text-purple-600" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-gray-900">{project.name}</h3>
+                    <p className="text-sm text-gray-500">
+                      {project.type && (
+                        <span className="capitalize">{project.type}</span>
+                      )}
+                      {project.status && (
+                        <span className="ml-2 capitalize">{project.status}</span>
+                      )}
+                    </p>
+                  </div>
+                </div>
+                <div className="text-sm text-gray-500">
+                  {new Date(project.created_at).toLocaleDateString()}
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
