@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { FiArrowLeft, FiEdit2, FiTrash2, FiCalendar, FiClock, FiCheck } from 'react-icons/fi';
+import { FiArrowLeft, FiEdit2, FiTrash2, FiCalendar, FiClock, FiCheck, FiImage } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
+import PhotoGallery from '../components/PhotoGallery';
+import FileUpload from '../components/FileUpload';
 
 interface Project {
   id: string;
@@ -25,6 +27,7 @@ export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [project, setProject] = useState<Project | null>(null);
+  const [photos, setPhotos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showEditModal, setShowEditModal] = useState(false);
   const [formData, setFormData] = useState({
@@ -36,6 +39,7 @@ export default function ProjectDetail() {
 
   useEffect(() => {
     fetchProject();
+    fetchPhotos();
   }, [id]);
 
   const fetchProject = async () => {
@@ -84,6 +88,46 @@ export default function ProjectDetail() {
     } catch (error: any) {
       console.error('Error deleting project:', error);
       toast.error('Failed to delete project');
+    }
+  };
+
+  const fetchPhotos = async () => {
+    try {
+      const response = await axios.get(`/api/uploads/projects/${id}/photos`);
+      setPhotos(response.data.data.photos);
+    } catch (error: any) {
+      console.error('Error fetching photos:', error);
+      // Don't show error toast for photos, just fail silently
+    }
+  };
+
+  const handlePhotoUpload = async (file: File) => {
+    const formData = new FormData();
+    formData.append('photo', file);
+
+    try {
+      await axios.post(`/api/uploads/projects/${id}/photos`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      toast.success('Photo uploaded successfully!');
+      fetchPhotos(); // Refresh the gallery
+    } catch (error: any) {
+      console.error('Error uploading photo:', error);
+      toast.error('Failed to upload photo');
+      throw error; // Re-throw so FileUpload component can handle it
+    }
+  };
+
+  const handlePhotoDelete = async (photoId: string) => {
+    try {
+      await axios.delete(`/api/uploads/projects/${id}/photos/${photoId}`);
+      toast.success('Photo deleted successfully');
+      fetchPhotos(); // Refresh the gallery
+    } catch (error: any) {
+      console.error('Error deleting photo:', error);
+      toast.error('Failed to delete photo');
     }
   };
 
@@ -193,6 +237,23 @@ export default function ProjectDetail() {
               <p className="text-gray-700 whitespace-pre-wrap">{project.notes}</p>
             </div>
           )}
+
+          {/* Photos */}
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center mb-4">
+              <FiImage className="h-5 w-5 text-purple-600 mr-2" />
+              <h2 className="text-lg font-semibold text-gray-900">Project Photos</h2>
+              <span className="ml-2 text-sm text-gray-500">({photos.length})</span>
+            </div>
+
+            {/* Upload Section */}
+            <div className="mb-6">
+              <FileUpload onUpload={handlePhotoUpload} />
+            </div>
+
+            {/* Gallery */}
+            <PhotoGallery photos={photos} onDelete={handlePhotoDelete} />
+          </div>
 
           {/* Counters */}
           {project.counters && project.counters.length > 0 && (
