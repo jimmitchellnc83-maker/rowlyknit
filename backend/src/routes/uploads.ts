@@ -1,11 +1,11 @@
 import express from 'express';
 import * as uploadsController from '../controllers/uploadsController';
-import { authenticateToken } from '../middleware/auth';
+import { authenticate } from '../middleware/auth';
 
 const router = express.Router();
 
 // All upload routes require authentication
-router.use(authenticateToken);
+router.use(authenticate);
 
 // Project photo routes
 router.post(
