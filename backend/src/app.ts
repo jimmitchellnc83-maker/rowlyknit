@@ -129,31 +129,4 @@ app.use(notFoundHandler);
 // Global error handler
 app.use(errorHandler);
 
-// Start server
-if (process.env.NODE_ENV !== 'test') {
-  app.listen(PORT, () => {
-    logger.info(`🚀 Rowly API server running on port ${PORT}`);
-    logger.info(`📝 Environment: ${process.env.NODE_ENV}`);
-    logger.info(`🔗 Health check: http://localhost:${PORT}/health`);
-  });
-}
-
-// Handle unhandled promise rejections
-process.on('unhandledRejection', (err: Error) => {
-  logger.error('Unhandled Promise Rejection:', err);
-  process.exit(1);
-});
-
-// Handle uncaught exceptions
-process.on('uncaughtException', (err: Error) => {
-  logger.error('Uncaught Exception:', err);
-  process.exit(1);
-});
-
-// Graceful shutdown
-process.on('SIGTERM', () => {
-  logger.info('SIGTERM signal received: closing HTTP server');
-  process.exit(0);
-});
-
 export default app;

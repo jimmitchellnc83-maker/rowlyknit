@@ -5,6 +5,8 @@ import axios from 'axios';
 import { toast } from 'react-toastify';
 import PhotoGallery from '../components/PhotoGallery';
 import FileUpload from '../components/FileUpload';
+import RowCounter from '../components/RowCounter';
+import { useWebSocket } from '../contexts/WebSocketContext';
 
 interface Project {
   id: string;
@@ -26,6 +28,7 @@ interface Project {
 export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { joinProject, leaveProject } = useWebSocket();
   const [project, setProject] = useState<Project | null>(null);
   const [photos, setPhotos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,7 +43,19 @@ export default function ProjectDetail() {
   useEffect(() => {
     fetchProject();
     fetchPhotos();
-  }, [id]);
+
+    // Join the project room for real-time updates
+    if (id) {
+      joinProject(id);
+    }
+
+    // Leave the room when component unmounts
+    return () => {
+      if (id) {
+        leaveProject(id);
+      }
+    };
+  }, [id, joinProject, leaveProject]);
 
   const fetchProject = async () => {
     try {
@@ -258,18 +273,14 @@ export default function ProjectDetail() {
           {/* Counters */}
           {project.counters && project.counters.length > 0 && (
             <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-3">Row Counters</h2>
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Row Counters</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {project.counters.map((counter: any) => (
-                  <div key={counter.id} className="border border-gray-200 rounded-lg p-4">
-                    <h3 className="font-medium text-gray-900 mb-2">{counter.name}</h3>
-                    <p className="text-3xl font-bold text-purple-600">{counter.current_count}</p>
-                    {counter.target_count && (
-                      <p className="text-sm text-gray-500 mt-1">
-                        of {counter.target_count} rows
-                      </p>
-                    )}
-                  </div>
+                  <RowCounter
+                    key={counter.id}
+                    counter={counter}
+                    onUpdate={fetchProject}
+                  />
                 ))}
               </div>
             </div>
