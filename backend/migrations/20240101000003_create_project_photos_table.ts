@@ -4,12 +4,13 @@ export async function up(knex: Knex): Promise<void> {
   return knex.schema.createTable('project_photos', (table) => {
     table.uuid('id').primary().defaultTo(knex.raw('gen_random_uuid()'));
     table.uuid('project_id').notNullable().references('id').inTable('projects').onDelete('CASCADE');
-    table.string('original_url', 500).notNullable();
-    table.string('thumbnail_url', 500);
-    table.string('medium_url', 500);
     table.string('filename', 255).notNullable();
+    table.string('thumbnail_filename', 255).notNullable();
+    table.string('original_filename', 255).notNullable();
+    table.string('file_path', 500).notNullable();
+    table.string('thumbnail_path', 500).notNullable();
     table.string('mime_type', 100);
-    table.integer('file_size');
+    table.integer('size');
     table.integer('width');
     table.integer('height');
     table.text('caption');
@@ -17,6 +18,7 @@ export async function up(knex: Knex): Promise<void> {
     table.boolean('is_primary').defaultTo(false);
     table.timestamp('created_at').defaultTo(knex.fn.now());
     table.timestamp('updated_at').defaultTo(knex.fn.now());
+    table.timestamp('deleted_at');
 
     // Indexes
     table.index('project_id');
