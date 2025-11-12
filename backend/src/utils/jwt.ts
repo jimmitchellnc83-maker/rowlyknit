@@ -1,0 +1,84 @@
+import jwt from 'jsonwebtoken';
+import { v4 as uuidv4 } from 'uuid';
+
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'your-refresh-secret-change-in-production';
+const JWT_EXPIRY = process.env.JWT_EXPIRY || '15m';
+const JWT_REFRESH_EXPIRY = process.env.JWT_REFRESH_EXPIRY || '7d';
+
+export interface TokenPayload {
+  userId: string;
+  email: string;
+  jti?: string; // JWT ID for token revocation
+}
+
+export interface RefreshTokenPayload {
+  userId: string;
+  sessionId: string;
+  jti?: string;
+}
+
+/**
+ * Generate access token
+ */
+export function generateAccessToken(payload: TokenPayload): string {
+  return jwt.sign(
+    { ...payload, jti: uuidv4() },
+    JWT_SECRET,
+    { expiresIn: JWT_EXPIRY }
+  );
+}
+
+/**
+ * Generate refresh token
+ */
+export function generateRefreshToken(payload: RefreshTokenPayload): string {
+  return jwt.sign(
+    { ...payload, jti: uuidv4() },
+    JWT_REFRESH_SECRET,
+    { expiresIn: JWT_REFRESH_EXPIRY }
+  );
+}
+
+/**
+ * Verify access token
+ */
+export function verifyAccessToken(token: string): TokenPayload {
+  try {
+    return jwt.verify(token, JWT_SECRET) as TokenPayload;
+  } catch (error) {
+    throw new Error('Invalid or expired token');
+  }
+}
+
+/**
+ * Verify refresh token
+ */
+export function verifyRefreshToken(token: string): RefreshTokenPayload {
+  try {
+    return jwt.verify(token, JWT_REFRESH_SECRET) as RefreshTokenPayload;
+  } catch (error) {
+    throw new Error('Invalid or expired refresh token');
+  }
+}
+
+/**
+ * Decode token without verification (for debugging)
+ */
+export function decodeToken(token: string): any {
+  return jwt.decode(token);
+}
+
+/**
+ * Generate email verification token
+ */
+export function generateVerificationToken(): string {
+  return uuidv4() + uuidv4(); // Extra long token for email verification
+}
+
+/**
+ * Generate password reset token
+ */
+export function generateResetToken(): string {
+  return uuidv4() + uuidv4(); // Extra long token for password reset
+}
