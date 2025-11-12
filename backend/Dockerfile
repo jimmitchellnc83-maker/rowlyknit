@@ -3,7 +3,7 @@ FROM node:18-alpine AS builder
 
 WORKDIR /app
 
-# Upgrade npm to support lockfileVersion 3
+# Upgrade npm to support lockfileVersion 3 (required for package-lock.json)
 RUN npm install -g npm@latest
 
 # Copy package files
