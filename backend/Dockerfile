@@ -3,6 +3,9 @@ FROM node:18-alpine AS builder
 
 WORKDIR /app
 
+# Upgrade npm to support lockfileVersion 3
+RUN npm install -g npm@latest
+
 # Copy package files
 COPY package*.json ./
 COPY tsconfig.json ./
@@ -25,6 +28,9 @@ FROM node:18-alpine
 
 WORKDIR /app
 
+# Upgrade npm to support lockfileVersion 3
+RUN npm install -g npm@latest
+
 # Install dumb-init for proper signal handling
 RUN apk add --no-cache dumb-init
 
@@ -34,7 +40,7 @@ RUN addgroup -g 1001 -S nodejs && \
 
 # Copy package files and install production dependencies
 COPY package*.json ./
-RUN npm ci --only=production && \
+RUN npm ci --omit=dev && \
     npm cache clean --force
 
 # Copy built application from builder
