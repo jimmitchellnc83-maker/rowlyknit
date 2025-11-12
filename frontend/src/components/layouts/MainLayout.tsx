@@ -1,5 +1,6 @@
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
+import GlobalSearch from '../GlobalSearch';
 import {
   FiHome,
   FiFolder,
@@ -38,6 +39,11 @@ export default function MainLayout() {
           {/* Logo */}
           <div className="flex items-center justify-center h-16 bg-purple-600">
             <h1 className="text-2xl font-bold text-white">Rowly</h1>
+          </div>
+
+          {/* Search */}
+          <div className="px-4 py-3">
+            <GlobalSearch />
           </div>
 
           {/* Navigation */}

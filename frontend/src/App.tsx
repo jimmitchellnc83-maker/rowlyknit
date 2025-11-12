@@ -1,5 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from './stores/authStore';
+import PWAInstallPrompt from './components/PWAInstallPrompt';
+import OfflineIndicator from './components/OfflineIndicator';
 
 // Layouts
 import MainLayout from './components/layouts/MainLayout';
@@ -35,8 +37,11 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
 
 function App() {
   return (
-    <Routes>
-      {/* Auth routes */}
+    <>
+      <OfflineIndicator />
+      <PWAInstallPrompt />
+      <Routes>
+        {/* Auth routes */}
       <Route element={<AuthLayout />}>
         <Route
           path="/login"
@@ -87,7 +92,8 @@ function App() {
 
       {/* 404 */}
       <Route path="*" element={<NotFound />} />
-    </Routes>
+      </Routes>
+    </>
   );
 }
 

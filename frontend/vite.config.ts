@@ -31,15 +31,31 @@ export default defineConfig({
         ],
       },
       workbox: {
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,webp}'],
         runtimeCaching: [
           {
-            urlPattern: /^https:\/\/api\.rowlyknit\.com\/api\/.*/i,
+            urlPattern: /^https?:\/\/.*\/api\/.*/i,
             handler: 'NetworkFirst',
             options: {
               cacheName: 'api-cache',
               expiration: {
                 maxEntries: 100,
                 maxAgeSeconds: 60 * 60 * 24, // 24 hours
+              },
+              cacheableResponse: {
+                statuses: [0, 200],
+              },
+              networkTimeoutSeconds: 10,
+            },
+          },
+          {
+            urlPattern: /^https?:\/\/.*\/uploads\/.*/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'uploads-cache',
+              expiration: {
+                maxEntries: 200,
+                maxAgeSeconds: 60 * 60 * 24 * 30, // 30 days
               },
               cacheableResponse: {
                 statuses: [0, 200],
@@ -57,7 +73,20 @@ export default defineConfig({
               },
             },
           },
+          {
+            urlPattern: /\.(?:js|css)$/,
+            handler: 'StaleWhileRevalidate',
+            options: {
+              cacheName: 'static-resources',
+              expiration: {
+                maxEntries: 50,
+                maxAgeSeconds: 60 * 60 * 24 * 7, // 7 days
+              },
+            },
+          },
         ],
+        navigateFallback: '/index.html',
+        navigateFallbackDenylist: [/^\/api/],
       },
     }),
   ],
