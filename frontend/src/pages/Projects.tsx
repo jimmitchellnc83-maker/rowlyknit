@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { FiPlus, FiEdit2, FiTrash2, FiCalendar, FiClock } from 'react-icons/fi';
+import { FiPlus, FiTrash2, FiCalendar, FiClock } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 
