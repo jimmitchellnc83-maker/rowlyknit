@@ -3,11 +3,14 @@ FROM node:18-alpine AS builder
 
 WORKDIR /app
 
+# Upgrade npm to support lockfileVersion 3
+RUN npm install -g npm@latest
+
 # Copy package files
 COPY package*.json ./
 
 # Install dependencies
-RUN npm ci && npm cache clean --force
+RUN npm install && npm cache clean --force
 
 # Copy source code
 COPY . .
