@@ -38,6 +38,17 @@ router.get(
 );
 
 /**
+ * @route   GET /api/projects/:id/sessions/active
+ * @desc    Get active session for a project
+ * @access  Private
+ */
+router.get(
+  '/projects/:id/sessions/active',
+  validateUUID('id'),
+  asyncHandler(sessionsController.getActiveSession)
+);
+
+/**
  * @route   GET /api/projects/:id/sessions/:sessionId
  * @desc    Get single session by ID
  * @access  Private

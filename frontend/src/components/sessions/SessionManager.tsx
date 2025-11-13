@@ -32,8 +32,8 @@ export const SessionManager: React.FC<SessionManagerProps> = ({
   const checkActiveSession = async () => {
     try {
       const response = await axios.get(`/api/projects/${projectId}/sessions/active`);
-      if (response.data) {
-        setCurrentSession(response.data);
+      if (response.data.success && response.data.data) {
+        setCurrentSession(response.data.data);
       }
     } catch (error) {
       // No active session
@@ -45,7 +45,7 @@ export const SessionManager: React.FC<SessionManagerProps> = ({
     try {
       setLoading(true);
       const response = await axios.get(`/api/projects/${projectId}/sessions`);
-      setSessions(response.data || []);
+      setSessions(response.data.success ? response.data.data.sessions || [] : []);
     } catch (error) {
       console.error('Failed to fetch sessions:', error);
       setSessions([]);
@@ -57,7 +57,7 @@ export const SessionManager: React.FC<SessionManagerProps> = ({
   const fetchMilestones = async () => {
     try {
       const response = await axios.get(`/api/projects/${projectId}/milestones`);
-      setMilestones(response.data || []);
+      setMilestones(response.data.success ? response.data.data.milestones || [] : []);
     } catch (error) {
       console.error('Failed to fetch milestones:', error);
       setMilestones([]);
@@ -66,12 +66,13 @@ export const SessionManager: React.FC<SessionManagerProps> = ({
 
   const handleStartSession = async (): Promise<KnittingSession> => {
     try {
-      const response = await axios.post(`/api/projects/${projectId}/sessions`, {
-        start_time: new Date().toISOString(),
-        starting_counter_values: getCurrentCounterValues(),
+      const response = await axios.post(`/api/projects/${projectId}/sessions/start`, {
+        mood: undefined,
+        location: undefined,
+        notes: undefined,
       });
 
-      const newSession = response.data;
+      const newSession = response.data.success ? response.data.data.session : response.data;
       setCurrentSession(newSession);
       return newSession;
     } catch (error) {
@@ -84,22 +85,7 @@ export const SessionManager: React.FC<SessionManagerProps> = ({
     if (!currentSession) return;
 
     try {
-      const endingCounterValues = getCurrentCounterValues();
-      const startingValues = currentSession.starting_counter_values || {};
-
-      // Calculate rows completed
-      const rowsCompleted = Object.entries(endingCounterValues).reduce(
-        (total, [counterId, endValue]) => {
-          const startValue = startingValues[counterId] || 0;
-          return total + (endValue - startValue);
-        },
-        0
-      );
-
-      await axios.put(`/api/projects/${projectId}/sessions/${currentSession.id}`, {
-        end_time: new Date().toISOString(),
-        ending_counter_values: endingCounterValues,
-        rows_completed: rowsCompleted,
+      await axios.post(`/api/projects/${projectId}/sessions/${currentSession.id}/end`, {
         notes,
         mood,
       });
@@ -125,8 +111,13 @@ export const SessionManager: React.FC<SessionManagerProps> = ({
     milestone: Omit<ProjectMilestone, 'id' | 'created_at'>
   ) => {
     try {
-      const response = await axios.post(`/api/projects/${projectId}/milestones`, milestone);
-      setMilestones([...milestones, response.data]);
+      const response = await axios.post(`/api/projects/${projectId}/milestones`, {
+        name: milestone.name,
+        targetRows: milestone.target_rows,
+        notes: milestone.notes,
+      });
+      const newMilestone = response.data.success ? response.data.data.milestone : response.data;
+      setMilestones([...milestones, newMilestone]);
     } catch (error) {
       console.error('Failed to add milestone:', error);
       throw error;
@@ -140,10 +131,18 @@ export const SessionManager: React.FC<SessionManagerProps> = ({
     try {
       const response = await axios.put(
         `/api/projects/${projectId}/milestones/${milestoneId}`,
-        updates
+        {
+          name: updates.name,
+          targetRows: updates.target_rows,
+          actualRows: updates.actual_rows,
+          timeSpentSeconds: updates.time_spent_seconds,
+          completedAt: updates.completed_at,
+          notes: updates.notes,
+        }
       );
+      const updatedMilestone = response.data.success ? response.data.data.milestone : response.data;
       setMilestones(
-        milestones.map((m) => (m.id === milestoneId ? response.data : m))
+        milestones.map((m) => (m.id === milestoneId ? updatedMilestone : m))
       );
     } catch (error) {
       console.error('Failed to update milestone:', error);

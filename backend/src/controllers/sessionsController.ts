@@ -355,6 +355,41 @@ export async function getSessionStats(req: Request, res: Response) {
 }
 
 /**
+ * Get active session for a project
+ */
+export async function getActiveSession(req: Request, res: Response) {
+  const userId = (req as any).user.userId;
+  const { id: projectId } = req.params;
+
+  // Verify project ownership
+  const project = await db('projects')
+    .where({ id: projectId, user_id: userId })
+    .whereNull('deleted_at')
+    .first();
+
+  if (!project) {
+    throw new NotFoundError('Project not found');
+  }
+
+  const activeSession = await db('knitting_sessions')
+    .where({ project_id: projectId, user_id: userId })
+    .whereNull('end_time')
+    .first();
+
+  if (!activeSession) {
+    return res.json({
+      success: true,
+      data: null,
+    });
+  }
+
+  res.json({
+    success: true,
+    data: activeSession,
+  });
+}
+
+/**
  * Milestone Routes
  */
 

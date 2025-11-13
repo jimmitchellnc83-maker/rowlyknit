@@ -9,6 +9,7 @@ import { toast } from 'react-toastify';
 import PhotoGallery from '../components/PhotoGallery';
 import FileUpload from '../components/FileUpload';
 import CounterManager from '../components/counters/CounterManager';
+import { SessionManager } from '../components/sessions';
 import { useWebSocket } from '../contexts/WebSocketContext';
 
 interface Project {
@@ -534,6 +535,17 @@ export default function ProjectDetail() {
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Counters</h2>
             <CounterManager projectId={id!} />
           </div>
+
+          {/* Session Management */}
+          <SessionManager
+            projectId={id!}
+            totalRows={0} // TODO: Get from project or pattern
+            getCurrentCounterValues={() => {
+              // Get counter values from CounterManager
+              // This is a placeholder - you may need to lift state up or use context
+              return {};
+            }}
+          />
         </div>
 
         {/* Sidebar - Right Column */}
