@@ -16,8 +16,8 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Configuration
-APP_DIR="/home/rowly/rowlyknit"
-DEPLOY_USER="rowly"
+APP_DIR="/home/user/rowlyknit"
+DEPLOY_USER="user"
 BRANCH="claude/build-rowly-production-app-011CV32EASvp9cQ2Z8eA8mTy"
 BACKUP_DIR="/backups"
 
