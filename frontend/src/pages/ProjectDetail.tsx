@@ -8,7 +8,7 @@ import axios from 'axios';
 import { toast } from 'react-toastify';
 import PhotoGallery from '../components/PhotoGallery';
 import FileUpload from '../components/FileUpload';
-import RowCounter from '../components/RowCounter';
+import CounterManager from '../components/counters/CounterManager';
 import { useWebSocket } from '../contexts/WebSocketContext';
 
 interface Project {
@@ -530,20 +530,10 @@ export default function ProjectDetail() {
           </div>
 
           {/* Counters */}
-          {project.counters && project.counters.length > 0 && (
-            <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Row Counters</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {project.counters.map((counter: any) => (
-                  <RowCounter
-                    key={counter.id}
-                    counter={counter}
-                    onUpdate={fetchProject}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
+          <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Counters</h2>
+            <CounterManager projectId={id!} />
+          </div>
         </div>
 
         {/* Sidebar - Right Column */}

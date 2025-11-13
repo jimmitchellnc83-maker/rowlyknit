@@ -7,12 +7,12 @@ interface WebSocketContextType {
   isConnected: boolean;
   joinProject: (projectId: string) => void;
   leaveProject: (projectId: string) => void;
-  emitCounterUpdate: (counterId: string, projectId: string, currentCount: number) => void;
-  emitCounterIncrement: (counterId: string, projectId: string, currentCount: number) => void;
-  emitCounterDecrement: (counterId: string, projectId: string, currentCount: number) => void;
+  emitCounterUpdate: (counterId: string, projectId: string, currentValue: number) => void;
+  emitCounterIncrement: (counterId: string, projectId: string, currentValue: number) => void;
+  emitCounterDecrement: (counterId: string, projectId: string, currentValue: number) => void;
   emitCounterReset: (counterId: string, projectId: string) => void;
-  onCounterUpdate: (callback: (data: { counterId: string; projectId: string; currentCount: number }) => void) => void;
-  offCounterUpdate: (callback: (data: { counterId: string; projectId: string; currentCount: number }) => void) => void;
+  onCounterUpdate: (callback: (data: { counterId: string; projectId: string; currentValue: number }) => void) => void;
+  offCounterUpdate: (callback: (data: { counterId: string; projectId: string; currentValue: number }) => void) => void;
 }
 
 const WebSocketContext = createContext<WebSocketContextType | undefined>(undefined);
@@ -90,21 +90,21 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   }, []);
 
-  const emitCounterUpdate = useCallback((counterId: string, projectId: string, currentCount: number) => {
+  const emitCounterUpdate = useCallback((counterId: string, projectId: string, currentValue: number) => {
     if (socketRef.current?.connected) {
-      socketRef.current.emit('counter:update', { counterId, projectId, currentCount });
+      socketRef.current.emit('counter:update', { counterId, projectId, currentValue });
     }
   }, []);
 
-  const emitCounterIncrement = useCallback((counterId: string, projectId: string, currentCount: number) => {
+  const emitCounterIncrement = useCallback((counterId: string, projectId: string, currentValue: number) => {
     if (socketRef.current?.connected) {
-      socketRef.current.emit('counter:increment', { counterId, projectId, currentCount });
+      socketRef.current.emit('counter:increment', { counterId, projectId, currentValue });
     }
   }, []);
 
-  const emitCounterDecrement = useCallback((counterId: string, projectId: string, currentCount: number) => {
+  const emitCounterDecrement = useCallback((counterId: string, projectId: string, currentValue: number) => {
     if (socketRef.current?.connected) {
-      socketRef.current.emit('counter:decrement', { counterId, projectId, currentCount });
+      socketRef.current.emit('counter:decrement', { counterId, projectId, currentValue });
     }
   }, []);
 
