@@ -10,10 +10,12 @@ import {
   FiX,
   FiMaximize,
   FiDownload,
-  FiBookmark
+  FiBookmark,
+  FiMove
 } from 'react-icons/fi';
 import { toast } from 'react-toastify';
 import BookmarkManager from './BookmarkManager';
+import RowMarker from './RowMarker';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 
@@ -39,6 +41,7 @@ export default function PatternViewer({ fileUrl, filename, patternId, projectId,
   const [showSearch, setShowSearch] = useState<boolean>(false);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [showBookmarks, setShowBookmarks] = useState<boolean>(Boolean(patternId));
+  const [showRowMarker, setShowRowMarker] = useState<boolean>(false);
 
   const zoomLevel = ZOOM_LEVELS[zoomIndex];
 
@@ -258,6 +261,14 @@ export default function PatternViewer({ fileUrl, filename, patternId, projectId,
           )}
 
           <button
+            onClick={() => setShowRowMarker(!showRowMarker)}
+            className={`p-2 hover:bg-gray-700 rounded-lg ${showRowMarker ? 'bg-gray-700' : ''}`}
+            title="Row marker"
+          >
+            <FiMove className="h-5 w-5" />
+          </button>
+
+          <button
             onClick={toggleFullscreen}
             className="p-2 hover:bg-gray-700 rounded-lg"
             title="Toggle fullscreen"
@@ -356,6 +367,9 @@ export default function PatternViewer({ fileUrl, filename, patternId, projectId,
       <div className="md:hidden bg-gray-800 text-white text-center py-2 border-t border-gray-700">
         Page {currentPage} of {numPages}
       </div>
+
+      {/* Row Marker Overlay */}
+      {showRowMarker && <RowMarker pageNumber={currentPage} />}
     </div>
   );
 }
