@@ -1,7 +1,10 @@
+import { useState, useEffect } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import GlobalSearch from '../GlobalSearch';
 import ThemeToggle from '../ThemeToggle';
+import { SyncIndicator } from '../offline/SyncIndicator';
+import { ConflictResolver, DataConflict } from '../offline/ConflictResolver';
 import {
   FiHome,
   FiFolder,
@@ -17,10 +20,23 @@ export default function MainLayout() {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
   const location = useLocation();
+  const [conflicts, setConflicts] = useState<DataConflict[]>([]);
 
   const handleLogout = async () => {
     await logout();
     navigate('/login');
+  };
+
+  const handleResolveConflict = async (conflictId: string, resolution: 'local' | 'server' | 'merge') => {
+    // Remove resolved conflict from state
+    setConflicts(prev => prev.filter(c => c.id !== conflictId));
+    // In a real app, this would sync the resolution to the server
+    console.log(`Resolved conflict ${conflictId} with ${resolution}`);
+  };
+
+  const handleResolveAllConflicts = async (resolution: 'local' | 'server') => {
+    setConflicts([]);
+    console.log(`Resolved all conflicts with ${resolution}`);
   };
 
   const navigation = [
@@ -107,6 +123,22 @@ export default function MainLayout() {
 
       {/* Main content */}
       <div className="ml-64">
+        {/* Sync Indicator - Fixed position */}
+        <div className="fixed top-4 right-4 z-50">
+          <SyncIndicator />
+        </div>
+
+        {/* Conflict Resolver - Top of content area */}
+        {conflicts.length > 0 && (
+          <div className="p-8 pb-0">
+            <ConflictResolver
+              conflicts={conflicts}
+              onResolve={handleResolveConflict}
+              onResolveAll={handleResolveAllConflicts}
+            />
+          </div>
+        )}
+
         <main className="p-8">
           <Outlet />
         </main>

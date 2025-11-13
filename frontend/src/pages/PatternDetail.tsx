@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { FiArrowLeft, FiEdit2, FiTrash2 } from 'react-icons/fi';
+import { FiArrowLeft, FiEdit2, FiTrash2, FiFileText, FiGrid, FiTool } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import PatternFileUpload from '../components/PatternFileUpload';
 import BookmarkManager from '../components/patterns/BookmarkManager';
+import PatternViewer from '../components/patterns/PatternViewer';
+import { ChartViewer } from '../components/patterns/ChartViewer';
 
 interface Pattern {
   id: string;
@@ -44,6 +46,8 @@ export default function PatternDetail() {
   const [files, setFiles] = useState<PatternFile[]>([]);
   const [loading, setLoading] = useState(true);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [activeTab, setActiveTab] = useState<'overview' | 'viewer' | 'charts' | 'tools'>('overview');
+  const [selectedPdfFile, setSelectedPdfFile] = useState<PatternFile | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -63,6 +67,16 @@ export default function PatternDetail() {
       fetchPatternFiles();
     }
   }, [id]);
+
+  useEffect(() => {
+    // Auto-select first PDF file for viewer
+    if (files.length > 0 && !selectedPdfFile) {
+      const pdfFile = files.find(f => f.file_type === 'pdf');
+      if (pdfFile) {
+        setSelectedPdfFile(pdfFile);
+      }
+    }
+  }, [files, selectedPdfFile]);
 
   const fetchPattern = async () => {
     try {
@@ -266,8 +280,72 @@ export default function PatternDetail() {
         </div>
       </div>
 
-      {/* Pattern Details */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+      {/* Tabs */}
+      <div className="bg-white rounded-lg shadow mb-6">
+        <div className="border-b border-gray-200">
+          <nav className="flex -mb-px">
+            <button
+              onClick={() => setActiveTab('overview')}
+              className={`px-6 py-3 text-sm font-medium border-b-2 ${
+                activeTab === 'overview'
+                  ? 'border-purple-600 text-purple-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <FiFileText />
+                Overview
+              </div>
+            </button>
+            <button
+              onClick={() => setActiveTab('viewer')}
+              className={`px-6 py-3 text-sm font-medium border-b-2 ${
+                activeTab === 'viewer'
+                  ? 'border-purple-600 text-purple-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+              disabled={!selectedPdfFile}
+            >
+              <div className="flex items-center gap-2">
+                <FiFileText />
+                PDF Viewer
+              </div>
+            </button>
+            <button
+              onClick={() => setActiveTab('charts')}
+              className={`px-6 py-3 text-sm font-medium border-b-2 ${
+                activeTab === 'charts'
+                  ? 'border-purple-600 text-purple-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <FiGrid />
+                Charts
+              </div>
+            </button>
+            <button
+              onClick={() => setActiveTab('tools')}
+              className={`px-6 py-3 text-sm font-medium border-b-2 ${
+                activeTab === 'tools'
+                  ? 'border-purple-600 text-purple-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <FiTool />
+                Tools
+              </div>
+            </button>
+          </nav>
+        </div>
+      </div>
+
+      {/* Tab Content */}
+      {activeTab === 'overview' && (
+        <>
+          {/* Pattern Details */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
         {/* Main Info */}
         <div className="lg:col-span-2 bg-white rounded-lg shadow p-6">
           <h2 className="text-xl font-semibold text-gray-900 mb-4">Pattern Information</h2>
@@ -363,16 +441,84 @@ export default function PatternDetail() {
         patternId={id}
       />
 
-      {/* Bookmarks */}
-      <div className="bg-white rounded-lg shadow p-6 mb-6">
-        <BookmarkManager
-          patternId={id!}
-          onJumpToBookmark={(bookmark) => {
-            toast.info(`Jumping to page ${bookmark.page_number}`);
-            // You can extend this to actually navigate to the page in a PDF viewer
-          }}
-        />
-      </div>
+          {/* Bookmarks */}
+          <div className="bg-white rounded-lg shadow p-6 mb-6">
+            <BookmarkManager
+              patternId={id!}
+              onJumpToBookmark={(bookmark) => {
+                toast.info(`Jumping to page ${bookmark.page_number}`);
+                setActiveTab('viewer');
+                // TODO: Jump to specific page in viewer
+              }}
+            />
+          </div>
+        </>
+      )}
+
+      {/* PDF Viewer Tab */}
+      {activeTab === 'viewer' && selectedPdfFile && (
+        <div className="bg-white rounded-lg shadow p-6">
+          <PatternViewer
+            fileUrl={`/api/uploads/patterns/${id}/files/${selectedPdfFile.id}/download`}
+            filename={selectedPdfFile.original_filename}
+            patternId={id}
+          />
+        </div>
+      )}
+
+      {/* Charts Tab */}
+      {activeTab === 'charts' && (
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="text-center py-12">
+            <FiGrid className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Chart Viewer</h3>
+            <p className="text-gray-500 mb-4">
+              Interactive knitting chart viewer with zoom and rotation
+            </p>
+            <p className="text-sm text-gray-400">
+              Charts will be displayed here when chart data is available.
+              <br />
+              Future enhancement: Add chart upload/creation functionality.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Tools Tab */}
+      {activeTab === 'tools' && (
+        <div className="bg-white rounded-lg shadow p-6">
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">Pattern Tools</h2>
+          <div className="space-y-4">
+            <div className="border border-gray-200 rounded-lg p-4">
+              <h3 className="font-medium text-gray-900 mb-2">Pattern Sections</h3>
+              <p className="text-sm text-gray-600 mb-3">
+                Organize your pattern into sections for easier navigation
+              </p>
+              <button className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">
+                Manage Sections
+              </button>
+            </div>
+            <div className="border border-gray-200 rounded-lg p-4">
+              <h3 className="font-medium text-gray-900 mb-2">Pattern Annotations</h3>
+              <p className="text-sm text-gray-600 mb-3">
+                Add notes and annotations directly to your pattern
+              </p>
+              <button className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">
+                Add Annotations
+              </button>
+            </div>
+            <div className="border border-gray-200 rounded-lg p-4">
+              <h3 className="font-medium text-gray-900 mb-2">Pattern Collation</h3>
+              <p className="text-sm text-gray-600 mb-3">
+                Combine multiple PDFs into a single pattern document
+              </p>
+              <button className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">
+                Collate PDFs
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Edit Modal */}
       {showEditModal && (

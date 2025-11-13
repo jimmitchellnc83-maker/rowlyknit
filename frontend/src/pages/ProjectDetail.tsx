@@ -47,6 +47,7 @@ export default function ProjectDetail() {
   // Notes state
   const [audioNotes, setAudioNotes] = useState<any[]>([]);
   const [structuredMemos, setStructuredMemos] = useState<any[]>([]);
+  const [notesTab, setNotesTab] = useState<'audio' | 'handwritten' | 'memos'>('audio');
 
   // Modal states for adding items
   const [showAddPatternModal, setShowAddPatternModal] = useState(false);
@@ -656,47 +657,91 @@ export default function ProjectDetail() {
             }}
           />
 
-          {/* Audio Notes */}
-          <AudioNotes
-            projectId={id!}
-            notes={audioNotes}
-            onSaveNote={handleSaveAudioNote}
-            onDeleteNote={handleDeleteAudioNote}
-            onUpdateTranscription={handleUpdateAudioTranscription}
-          />
+          {/* Notes Section with Tabs */}
+          <div className="bg-white rounded-lg shadow">
+            <div className="border-b border-gray-200 px-6 pt-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Notes</h2>
+              <nav className="flex -mb-px gap-6">
+                <button
+                  onClick={() => setNotesTab('audio')}
+                  className={`pb-3 text-sm font-medium border-b-2 ${
+                    notesTab === 'audio'
+                      ? 'border-purple-600 text-purple-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  Audio Notes
+                </button>
+                <button
+                  onClick={() => setNotesTab('handwritten')}
+                  className={`pb-3 text-sm font-medium border-b-2 ${
+                    notesTab === 'handwritten'
+                      ? 'border-purple-600 text-purple-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  Handwritten
+                </button>
+                <button
+                  onClick={() => setNotesTab('memos')}
+                  className={`pb-3 text-sm font-medium border-b-2 ${
+                    notesTab === 'memos'
+                      ? 'border-purple-600 text-purple-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  Structured Memos
+                </button>
+              </nav>
+            </div>
 
-          {/* Handwritten Notes */}
-          <HandwrittenNotes
-            projectId={id!}
-            onSave={async (imageData) => {
-              try {
-                // Convert base64 to blob
-                const response = await fetch(imageData);
-                const blob = await response.blob();
+            <div className="p-6">
+              {notesTab === 'audio' && (
+                <AudioNotes
+                  projectId={id!}
+                  notes={audioNotes}
+                  onSaveNote={handleSaveAudioNote}
+                  onDeleteNote={handleDeleteAudioNote}
+                  onUpdateTranscription={handleUpdateAudioTranscription}
+                />
+              )}
 
-                const formData = new FormData();
-                formData.append('image', blob, 'handwritten-note.png');
+              {notesTab === 'handwritten' && (
+                <HandwrittenNotes
+                  projectId={id!}
+                  onSave={async (imageData) => {
+                    try {
+                      // Convert base64 to blob
+                      const response = await fetch(imageData);
+                      const blob = await response.blob();
 
-                await axios.post(`/api/projects/${id}/handwritten-notes`, formData, {
-                  headers: {
-                    'Content-Type': 'multipart/form-data',
-                  },
-                });
-                toast.success('Handwritten note saved!');
-              } catch (error) {
-                console.error('Error saving handwritten note:', error);
-                throw error;
-              }
-            }}
-          />
+                      const formData = new FormData();
+                      formData.append('image', blob, 'handwritten-note.png');
 
-          {/* Structured Memos */}
-          <StructuredMemoTemplates
-            projectId={id!}
-            memos={structuredMemos}
-            onSaveMemo={handleSaveStructuredMemo}
-            onDeleteMemo={handleDeleteStructuredMemo}
-          />
+                      await axios.post(`/api/projects/${id}/handwritten-notes`, formData, {
+                        headers: {
+                          'Content-Type': 'multipart/form-data',
+                        },
+                      });
+                      toast.success('Handwritten note saved!');
+                    } catch (error) {
+                      console.error('Error saving handwritten note:', error);
+                      throw error;
+                    }
+                  }}
+                />
+              )}
+
+              {notesTab === 'memos' && (
+                <StructuredMemoTemplates
+                  projectId={id!}
+                  memos={structuredMemos}
+                  onSaveMemo={handleSaveStructuredMemo}
+                  onDeleteMemo={handleDeleteStructuredMemo}
+                />
+              )}
+            </div>
+          </div>
         </div>
 
         {/* Sidebar - Right Column */}
