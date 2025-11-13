@@ -7,6 +7,7 @@ import PatternFileUpload from '../components/PatternFileUpload';
 import BookmarkManager from '../components/patterns/BookmarkManager';
 import PatternViewer from '../components/patterns/PatternViewer';
 import { ChartViewer } from '../components/patterns/ChartViewer';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 interface Pattern {
   id: string;
@@ -220,8 +221,8 @@ export default function PatternDetail() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-gray-500">Loading pattern...</div>
+      <div className="flex items-center justify-center min-h-screen">
+        <LoadingSpinner size="lg" text="Loading pattern..." />
       </div>
     );
   }

@@ -15,6 +15,7 @@ import { AudioNotes } from '../components/notes/AudioNotes';
 import { HandwrittenNotes } from '../components/notes/HandwrittenNotes';
 import { StructuredMemoTemplates } from '../components/notes/StructuredMemoTemplates';
 import MagicMarkerManager from '../components/magic-markers/MagicMarkerManager';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 interface Project {
   id: string;
@@ -456,8 +457,8 @@ export default function ProjectDetail() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-gray-500">Loading project...</div>
+      <div className="flex items-center justify-center min-h-screen">
+        <LoadingSpinner size="lg" text="Loading project..." />
       </div>
     );
   }

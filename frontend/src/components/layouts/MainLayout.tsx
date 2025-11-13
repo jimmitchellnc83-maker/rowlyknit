@@ -67,7 +67,7 @@ export default function MainLayout() {
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 overflow-y-auto py-4">
+          <nav className="flex-1 overflow-y-auto py-4" aria-label="Main navigation">
             {navigation.map((item) => {
               const Icon = item.icon;
               const isActive = location.pathname === item.href;
@@ -80,8 +80,10 @@ export default function MainLayout() {
                       ? 'bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 border-r-4 border-purple-600 dark:border-purple-400'
                       : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-purple-600 dark:hover:text-purple-400'
                   }`}
+                  aria-label={item.name}
+                  aria-current={isActive ? 'page' : undefined}
                 >
-                  <Icon className="mr-3 h-5 w-5" />
+                  <Icon className="mr-3 h-5 w-5" aria-hidden="true" />
                   {item.name}
                 </Link>
               );
@@ -124,7 +126,7 @@ export default function MainLayout() {
       </aside>
 
       {/* Mobile Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 md:hidden z-40">
+      <nav className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 md:hidden z-40" aria-label="Main navigation">
         <div className="flex justify-around items-center h-20">
           {mainNavigation.map((item) => {
             const Icon = item.icon;
@@ -138,8 +140,10 @@ export default function MainLayout() {
                     ? 'text-purple-600 dark:text-purple-400'
                     : 'text-gray-600 dark:text-gray-400'
                 }`}
+                aria-label={item.name}
+                aria-current={isActive ? 'page' : undefined}
               >
-                <Icon className="h-7 w-7 mb-1" />
+                <Icon className="h-7 w-7 mb-1" aria-hidden="true" />
                 <span className="text-xs font-medium truncate">{item.shortName}</span>
               </Link>
             );

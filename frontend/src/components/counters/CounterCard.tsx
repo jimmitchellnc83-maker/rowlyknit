@@ -1,8 +1,9 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { FiPlus, FiMinus, FiRefreshCw, FiMic, FiMicOff, FiMoreVertical, FiEye, FiEyeOff } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { useWebSocket } from '../../contexts/WebSocketContext';
+import { preventDoubleTap } from '../../utils/debounce';
 import type { Counter } from '../../types/counter.types';
 
 interface CounterCardProps {
@@ -108,7 +109,7 @@ export default function CounterCard({ counter, onUpdate, onEdit, onDelete, onTog
     }
   };
 
-  const handleIncrement = () => {
+  const handleIncrementInternal = () => {
     const increment = calculateIncrement();
     const newCount = count + increment;
 
@@ -125,7 +126,7 @@ export default function CounterCard({ counter, onUpdate, onEdit, onDelete, onTog
     triggerHaptic('light');
   };
 
-  const handleDecrement = () => {
+  const handleDecrementInternal = () => {
     const increment = calculateIncrement();
     const newCount = count - increment;
 
@@ -142,7 +143,11 @@ export default function CounterCard({ counter, onUpdate, onEdit, onDelete, onTog
     triggerHaptic('light');
   };
 
-  const handleReset = async () => {
+  // Debounced versions to prevent double-taps
+  const handleIncrement = useCallback(preventDoubleTap(handleIncrementInternal, 500), [count, counter]);
+  const handleDecrement = useCallback(preventDoubleTap(handleDecrementInternal, 500), [count, counter]);
+
+  const handleResetInternal = async () => {
     if (confirm(`Reset "${counter.name}" to ${counter.min_value}?`)) {
       setCount(counter.min_value);
       updateCountOnServer(counter.min_value);
@@ -151,6 +156,9 @@ export default function CounterCard({ counter, onUpdate, onEdit, onDelete, onTog
       toast.success('Counter reset');
     }
   };
+
+  // Debounced reset to prevent accidental double-taps
+  const handleReset = useCallback(preventDoubleTap(handleResetInternal, 500), [count, counter]);
 
   // Swipe gesture handlers
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -310,8 +318,10 @@ export default function CounterCard({ counter, onUpdate, onEdit, onDelete, onTog
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
             }`}
             title={isListening ? 'Stop voice control' : 'Start voice control'}
+            aria-label={isListening ? 'Stop voice control' : 'Start voice control'}
+            aria-pressed={isListening}
           >
-            {isListening ? <FiMic className="h-5 w-5 md:h-4 md:w-4" /> : <FiMicOff className="h-5 w-5 md:h-4 md:w-4" />}
+            {isListening ? <FiMic className="h-5 w-5 md:h-4 md:w-4" aria-hidden="true" /> : <FiMicOff className="h-5 w-5 md:h-4 md:w-4" aria-hidden="true" />}
           </button>
 
           <div className="relative" ref={menuRef}>
@@ -371,11 +381,16 @@ export default function CounterCard({ counter, onUpdate, onEdit, onDelete, onTog
         <div
           className="text-6xl md:text-7xl font-bold mb-2 tabular-nums"
           style={{ color: counter.display_color }}
+          role="status"
+          aria-live="polite"
+          aria-label={`Current count: ${count}`}
         >
           {count}
         </div>
         {counter.target_value && (
-          <p className="text-base md:text-sm text-gray-500">of {counter.target_value}</p>
+          <p className="text-base md:text-sm text-gray-500" aria-label={`Target: ${counter.target_value}`}>
+            of {counter.target_value}
+          </p>
         )}
         {counter.increment_pattern && counter.increment_pattern.description && (
           <p className="text-sm md:text-xs text-gray-400 mt-1">{counter.increment_pattern.description}</p>
@@ -401,13 +416,15 @@ export default function CounterCard({ counter, onUpdate, onEdit, onDelete, onTog
       )}
 
       {/* Controls - Large Touch Targets (80px mobile, 64px desktop) */}
-      <div className="flex items-center gap-2 md:gap-3">
+      <div className="flex items-center gap-2 md:gap-3" role="group" aria-label="Counter controls">
         <button
           onClick={handleDecrement}
           disabled={count <= counter.min_value}
           className="flex-1 h-20 md:h-16 bg-gray-100 hover:bg-gray-200 active:bg-gray-300 disabled:bg-gray-50 disabled:text-gray-300 text-gray-700 rounded-xl font-semibold transition flex items-center justify-center gap-2 text-xl md:text-lg touch-manipulation"
+          aria-label={`Decrease ${counter.name} by ${increment}`}
+          aria-disabled={count <= counter.min_value}
         >
-          <FiMinus className="h-7 w-7 md:h-6 md:w-6" />
+          <FiMinus className="h-7 w-7 md:h-6 md:w-6" aria-hidden="true" />
           <span className="hidden sm:inline">-{increment}</span>
         </button>
 
@@ -415,8 +432,9 @@ export default function CounterCard({ counter, onUpdate, onEdit, onDelete, onTog
           onClick={handleReset}
           className="h-20 md:h-16 w-20 md:w-16 flex-shrink-0 bg-yellow-100 hover:bg-yellow-200 active:bg-yellow-300 text-yellow-700 rounded-xl transition flex items-center justify-center touch-manipulation"
           title="Reset counter"
+          aria-label={`Reset ${counter.name} to ${counter.min_value}`}
         >
-          <FiRefreshCw className="h-7 w-7 md:h-6 md:w-6" />
+          <FiRefreshCw className="h-7 w-7 md:h-6 md:w-6" aria-hidden="true" />
         </button>
 
         <button
@@ -425,8 +443,9 @@ export default function CounterCard({ counter, onUpdate, onEdit, onDelete, onTog
           style={{
             backgroundColor: counter.display_color
           }}
+          aria-label={`Increase ${counter.name} by ${increment}`}
         >
-          <FiPlus className="h-7 w-7 md:h-6 md:w-6" />
+          <FiPlus className="h-7 w-7 md:h-6 md:w-6" aria-hidden="true" />
           <span className="hidden sm:inline">+{increment}</span>
         </button>
       </div>
