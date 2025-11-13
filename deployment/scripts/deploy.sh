@@ -35,7 +35,10 @@ fi
 # Pull latest code
 echo -e "${YELLOW}📥 Pulling latest code...${NC}"
 cd $APP_DIR
-git pull origin main
+BRANCH=${DEPLOY_BRANCH:-claude/build-rowly-production-app-011CV32EASvp9cQ2Z8eA8mTy}
+git fetch origin
+git checkout $BRANCH
+git pull origin $BRANCH
 
 # Create backup
 echo -e "${YELLOW}💾 Creating database backup...${NC}"
