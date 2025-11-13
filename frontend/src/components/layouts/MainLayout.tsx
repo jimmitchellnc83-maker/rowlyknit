@@ -1,6 +1,7 @@
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import GlobalSearch from '../GlobalSearch';
+import ThemeToggle from '../ThemeToggle';
 import {
   FiHome,
   FiFolder,
@@ -32,13 +33,14 @@ export default function MainLayout() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
       {/* Sidebar */}
-      <aside className="fixed inset-y-0 left-0 w-64 bg-white shadow-lg">
+      <aside className="fixed inset-y-0 left-0 w-64 bg-white dark:bg-gray-800 shadow-lg transition-colors duration-200">
         <div className="flex flex-col h-full">
           {/* Logo */}
-          <div className="flex items-center justify-center h-16 bg-purple-600">
+          <div className="flex items-center justify-between px-4 h-16 bg-purple-600 dark:bg-purple-700">
             <h1 className="text-2xl font-bold text-white">Rowly</h1>
+            <ThemeToggle />
           </div>
 
           {/* Search */}
@@ -57,8 +59,8 @@ export default function MainLayout() {
                   to={item.href}
                   className={`flex items-center px-6 py-3 text-sm font-medium transition ${
                     isActive
-                      ? 'bg-purple-50 text-purple-600 border-r-4 border-purple-600'
-                      : 'text-gray-700 hover:bg-gray-50 hover:text-purple-600'
+                      ? 'bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 border-r-4 border-purple-600 dark:border-purple-400'
+                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-purple-600 dark:hover:text-purple-400'
                   }`}
                 >
                   <Icon className="mr-3 h-5 w-5" />
@@ -69,24 +71,24 @@ export default function MainLayout() {
           </nav>
 
           {/* User section */}
-          <div className="border-t border-gray-200 p-4">
+          <div className="border-t border-gray-200 dark:border-gray-700 p-4">
             <div className="flex items-center mb-3">
               <div className="flex-shrink-0">
-                <div className="h-10 w-10 rounded-full bg-purple-600 flex items-center justify-center text-white font-semibold">
+                <div className="h-10 w-10 rounded-full bg-purple-600 dark:bg-purple-700 flex items-center justify-center text-white font-semibold">
                   {user?.firstName?.[0]}{user?.lastName?.[0]}
                 </div>
               </div>
               <div className="ml-3 flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900 truncate">
+                <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
                   {user?.firstName} {user?.lastName}
                 </p>
-                <p className="text-xs text-gray-500 truncate">{user?.email}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{user?.email}</p>
               </div>
             </div>
 
             <Link
               to="/profile"
-              className="flex items-center px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg mb-2 transition"
+              className="flex items-center px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg mb-2 transition"
             >
               <FiUser className="mr-2 h-4 w-4" />
               Profile
@@ -94,7 +96,7 @@ export default function MainLayout() {
 
             <button
               onClick={handleLogout}
-              className="w-full flex items-center px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition"
+              className="w-full flex items-center px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition"
             >
               <FiLogOut className="mr-2 h-4 w-4" />
               Logout

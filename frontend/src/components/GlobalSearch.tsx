@@ -155,7 +155,9 @@ export default function GlobalSearch() {
     return (
       <button
         onClick={() => setIsOpen(true)}
-        className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition"
+        className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition"
+        aria-label="Open global search"
+        title="Search (⌘K)"
       >
         <FiSearch className="h-4 w-4" />
         <span>Search</span>
@@ -167,54 +169,79 @@ export default function GlobalSearch() {
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-start justify-center pt-20 px-4">
-      <div className="bg-white rounded-lg shadow-2xl w-full max-w-2xl max-h-[60vh] flex flex-col">
+    <div
+      className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-start justify-center pt-20 px-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Global search"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          setIsOpen(false);
+          setQuery('');
+        }
+      }}
+    >
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl w-full max-w-2xl max-h-[60vh] flex flex-col">
         {/* Search Input */}
-        <div className="p-4 border-b border-gray-200">
+        <div className="p-4 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center gap-3">
-            <FiSearch className="h-5 w-5 text-gray-400" />
+            <FiSearch className="h-5 w-5 text-gray-400" aria-hidden="true" />
             <input
               ref={inputRef}
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search projects, patterns, yarn, and more..."
-              className="flex-1 outline-none text-lg"
+              className="flex-1 outline-none text-lg bg-transparent text-gray-900 dark:text-gray-100"
+              aria-label="Search input"
+              autoComplete="off"
             />
             <button
               onClick={() => {
                 setIsOpen(false);
                 setQuery('');
               }}
-              className="text-gray-400 hover:text-gray-600"
+              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              aria-label="Close search"
             >
-              <FiX className="h-5 w-5" />
+              <FiX className="h-5 w-5" aria-hidden="true" />
             </button>
           </div>
         </div>
 
         {/* Results */}
-        <div className="flex-1 overflow-y-auto p-2">
+        <div
+          className="flex-1 overflow-y-auto p-2"
+          role="region"
+          aria-live="polite"
+          aria-label="Search results"
+        >
           {loading && (
-            <div className="text-center py-8 text-gray-500">Searching...</div>
+            <div className="text-center py-8 text-gray-500 dark:text-gray-400" role="status">
+              Searching...
+            </div>
           )}
 
           {!loading && query && results.length === 0 && (
-            <div className="text-center py-8 text-gray-500">No results found</div>
+            <div className="text-center py-8 text-gray-500 dark:text-gray-400" role="status">
+              No results found
+            </div>
           )}
 
           {!loading && results.length > 0 && (
-            <div className="space-y-1">
+            <div className="space-y-1" role="list">
               {results.map((result) => (
                 <button
                   key={`${result.type}-${result.id}`}
                   onClick={() => handleResultClick(result)}
-                  className="w-full text-left p-3 hover:bg-gray-50 rounded-lg transition flex items-center justify-between"
+                  className="w-full text-left p-3 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition flex items-center justify-between"
+                  role="listitem"
+                  aria-label={`${result.type}: ${result.title}${result.subtitle ? ` - ${result.subtitle}` : ''}`}
                 >
                   <div className="flex-1">
-                    <div className="font-medium text-gray-900">{result.title}</div>
+                    <div className="font-medium text-gray-900 dark:text-gray-100">{result.title}</div>
                     {result.subtitle && (
-                      <div className="text-sm text-gray-500">{result.subtitle}</div>
+                      <div className="text-sm text-gray-500 dark:text-gray-400">{result.subtitle}</div>
                     )}
                   </div>
                   <span className={`px-2 py-1 text-xs font-medium rounded ${getTypeColor(result.type)}`}>
@@ -226,7 +253,7 @@ export default function GlobalSearch() {
           )}
 
           {!loading && !query && (
-            <div className="py-8 text-center text-gray-500">
+            <div className="py-8 text-center text-gray-500 dark:text-gray-400">
               <p className="mb-2">Start typing to search</p>
               <p className="text-sm">Projects, patterns, yarn, recipients, and tools</p>
             </div>
@@ -234,7 +261,7 @@ export default function GlobalSearch() {
         </div>
 
         {/* Footer */}
-        <div className="p-3 border-t border-gray-200 bg-gray-50 text-xs text-gray-500 flex items-center justify-between">
+        <div className="p-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-xs text-gray-500 dark:text-gray-400 flex items-center justify-between">
           <span>Press ESC to close</span>
           <span>⌘K to open</span>
         </div>
