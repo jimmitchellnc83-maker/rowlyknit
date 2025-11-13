@@ -237,104 +237,104 @@ export default function PatternDetail() {
   return (
     <div>
       {/* Header */}
-      <div className="mb-6">
+      <div className="mb-4 md:mb-6">
         <button
           onClick={() => navigate('/patterns')}
-          className="flex items-center text-purple-600 hover:text-purple-700 mb-4"
+          className="flex items-center text-purple-600 hover:text-purple-700 mb-3 md:mb-4 min-h-[48px]"
         >
-          <FiArrowLeft className="mr-2" />
-          Back to Patterns
+          <FiArrowLeft className="mr-2 h-5 w-5" />
+          <span className="text-base md:text-sm">Back to Patterns</span>
         </button>
 
-        <div className="flex items-start justify-between">
+        <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
           <div className="flex-1">
-            <div className="flex items-center gap-3 mb-2">
-              <h1 className="text-3xl font-bold text-gray-900">{pattern.name}</h1>
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-2">
+              <h1 className="text-2xl md:text-3xl font-bold text-gray-900">{pattern.name}</h1>
               {pattern.difficulty && (
-                <span className={`px-3 py-1 text-sm font-medium rounded-full ${getDifficultyColor(pattern.difficulty)}`}>
+                <span className={`px-3 py-1 text-sm font-medium rounded-full self-start ${getDifficultyColor(pattern.difficulty)}`}>
                   {pattern.difficulty}
                 </span>
               )}
             </div>
             {pattern.designer && (
-              <p className="text-gray-600">by {pattern.designer}</p>
+              <p className="text-base md:text-sm text-gray-600">by {pattern.designer}</p>
             )}
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <button
               onClick={handleEditClick}
-              className="flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
+              className="flex items-center justify-center px-4 py-3 md:py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition min-h-[48px] md:min-h-0 flex-1 sm:flex-none"
             >
-              <FiEdit2 className="mr-2" />
-              Edit
+              <FiEdit2 className="mr-2 h-5 w-5 md:h-4 md:w-4" />
+              <span className="text-base md:text-sm">Edit</span>
             </button>
             <button
               onClick={handleDeletePattern}
-              className="flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
+              className="flex items-center justify-center px-4 py-3 md:py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition min-h-[48px] md:min-h-0 flex-1 sm:flex-none"
             >
-              <FiTrash2 className="mr-2" />
-              Delete
+              <FiTrash2 className="mr-2 h-5 w-5 md:h-4 md:w-4" />
+              <span className="text-base md:text-sm">Delete</span>
             </button>
           </div>
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="bg-white rounded-lg shadow mb-6">
+      {/* Tabs - Scrollable on mobile */}
+      <div className="bg-white rounded-lg shadow mb-4 md:mb-6">
         <div className="border-b border-gray-200">
-          <nav className="flex -mb-px">
+          <nav className="flex -mb-px overflow-x-auto scrollbar-hide">
             <button
               onClick={() => setActiveTab('overview')}
-              className={`px-6 py-3 text-sm font-medium border-b-2 ${
+              className={`px-4 md:px-6 py-4 md:py-3 text-sm md:text-base font-medium border-b-2 whitespace-nowrap flex-shrink-0 ${
                 activeTab === 'overview'
                   ? 'border-purple-600 text-purple-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
             >
               <div className="flex items-center gap-2">
-                <FiFileText />
-                Overview
+                <FiFileText className="h-5 w-5 md:h-4 md:w-4" />
+                <span className="hidden sm:inline">Overview</span>
               </div>
             </button>
             <button
               onClick={() => setActiveTab('viewer')}
-              className={`px-6 py-3 text-sm font-medium border-b-2 ${
+              className={`px-4 md:px-6 py-4 md:py-3 text-sm md:text-base font-medium border-b-2 whitespace-nowrap flex-shrink-0 ${
                 activeTab === 'viewer'
                   ? 'border-purple-600 text-purple-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
+              } ${!selectedPdfFile ? 'opacity-50 cursor-not-allowed' : ''}`}
               disabled={!selectedPdfFile}
             >
               <div className="flex items-center gap-2">
-                <FiFileText />
-                PDF Viewer
+                <FiFileText className="h-5 w-5 md:h-4 md:w-4" />
+                <span className="hidden sm:inline">PDF Viewer</span>
               </div>
             </button>
             <button
               onClick={() => setActiveTab('charts')}
-              className={`px-6 py-3 text-sm font-medium border-b-2 ${
+              className={`px-4 md:px-6 py-4 md:py-3 text-sm md:text-base font-medium border-b-2 whitespace-nowrap flex-shrink-0 ${
                 activeTab === 'charts'
                   ? 'border-purple-600 text-purple-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
             >
               <div className="flex items-center gap-2">
-                <FiGrid />
-                Charts
+                <FiGrid className="h-5 w-5 md:h-4 md:w-4" />
+                <span className="hidden sm:inline">Charts</span>
               </div>
             </button>
             <button
               onClick={() => setActiveTab('tools')}
-              className={`px-6 py-3 text-sm font-medium border-b-2 ${
+              className={`px-4 md:px-6 py-4 md:py-3 text-sm md:text-base font-medium border-b-2 whitespace-nowrap flex-shrink-0 ${
                 activeTab === 'tools'
                   ? 'border-purple-600 text-purple-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
             >
               <div className="flex items-center gap-2">
-                <FiTool />
-                Tools
+                <FiTool className="h-5 w-5 md:h-4 md:w-4" />
+                <span className="hidden sm:inline">Tools</span>
               </div>
             </button>
           </nav>

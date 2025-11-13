@@ -40,18 +40,20 @@ export default function MainLayout() {
   };
 
   const navigation = [
-    { name: 'Dashboard', href: '/dashboard', icon: FiHome },
-    { name: 'Projects', href: '/projects', icon: FiFolder },
-    { name: 'Patterns', href: '/patterns', icon: FiBook },
-    { name: 'Yarn Stash', href: '/yarn', icon: FiPackage },
-    { name: 'Tools', href: '/tools', icon: FiTool },
-    { name: 'Recipients', href: '/recipients', icon: FiUsers },
+    { name: 'Dashboard', href: '/dashboard', icon: FiHome, shortName: 'Home' },
+    { name: 'Projects', href: '/projects', icon: FiFolder, shortName: 'Projects' },
+    { name: 'Patterns', href: '/patterns', icon: FiBook, shortName: 'Patterns' },
+    { name: 'Yarn Stash', href: '/yarn', icon: FiPackage, shortName: 'Stash' },
+    { name: 'Tools', href: '/tools', icon: FiTool, shortName: 'Tools' },
+    { name: 'Recipients', href: '/recipients', icon: FiUsers, shortName: 'Recipients' },
   ];
 
+  const mainNavigation = navigation.slice(0, 5); // First 5 for mobile bottom nav
+
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
-      {/* Sidebar */}
-      <aside className="fixed inset-y-0 left-0 w-64 bg-white dark:bg-gray-800 shadow-lg transition-colors duration-200">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200 pb-20 md:pb-0">
+      {/* Desktop Sidebar - Hidden on mobile */}
+      <aside className="hidden md:fixed md:inset-y-0 md:left-0 md:w-64 md:block bg-white dark:bg-gray-800 shadow-lg transition-colors duration-200">
         <div className="flex flex-col h-full">
           {/* Logo */}
           <div className="flex items-center justify-between px-4 h-16 bg-purple-600 dark:bg-purple-700">
@@ -121,8 +123,32 @@ export default function MainLayout() {
         </div>
       </aside>
 
+      {/* Mobile Bottom Navigation */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 md:hidden z-40">
+        <div className="flex justify-around items-center h-20">
+          {mainNavigation.map((item) => {
+            const Icon = item.icon;
+            const isActive = location.pathname === item.href;
+            return (
+              <Link
+                key={item.name}
+                to={item.href}
+                className={`flex flex-col items-center justify-center flex-1 h-full min-w-0 ${
+                  isActive
+                    ? 'text-purple-600 dark:text-purple-400'
+                    : 'text-gray-600 dark:text-gray-400'
+                }`}
+              >
+                <Icon className="h-7 w-7 mb-1" />
+                <span className="text-xs font-medium truncate">{item.shortName}</span>
+              </Link>
+            );
+          })}
+        </div>
+      </nav>
+
       {/* Main content */}
-      <div className="ml-64">
+      <div className="md:ml-64">
         {/* Sync Indicator - Fixed position */}
         <div className="fixed top-4 right-4 z-50">
           <SyncIndicator />
@@ -130,7 +156,7 @@ export default function MainLayout() {
 
         {/* Conflict Resolver - Top of content area */}
         {conflicts.length > 0 && (
-          <div className="p-8 pb-0">
+          <div className="p-4 md:p-6 lg:p-8 pb-0">
             <ConflictResolver
               conflicts={conflicts}
               onResolve={handleResolveConflict}
@@ -139,7 +165,7 @@ export default function MainLayout() {
           </div>
         )}
 
-        <main className="p-8">
+        <main className="p-4 md:p-6 lg:p-8">
           <Outlet />
         </main>
       </div>

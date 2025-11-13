@@ -248,41 +248,41 @@ export default function CounterCard({ counter, onUpdate, onEdit, onDelete, onTog
 
   return (
     <div
-      className="border-2 rounded-xl p-6 bg-gradient-to-br from-white to-gray-50 shadow-sm hover:shadow-md transition-shadow"
+      className="border-2 rounded-xl p-4 md:p-6 bg-gradient-to-br from-white to-gray-50 shadow-sm hover:shadow-md transition-shadow"
       style={{ borderColor: counter.display_color }}
     >
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <div
-            className="w-3 h-3 rounded-full"
+            className="w-3 h-3 rounded-full flex-shrink-0"
             style={{ backgroundColor: counter.display_color }}
           />
-          <h3 className="font-semibold text-gray-900">{counter.name}</h3>
-          <span className="text-xs text-gray-500 px-2 py-1 bg-gray-100 rounded-full">
+          <h3 className="font-semibold text-lg md:text-base text-gray-900">{counter.name}</h3>
+          <span className="text-xs text-gray-500 px-2 py-1 bg-gray-100 rounded-full whitespace-nowrap">
             {counter.type}
           </span>
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 flex-shrink-0">
           <button
             onClick={toggleVoiceControl}
-            className={`p-2 rounded-lg transition ${
+            className={`p-3 md:p-2 rounded-lg transition min-w-[48px] min-h-[48px] md:min-w-0 md:min-h-0 flex items-center justify-center ${
               isListening
                 ? 'bg-red-100 text-red-600 hover:bg-red-200 animate-pulse'
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
             }`}
             title={isListening ? 'Stop voice control' : 'Start voice control'}
           >
-            {isListening ? <FiMic className="h-4 w-4" /> : <FiMicOff className="h-4 w-4" />}
+            {isListening ? <FiMic className="h-5 w-5 md:h-4 md:w-4" /> : <FiMicOff className="h-5 w-5 md:h-4 md:w-4" />}
           </button>
 
           <div className="relative" ref={menuRef}>
             <button
               onClick={() => setShowMenu(!showMenu)}
-              className="p-2 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition"
+              className="p-3 md:p-2 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition min-w-[48px] min-h-[48px] md:min-w-0 md:min-h-0 flex items-center justify-center"
             >
-              <FiMoreVertical className="h-4 w-4" />
+              <FiMoreVertical className="h-5 w-5 md:h-4 md:w-4" />
             </button>
 
             {showMenu && (
@@ -332,16 +332,16 @@ export default function CounterCard({ counter, onUpdate, onEdit, onDelete, onTog
       {/* Counter Display */}
       <div className="text-center mb-6">
         <div
-          className="text-7xl font-bold mb-2 tabular-nums"
+          className="text-6xl md:text-7xl font-bold mb-2 tabular-nums"
           style={{ color: counter.display_color }}
         >
           {count}
         </div>
         {counter.target_value && (
-          <p className="text-sm text-gray-500">of {counter.target_value}</p>
+          <p className="text-base md:text-sm text-gray-500">of {counter.target_value}</p>
         )}
         {counter.increment_pattern && counter.increment_pattern.description && (
-          <p className="text-xs text-gray-400 mt-1">{counter.increment_pattern.description}</p>
+          <p className="text-sm md:text-xs text-gray-400 mt-1">{counter.increment_pattern.description}</p>
         )}
       </div>
 
@@ -363,37 +363,34 @@ export default function CounterCard({ counter, onUpdate, onEdit, onDelete, onTog
         </div>
       )}
 
-      {/* Controls - Large Touch Targets (min 60px) */}
-      <div className="flex items-center gap-2">
+      {/* Controls - Large Touch Targets (80px mobile, 64px desktop) */}
+      <div className="flex items-center gap-2 md:gap-3">
         <button
           onClick={handleDecrement}
           disabled={count <= counter.min_value}
-          className="flex-1 h-16 bg-gray-100 hover:bg-gray-200 disabled:bg-gray-50 disabled:text-gray-300 text-gray-700 rounded-xl font-semibold transition flex items-center justify-center gap-2 text-lg"
-          style={{ minHeight: '60px' }}
+          className="flex-1 h-20 md:h-16 bg-gray-100 hover:bg-gray-200 active:bg-gray-300 disabled:bg-gray-50 disabled:text-gray-300 text-gray-700 rounded-xl font-semibold transition flex items-center justify-center gap-2 text-xl md:text-lg touch-manipulation"
         >
-          <FiMinus className="h-6 w-6" />
-          -{increment}
+          <FiMinus className="h-7 w-7 md:h-6 md:w-6" />
+          <span className="hidden sm:inline">-{increment}</span>
         </button>
 
         <button
           onClick={handleReset}
-          className="h-16 px-4 bg-yellow-100 hover:bg-yellow-200 text-yellow-700 rounded-xl transition"
+          className="h-20 md:h-16 w-20 md:w-16 flex-shrink-0 bg-yellow-100 hover:bg-yellow-200 active:bg-yellow-300 text-yellow-700 rounded-xl transition flex items-center justify-center touch-manipulation"
           title="Reset counter"
-          style={{ minHeight: '60px' }}
         >
-          <FiRefreshCw className="h-6 w-6" />
+          <FiRefreshCw className="h-7 w-7 md:h-6 md:w-6" />
         </button>
 
         <button
           onClick={handleIncrement}
-          className="flex-1 h-16 text-white rounded-xl font-semibold transition flex items-center justify-center gap-2 text-lg"
+          className="flex-1 h-20 md:h-16 text-white rounded-xl font-semibold transition flex items-center justify-center gap-2 text-xl md:text-lg touch-manipulation"
           style={{
-            minHeight: '60px',
             backgroundColor: counter.display_color
           }}
         >
-          <FiPlus className="h-6 w-6" />
-          +{increment}
+          <FiPlus className="h-7 w-7 md:h-6 md:w-6" />
+          <span className="hidden sm:inline">+{increment}</span>
         </button>
       </div>
 
