@@ -6,6 +6,7 @@ import { ToastContainer } from 'react-toastify';
 import App from './App';
 import ErrorBoundary from './components/ErrorBoundary';
 import { WebSocketProvider } from './contexts/WebSocketContext';
+import './lib/axios'; // Initialize axios configuration with withCredentials
 import './styles/index.css';
 import 'react-toastify/dist/ReactToastify.css';
 
