@@ -11,11 +11,13 @@ import {
   FiMaximize,
   FiDownload,
   FiBookmark,
-  FiMove
+  FiMove,
+  FiEdit3
 } from 'react-icons/fi';
 import { toast } from 'react-toastify';
 import BookmarkManager from './BookmarkManager';
 import RowMarker from './RowMarker';
+import PatternHighlighter from './PatternHighlighter';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 
@@ -42,6 +44,7 @@ export default function PatternViewer({ fileUrl, filename, patternId, projectId,
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [showBookmarks, setShowBookmarks] = useState<boolean>(Boolean(patternId));
   const [showRowMarker, setShowRowMarker] = useState<boolean>(false);
+  const [showHighlighter, setShowHighlighter] = useState<boolean>(false);
 
   const zoomLevel = ZOOM_LEVELS[zoomIndex];
 
@@ -268,6 +271,16 @@ export default function PatternViewer({ fileUrl, filename, patternId, projectId,
             <FiMove className="h-5 w-5" />
           </button>
 
+          {patternId && (
+            <button
+              onClick={() => setShowHighlighter(!showHighlighter)}
+              className={`p-2 hover:bg-gray-700 rounded-lg ${showHighlighter ? 'bg-gray-700' : ''}`}
+              title="Highlighter"
+            >
+              <FiEdit3 className="h-5 w-5" />
+            </button>
+          )}
+
           <button
             onClick={toggleFullscreen}
             className="p-2 hover:bg-gray-700 rounded-lg"
@@ -370,6 +383,16 @@ export default function PatternViewer({ fileUrl, filename, patternId, projectId,
 
       {/* Row Marker Overlay */}
       {showRowMarker && <RowMarker pageNumber={currentPage} />}
+
+      {/* Pattern Highlighter */}
+      {showHighlighter && patternId && (
+        <PatternHighlighter
+          patternId={patternId}
+          projectId={projectId}
+          pageNumber={currentPage}
+          isActive={showHighlighter}
+        />
+      )}
     </div>
   );
 }
