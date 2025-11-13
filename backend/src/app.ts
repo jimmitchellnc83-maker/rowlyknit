@@ -20,6 +20,8 @@ import { apiLimiter } from './middleware/rateLimiter';
 import { sanitizeInput } from './middleware/validator';
 import { auditMiddleware } from './middleware/auditLog';
 import { errorHandler, notFoundHandler } from './utils/errorHandler';
+import { conditionalCsrf, csrfErrorHandler, sendCsrfToken } from './middleware/csrf';
+import { requestMetrics, metricsEndpoint } from './middleware/monitoring';
 
 // Import routes
 import authRoutes from './routes/auth';
@@ -84,8 +86,14 @@ app.use(morgan('combined', {
   skip: (req) => req.url === '/health'
 }));
 
+// Request metrics (Prometheus)
+app.use(requestMetrics);
+
 // Input sanitization
 app.use(sanitizeInput);
+
+// CSRF protection (conditional - skips JWT routes)
+app.use(conditionalCsrf);
 
 // Audit logging
 app.use(auditMiddleware);
@@ -105,6 +113,12 @@ app.get('/health', (req, res) => {
     environment: process.env.NODE_ENV,
   });
 });
+
+// Metrics endpoint (Prometheus)
+app.get('/metrics', metricsEndpoint);
+
+// CSRF token endpoint
+app.get('/api/csrf-token', sendCsrfToken);
 
 // API routes
 app.use('/api/auth', authRoutes);
@@ -140,6 +154,9 @@ app.get('/api', (req, res) => {
 
 // 404 handler
 app.use(notFoundHandler);
+
+// CSRF error handler (must be before global error handler)
+app.use(csrfErrorHandler);
 
 // Global error handler
 app.use(errorHandler);
