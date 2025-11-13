@@ -29,6 +29,11 @@ import yarnRoutes from './routes/yarn';
 import recipientsRoutes from './routes/recipients';
 import toolsRoutes from './routes/tools';
 import uploadsRoutes from './routes/uploads';
+import countersRoutes from './routes/counters';
+import sessionsRoutes from './routes/sessions';
+import patternEnhancementsRoutes from './routes/pattern-enhancements';
+import notesRoutes from './routes/notes';
+import magicMarkersRoutes from './routes/magic-markers';
 
 // Create Express app
 const app: Application = express();
@@ -108,6 +113,11 @@ app.use('/api/yarn', yarnRoutes);
 app.use('/api/recipients', recipientsRoutes);
 app.use('/api/tools', toolsRoutes);
 app.use('/api/uploads', uploadsRoutes);
+app.use('/api', countersRoutes);
+app.use('/api', sessionsRoutes);
+app.use('/api', patternEnhancementsRoutes);
+app.use('/api', notesRoutes);
+app.use('/api', magicMarkersRoutes);
 
 // API documentation
 app.get('/api', (req, res) => {
