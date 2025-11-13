@@ -155,8 +155,8 @@ export async function exportProjectToPDF(project: any): Promise<void> {
   }
 
   // Save and download
-  const pdfBytes: Uint8Array = await pdfDoc.save();
-  const blob = new Blob([pdfBytes.buffer as ArrayBuffer], { type: 'application/pdf' });
+  const pdfBytes = await pdfDoc.save();
+  const blob = new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
