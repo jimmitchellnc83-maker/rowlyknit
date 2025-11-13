@@ -12,7 +12,7 @@ export const csrfProtection = csrf({
   cookie: {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
+    sameSite: 'lax', // Changed from 'strict' to 'lax' for better compatibility
     maxAge: 3600000, // 1 hour
   },
 });
