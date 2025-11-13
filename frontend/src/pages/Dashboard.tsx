@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { FiFolder, FiBook, FiPackage, FiUsers, FiPlus } from 'react-icons/fi';
+import { FiFolder, FiBook, FiPackage, FiUsers, FiPlus, FiAlertCircle } from 'react-icons/fi';
 import { useAuthStore } from '../stores/authStore';
 import axios from 'axios';
 
@@ -38,6 +38,7 @@ export default function Dashboard() {
   ]);
   const [loading, setLoading] = useState(true);
   const [recentProjects, setRecentProjects] = useState<any[]>([]);
+  const [lowStockYarn, setLowStockYarn] = useState<any[]>([]);
 
   useEffect(() => {
     fetchDashboardData();
@@ -45,12 +46,13 @@ export default function Dashboard() {
 
   const fetchDashboardData = async () => {
     try {
-      const [projectsRes, patternsRes, yarnRes, recipientsRes, recentProjectsRes] = await Promise.all([
+      const [projectsRes, patternsRes, yarnRes, recipientsRes, recentProjectsRes, allYarnRes] = await Promise.all([
         axios.get('/api/projects/stats'),
         axios.get('/api/patterns/stats'),
         axios.get('/api/yarn/stats'),
         axios.get('/api/recipients/stats'),
         axios.get('/api/projects?limit=5'),
+        axios.get('/api/yarn'),
       ]);
 
       setStats([
@@ -85,6 +87,15 @@ export default function Dashboard() {
       ]);
 
       setRecentProjects(recentProjectsRes.data.data.projects || []);
+
+      // Filter yarn items with low stock alerts
+      const allYarn = allYarnRes.data.data.yarn || [];
+      const lowStock = allYarn.filter((y: any) => {
+        if (!y.low_stock_alert || !y.low_stock_threshold) return false;
+        const currentQuantity = y.quantity_remaining || y.skeins || 0;
+        return currentQuantity <= y.low_stock_threshold;
+      });
+      setLowStockYarn(lowStock);
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
     } finally {
@@ -184,6 +195,76 @@ export default function Dashboard() {
           })}
         </div>
       </div>
+
+      {/* Low Stock Alerts */}
+      {!loading && lowStockYarn.length > 0 && (
+        <div className="mb-8">
+          <div className="bg-orange-50 border-l-4 border-orange-500 rounded-lg p-6">
+            <div className="flex items-start mb-4">
+              <FiAlertCircle className="h-6 w-6 text-orange-600 mr-3 flex-shrink-0" />
+              <div>
+                <h2 className="text-xl font-bold text-orange-900 mb-1">
+                  Low Stock Alerts
+                </h2>
+                <p className="text-sm text-orange-700">
+                  The following yarn items are running low and need restocking:
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              {lowStockYarn.map((yarn) => {
+                const currentQty = yarn.quantity_remaining || yarn.skeins || 0;
+                const threshold = yarn.low_stock_threshold || 0;
+                const percentRemaining = threshold > 0 ? (currentQty / threshold) * 100 : 0;
+
+                return (
+                  <Link
+                    key={yarn.id}
+                    to="/yarn"
+                    className="flex items-center justify-between p-4 bg-white rounded-lg hover:shadow-md transition"
+                  >
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between mb-2">
+                        <h3 className="font-semibold text-gray-900">
+                          {yarn.brand} {yarn.name}
+                        </h3>
+                        <span className="text-sm font-medium text-orange-600">
+                          {currentQty} / {threshold} {yarn.unit}
+                        </span>
+                      </div>
+
+                      {/* Progress bar */}
+                      <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
+                        <div
+                          className="bg-orange-500 h-2 rounded-full transition-all"
+                          style={{ width: `${Math.min(100, percentRemaining)}%` }}
+                        />
+                      </div>
+
+                      <div className="flex items-center text-sm text-gray-600">
+                        <FiPackage className="mr-2 h-4 w-4" />
+                        {yarn.color && <span className="mr-3">Color: {yarn.color}</span>}
+                        {yarn.weight && <span>Weight: {yarn.weight}</span>}
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+
+            <div className="mt-4 pt-4 border-t border-orange-200">
+              <Link
+                to="/yarn"
+                className="text-sm font-medium text-orange-700 hover:text-orange-800 flex items-center"
+              >
+                View all yarn in stash
+                <span className="ml-2">→</span>
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Recent Activity */}
       <div className="bg-white rounded-lg shadow p-6">
