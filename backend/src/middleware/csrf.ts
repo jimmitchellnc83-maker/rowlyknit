@@ -69,10 +69,16 @@ export function conditionalCsrf(req: Request, res: Response, next: NextFunction)
   // Skip CSRF for:
   // - Health checks
   // - Webhook endpoints
+  // - Auth endpoints (login, register) - protected by rate limiting instead
   // - API endpoints using JWT authentication
   const skipPaths = [
     '/health',
     '/api/webhooks',
+    '/api/auth/login',
+    '/api/auth/register',
+    '/api/auth/refresh',
+    '/api/auth/forgot-password',
+    '/api/auth/reset-password',
   ];
 
   // Check if JWT is present (API authentication)
