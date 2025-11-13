@@ -80,4 +80,114 @@ router.delete(
   asyncHandler(projectsController.deleteProject)
 );
 
+/**
+ * @route   POST /api/projects/:id/yarn
+ * @desc    Add yarn to project with automatic stash deduction
+ * @access  Private
+ */
+router.post(
+  '/:id/yarn',
+  [
+    validateUUID('id'),
+    body('yarnId').notEmpty().isUUID(),
+    body('yardsUsed').optional().isNumeric(),
+    body('skeinsUsed').optional().isNumeric(),
+  ],
+  validate,
+  asyncHandler(projectsController.addYarnToProject)
+);
+
+/**
+ * @route   PUT /api/projects/:id/yarn/:yarnId
+ * @desc    Update yarn usage in project with automatic stash adjustment
+ * @access  Private
+ */
+router.put(
+  '/:id/yarn/:yarnId',
+  [
+    validateUUID('id'),
+    validateUUID('yarnId'),
+    body('yardsUsed').optional().isNumeric(),
+    body('skeinsUsed').optional().isNumeric(),
+  ],
+  validate,
+  asyncHandler(projectsController.updateProjectYarn)
+);
+
+/**
+ * @route   DELETE /api/projects/:id/yarn/:yarnId
+ * @desc    Remove yarn from project with stash restoration
+ * @access  Private
+ */
+router.delete(
+  '/:id/yarn/:yarnId',
+  [
+    validateUUID('id'),
+    validateUUID('yarnId'),
+  ],
+  validate,
+  asyncHandler(projectsController.removeYarnFromProject)
+);
+
+/**
+ * @route   POST /api/projects/:id/patterns
+ * @desc    Add pattern to project
+ * @access  Private
+ */
+router.post(
+  '/:id/patterns',
+  [
+    validateUUID('id'),
+    body('patternId').notEmpty().isUUID(),
+    body('modifications').optional().isString(),
+  ],
+  validate,
+  asyncHandler(projectsController.addPatternToProject)
+);
+
+/**
+ * @route   DELETE /api/projects/:id/patterns/:patternId
+ * @desc    Remove pattern from project
+ * @access  Private
+ */
+router.delete(
+  '/:id/patterns/:patternId',
+  [
+    validateUUID('id'),
+    validateUUID('patternId'),
+  ],
+  validate,
+  asyncHandler(projectsController.removePatternFromProject)
+);
+
+/**
+ * @route   POST /api/projects/:id/tools
+ * @desc    Add tool to project
+ * @access  Private
+ */
+router.post(
+  '/:id/tools',
+  [
+    validateUUID('id'),
+    body('toolId').notEmpty().isUUID(),
+  ],
+  validate,
+  asyncHandler(projectsController.addToolToProject)
+);
+
+/**
+ * @route   DELETE /api/projects/:id/tools/:toolId
+ * @desc    Remove tool from project
+ * @access  Private
+ */
+router.delete(
+  '/:id/tools/:toolId',
+  [
+    validateUUID('id'),
+    validateUUID('toolId'),
+  ],
+  validate,
+  asyncHandler(projectsController.removeToolFromProject)
+);
+
 export default router;
