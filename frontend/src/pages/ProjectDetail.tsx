@@ -16,6 +16,7 @@ import { HandwrittenNotes } from '../components/notes/HandwrittenNotes';
 import { StructuredMemoTemplates } from '../components/notes/StructuredMemoTemplates';
 import MagicMarkerManager from '../components/magic-markers/MagicMarkerManager';
 import LoadingSpinner from '../components/LoadingSpinner';
+import PatternPreview from '../components/PatternPreview';
 
 interface Project {
   id: string;
@@ -594,30 +595,13 @@ export default function ProjectDetail() {
             <CounterManager projectId={id!} />
           </div>
 
-          {/* Current Pattern Section */}
+          {/* Pattern Preview Section - Knitting Mode */}
           {project.patterns && project.patterns.length > 0 && (
-            <div className="bg-white rounded-lg shadow-lg p-4 md:p-6">
-              <h3 className="text-lg md:text-xl font-semibold text-gray-900 mb-3 md:mb-4">Current Pattern</h3>
-              <div className="space-y-3">
-                {project.patterns.slice(0, 1).map((pattern: any) => (
-                  <Link
-                    key={pattern.id}
-                    to={`/patterns/${pattern.id}`}
-                    className="block p-4 md:p-5 bg-purple-50 hover:bg-purple-100 rounded-lg transition border-2 border-purple-200"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h4 className="font-semibold text-lg md:text-xl text-gray-900">{pattern.name}</h4>
-                        {pattern.designer && (
-                          <p className="text-sm md:text-base text-gray-600">by {pattern.designer}</p>
-                        )}
-                      </div>
-                      <FiArrowLeft className="h-6 w-6 md:h-5 md:w-5 text-purple-600 transform rotate-180" />
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </div>
+            <PatternPreview
+              patterns={project.patterns}
+              projectId={id!}
+              mode="knitting"
+            />
           )}
         </div>
       ) : (
@@ -632,6 +616,15 @@ export default function ProjectDetail() {
               <h2 className="text-lg font-semibold text-gray-900 mb-3">Description</h2>
               <p className="text-gray-700 whitespace-pre-wrap">{project.description}</p>
             </div>
+          )}
+
+          {/* Pattern Preview Section - Normal Mode */}
+          {project.patterns && project.patterns.length > 0 && (
+            <PatternPreview
+              patterns={project.patterns}
+              projectId={id!}
+              mode="normal"
+            />
           )}
 
           {/* Yarn Usage Tracker */}

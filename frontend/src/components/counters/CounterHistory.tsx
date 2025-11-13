@@ -24,7 +24,7 @@ export default function CounterHistory({ counter, onClose, onUpdate }: CounterHi
       const response = await axios.get(
         `/api/projects/${counter.project_id}/counters/${counter.id}/history`
       );
-      setHistory(response.data);
+      setHistory(response.data.data.history);
     } catch (error) {
       console.error('Error fetching history:', error);
       toast.error('Failed to load history');

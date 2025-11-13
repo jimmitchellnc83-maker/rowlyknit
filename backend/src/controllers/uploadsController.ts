@@ -33,6 +33,11 @@ const patternFileUpload = multer({
   fileFilter: (req, file, cb) => {
     const allowedMimes = [
       'application/pdf',
+      'application/x-pdf',
+      'application/acrobat',
+      'applications/vnd.pdf',
+      'text/pdf',
+      'text/x-pdf',
       'image/jpeg',
       'image/jpg',
       'image/png',
@@ -41,10 +46,14 @@ const patternFileUpload = multer({
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       'text/plain',
     ];
-    if (allowedMimes.includes(file.mimetype)) {
+
+    // Also check file extension for PDFs as fallback
+    const isPdfByExtension = file.originalname.toLowerCase().endsWith('.pdf');
+
+    if (allowedMimes.includes(file.mimetype) || isPdfByExtension) {
       cb(null, true);
     } else {
-      cb(new Error('Invalid file type. Only PDF, images, and documents are allowed.'));
+      cb(new Error(`Invalid file type: ${file.mimetype}. Only PDF, images, and documents are allowed.`));
     }
   },
 });
@@ -254,10 +263,20 @@ export const deleteProjectPhoto = async (req: Request, res: Response) => {
 // ============================================
 
 // Helper function to determine file type
-const getFileType = (mimetype: string): string => {
-  if (mimetype === 'application/pdf') return 'pdf';
+const getFileType = (mimetype: string, filename?: string): string => {
+  // Check MIME type first
+  if (mimetype === 'application/pdf' || mimetype.includes('pdf')) return 'pdf';
   if (mimetype.startsWith('image/')) return 'image';
   if (mimetype.includes('word') || mimetype === 'text/plain') return 'document';
+
+  // Fallback to file extension if MIME type is not recognized
+  if (filename) {
+    const ext = filename.toLowerCase();
+    if (ext.endsWith('.pdf')) return 'pdf';
+    if (ext.match(/\.(jpg|jpeg|png|webp|gif)$/)) return 'image';
+    if (ext.match(/\.(doc|docx|txt)$/)) return 'document';
+  }
+
   return 'other';
 };
 
@@ -296,7 +315,7 @@ export const uploadPatternFile = async (req: Request, res: Response) => {
     await fs.promises.writeFile(filepath, req.file.buffer);
 
     // Determine file type
-    const fileType = getFileType(req.file.mimetype);
+    const fileType = getFileType(req.file.mimetype, req.file.originalname);
 
     // Save to database
     const [file] = await db('pattern_files')

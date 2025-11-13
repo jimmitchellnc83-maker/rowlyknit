@@ -32,7 +32,7 @@ export default function LinkCounterModal({ projectId, counters, onClose/*, onSav
     try {
       setLoading(true);
       const response = await axios.get(`/api/projects/${projectId}/counter-links`);
-      setLinks(response.data);
+      setLinks(response.data.data.links);
     } catch (error) {
       console.error('Error fetching links:', error);
       toast.error('Failed to load counter links');

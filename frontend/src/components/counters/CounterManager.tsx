@@ -30,7 +30,7 @@ export default function CounterManager({ projectId }: CounterManagerProps) {
     try {
       setLoading(true);
       const response = await axios.get(`/api/projects/${projectId}/counters`);
-      setCounters(response.data.sort((a: Counter, b: Counter) => a.sort_order - b.sort_order));
+      setCounters(response.data.data.counters.sort((a: Counter, b: Counter) => a.sort_order - b.sort_order));
     } catch (error) {
       console.error('Error fetching counters:', error);
       toast.error('Failed to load counters');
@@ -101,7 +101,7 @@ export default function CounterManager({ projectId }: CounterManagerProps) {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleReorderCounters = async (_reorderedCounters: Counter[]) => {
     try {
-      const updates = reorderedCounters.map((counter, index) => ({
+      const updates = _reorderedCounters.map((counter, index) => ({
         id: counter.id,
         sort_order: index
       }));
@@ -110,7 +110,7 @@ export default function CounterManager({ projectId }: CounterManagerProps) {
         counters: updates
       });
 
-      setCounters(reorderedCounters);
+      setCounters(_reorderedCounters);
     } catch (error) {
       console.error('Error reordering counters:', error);
       toast.error('Failed to reorder counters');

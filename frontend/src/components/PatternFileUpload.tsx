@@ -38,6 +38,12 @@ export default function PatternFileUpload({
 
   const acceptedTypes = [
     'application/pdf',
+    'application/x-pdf',
+    'application/acrobat',
+    'applications/vnd.pdf',
+    'text/pdf',
+    'text/x-pdf',
+    '.pdf',
     'image/jpeg',
     'image/jpg',
     'image/png',
@@ -48,17 +54,25 @@ export default function PatternFileUpload({
   ].join(',');
 
   const handleFileSelect = (file: File) => {
-    // Validate file type
+    // Validate file extension as primary check
+    const fileName = file.name.toLowerCase();
+    const validExtensions = ['.pdf', '.jpg', '.jpeg', '.png', '.webp', '.doc', '.docx', '.txt'];
+    const hasValidExtension = validExtensions.some(ext => fileName.endsWith(ext));
+
+    // Validate file type (MIME type)
     const validTypes = acceptedTypes.split(',').map(t => t.trim());
-    if (!validTypes.includes(file.type)) {
-      alert(`Invalid file type. Accepted types: PDF, Images, Word documents, and text files`);
+    const hasValidMimeType = validTypes.includes(file.type);
+
+    // Accept file if either extension or MIME type is valid (handles browser inconsistencies)
+    if (!hasValidExtension && !hasValidMimeType) {
+      alert(`Invalid file type: ${file.type || 'unknown'}\n\nAccepted file types:\n- PDF documents (.pdf)\n- Images (.jpg, .png, .webp)\n- Word documents (.doc, .docx)\n- Text files (.txt)\n\nPlease make sure your file has the correct extension.`);
       return;
     }
 
     // Validate file size (25MB max)
     const fileSizeMB = file.size / (1024 * 1024);
     if (fileSizeMB > 25) {
-      alert(`File size exceeds 25MB limit`);
+      alert(`File size (${fileSizeMB.toFixed(1)}MB) exceeds the 25MB limit.\n\nPlease choose a smaller file or compress your PDF.`);
       return;
     }
 
