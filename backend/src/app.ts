@@ -34,6 +34,7 @@ import sessionsRoutes from './routes/sessions';
 import patternEnhancementsRoutes from './routes/pattern-enhancements';
 import notesRoutes from './routes/notes';
 import magicMarkersRoutes from './routes/magic-markers';
+import patternBookmarksRoutes from './routes/patternBookmarks';
 
 // Create Express app
 const app: Application = express();
@@ -118,6 +119,7 @@ app.use('/api', sessionsRoutes);
 app.use('/api', patternEnhancementsRoutes);
 app.use('/api', notesRoutes);
 app.use('/api', magicMarkersRoutes);
+app.use('/api', patternBookmarksRoutes);
 
 // API documentation
 app.get('/api', (req, res) => {

@@ -9,9 +9,11 @@ import {
   FiSearch,
   FiX,
   FiMaximize,
-  FiDownload
+  FiDownload,
+  FiBookmark
 } from 'react-icons/fi';
 import { toast } from 'react-toastify';
+import BookmarkManager from './BookmarkManager';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 
@@ -21,12 +23,14 @@ pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/$
 interface PatternViewerProps {
   fileUrl: string;
   filename: string;
+  patternId?: string;
+  projectId?: string;
   onClose?: () => void;
 }
 
 const ZOOM_LEVELS = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
 
-export default function PatternViewer({ fileUrl, filename, onClose }: PatternViewerProps) {
+export default function PatternViewer({ fileUrl, filename, patternId, projectId, onClose }: PatternViewerProps) {
   const [numPages, setNumPages] = useState<number>(0);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [zoomIndex, setZoomIndex] = useState<number>(2); // Start at 1.0
@@ -34,6 +38,7 @@ export default function PatternViewer({ fileUrl, filename, onClose }: PatternVie
   const [searchText, setSearchText] = useState<string>('');
   const [showSearch, setShowSearch] = useState<boolean>(false);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+  const [showBookmarks, setShowBookmarks] = useState<boolean>(Boolean(patternId));
 
   const zoomLevel = ZOOM_LEVELS[zoomIndex];
 
@@ -90,6 +95,17 @@ export default function PatternViewer({ fileUrl, filename, onClose }: PatternVie
       document.exitFullscreen();
       setIsFullscreen(false);
     }
+  }, []);
+
+  const handleJumpToBookmark = useCallback((bookmark: any) => {
+    setCurrentPage(bookmark.page_number);
+    if (bookmark.zoom_level) {
+      const zoomIdx = ZOOM_LEVELS.findIndex(z => Math.abs(z - bookmark.zoom_level) < 0.01);
+      if (zoomIdx !== -1) {
+        setZoomIndex(zoomIdx);
+      }
+    }
+    toast.success(`Jumped to: ${bookmark.name}`);
   }, []);
 
   // Keyboard navigation
@@ -231,6 +247,16 @@ export default function PatternViewer({ fileUrl, filename, onClose }: PatternVie
             <FiSearch className="h-5 w-5" />
           </button>
 
+          {patternId && (
+            <button
+              onClick={() => setShowBookmarks(!showBookmarks)}
+              className={`p-2 hover:bg-gray-700 rounded-lg ${showBookmarks ? 'bg-gray-700' : ''}`}
+              title="Bookmarks"
+            >
+              <FiBookmark className="h-5 w-5" />
+            </button>
+          )}
+
           <button
             onClick={toggleFullscreen}
             className="p-2 hover:bg-gray-700 rounded-lg"
@@ -275,38 +301,54 @@ export default function PatternViewer({ fileUrl, filename, onClose }: PatternVie
         </div>
       )}
 
-      {/* PDF Viewer */}
-      <div className="flex-1 overflow-auto bg-gray-800 p-4">
-        <div className="flex justify-center min-h-full">
-          <Document
-            file={fileUrl}
-            onLoadSuccess={onDocumentLoadSuccess}
-            onLoadError={onDocumentLoadError}
-            loading={
-              <div className="flex items-center justify-center h-screen">
-                <div className="text-white text-lg">Loading PDF...</div>
-              </div>
-            }
-            error={
-              <div className="flex items-center justify-center h-screen">
-                <div className="text-red-500 text-lg">Failed to load PDF</div>
-              </div>
-            }
-          >
-            <Page
-              pageNumber={currentPage}
-              scale={zoomLevel}
-              rotate={rotation}
-              renderTextLayer={true}
-              renderAnnotationLayer={true}
-              className="shadow-2xl"
+      {/* Main Content Area */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Bookmark Sidebar */}
+        {showBookmarks && patternId && (
+          <div className="w-80 flex-shrink-0 border-r border-gray-700 overflow-y-auto">
+            <BookmarkManager
+              patternId={patternId}
+              projectId={projectId}
+              currentPage={currentPage}
+              currentZoom={zoomLevel}
+              onJumpToBookmark={handleJumpToBookmark}
+            />
+          </div>
+        )}
+
+        {/* PDF Viewer */}
+        <div className="flex-1 overflow-auto bg-gray-800 p-4">
+          <div className="flex justify-center min-h-full">
+            <Document
+              file={fileUrl}
+              onLoadSuccess={onDocumentLoadSuccess}
+              onLoadError={onDocumentLoadError}
               loading={
-                <div className="flex items-center justify-center min-h-screen">
-                  <div className="text-white">Loading page...</div>
+                <div className="flex items-center justify-center h-screen">
+                  <div className="text-white text-lg">Loading PDF...</div>
                 </div>
               }
-            />
-          </Document>
+              error={
+                <div className="flex items-center justify-center h-screen">
+                  <div className="text-red-500 text-lg">Failed to load PDF</div>
+                </div>
+              }
+            >
+              <Page
+                pageNumber={currentPage}
+                scale={zoomLevel}
+                rotate={rotation}
+                renderTextLayer={true}
+                renderAnnotationLayer={true}
+                className="shadow-2xl"
+                loading={
+                  <div className="flex items-center justify-center min-h-screen">
+                    <div className="text-white">Loading page...</div>
+                  </div>
+                }
+              />
+            </Document>
+          </div>
         </div>
       </div>
 

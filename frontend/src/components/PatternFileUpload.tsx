@@ -305,6 +305,7 @@ export default function PatternFileUpload({
         <PatternViewer
           fileUrl={`/api/uploads/patterns/${patternId}/files/${viewingFile.id}/download`}
           filename={viewingFile.original_filename}
+          patternId={patternId}
           onClose={() => setViewingFile(null)}
         />
       )}
