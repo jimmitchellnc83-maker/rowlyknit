@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { FiArrowLeft, FiExternalLink } from 'react-icons/fi';
+import { FiExternalLink } from 'react-icons/fi';
 import axios from 'axios';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
@@ -27,11 +27,10 @@ interface PatternFile {
 
 interface PatternPreviewProps {
   patterns: Pattern[];
-  projectId: string;
   mode?: 'normal' | 'knitting';
 }
 
-export default function PatternPreview({ patterns, projectId, mode = 'normal' }: PatternPreviewProps) {
+export default function PatternPreview({ patterns, mode = 'normal' }: PatternPreviewProps) {
   const [selectedPattern, setSelectedPattern] = useState<Pattern | null>(null);
   const [patternFiles, setPatternFiles] = useState<PatternFile[]>([]);
   const [selectedFile, setSelectedFile] = useState<PatternFile | null>(null);

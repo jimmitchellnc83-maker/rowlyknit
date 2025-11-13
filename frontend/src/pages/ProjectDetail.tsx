@@ -599,7 +599,6 @@ export default function ProjectDetail() {
           {project.patterns && project.patterns.length > 0 && (
             <PatternPreview
               patterns={project.patterns}
-              projectId={id!}
               mode="knitting"
             />
           )}
@@ -622,7 +621,6 @@ export default function ProjectDetail() {
           {project.patterns && project.patterns.length > 0 && (
             <PatternPreview
               patterns={project.patterns}
-              projectId={id!}
               mode="normal"
             />
           )}
