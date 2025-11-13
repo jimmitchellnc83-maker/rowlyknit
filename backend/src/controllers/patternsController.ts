@@ -2,6 +2,10 @@ import { Request, Response } from 'express';
 import db from '../config/database';
 import { NotFoundError, ValidationError } from '../utils/errorHandler';
 import { createAuditLog } from '../middleware/auditLog';
+import { PDFDocument, rgb } from 'pdf-lib';
+import axios from 'axios';
+import fs from 'fs';
+import path from 'path';
 
 /**
  * Get all patterns for current user
@@ -249,4 +253,137 @@ export async function getPatternStats(req: Request, res: Response) {
     success: true,
     data: { stats },
   });
+}
+
+/**
+ * Collate multiple patterns into a single PDF
+ */
+export async function collatePatterns(req: Request, res: Response) {
+  const userId = (req as any).user.userId;
+  const { patternIds, addDividers = false, dividerText = 'Pattern' } = req.body;
+
+  if (!patternIds || !Array.isArray(patternIds) || patternIds.length === 0) {
+    throw new ValidationError('Pattern IDs are required');
+  }
+
+  // Verify all patterns belong to user and have PDF files
+  const patterns = await db('patterns')
+    .whereIn('id', patternIds)
+    .where({ user_id: userId })
+    .whereNull('deleted_at');
+
+  if (patterns.length !== patternIds.length) {
+    throw new NotFoundError('One or more patterns not found');
+  }
+
+  // Get PDF files for patterns
+  const pdfFiles = await db('pattern_files')
+    .whereIn('pattern_id', patternIds)
+    .where({ file_type: 'pdf' });
+
+  if (pdfFiles.length === 0) {
+    throw new ValidationError('No PDF files found for the selected patterns');
+  }
+
+  try {
+    // Create a new PDF document
+    const mergedPdf = await PDFDocument.create();
+
+    // Process each pattern in the order specified
+    for (let i = 0; i < patternIds.length; i++) {
+      const patternId = patternIds[i];
+      const pdfFile = pdfFiles.find((f) => f.pattern_id === patternId);
+
+      if (!pdfFile) {
+        console.warn(`No PDF file found for pattern ${patternId}, skipping...`);
+        continue;
+      }
+
+      // Load the PDF file
+      let pdfBytes: Uint8Array;
+      if (pdfFile.file_path.startsWith('http')) {
+        // Remote file
+        const response = await axios.get(pdfFile.file_path, {
+          responseType: 'arraybuffer',
+        });
+        pdfBytes = new Uint8Array(response.data);
+      } else {
+        // Local file
+        const uploadDir = process.env.UPLOAD_DIR || path.join(__dirname, '../../uploads');
+        const filePath = path.join(uploadDir, pdfFile.file_path);
+        pdfBytes = new Uint8Array(fs.readFileSync(filePath));
+      }
+
+      const pdf = await PDFDocument.load(pdfBytes);
+      const copiedPages = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
+      copiedPages.forEach((page) => mergedPdf.addPage(page));
+
+      // Add divider page if requested (except after the last pattern)
+      if (addDividers && i < patternIds.length - 1) {
+        const dividerPage = mergedPdf.addPage([612, 792]); // Standard letter size
+        const pattern = patterns.find((p) => p.id === patternId);
+        const text = `${dividerText}: ${pattern?.name || 'Unknown'}`;
+
+        dividerPage.drawText(text, {
+          x: 50,
+          y: 400,
+          size: 24,
+          color: rgb(0, 0, 0),
+        });
+      }
+    }
+
+    // Save the merged PDF
+    const pdfBytes = await mergedPdf.save();
+    const uploadDir = process.env.UPLOAD_DIR || path.join(__dirname, '../../uploads');
+    const collatedDir = path.join(uploadDir, 'collated');
+
+    // Create collated directory if it doesn't exist
+    if (!fs.existsSync(collatedDir)) {
+      fs.mkdirSync(collatedDir, { recursive: true });
+    }
+
+    const timestamp = Date.now();
+    const filename = `collated-${timestamp}.pdf`;
+    const filePath = path.join(collatedDir, filename);
+
+    fs.writeFileSync(filePath, pdfBytes);
+
+    // Store collation record in database
+    const [collation] = await db('pattern_collations')
+      .insert({
+        user_id: userId,
+        pattern_ids: JSON.stringify(patternIds),
+        file_path: `collated/${filename}`,
+        file_size: pdfBytes.byteLength,
+        page_count: mergedPdf.getPageCount(),
+        created_at: new Date(),
+      })
+      .returning('*');
+
+    await createAuditLog(req, {
+      userId,
+      action: 'patterns_collated',
+      entityType: 'pattern_collation',
+      entityId: collation.id,
+      newValues: collation,
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Patterns collated successfully',
+      data: {
+        collation: {
+          id: collation.id,
+          fileUrl: `/uploads/collated/${filename}`,
+          pageCount: mergedPdf.getPageCount(),
+          fileSize: pdfBytes.byteLength,
+          patternCount: patternIds.length,
+        },
+      },
+    });
+  } catch (error) {
+    console.error('Error collating PDFs:', error);
+    throw new Error('Failed to collate PDF files');
+  }
 }

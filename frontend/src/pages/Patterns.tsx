@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { FiPlus, FiTrash2, FiBook, FiEdit2 } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
+import { PDFCollation } from '../components/patterns';
 
 interface Pattern {
   id: string;
@@ -20,6 +21,7 @@ export default function Patterns() {
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showCollationModal, setShowCollationModal] = useState(false);
   const [editingPattern, setEditingPattern] = useState<Pattern | null>(null);
   const [formData, setFormData] = useState({
     name: '',
@@ -142,13 +144,23 @@ export default function Patterns() {
           <h1 className="text-3xl font-bold text-gray-900">Patterns</h1>
           <p className="text-gray-600 mt-1">Manage your knitting pattern library</p>
         </div>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
-        >
-          <FiPlus className="mr-2" />
-          New Pattern
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={() => setShowCollationModal(true)}
+            className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+            disabled={patterns.length === 0}
+          >
+            <FiBook className="mr-2" />
+            Merge PDFs
+          </button>
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
+          >
+            <FiPlus className="mr-2" />
+            New Pattern
+          </button>
+        </div>
       </div>
 
       {patterns.length === 0 ? (
@@ -458,6 +470,26 @@ export default function Patterns() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* PDF Collation Modal */}
+      {showCollationModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-gray-900">Merge Pattern PDFs</h2>
+              <button
+                onClick={() => setShowCollationModal(false)}
+                className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
+              >
+                ×
+              </button>
+            </div>
+            <div className="p-6">
+              <PDFCollation />
+            </div>
           </div>
         </div>
       )}

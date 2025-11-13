@@ -30,6 +30,23 @@ router.get(
 router.get('/stats', asyncHandler(patternsController.getPatternStats));
 
 /**
+ * @route   POST /api/patterns/collate
+ * @desc    Collate multiple patterns into a single PDF
+ * @access  Private
+ */
+router.post(
+  '/collate',
+  [
+    body('patternIds').isArray({ min: 1 }).withMessage('Pattern IDs must be a non-empty array'),
+    body('patternIds.*').isUUID().withMessage('Each pattern ID must be a valid UUID'),
+    body('addDividers').optional().isBoolean(),
+    body('dividerText').optional().trim().isLength({ max: 255 }),
+  ],
+  validate,
+  asyncHandler(patternsController.collatePatterns)
+);
+
+/**
  * @route   GET /api/patterns/:id
  * @desc    Get single pattern by ID
  * @access  Private
