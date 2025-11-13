@@ -20,11 +20,11 @@ const WebSocketContext = createContext<WebSocketContextType | undefined>(undefin
 export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
-  const { token } = useAuthStore();
+  const { accessToken } = useAuthStore();
   const socketRef = useRef<Socket | null>(null);
 
   useEffect(() => {
-    if (!token) {
+    if (!accessToken) {
       // Disconnect if no token
       if (socketRef.current) {
         socketRef.current.disconnect();
@@ -40,7 +40,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     const newSocket = io(socketUrl, {
       auth: {
-        token,
+        token: accessToken,
       },
       transports: ['websocket', 'polling'],
       reconnection: true,
@@ -74,7 +74,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         socketRef.current = null;
       }
     };
-  }, [token]);
+  }, [accessToken]);
 
   const joinProject = useCallback((projectId: string) => {
     if (socketRef.current?.connected) {
