@@ -276,7 +276,7 @@ export const PDFCollation: React.FC = () => {
         )}
       </div>
 
-      <style jsx>{`
+      <style>{`
         .pdf-collation {
           max-width: 1200px;
           margin: 0 auto;

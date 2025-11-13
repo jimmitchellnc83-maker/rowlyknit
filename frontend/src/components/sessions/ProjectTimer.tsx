@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { Timer, Plus, Edit2, Trash2, CheckCircle, Circle } from 'lucide-react';
+import { FiClock, FiPlus, FiTrash2, FiCheckCircle, FiCircle } from 'react-icons/fi';
 import { ProjectMilestone } from '../../types/counter.types';
-import { formatDuration } from 'date-fns';
+import { formatDuration as _formatDuration } from 'date-fns';
 
 interface ProjectTimerProps {
   projectId: string;
@@ -25,7 +25,7 @@ export const ProjectTimer: React.FC<ProjectTimerProps> = ({
   onDeleteMilestone,
 }) => {
   const [showAddModal, setShowAddModal] = useState(false);
-  const [editingMilestone, setEditingMilestone] = useState<ProjectMilestone | null>(null);
+  const [_editingMilestone, _setEditingMilestone] = useState<ProjectMilestone | null>(null);
   const [newMilestone, setNewMilestone] = useState({
     name: '',
     target_rows: 0,
@@ -101,14 +101,14 @@ export const ProjectTimer: React.FC<ProjectTimerProps> = ({
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-          <Timer className="w-5 h-5" />
+          <FiClock className="w-5 h-5" />
           Project Progress
         </h3>
         <button
           onClick={() => setShowAddModal(true)}
           className="flex items-center gap-1 px-3 py-1 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
         >
-          <Plus className="w-4 h-4" />
+          <FiPlus className="w-4 h-4" />
           Add Milestone
         </button>
       </div>
@@ -173,7 +173,7 @@ export const ProjectTimer: React.FC<ProjectTimerProps> = ({
 
         {milestones.length === 0 ? (
           <div className="text-center py-6 text-gray-500 dark:text-gray-400">
-            <Circle className="w-8 h-8 mx-auto mb-2 opacity-50" />
+            <FiCircle className="w-8 h-8 mx-auto mb-2 opacity-50" />
             <p className="text-sm">No milestones yet</p>
             <p className="text-xs mt-1">Break down your project into manageable sections</p>
           </div>
@@ -206,9 +206,9 @@ export const ProjectTimer: React.FC<ProjectTimerProps> = ({
                           className="mt-0.5"
                         >
                           {isCompleted ? (
-                            <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
+                            <FiCheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
                           ) : (
-                            <Circle className="w-5 h-5 text-gray-400" />
+                            <FiCircle className="w-5 h-5 text-gray-400" />
                           )}
                         </button>
                         <div className="flex-1">
@@ -239,7 +239,7 @@ export const ProjectTimer: React.FC<ProjectTimerProps> = ({
                         onClick={() => onDeleteMilestone(milestone.id)}
                         className="text-red-600 hover:text-red-700 dark:text-red-400 p-1"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <FiTrash2 className="w-4 h-4" />
                       </button>
                     </div>
 

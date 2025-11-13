@@ -11,7 +11,7 @@ interface LinkCounterModalProps {
   onSave: () => void;
 }
 
-export default function LinkCounterModal({ projectId, counters, onClose, onSave }: LinkCounterModalProps) {
+export default function LinkCounterModal({ projectId, counters, onClose/*, onSave */ }: LinkCounterModalProps) {
   const [links, setLinks] = useState<CounterLink[]>([]);
   const [loading, setLoading] = useState(true);
 

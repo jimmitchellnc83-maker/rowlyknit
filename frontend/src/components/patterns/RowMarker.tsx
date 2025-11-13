@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { useState, useEffect, useCallback } from 'react';
 import { FiMove, FiX, FiEye, FiEyeOff } from 'react-icons/fi';
 

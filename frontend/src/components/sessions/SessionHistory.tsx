@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { History, Clock, TrendingUp, Calendar, MapPin } from 'lucide-react';
+import { FiClock, FiTrendingUp, FiMapPin } from 'react-icons/fi';
 import { KnittingSession } from '../../types/counter.types';
-import { formatDistanceToNow, format } from 'date-fns';
+import { format } from 'date-fns';
 
 interface SessionHistoryProps {
   sessions: KnittingSession[];
@@ -73,11 +73,11 @@ export const SessionHistory: React.FC<SessionHistoryProps> = ({
     return (
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2 mb-4">
-          <History className="w-5 h-5" />
+          <FiClock className="w-5 h-5" />
           Session History
         </h3>
         <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-          <Clock className="w-12 h-12 mx-auto mb-3 opacity-50" />
+          <FiClock className="w-12 h-12 mx-auto mb-3 opacity-50" />
           <p>No sessions recorded yet</p>
           <p className="text-sm mt-1">Start a knitting session to track your progress</p>
         </div>
@@ -88,7 +88,7 @@ export const SessionHistory: React.FC<SessionHistoryProps> = ({
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
       <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2 mb-4">
-        <History className="w-5 h-5" />
+        <FiClock className="w-5 h-5" />
         Session History
       </h3>
 
@@ -179,7 +179,7 @@ export const SessionHistory: React.FC<SessionHistoryProps> = ({
                   {/* Stats */}
                   <div className="grid grid-cols-2 gap-4 mb-3">
                     <div className="flex items-center gap-2 text-sm">
-                      <TrendingUp className="w-4 h-4 text-gray-500" />
+                      <FiTrendingUp className="w-4 h-4 text-gray-500" />
                       <span className="text-gray-600 dark:text-gray-400">Pace:</span>
                       <span className="font-medium text-gray-900 dark:text-white">
                         {rowsPerHour} rows/hour
@@ -187,7 +187,7 @@ export const SessionHistory: React.FC<SessionHistoryProps> = ({
                     </div>
                     {session.location && (
                       <div className="flex items-center gap-2 text-sm">
-                        <MapPin className="w-4 h-4 text-gray-500" />
+                        <FiMapPin className="w-4 h-4 text-gray-500" />
                         <span className="text-gray-600 dark:text-gray-400">Location:</span>
                         <span className="font-medium text-gray-900 dark:text-white">
                           {session.location}

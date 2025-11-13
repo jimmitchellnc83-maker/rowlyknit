@@ -114,7 +114,6 @@ export const SessionManager: React.FC<SessionManagerProps> = ({
       const response = await axios.post(`/api/projects/${projectId}/milestones`, {
         name: milestone.name,
         targetRows: milestone.target_rows,
-        notes: milestone.notes,
       });
       const newMilestone = response.data.success ? response.data.data.milestone : response.data;
       setMilestones([...milestones, newMilestone]);
@@ -137,7 +136,6 @@ export const SessionManager: React.FC<SessionManagerProps> = ({
           actualRows: updates.actual_rows,
           timeSpentSeconds: updates.time_spent_seconds,
           completedAt: updates.completed_at,
-          notes: updates.notes,
         }
       );
       const updatedMilestone = response.data.success ? response.data.data.milestone : response.data;

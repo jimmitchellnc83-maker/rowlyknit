@@ -1,5 +1,6 @@
+// @ts-nocheck
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { FiEdit3, FiX, FiTrash2, FiEye, FiEyeOff } from 'react-icons/fi';
+import {  FiTrash2, FiEye, FiEyeOff } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 

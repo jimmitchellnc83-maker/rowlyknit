@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react';
+import { FiAlertTriangle, FiChevronDown, FiChevronUp } from 'react-icons/fi';
 
 export interface DataConflict {
   id: string;
@@ -88,7 +88,7 @@ export const ConflictResolver: React.FC<ConflictResolverProps> = ({
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 border-2 border-orange-500">
       <div className="flex items-center gap-2 mb-4">
-        <AlertTriangle className="w-6 h-6 text-orange-600" />
+        <FiAlertTriangle className="w-6 h-6 text-orange-600" />
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
           Sync Conflicts Detected
         </h3>
@@ -132,7 +132,7 @@ export const ConflictResolver: React.FC<ConflictResolverProps> = ({
                 className="w-full px-4 py-3 flex items-center justify-between hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors"
               >
                 <div className="flex items-center gap-3 text-left">
-                  <AlertTriangle className="w-5 h-5 text-orange-600 flex-shrink-0" />
+                  <FiAlertTriangle className="w-5 h-5 text-orange-600 flex-shrink-0" />
                   <div>
                     <div className="font-medium text-gray-900 dark:text-white">
                       {getResourceTypeLabel(conflict.resourceType)} - {conflict.field}
@@ -143,9 +143,9 @@ export const ConflictResolver: React.FC<ConflictResolverProps> = ({
                   </div>
                 </div>
                 {isExpanded ? (
-                  <ChevronUp className="w-5 h-5 text-gray-400" />
+                  <FiChevronUp className="w-5 h-5 text-gray-400" />
                 ) : (
-                  <ChevronDown className="w-5 h-5 text-gray-400" />
+                  <FiChevronDown className="w-5 h-5 text-gray-400" />
                 )}
               </button>
 

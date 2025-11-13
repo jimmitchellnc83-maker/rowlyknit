@@ -9,7 +9,7 @@ import {
   FiSearch,
   FiX,
   FiMaximize,
-  FiDownload,
+  
   FiBookmark,
   FiMove,
   FiEdit3
@@ -41,7 +41,7 @@ export default function PatternViewer({ fileUrl, filename, patternId, projectId,
   const [rotation, setRotation] = useState<number>(0);
   const [searchText, setSearchText] = useState<string>('');
   const [showSearch, setShowSearch] = useState<boolean>(false);
-  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+  const [_isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [showBookmarks, setShowBookmarks] = useState<boolean>(Boolean(patternId));
   const [showRowMarker, setShowRowMarker] = useState<boolean>(false);
   const [showHighlighter, setShowHighlighter] = useState<boolean>(false);

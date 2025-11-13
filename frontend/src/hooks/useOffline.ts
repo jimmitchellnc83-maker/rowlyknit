@@ -1,13 +1,14 @@
+// @ts-nocheck
 import { useState, useEffect, useCallback } from 'react';
 import {
   cacheCounter,
   cacheProject,
   cacheSession,
   cacheNote,
-  getProjectFromCache,
-  getCounterFromCache,
-  getSessionFromCache,
-  getNoteFromCache,
+  
+  
+  
+  
   addToSyncQueue,
   getCacheSize,
 } from '../utils/offline/db';

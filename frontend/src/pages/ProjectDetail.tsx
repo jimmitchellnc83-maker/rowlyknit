@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   FiArrowLeft, FiEdit2, FiTrash2, FiCalendar, FiClock, FiCheck, FiImage,
-  FiPlus, FiX, FiPackage, FiTool, FiUser, FiAlertCircle, FiMic, FiPlay, FiPause, FiEye, FiEyeOff
+  FiPlus, FiX, FiPackage,  FiUser, FiAlertCircle, FiMic, FiPlay, FiPause, FiEye, FiEyeOff
 } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';

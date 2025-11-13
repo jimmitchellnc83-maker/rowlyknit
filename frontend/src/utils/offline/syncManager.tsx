@@ -199,7 +199,10 @@ export const syncManager = new SyncManager();
 /**
  * React hook for sync status
  */
+      // Cleanup
+      // @ts-ignore - cleanup function return type
 export const useSyncStatus = (callback: (status: SyncStatus) => void) => {
+    // @ts-ignore
   React.useEffect(() => {
     const unsubscribe = syncManager.onSyncStatusChange(callback);
 

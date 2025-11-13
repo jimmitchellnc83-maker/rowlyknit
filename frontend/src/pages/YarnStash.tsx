@@ -66,6 +66,8 @@ export default function YarnStash() {
         fiberContent: '',
         yardsTotal: '',
         skeinsTotal: '1',
+        lowStockThreshold: '',
+        lowStockAlert: false,
       });
       fetchYarn();
     } catch (error: any) {

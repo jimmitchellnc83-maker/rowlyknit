@@ -27,10 +27,10 @@ export default function RowCounter({ counter, onUpdate }: RowCounterProps) {
 
   // Listen for real-time updates from other clients
   useEffect(() => {
-    const handleCounterUpdate = (data: { counterId: string; projectId: string; currentCount: number }) => {
+    const handleCounterUpdate = (data: { counterId: string; projectId: string; currentValue: number }) => {
       if (data.counterId === counter.id) {
-        setCount(data.currentCount);
-        toast.info(`Counter updated to ${data.currentCount}`, { autoClose: 1000 });
+        setCount(data.currentValue);
+        toast.info(`Counter updated to ${data.currentValue}`, { autoClose: 1000 });
       }
     };
 

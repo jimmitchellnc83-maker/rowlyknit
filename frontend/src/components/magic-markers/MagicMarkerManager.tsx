@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FiAlertCircle, FiPlus, FiEdit2, FiTrash2, FiToggleLeft, FiToggleRight } from 'react-icons/fi';
+import { FiAlertCircle, FiPlus,  FiTrash2, FiToggleLeft, FiToggleRight } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 
@@ -45,7 +45,7 @@ const ALERT_TYPES = [
 export default function MagicMarkerManager({ projectId, counters }: MagicMarkerManagerProps) {
   const [markers, setMarkers] = useState<MagicMarker[]>([]);
   const [showModal, setShowModal] = useState(false);
-  const [editingMarker, setEditingMarker] = useState<MagicMarker | null>(null);
+  const [_editingMarker, _setEditingMarker] = useState<MagicMarker | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     counterId: '',
