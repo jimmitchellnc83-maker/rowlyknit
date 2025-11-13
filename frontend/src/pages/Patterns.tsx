@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { FiPlus, FiTrash2, FiBook, FiEdit2 } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
@@ -14,6 +15,7 @@ interface Pattern {
 }
 
 export default function Patterns() {
+  const navigate = useNavigate();
   const [patterns, setPatterns] = useState<Pattern[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -167,54 +169,69 @@ export default function Patterns() {
           {patterns.map((pattern) => (
             <div
               key={pattern.id}
-              className="bg-white rounded-lg shadow hover:shadow-lg transition p-6"
+              className="bg-white rounded-lg shadow hover:shadow-lg transition"
             >
-              <div className="flex items-start justify-between mb-3">
-                <h3 className="text-lg font-semibold text-gray-900 flex-1">
-                  {pattern.name}
-                </h3>
-                {pattern.difficulty && (
-                  <span
-                    className={`px-2 py-1 text-xs font-medium rounded-full ${getDifficultyColor(
-                      pattern.difficulty
-                    )}`}
-                  >
-                    {pattern.difficulty}
-                  </span>
+              {/* Clickable card area */}
+              <div
+                onClick={() => navigate(`/patterns/${pattern.id}`)}
+                className="cursor-pointer p-6 pb-4"
+              >
+                <div className="flex items-start justify-between mb-3">
+                  <h3 className="text-lg font-semibold text-gray-900 flex-1 hover:text-purple-600 transition">
+                    {pattern.name}
+                  </h3>
+                  {pattern.difficulty && (
+                    <span
+                      className={`px-2 py-1 text-xs font-medium rounded-full ${getDifficultyColor(
+                        pattern.difficulty
+                      )}`}
+                    >
+                      {pattern.difficulty}
+                    </span>
+                  )}
+                </div>
+
+                {pattern.designer && (
+                  <p className="text-sm text-gray-600 mb-2">by {pattern.designer}</p>
+                )}
+
+                {pattern.description && (
+                  <p className="text-gray-600 text-sm mb-4 line-clamp-2">
+                    {pattern.description}
+                  </p>
+                )}
+
+                {pattern.category && (
+                  <div className="text-sm text-gray-500 mb-2">
+                    Category: {pattern.category}
+                  </div>
                 )}
               </div>
 
-              {pattern.designer && (
-                <p className="text-sm text-gray-600 mb-2">by {pattern.designer}</p>
-              )}
-
-              {pattern.description && (
-                <p className="text-gray-600 text-sm mb-4 line-clamp-2">
-                  {pattern.description}
-                </p>
-              )}
-
-              {pattern.category && (
-                <div className="text-sm text-gray-500 mb-4">
-                  Category: {pattern.category}
+              {/* Action buttons */}
+              <div className="px-6 pb-6">
+                <div className="flex items-center gap-2 pt-4 border-t border-gray-200">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleEditClick(pattern);
+                    }}
+                    className="flex-1 px-3 py-2 bg-purple-50 text-purple-600 rounded-lg hover:bg-purple-100 transition flex items-center justify-center text-sm"
+                  >
+                    <FiEdit2 className="mr-2 h-4 w-4" />
+                    Edit
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeletePattern(pattern.id, pattern.name);
+                    }}
+                    className="flex-1 px-3 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition flex items-center justify-center text-sm"
+                  >
+                    <FiTrash2 className="mr-2 h-4 w-4" />
+                    Delete
+                  </button>
                 </div>
-              )}
-
-              <div className="flex items-center gap-2 pt-4 border-t border-gray-200">
-                <button
-                  onClick={() => handleEditClick(pattern)}
-                  className="flex-1 px-3 py-2 bg-purple-50 text-purple-600 rounded-lg hover:bg-purple-100 transition flex items-center justify-center text-sm"
-                >
-                  <FiEdit2 className="mr-2 h-4 w-4" />
-                  Edit
-                </button>
-                <button
-                  onClick={() => handleDeletePattern(pattern.id, pattern.name)}
-                  className="flex-1 px-3 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition flex items-center justify-center text-sm"
-                >
-                  <FiTrash2 className="mr-2 h-4 w-4" />
-                  Delete
-                </button>
               </div>
             </div>
           ))}
