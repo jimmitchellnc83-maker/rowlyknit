@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react';
-import { FiUpload, FiX, FiFile, FiImage, FiFileText, FiDownload, FiTrash2 } from 'react-icons/fi';
+import { FiUpload, FiX, FiFile, FiImage, FiFileText, FiDownload, FiTrash2, FiEye } from 'react-icons/fi';
+import PatternViewer from './patterns/PatternViewer';
 
 interface PatternFile {
   id: string;
@@ -18,6 +19,7 @@ interface PatternFileUploadProps {
   onUpload: (file: File, description?: string) => Promise<void>;
   onDelete: (fileId: string) => Promise<void>;
   onDownload: (fileId: string, filename: string) => Promise<void>;
+  patternId?: string;
 }
 
 export default function PatternFileUpload({
@@ -25,11 +27,13 @@ export default function PatternFileUpload({
   onUpload,
   onDelete,
   onDownload,
+  patternId,
 }: PatternFileUploadProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [description, setDescription] = useState('');
   const [uploading, setUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
+  const [viewingFile, setViewingFile] = useState<PatternFile | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const acceptedTypes = [
@@ -262,6 +266,15 @@ export default function PatternFileUpload({
                 </div>
 
                 <div className="flex items-center space-x-2 ml-4">
+                  {file.file_type === 'pdf' && patternId && (
+                    <button
+                      onClick={() => setViewingFile(file)}
+                      className="p-2 text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg transition-colors"
+                      title="View PDF"
+                    >
+                      <FiEye className="w-5 h-5" />
+                    </button>
+                  )}
                   <button
                     onClick={() => onDownload(file.id, file.original_filename)}
                     className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
@@ -285,6 +298,15 @@ export default function PatternFileUpload({
             ))}
           </div>
         </div>
+      )}
+
+      {/* PDF Viewer Modal */}
+      {viewingFile && viewingFile.file_type === 'pdf' && patternId && (
+        <PatternViewer
+          fileUrl={`/api/uploads/patterns/${patternId}/files/${viewingFile.id}/download`}
+          filename={viewingFile.original_filename}
+          onClose={() => setViewingFile(null)}
+        />
       )}
     </div>
   );

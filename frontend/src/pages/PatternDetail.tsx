@@ -359,6 +359,7 @@ export default function PatternDetail() {
         onUpload={handleFileUpload}
         onDelete={handleFileDelete}
         onDownload={handleFileDownload}
+        patternId={id}
       />
 
       {/* Edit Modal */}
