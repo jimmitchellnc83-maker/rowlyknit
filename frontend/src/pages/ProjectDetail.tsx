@@ -11,6 +11,10 @@ import FileUpload from '../components/FileUpload';
 import CounterManager from '../components/counters/CounterManager';
 import { SessionManager } from '../components/sessions';
 import { useWebSocket } from '../contexts/WebSocketContext';
+import { AudioNotes } from '../components/notes/AudioNotes';
+import { HandwrittenNotes } from '../components/notes/HandwrittenNotes';
+import { StructuredMemoTemplates } from '../components/notes/StructuredMemoTemplates';
+import MagicMarkerManager from '../components/magic-markers/MagicMarkerManager';
 
 interface Project {
   id: string;
@@ -39,6 +43,10 @@ export default function ProjectDetail() {
   const [photos, setPhotos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showEditModal, setShowEditModal] = useState(false);
+
+  // Notes state
+  const [audioNotes, setAudioNotes] = useState<any[]>([]);
+  const [structuredMemos, setStructuredMemos] = useState<any[]>([]);
 
   // Modal states for adding items
   const [showAddPatternModal, setShowAddPatternModal] = useState(false);
@@ -69,6 +77,8 @@ export default function ProjectDetail() {
     fetchProject();
     fetchPhotos();
     fetchAvailableItems();
+    fetchAudioNotes();
+    fetchStructuredMemos();
 
     if (id) {
       joinProject(id);
@@ -259,6 +269,97 @@ export default function ProjectDetail() {
       setPhotos(response.data.data.photos);
     } catch (error: any) {
       console.error('Error fetching photos:', error);
+    }
+  };
+
+  const fetchAudioNotes = async () => {
+    try {
+      const response = await axios.get(`/api/projects/${id}/audio-notes`);
+      setAudioNotes(response.data.data.audioNotes || []);
+    } catch (error: any) {
+      console.error('Error fetching audio notes:', error);
+    }
+  };
+
+  const fetchStructuredMemos = async () => {
+    try {
+      const response = await axios.get(`/api/projects/${id}/structured-memos`);
+      setStructuredMemos(response.data.data.memos || []);
+    } catch (error: any) {
+      console.error('Error fetching structured memos:', error);
+    }
+  };
+
+  const handleSaveAudioNote = async (audioBlob: Blob, transcription?: string) => {
+    const formData = new FormData();
+    formData.append('audio', audioBlob, 'audio-note.webm');
+    if (transcription) {
+      formData.append('transcription', transcription);
+    }
+
+    try {
+      await axios.post(`/api/projects/${id}/audio-notes`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      toast.success('Audio note saved!');
+      fetchAudioNotes();
+    } catch (error: any) {
+      console.error('Error saving audio note:', error);
+      toast.error('Failed to save audio note');
+      throw error;
+    }
+  };
+
+  const handleDeleteAudioNote = async (noteId: string) => {
+    try {
+      await axios.delete(`/api/projects/${id}/audio-notes/${noteId}`);
+      toast.success('Audio note deleted');
+      fetchAudioNotes();
+    } catch (error: any) {
+      console.error('Error deleting audio note:', error);
+      toast.error('Failed to delete audio note');
+      throw error;
+    }
+  };
+
+  const handleUpdateAudioTranscription = async (noteId: string, transcription: string) => {
+    try {
+      await axios.put(`/api/projects/${id}/audio-notes/${noteId}`, { transcription });
+      toast.success('Transcription updated');
+      fetchAudioNotes();
+    } catch (error: any) {
+      console.error('Error updating transcription:', error);
+      toast.error('Failed to update transcription');
+      throw error;
+    }
+  };
+
+  const handleSaveStructuredMemo = async (templateType: string, data: any) => {
+    try {
+      await axios.post(`/api/projects/${id}/structured-memos`, {
+        templateType,
+        data,
+      });
+      toast.success('Memo saved!');
+      fetchStructuredMemos();
+    } catch (error: any) {
+      console.error('Error saving memo:', error);
+      toast.error('Failed to save memo');
+      throw error;
+    }
+  };
+
+  const handleDeleteStructuredMemo = async (memoId: string) => {
+    try {
+      await axios.delete(`/api/projects/${id}/structured-memos/${memoId}`);
+      toast.success('Memo deleted');
+      fetchStructuredMemos();
+    } catch (error: any) {
+      console.error('Error deleting memo:', error);
+      toast.error('Failed to delete memo');
+      throw error;
     }
   };
 
@@ -536,6 +637,14 @@ export default function ProjectDetail() {
             <CounterManager projectId={id!} />
           </div>
 
+          {/* Magic Markers */}
+          <div className="bg-white rounded-lg shadow p-6">
+            <MagicMarkerManager
+              projectId={id!}
+              counters={project?.counters || []}
+            />
+          </div>
+
           {/* Session Management */}
           <SessionManager
             projectId={id!}
@@ -545,6 +654,48 @@ export default function ProjectDetail() {
               // This is a placeholder - you may need to lift state up or use context
               return {};
             }}
+          />
+
+          {/* Audio Notes */}
+          <AudioNotes
+            projectId={id!}
+            notes={audioNotes}
+            onSaveNote={handleSaveAudioNote}
+            onDeleteNote={handleDeleteAudioNote}
+            onUpdateTranscription={handleUpdateAudioTranscription}
+          />
+
+          {/* Handwritten Notes */}
+          <HandwrittenNotes
+            projectId={id!}
+            onSave={async (imageData) => {
+              try {
+                // Convert base64 to blob
+                const response = await fetch(imageData);
+                const blob = await response.blob();
+
+                const formData = new FormData();
+                formData.append('image', blob, 'handwritten-note.png');
+
+                await axios.post(`/api/projects/${id}/handwritten-notes`, formData, {
+                  headers: {
+                    'Content-Type': 'multipart/form-data',
+                  },
+                });
+                toast.success('Handwritten note saved!');
+              } catch (error) {
+                console.error('Error saving handwritten note:', error);
+                throw error;
+              }
+            }}
+          />
+
+          {/* Structured Memos */}
+          <StructuredMemoTemplates
+            projectId={id!}
+            memos={structuredMemos}
+            onSaveMemo={handleSaveStructuredMemo}
+            onDeleteMemo={handleDeleteStructuredMemo}
           />
         </div>
 

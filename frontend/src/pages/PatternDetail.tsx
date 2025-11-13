@@ -4,6 +4,7 @@ import { FiArrowLeft, FiEdit2, FiTrash2 } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import PatternFileUpload from '../components/PatternFileUpload';
+import BookmarkManager from '../components/patterns/BookmarkManager';
 
 interface Pattern {
   id: string;
@@ -361,6 +362,17 @@ export default function PatternDetail() {
         onDownload={handleFileDownload}
         patternId={id}
       />
+
+      {/* Bookmarks */}
+      <div className="bg-white rounded-lg shadow p-6 mb-6">
+        <BookmarkManager
+          patternId={id!}
+          onJumpToBookmark={(bookmark) => {
+            toast.info(`Jumping to page ${bookmark.page_number}`);
+            // You can extend this to actually navigate to the page in a PDF viewer
+          }}
+        />
+      </div>
 
       {/* Edit Modal */}
       {showEditModal && (
