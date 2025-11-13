@@ -1,7 +1,14 @@
 # Nginx SSL Configuration Fix - Deployment Instructions
 
 ## Summary
-The nginx configuration has been updated to fix SSL certificate issues and deprecated HTTP/2 syntax warnings. All changes have been committed to the repository.
+The nginx configuration has been updated to fix **CRITICAL** deployment issues:
+- ✅ SSL certificate configuration (self-signed for development)
+- ✅ HTTP/2 deprecation warnings fixed
+- ✅ **CRITICAL:** Duplicate server block conflicts resolved
+- ✅ **CRITICAL:** Backend references fixed for Docker (localhost → container names)
+- ✅ **CRITICAL:** Frontend proxy configuration fixed for Docker
+
+All changes have been committed to the repository.
 
 ## Changes Made
 
@@ -19,8 +26,19 @@ The nginx configuration has been updated to fix SSL certificate issues and depre
   - Changed from: `listen 443 ssl http2;`
   - Changed to: `listen 443 ssl;` + `http2 on;`
 
-### 3. Documentation
+### 3. Fixed Docker Configuration Issues
+- **Disabled duplicate config file** `rowly.conf` (renamed to `.disabled`)
+- **Updated backend references** in `rowlyknit.conf`:
+  - Changed from: `http://localhost:5000` (doesn't work in Docker)
+  - Changed to: `http://backend:5000` (Docker service name)
+- **Fixed frontend serving**:
+  - Changed from: Static file serving from `/home/rowly/rowlyknit/frontend/dist`
+  - Changed to: Proxy to `http://frontend:80` (Docker container)
+- **Fixed uploads path**: `/home/rowly/...` → `/usr/share/nginx/html/uploads`
+
+### 4. Documentation
 - Created `deployment/ssl/README.md` with instructions for SSL setup and Let's Encrypt migration
+- Created `NGINX_CONFIG_FIXES.md` with detailed configuration change documentation
 
 ## Deployment Steps
 
@@ -158,6 +176,10 @@ If nginx still fails after deployment:
    docker compose exec nginx nginx -t
    ```
 
-## Commit Reference
+## Commit References
 
-All changes committed in: `2c4ad7b - fix: Resolve nginx SSL certificate issues and update configuration`
+- `2c4ad7b` - fix: Resolve nginx SSL certificate issues and update configuration
+- `5885075` - docs: Add deployment instructions for nginx SSL configuration fix
+- `89edcaf` - fix: Resolve critical nginx configuration issues for Docker deployment
+
+**All critical issues have been resolved. The application is ready for deployment.**
