@@ -19,6 +19,11 @@ export default function CounterCard({ counter, onUpdate, onEdit, onDelete, onTog
   const [showMenu, setShowMenu] = useState(false);
   const recognitionRef = useRef<any>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  // Swipe gesture state
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [touchEnd, setTouchEnd] = useState<number | null>(null);
 
   const { isConnected, emitCounterIncrement, emitCounterDecrement, emitCounterReset, onCounterUpdate, offCounterUpdate } = useWebSocket();
 
@@ -147,6 +152,34 @@ export default function CounterCard({ counter, onUpdate, onEdit, onDelete, onTog
     }
   };
 
+  // Swipe gesture handlers
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchEnd(null);
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > 50;
+    const isRightSwipe = distance < -50;
+
+    if (isLeftSwipe) {
+      // Swipe left = increment
+      handleIncrement();
+    }
+
+    if (isRightSwipe) {
+      // Swipe right = decrement
+      handleDecrement();
+    }
+  };
+
   const playFeedbackSound = (type: 'increment' | 'decrement') => {
     try {
       const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -248,8 +281,12 @@ export default function CounterCard({ counter, onUpdate, onEdit, onDelete, onTog
 
   return (
     <div
-      className="border-2 rounded-xl p-4 md:p-6 bg-gradient-to-br from-white to-gray-50 shadow-sm hover:shadow-md transition-shadow"
+      ref={cardRef}
+      className="border-2 rounded-xl p-4 md:p-6 bg-gradient-to-br from-white to-gray-50 shadow-sm hover:shadow-md transition-shadow select-none"
       style={{ borderColor: counter.display_color }}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
     >
       {/* Header */}
       <div className="flex items-center justify-between mb-4">

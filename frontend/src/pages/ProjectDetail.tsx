@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   FiArrowLeft, FiEdit2, FiTrash2, FiCalendar, FiClock, FiCheck, FiImage,
-  FiPlus, FiX, FiPackage, FiTool, FiUser, FiAlertCircle
+  FiPlus, FiX, FiPackage, FiTool, FiUser, FiAlertCircle, FiMic, FiPlay, FiPause, FiEye, FiEyeOff
 } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
@@ -43,6 +43,11 @@ export default function ProjectDetail() {
   const [photos, setPhotos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showEditModal, setShowEditModal] = useState(false);
+
+  // Knitting Mode state
+  const [knittingMode, setKnittingMode] = useState(false);
+  const [isSessionActive, setIsSessionActive] = useState(false);
+  const [sessionStartTime, setSessionStartTime] = useState<Date | null>(null);
 
   // Notes state
   const [audioNotes, setAudioNotes] = useState<any[]>([]);
@@ -364,6 +369,35 @@ export default function ProjectDetail() {
     }
   };
 
+  const handleToggleKnittingMode = () => {
+    setKnittingMode(!knittingMode);
+    if (!knittingMode) {
+      toast.success('Knitting Mode activated! 🧶');
+    } else {
+      toast.info('Knitting Mode deactivated');
+    }
+  };
+
+  const handleToggleSession = async () => {
+    if (!isSessionActive) {
+      // Start session
+      setIsSessionActive(true);
+      setSessionStartTime(new Date());
+      toast.success('Knitting session started! 🎉');
+    } else {
+      // Stop session
+      setIsSessionActive(false);
+      const duration = sessionStartTime ? Math.round((new Date().getTime() - sessionStartTime.getTime()) / 60000) : 0;
+      setSessionStartTime(null);
+      toast.success(`Session ended! Duration: ${duration} minutes`);
+    }
+  };
+
+  const handleQuickVoiceNote = () => {
+    toast.info('Voice note recording - feature coming soon!');
+    // This would trigger the audio recording functionality
+  };
+
   const handlePhotoUpload = async (file: File) => {
     const formData = new FormData();
     formData.append('photo', file);
@@ -476,26 +510,118 @@ export default function ProjectDetail() {
             )}
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
+            <button
+              onClick={handleToggleKnittingMode}
+              className={`px-4 py-3 md:py-2 rounded-lg transition flex items-center min-h-[48px] md:min-h-0 ${
+                knittingMode
+                  ? 'bg-green-600 text-white hover:bg-green-700'
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              }`}
+            >
+              {knittingMode ? <FiEyeOff className="mr-2 h-5 w-5 md:h-4 md:w-4" /> : <FiEye className="mr-2 h-5 w-5 md:h-4 md:w-4" />}
+              <span className="text-base md:text-sm">{knittingMode ? 'Exit Knitting Mode' : 'Knitting Mode'}</span>
+            </button>
             <button
               onClick={() => setShowEditModal(true)}
-              className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition flex items-center"
+              className="px-4 py-3 md:py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition flex items-center min-h-[48px] md:min-h-0"
             >
-              <FiEdit2 className="mr-2" />
-              Edit
+              <FiEdit2 className="mr-2 h-5 w-5 md:h-4 md:w-4" />
+              <span className="text-base md:text-sm">Edit</span>
             </button>
             <button
               onClick={handleDelete}
-              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition flex items-center"
+              className="px-4 py-3 md:py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition flex items-center min-h-[48px] md:min-h-0"
             >
-              <FiTrash2 className="mr-2" />
-              Delete
+              <FiTrash2 className="mr-2 h-5 w-5 md:h-4 md:w-4" />
+              <span className="text-base md:text-sm">Delete</span>
             </button>
           </div>
         </div>
       </div>
 
-      {/* Project Details Grid */}
+      {/* Knitting Mode - Simplified UI */}
+      {knittingMode ? (
+        <div className="space-y-4 md:space-y-6">
+          {/* Quick Action Bar */}
+          <div className="bg-gradient-to-r from-green-600 to-green-700 rounded-lg shadow-lg p-4 md:p-6">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-3 text-white">
+                <div className={`w-4 h-4 rounded-full ${isSessionActive ? 'bg-red-500 animate-pulse' : 'bg-white/50'}`}></div>
+                <span className="font-semibold text-lg md:text-xl">
+                  {isSessionActive ? 'Knitting in Progress' : 'Ready to Start'}
+                </span>
+              </div>
+
+              <div className="flex gap-3 w-full md:w-auto">
+                <button
+                  onClick={handleToggleSession}
+                  className={`flex-1 md:flex-initial px-6 py-4 md:py-3 rounded-lg font-semibold transition flex items-center justify-center gap-2 min-h-[64px] md:min-h-[56px] ${
+                    isSessionActive
+                      ? 'bg-red-500 hover:bg-red-600 text-white'
+                      : 'bg-white hover:bg-gray-100 text-green-700'
+                  }`}
+                >
+                  {isSessionActive ? (
+                    <>
+                      <FiPause className="h-6 w-6 md:h-5 md:w-5" />
+                      <span className="text-base md:text-sm">Stop Session</span>
+                    </>
+                  ) : (
+                    <>
+                      <FiPlay className="h-6 w-6 md:h-5 md:w-5" />
+                      <span className="text-base md:text-sm">Start Session</span>
+                    </>
+                  )}
+                </button>
+
+                <button
+                  onClick={handleQuickVoiceNote}
+                  className="px-6 py-4 md:py-3 bg-white hover:bg-gray-100 text-green-700 rounded-lg font-semibold transition flex items-center justify-center gap-2 min-h-[64px] md:min-h-[56px]"
+                  title="Quick voice note"
+                >
+                  <FiMic className="h-6 w-6 md:h-5 md:w-5" />
+                  <span className="hidden md:inline text-sm">Voice Note</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Counters - Large Display */}
+          <div className="bg-white rounded-lg shadow-lg p-4 md:p-6">
+            <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-4 md:mb-6">Active Counters</h2>
+            <CounterManager projectId={id!} />
+          </div>
+
+          {/* Current Pattern Section */}
+          {project.patterns && project.patterns.length > 0 && (
+            <div className="bg-white rounded-lg shadow-lg p-4 md:p-6">
+              <h3 className="text-lg md:text-xl font-semibold text-gray-900 mb-3 md:mb-4">Current Pattern</h3>
+              <div className="space-y-3">
+                {project.patterns.slice(0, 1).map((pattern: any) => (
+                  <Link
+                    key={pattern.id}
+                    to={`/patterns/${pattern.id}`}
+                    className="block p-4 md:p-5 bg-purple-50 hover:bg-purple-100 rounded-lg transition border-2 border-purple-200"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="font-semibold text-lg md:text-xl text-gray-900">{pattern.name}</h4>
+                        {pattern.designer && (
+                          <p className="text-sm md:text-base text-gray-600">by {pattern.designer}</p>
+                        )}
+                      </div>
+                      <FiArrowLeft className="h-6 w-6 md:h-5 md:w-5 text-purple-600 transform rotate-180" />
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      ) : (
+        <>
+          {/* Normal Mode - Project Details Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
         {/* Main Content - Left Column */}
         <div className="lg:col-span-2 space-y-6">
@@ -857,6 +983,8 @@ export default function ProjectDetail() {
           </div>
         </div>
       </div>
+        </>
+      )}
 
       {/* Edit Modal */}
       {showEditModal && (
