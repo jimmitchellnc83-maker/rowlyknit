@@ -49,13 +49,12 @@ export interface CounterLink {
   target_counter_id: string;
   link_type: LinkType;
   trigger_condition?: {
-    when: 'equals' | 'greater_than' | 'less_than' | 'modulo';
+    type: 'equals' | 'greater_than' | 'less_than' | 'modulo';
     value: number;
   };
   action?: {
-    action: 'reset' | 'increment' | 'decrement' | 'set';
-    to_value?: number;
-    by_value?: number;
+    type: 'reset' | 'increment' | 'decrement' | 'set';
+    value?: number;
   };
   is_active: boolean;
   created_at: string;

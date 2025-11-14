@@ -64,13 +64,13 @@ export default function LinkCounterModal({ projectId, counters, onClose/*, onSav
 
       if (linkType === 'reset_on_target' || linkType === 'conditional') {
         linkData.trigger_condition = {
-          when: triggerOperator,
+          type: triggerOperator,
           value: Number(triggerValue),
         };
 
         linkData.action = {
-          action: actionType,
-          to_value: actionType === 'reset' || actionType === 'set' ? Number(actionValue) : undefined,
+          type: actionType,
+          value: actionType === 'reset' || actionType === 'set' ? Number(actionValue) : undefined,
         };
       }
 
@@ -112,9 +112,9 @@ export default function LinkCounterModal({ projectId, counters, onClose/*, onSav
 
     switch (link.link_type) {
       case 'reset_on_target':
-        return `When ${source} ${link.trigger_condition?.when} ${link.trigger_condition?.value}, reset ${target} to ${link.action?.to_value}`;
+        return `When ${source} ${link.trigger_condition?.type} ${link.trigger_condition?.value}, reset ${target} to ${link.action?.value}`;
       case 'conditional':
-        return `When ${source} ${link.trigger_condition?.when} ${link.trigger_condition?.value}, ${link.action?.action} ${target}`;
+        return `When ${source} ${link.trigger_condition?.type} ${link.trigger_condition?.value}, ${link.action?.type} ${target}`;
       case 'advance_together':
         return `${source} and ${target} advance together`;
       default:
