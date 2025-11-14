@@ -12,9 +12,10 @@ COPY package*.json ./
 
 # Install dependencies
 # Work around npm bug with optional dependencies on Alpine
-# Delete package-lock.json and do a fresh install
+# Delete package-lock.json and do a fresh install with explicit rollup bindings
 RUN rm -f package-lock.json && \
     npm install && \
+    npm install @rollup/rollup-linux-x64-musl --save-optional && \
     npm cache clean --force
 
 # Copy source code
