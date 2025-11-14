@@ -42,9 +42,13 @@ git pull origin $BRANCH
 
 # Create backup
 echo -e "${YELLOW}💾 Creating database backup...${NC}"
+# Load database credentials from .env file
+source $ENV_FILE
 BACKUP_FILE="$BACKUP_DIR/rowly_$(date +%Y%m%d_%H%M%S).sql"
-docker-compose exec -T postgres pg_dump -U $DB_USER $DB_NAME > $BACKUP_FILE
-gzip $BACKUP_FILE
+DB_USER=${DB_USER:-rowly_user}
+DB_NAME=${DB_NAME:-rowly_production}
+docker-compose exec -T postgres pg_dump -U "$DB_USER" "$DB_NAME" > "$BACKUP_FILE"
+gzip "$BACKUP_FILE"
 echo -e "${GREEN}✓ Backup created: ${BACKUP_FILE}.gz${NC}"
 
 # Stop existing containers
