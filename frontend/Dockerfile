@@ -11,7 +11,11 @@ RUN npm install -g npm@10
 COPY package*.json ./
 
 # Install dependencies
-RUN npm install && npm cache clean --force
+# Work around npm bug with optional dependencies on Alpine
+# Delete package-lock.json and do a fresh install
+RUN rm -f package-lock.json && \
+    npm install && \
+    npm cache clean --force
 
 # Copy source code
 COPY . .
