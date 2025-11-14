@@ -77,17 +77,18 @@ export default function CounterForm({ counter, onSave, onCancel }: CounterFormPr
         break;
     }
 
-    const data: Partial<Counter> = {
+    // Backend expects camelCase field names
+    const data: any = {
       name,
       type: type as any,
-      current_value: currentValue,
-      target_value: targetValue ? Number(targetValue) : undefined,
-      increment_by: incrementBy,
-      min_value: minValue,
-      max_value: maxValue ? Number(maxValue) : undefined,
-      display_color: displayColor,
+      currentValue: currentValue,
+      targetValue: targetValue ? Number(targetValue) : undefined,
+      incrementBy: incrementBy,
+      minValue: minValue,
+      maxValue: maxValue ? Number(maxValue) : undefined,
+      displayColor: displayColor,
       notes,
-      increment_pattern: pattern,
+      incrementPattern: pattern,
     };
 
     onSave(data);

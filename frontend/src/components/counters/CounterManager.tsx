@@ -47,7 +47,7 @@ export default function CounterManager({ projectId }: CounterManagerProps) {
 
       await axios.post(`/api/projects/${projectId}/counters`, {
         ...counterData,
-        sort_order: maxSortOrder + 1
+        sortOrder: maxSortOrder + 1
       });
 
       toast.success('Counter created!');

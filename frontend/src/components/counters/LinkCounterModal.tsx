@@ -55,15 +55,16 @@ export default function LinkCounterModal({ projectId, counters, onClose/*, onSav
     }
 
     try {
-      const linkData: Partial<CounterLink> = {
-        source_counter_id: sourceCounterId,
-        target_counter_id: targetCounterId,
-        link_type: linkType,
-        is_active: true,
+      // Backend expects camelCase field names
+      const linkData: any = {
+        sourceCounterId: sourceCounterId,
+        targetCounterId: targetCounterId,
+        linkType: linkType,
+        isActive: true,
       };
 
       if (linkType === 'reset_on_target' || linkType === 'conditional') {
-        linkData.trigger_condition = {
+        linkData.triggerCondition = {
           type: triggerOperator,
           value: Number(triggerValue),
         };
