@@ -487,9 +487,19 @@ export const downloadPatternFile = async (req: Request, res: Response) => {
       });
     }
 
-    // Set headers for download
+    // Set headers for download/viewing
     res.setHeader('Content-Type', file.mime_type);
-    res.setHeader('Content-Disposition', `attachment; filename="${file.original_filename}"`);
+
+    // Use inline disposition for PDFs and images to allow browser viewing
+    // Use attachment for other file types to trigger download
+    const forceDownload = req.query.download === 'true';
+    const isViewableInBrowser = file.file_type === 'pdf' || file.file_type === 'image';
+
+    if (isViewableInBrowser && !forceDownload) {
+      res.setHeader('Content-Disposition', `inline; filename="${file.original_filename}"`);
+    } else {
+      res.setHeader('Content-Disposition', `attachment; filename="${file.original_filename}"`);
+    }
 
     // Stream the file
     const fileStream = fs.createReadStream(filepath);
