@@ -16,6 +16,15 @@ interface Yarn {
   skeins_total?: number;
   low_stock_threshold?: number;
   low_stock_alert?: boolean;
+  photos?: YarnPhoto[];
+}
+
+interface YarnPhoto {
+  id: string;
+  yarn_id: string;
+  file_path: string;
+  thumbnail_path: string;
+  original_filename: string;
 }
 
 export default function YarnStash() {
@@ -24,6 +33,8 @@ export default function YarnStash() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingYarn, setEditingYarn] = useState<Yarn | null>(null);
+  const [yarnPhotos, setYarnPhotos] = useState<YarnPhoto[]>([]);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [formData, setFormData] = useState({
     brand: '',
     name: '',
@@ -76,7 +87,7 @@ export default function YarnStash() {
     }
   };
 
-  const handleEditClick = (y: Yarn) => {
+  const handleEditClick = async (y: Yarn) => {
     setEditingYarn(y);
     setFormData({
       brand: y.brand || '',
@@ -89,7 +100,60 @@ export default function YarnStash() {
       lowStockThreshold: y.low_stock_threshold?.toString() || '',
       lowStockAlert: y.low_stock_alert || false,
     });
+
+    // Fetch photos for this yarn
+    try {
+      const response = await axios.get(`/api/uploads/yarn/${y.id}/photos`);
+      setYarnPhotos(response.data.data.photos || []);
+    } catch (error) {
+      console.error('Error fetching yarn photos:', error);
+      setYarnPhotos([]);
+    }
+
     setShowEditModal(true);
+  };
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!editingYarn || !e.target.files || e.target.files.length === 0) return;
+
+    const file = e.target.files[0];
+    setUploadingPhoto(true);
+
+    try {
+      const formData = new FormData();
+      formData.append('photo', file);
+
+      const response = await axios.post(`/api/uploads/yarn/${editingYarn.id}/photos`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      toast.success('Photo uploaded successfully!');
+      setYarnPhotos([...yarnPhotos, response.data.data.photo]);
+
+      // Reset file input
+      e.target.value = '';
+    } catch (error: any) {
+      console.error('Error uploading photo:', error);
+      toast.error(error.response?.data?.message || 'Failed to upload photo');
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
+  const handlePhotoDelete = async (photoId: string) => {
+    if (!editingYarn) return;
+    if (!confirm('Are you sure you want to delete this photo?')) return;
+
+    try {
+      await axios.delete(`/api/uploads/yarn/${editingYarn.id}/photos/${photoId}`);
+      toast.success('Photo deleted successfully');
+      setYarnPhotos(yarnPhotos.filter(p => p.id !== photoId));
+    } catch (error: any) {
+      console.error('Error deleting photo:', error);
+      toast.error('Failed to delete photo');
+    }
   };
 
   const handleUpdateYarn = async (e: React.FormEvent) => {
@@ -495,6 +559,57 @@ export default function YarnStash() {
                 </div>
               </div>
 
+              {/* Photo Gallery Section */}
+              <div className="border-t border-gray-200 pt-4">
+                <h3 className="text-sm font-medium text-gray-900 mb-3">Photos</h3>
+
+                {/* Photo Upload */}
+                <div className="mb-4">
+                  <label className="block text-sm text-gray-600 mb-2">
+                    Add photo to visualize your yarn
+                  </label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handlePhotoUpload}
+                    disabled={uploadingPhoto}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                  />
+                  {uploadingPhoto && (
+                    <p className="text-sm text-gray-500 mt-2">Uploading...</p>
+                  )}
+                </div>
+
+                {/* Photo Grid */}
+                {yarnPhotos.length > 0 && (
+                  <div className="grid grid-cols-3 gap-2">
+                    {yarnPhotos.map((photo) => (
+                      <div key={photo.id} className="relative group">
+                        <img
+                          src={photo.thumbnail_path}
+                          alt={photo.original_filename}
+                          className="w-full h-24 object-cover rounded-lg border border-gray-200"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handlePhotoDelete(photo.id)}
+                          className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                          title="Delete photo"
+                        >
+                          <FiTrash2 className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {yarnPhotos.length === 0 && (
+                  <p className="text-sm text-gray-500 text-center py-4 bg-gray-50 rounded-lg">
+                    No photos yet. Upload a photo to see what your yarn looks like!
+                  </p>
+                )}
+              </div>
+
               <div className="border-t border-gray-200 pt-4">
                 <h3 className="text-sm font-medium text-gray-900 mb-3">Low Stock Alerts</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -533,6 +648,7 @@ export default function YarnStash() {
                   onClick={() => {
                     setShowEditModal(false);
                     setEditingYarn(null);
+                    setYarnPhotos([]);
                     setFormData({
                       brand: '',
                       name: '',
