@@ -186,7 +186,7 @@ export async function endSession(req: Request, res: Response) {
     .where({ project_id: projectId })
     .select('id', 'name', 'current_value');
 
-  const counterValues = JSON.parse(session.starting_counter_values || '{}');
+  const counterValues = session.starting_counter_values || {};
   let rowsCompleted = 0;
 
   counters.forEach((c) => {
