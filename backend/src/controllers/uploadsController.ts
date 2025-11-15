@@ -58,6 +58,29 @@ const patternFileUpload = multer({
   },
 });
 
+// Configure multer for audio note uploads
+const audioUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit for audio files
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedMimes = [
+      'audio/webm',
+      'audio/mp3',
+      'audio/mpeg',
+      'audio/wav',
+      'audio/ogg',
+      'audio/m4a',
+    ];
+    if (allowedMimes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only audio files are allowed.'));
+    }
+  },
+});
+
 // Ensure upload directories exist
 const ensureUploadDirs = () => {
   const dirs = [
@@ -66,6 +89,7 @@ const ensureUploadDirs = () => {
     'uploads/patterns',
     'uploads/yarn',
     'uploads/yarn/thumbnails',
+    'uploads/audio',
   ];
 
   dirs.forEach(dir => {
@@ -703,3 +727,4 @@ export const deleteYarnPhoto = async (req: Request, res: Response) => {
 // Export middleware for different upload types
 export const uploadImageMiddleware = imageUpload.single('photo');
 export const uploadPatternFileMiddleware = patternFileUpload.single('file');
+export const uploadAudioMiddleware = audioUpload.single('audio');

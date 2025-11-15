@@ -2,6 +2,11 @@ import { Request, Response } from 'express';
 import db from '../config/database';
 import { NotFoundError, ForbiddenError, ValidationError } from '../utils/errorHandler';
 import { createAuditLog } from '../middleware/auditLog';
+import fs from 'fs';
+import path from 'path';
+import { promisify } from 'util';
+
+const writeFileAsync = promisify(fs.writeFile);
 
 /**
  * Audio Notes
@@ -77,10 +82,12 @@ export async function getAudioNote(req: Request, res: Response) {
 export async function createAudioNote(req: Request, res: Response) {
   const userId = (req as any).user.userId;
   const { id: projectId } = req.params;
-  const { patternId, audioUrl, transcription, durationSeconds, title, tags } = req.body;
+  const { patternId, transcription, durationSeconds, title, tags } = req.body;
+  const file = (req as any).file;
 
-  if (!audioUrl) {
-    throw new ValidationError('Audio URL is required');
+  // Multer will have already uploaded the file if present
+  if (!file) {
+    throw new ValidationError('Audio file is required');
   }
 
   // Verify project ownership
@@ -104,14 +111,26 @@ export async function createAudioNote(req: Request, res: Response) {
     }
   }
 
+  // Generate unique filename
+  const timestamp = Date.now();
+  const ext = path.extname(file.originalname) || '.webm';
+  const filename = `audio-${projectId}-${timestamp}${ext}`;
+  const filepath = path.join('uploads/audio', filename);
+
+  // Save audio file
+  await writeFileAsync(filepath, file.buffer);
+
+  // Create audioUrl (relative path for serving)
+  const audioUrl = `/uploads/audio/${filename}`;
+
   const [audioNote] = await db('audio_notes')
     .insert({
       project_id: projectId,
       pattern_id: patternId || null,
       audio_url: audioUrl,
-      transcription,
-      duration_seconds: durationSeconds,
-      title,
+      transcription: transcription || null,
+      duration_seconds: durationSeconds || 0,
+      title: title || null,
       tags: tags ? JSON.stringify(tags) : null,
       created_at: new Date(),
       updated_at: new Date(),

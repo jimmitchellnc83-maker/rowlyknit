@@ -4,6 +4,7 @@ import * as notesController from '../controllers/notesController';
 import { authenticate } from '../middleware/auth';
 import { validate, validateUUID } from '../middleware/validator';
 import { asyncHandler } from '../utils/errorHandler';
+import { uploadAudioMiddleware } from '../controllers/uploadsController';
 
 const router = Router();
 
@@ -44,10 +45,10 @@ router.get(
  */
 router.post(
   '/projects/:id/audio-notes',
+  uploadAudioMiddleware,
   [
     validateUUID('id'),
     body('patternId').optional().isUUID(),
-    body('audioUrl').notEmpty().isString(),
     body('transcription').optional().isString(),
     body('durationSeconds').optional().isNumeric(),
     body('title').optional().isString(),
