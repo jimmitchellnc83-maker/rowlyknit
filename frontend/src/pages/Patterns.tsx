@@ -23,6 +23,8 @@ export default function Patterns() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showCollationModal, setShowCollationModal] = useState(false);
   const [editingPattern, setEditingPattern] = useState<Pattern | null>(null);
+  const [patternFiles, setPatternFiles] = useState<File[]>([]);
+  const [uploadingFiles, setUploadingFiles] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -49,9 +51,42 @@ export default function Patterns() {
 
   const handleCreatePattern = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    setUploadingFiles(true);
+
     try {
-      await axios.post('/api/patterns', formData);
-      toast.success('Pattern created successfully!');
+      // Step 1: Create the pattern
+      const createResponse = await axios.post('/api/patterns', formData);
+      const newPattern = createResponse.data.data.pattern;
+      toast.success('Pattern created!');
+
+      // Step 2: Upload PDF files if any
+      if (patternFiles.length > 0) {
+        let uploadedCount = 0;
+        for (const file of patternFiles) {
+          try {
+            const fileFormData = new FormData();
+            fileFormData.append('file', file);
+
+            await axios.post(`/api/uploads/patterns/${newPattern.id}/files`, fileFormData, {
+              headers: {
+                'Content-Type': 'multipart/form-data',
+              },
+            });
+            uploadedCount++;
+          } catch (error) {
+            console.error(`Failed to upload ${file.name}:`, error);
+          }
+        }
+
+        if (uploadedCount === patternFiles.length) {
+          toast.success(`Pattern created with ${uploadedCount} PDF${uploadedCount > 1 ? 's' : ''}!`);
+        } else {
+          toast.warning(`Pattern created but only ${uploadedCount}/${patternFiles.length} files uploaded`);
+        }
+      }
+
+      // Reset and close
       setShowCreateModal(false);
       setFormData({
         name: '',
@@ -60,10 +95,13 @@ export default function Patterns() {
         difficulty: 'intermediate',
         category: 'sweater',
       });
+      setPatternFiles([]);
       fetchPatterns();
     } catch (error: any) {
       console.error('Error creating pattern:', error);
       toast.error(error.response?.data?.message || 'Failed to create pattern');
+    } finally {
+      setUploadingFiles(false);
     }
   };
 
@@ -337,19 +375,59 @@ export default function Patterns() {
                 />
               </div>
 
+              {/* PDF Upload */}
+              <div className="border-t border-gray-200 pt-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Pattern PDF Files (Optional)
+                </label>
+                <p className="text-sm text-gray-500 mb-2">
+                  Upload one or more PDF files for this pattern
+                </p>
+                <input
+                  type="file"
+                  accept=".pdf,application/pdf"
+                  multiple
+                  onChange={(e) => {
+                    if (e.target.files) {
+                      setPatternFiles(Array.from(e.target.files));
+                    }
+                  }}
+                  disabled={uploadingFiles}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                />
+                {patternFiles.length > 0 && (
+                  <div className="mt-3 space-y-1">
+                    <p className="text-sm font-medium text-gray-700">
+                      Selected files ({patternFiles.length}):
+                    </p>
+                    {patternFiles.map((file, index) => (
+                      <div key={index} className="text-sm text-gray-600 flex items-center justify-between bg-gray-50 px-3 py-2 rounded">
+                        <span>{file.name}</span>
+                        <span className="text-gray-500">({(file.size / 1024 / 1024).toFixed(2)} MB)</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               <div className="flex gap-3 pt-4">
                 <button
                   type="button"
-                  onClick={() => setShowCreateModal(false)}
+                  onClick={() => {
+                    setShowCreateModal(false);
+                    setPatternFiles([]);
+                  }}
                   className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition"
+                  disabled={uploadingFiles}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
+                  className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed"
+                  disabled={uploadingFiles}
                 >
-                  Add Pattern
+                  {uploadingFiles ? 'Creating & Uploading...' : 'Add Pattern'}
                 </button>
               </div>
             </form>

@@ -50,6 +50,8 @@ export default function ProjectDetail() {
   const [knittingMode, setKnittingMode] = useState(false);
   const [isSessionActive, setIsSessionActive] = useState(false);
   const [sessionStartTime, setSessionStartTime] = useState<Date | null>(null);
+  const [sessionElapsed, setSessionElapsed] = useState(0); // in seconds
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
 
   // Notes state
   const [audioNotes, setAudioNotes] = useState<any[]>([]);
@@ -109,6 +111,24 @@ export default function ProjectDetail() {
       }
     };
   }, [id, joinProject, leaveProject]);
+
+  // Timer effect - update elapsed time every second when session is active
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval> | null = null;
+
+    if (isSessionActive && sessionStartTime) {
+      interval = setInterval(() => {
+        const elapsed = Math.floor((new Date().getTime() - sessionStartTime.getTime()) / 1000);
+        setSessionElapsed(elapsed);
+      }, 1000);
+    } else {
+      setSessionElapsed(0);
+    }
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isSessionActive, sessionStartTime]);
 
   const fetchProject = async () => {
     try {
@@ -453,21 +473,65 @@ export default function ProjectDetail() {
   const handleToggleSession = async () => {
     if (!isSessionActive) {
       // Start session
-      setIsSessionActive(true);
-      setSessionStartTime(new Date());
-      toast.success('Knitting session started! 🎉');
+      try {
+        const response = await axios.post(`/api/projects/${id}/sessions`, {
+          notes: 'Knitting session'
+        });
+        const session = response.data.data.session;
+        setCurrentSessionId(session.id);
+        setIsSessionActive(true);
+        setSessionStartTime(new Date());
+        toast.success('Knitting session started! 🎉');
+      } catch (error) {
+        console.error('Failed to start session:', error);
+        toast.error('Failed to start session');
+      }
     } else {
       // Stop session
-      setIsSessionActive(false);
-      const duration = sessionStartTime ? Math.round((new Date().getTime() - sessionStartTime.getTime()) / 60000) : 0;
-      setSessionStartTime(null);
-      toast.success(`Session ended! Duration: ${duration} minutes`);
+      if (currentSessionId) {
+        try {
+          const duration = sessionStartTime ? Math.round((new Date().getTime() - sessionStartTime.getTime()) / 60000) : 0;
+          await axios.put(`/api/projects/${id}/sessions/${currentSessionId}`, {
+            end_time: new Date().toISOString()
+          });
+
+          setIsSessionActive(false);
+          setSessionStartTime(null);
+          setCurrentSessionId(null);
+          setSessionElapsed(0);
+          toast.success(`Session ended! Duration: ${duration} minute${duration !== 1 ? 's' : ''}`);
+        } catch (error) {
+          console.error('Failed to end session:', error);
+          toast.error('Failed to end session');
+        }
+      }
     }
   };
 
   const handleQuickVoiceNote = () => {
-    toast.info('Voice note recording - feature coming soon!');
-    // This would trigger the audio recording functionality
+    // Scroll to notes section and switch to audio tab
+    setNotesTab('audio');
+    // Exit knitting mode to access notes
+    setKnittingMode(false);
+    toast.info('Switched to notes - start recording your voice note!');
+    // Scroll to notes section after a short delay
+    setTimeout(() => {
+      const notesSection = document.getElementById('notes-section');
+      if (notesSection) {
+        notesSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 100);
+  };
+
+  const formatElapsedTime = (seconds: number): string => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+
+    if (hours > 0) {
+      return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+    return `${minutes}:${secs.toString().padStart(2, '0')}`;
   };
 
   const handlePhotoUpload = async (file: File) => {
@@ -618,11 +682,21 @@ export default function ProjectDetail() {
           {/* Quick Action Bar */}
           <div className="bg-gradient-to-r from-green-600 to-green-700 rounded-lg shadow-lg p-4 md:p-6">
             <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-              <div className="flex items-center gap-3 text-white">
-                <div className={`w-4 h-4 rounded-full ${isSessionActive ? 'bg-red-500 animate-pulse' : 'bg-white/50'}`}></div>
-                <span className="font-semibold text-lg md:text-xl">
-                  {isSessionActive ? 'Knitting in Progress' : 'Ready to Start'}
-                </span>
+              <div className="flex flex-col md:flex-row items-center gap-3 text-white">
+                <div className="flex items-center gap-3">
+                  <div className={`w-4 h-4 rounded-full ${isSessionActive ? 'bg-red-500 animate-pulse' : 'bg-white/50'}`}></div>
+                  <span className="font-semibold text-lg md:text-xl">
+                    {isSessionActive ? 'Knitting in Progress' : 'Ready to Start'}
+                  </span>
+                </div>
+                {isSessionActive && (
+                  <div className="flex items-center gap-2 bg-white/20 px-4 py-2 rounded-lg">
+                    <FiClock className="h-5 w-5" />
+                    <span className="text-2xl font-mono font-bold tabular-nums">
+                      {formatElapsedTime(sessionElapsed)}
+                    </span>
+                  </div>
+                )}
               </div>
 
               <div className="flex gap-3 w-full md:w-auto">
@@ -846,7 +920,7 @@ export default function ProjectDetail() {
           />
 
           {/* Notes Section with Tabs */}
-          <div className="bg-white rounded-lg shadow">
+          <div id="notes-section" className="bg-white rounded-lg shadow">
             <div className="border-b border-gray-200 px-6 pt-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">Notes</h2>
               <nav className="flex -mb-px gap-6">
