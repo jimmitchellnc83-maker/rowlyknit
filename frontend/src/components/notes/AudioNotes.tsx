@@ -84,7 +84,7 @@ export const AudioNotes: React.FC<AudioNotesProps> = ({
         }
       };
 
-      mediaRecorder.start();
+      mediaRecorder.start(1000); // Request data every 1000ms for reliability
       setIsRecording(true);
       setRecordingTime(0);
 
