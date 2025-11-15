@@ -121,19 +121,20 @@ app.get('/metrics', metricsEndpoint);
 app.get('/api/csrf-token', sendCsrfToken);
 
 // API routes
+// Note: More specific routes (sessions, counters, notes) must come BEFORE generic /projects route
 app.use('/api/auth', authRoutes);
+app.use('/api', sessionsRoutes);
+app.use('/api', countersRoutes);
+app.use('/api', notesRoutes);
+app.use('/api', magicMarkersRoutes);
+app.use('/api', patternEnhancementsRoutes);
+app.use('/api', patternBookmarksRoutes);
 app.use('/api/projects', projectsRoutes);
 app.use('/api/patterns', patternsRoutes);
 app.use('/api/yarn', yarnRoutes);
 app.use('/api/recipients', recipientsRoutes);
 app.use('/api/tools', toolsRoutes);
 app.use('/api/uploads', uploadsRoutes);
-app.use('/api', countersRoutes);
-app.use('/api', sessionsRoutes);
-app.use('/api', patternEnhancementsRoutes);
-app.use('/api', notesRoutes);
-app.use('/api', magicMarkersRoutes);
-app.use('/api', patternBookmarksRoutes);
 
 // API documentation
 app.get('/api', (req, res) => {
