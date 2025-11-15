@@ -43,6 +43,7 @@ export const AudioNotes: React.FC<AudioNotesProps> = ({
   const audioChunksRef = useRef<Blob[]>([]);
   const recordingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const audioElementsRef = useRef<Map<string, HTMLAudioElement>>(new Map());
+  const recordingMimeTypeRef = useRef<string>('audio/webm');
 
   // Cleanup audio elements on unmount
   useEffect(() => {
@@ -55,29 +56,73 @@ export const AudioNotes: React.FC<AudioNotesProps> = ({
     };
   }, []);
 
+  // Get the best supported audio mime type for recording
+  const getSupportedMimeType = (): string => {
+    const types = [
+      'audio/webm;codecs=opus',
+      'audio/webm',
+      'audio/ogg;codecs=opus',
+      'audio/mp4',
+      'audio/mpeg',
+      'audio/wav',
+    ];
+
+    for (const type of types) {
+      if (MediaRecorder.isTypeSupported(type)) {
+        console.log(`✅ Using audio mime type: ${type}`);
+        return type;
+      }
+    }
+
+    console.warn('⚠️ No preferred mime type supported, using browser default');
+    return '';
+  };
+
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+
+      // Detect supported mime type
+      const mimeType = getSupportedMimeType();
+      recordingMimeTypeRef.current = mimeType;
+
+      // Create MediaRecorder with supported mime type
+      const options = mimeType ? { mimeType } : {};
+      const mediaRecorder = new MediaRecorder(stream, options);
 
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
 
       mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
+          console.log(`📦 Audio chunk received: ${event.data.size} bytes`);
           audioChunksRef.current.push(event.data);
         }
       };
 
       mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        console.log(`🎤 Recording stopped. Total chunks: ${audioChunksRef.current.length}`);
+
+        // Use the actual mime type from the MediaRecorder
+        const actualMimeType = mediaRecorder.mimeType || recordingMimeTypeRef.current;
+        const audioBlob = new Blob(audioChunksRef.current, { type: actualMimeType });
+
+        console.log(`📁 Audio blob created: ${audioBlob.size} bytes, type: ${actualMimeType}`);
 
         // Stop all tracks
         stream.getTracks().forEach((track) => track.stop());
 
+        // Validate blob before saving
+        if (audioBlob.size === 0) {
+          console.error('❌ Audio blob is empty - no data was recorded');
+          alert('Recording failed: No audio data was captured. Please try again.');
+          return;
+        }
+
         // Save the note (transcription can be added manually later)
         try {
           await onSaveNote(audioBlob, undefined);
+          console.log('✅ Audio note saved successfully');
         } catch (error) {
           console.error('Failed to save audio note:', error);
           alert('Failed to save audio note');
