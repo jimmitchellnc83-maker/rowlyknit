@@ -14,7 +14,7 @@ interface CounterCardProps {
   onToggleVisibility?: (counterId: string) => void;
 }
 
-export default function CounterCard({ counter, onUpdate, onEdit, onDelete, onToggleVisibility }: CounterCardProps) {
+export default function CounterCard({ counter, onUpdate: _onUpdate, onEdit, onDelete, onToggleVisibility }: CounterCardProps) {
   const [count, setCount] = useState(counter.current_value);
   const [isListening, setIsListening] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
@@ -77,7 +77,10 @@ export default function CounterCard({ counter, onUpdate, onEdit, onDelete, onTog
       await axios.put(`/api/projects/${counter.project_id}/counters/${counter.id}`, {
         current_value: newValue,
       });
-      onUpdate();
+      // Don't call onUpdate() here to prevent unnecessary re-renders and screen blink
+      // Counter updates are handled by:
+      // 1. Optimistic local state update (setCount)
+      // 2. WebSocket real-time sync for multi-device updates
     } catch (error) {
       console.error('Error updating counter:', error);
       toast.error('Failed to update counter');
