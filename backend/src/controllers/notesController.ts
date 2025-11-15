@@ -82,7 +82,7 @@ export async function getAudioNote(req: Request, res: Response) {
 export async function createAudioNote(req: Request, res: Response) {
   const userId = (req as any).user.userId;
   const { id: projectId } = req.params;
-  const { patternId, transcription, durationSeconds, title, tags } = req.body;
+  const { patternId, transcription, durationSeconds } = req.body;
   const file = (req as any).file;
 
   // Multer will have already uploaded the file if present
@@ -130,10 +130,7 @@ export async function createAudioNote(req: Request, res: Response) {
       audio_url: audioUrl,
       transcription: transcription || null,
       duration_seconds: durationSeconds || 0,
-      title: title || null,
-      tags: tags ? JSON.stringify(tags) : null,
       created_at: new Date(),
-      updated_at: new Date(),
     })
     .returning('*');
 
@@ -178,10 +175,8 @@ export async function updateAudioNote(req: Request, res: Response) {
     throw new NotFoundError('Audio note not found');
   }
 
-  const updateData: any = { updated_at: new Date() };
+  const updateData: any = {};
   if (updates.transcription !== undefined) updateData.transcription = updates.transcription;
-  if (updates.title !== undefined) updateData.title = updates.title;
-  if (updates.tags !== undefined) updateData.tags = JSON.stringify(updates.tags);
 
   const [updatedAudioNote] = await db('audio_notes')
     .where({ id: noteId })
@@ -319,7 +314,7 @@ export async function getStructuredMemo(req: Request, res: Response) {
 export async function createStructuredMemo(req: Request, res: Response) {
   const userId = (req as any).user.userId;
   const { id: projectId } = req.params;
-  const { templateType, data, title } = req.body;
+  const { templateType, data } = req.body;
 
   if (!templateType || !data) {
     throw new ValidationError('Template type and data are required');
@@ -345,9 +340,7 @@ export async function createStructuredMemo(req: Request, res: Response) {
       project_id: projectId,
       template_type: templateType,
       data: JSON.stringify(data),
-      title,
       created_at: new Date(),
-      updated_at: new Date(),
     })
     .returning('*');
 
@@ -392,9 +385,8 @@ export async function updateStructuredMemo(req: Request, res: Response) {
     throw new NotFoundError('Structured memo not found');
   }
 
-  const updateData: any = { updated_at: new Date() };
+  const updateData: any = {};
   if (updates.data !== undefined) updateData.data = JSON.stringify(updates.data);
-  if (updates.title !== undefined) updateData.title = updates.title;
 
   const [updatedMemo] = await db('structured_memos')
     .where({ id: memoId })
@@ -455,5 +447,228 @@ export async function deleteStructuredMemo(req: Request, res: Response) {
   res.json({
     success: true,
     message: 'Structured memo deleted successfully',
+  });
+}
+
+/**
+ * Text Notes
+ */
+
+/**
+ * Get all text notes for a project
+ */
+export async function getTextNotes(req: Request, res: Response) {
+  const userId = (req as any).user.userId;
+  const { id: projectId } = req.params;
+  const { patternId } = req.query;
+
+  // Verify project ownership
+  const project = await db('projects')
+    .where({ id: projectId, user_id: userId })
+    .whereNull('deleted_at')
+    .first();
+
+  if (!project) {
+    throw new NotFoundError('Project not found');
+  }
+
+  let query = db('text_notes')
+    .where({ project_id: projectId });
+
+  if (patternId) {
+    query = query.where({ pattern_id: patternId });
+  }
+
+  const textNotes = await query.orderBy('is_pinned', 'desc').orderBy('created_at', 'desc');
+
+  res.json({
+    success: true,
+    data: { textNotes },
+  });
+}
+
+/**
+ * Get single text note by ID
+ */
+export async function getTextNote(req: Request, res: Response) {
+  const userId = (req as any).user.userId;
+  const { id: projectId, noteId } = req.params;
+
+  // Verify project ownership
+  const project = await db('projects')
+    .where({ id: projectId, user_id: userId })
+    .whereNull('deleted_at')
+    .first();
+
+  if (!project) {
+    throw new NotFoundError('Project not found');
+  }
+
+  const textNote = await db('text_notes')
+    .where({ id: noteId, project_id: projectId })
+    .first();
+
+  if (!textNote) {
+    throw new NotFoundError('Text note not found');
+  }
+
+  res.json({
+    success: true,
+    data: { textNote },
+  });
+}
+
+/**
+ * Create a text note
+ */
+export async function createTextNote(req: Request, res: Response) {
+  const userId = (req as any).user.userId;
+  const { id: projectId } = req.params;
+  const { title, content, patternId, tags, isPinned } = req.body;
+
+  if (!content) {
+    throw new ValidationError('Note content is required');
+  }
+
+  // Verify project ownership
+  const project = await db('projects')
+    .where({ id: projectId, user_id: userId })
+    .whereNull('deleted_at')
+    .first();
+
+  if (!project) {
+    throw new NotFoundError('Project not found');
+  }
+
+  // Verify pattern ownership if patternId is provided
+  if (patternId) {
+    const pattern = await db('patterns')
+      .where({ id: patternId, user_id: userId })
+      .first();
+
+    if (!pattern) {
+      throw new NotFoundError('Pattern not found');
+    }
+  }
+
+  const [textNote] = await db('text_notes')
+    .insert({
+      project_id: projectId,
+      pattern_id: patternId || null,
+      title: title || null,
+      content,
+      tags: tags || null,
+      is_pinned: isPinned || false,
+      created_at: new Date(),
+      updated_at: new Date(),
+    })
+    .returning('*');
+
+  await createAuditLog(req, {
+    userId,
+    action: 'text_note_created',
+    entityType: 'text_note',
+    entityId: textNote.id,
+    newValues: textNote,
+  });
+
+  res.status(201).json({
+    success: true,
+    message: 'Text note created successfully',
+    data: { textNote },
+  });
+}
+
+/**
+ * Update a text note
+ */
+export async function updateTextNote(req: Request, res: Response) {
+  const userId = (req as any).user.userId;
+  const { id: projectId, noteId } = req.params;
+  const updates = req.body;
+
+  // Verify project ownership
+  const project = await db('projects')
+    .where({ id: projectId, user_id: userId })
+    .whereNull('deleted_at')
+    .first();
+
+  if (!project) {
+    throw new NotFoundError('Project not found');
+  }
+
+  const textNote = await db('text_notes')
+    .where({ id: noteId, project_id: projectId })
+    .first();
+
+  if (!textNote) {
+    throw new NotFoundError('Text note not found');
+  }
+
+  const updateData: any = { updated_at: new Date() };
+  if (updates.title !== undefined) updateData.title = updates.title;
+  if (updates.content !== undefined) updateData.content = updates.content;
+  if (updates.tags !== undefined) updateData.tags = updates.tags;
+  if (updates.isPinned !== undefined) updateData.is_pinned = updates.isPinned;
+
+  const [updatedTextNote] = await db('text_notes')
+    .where({ id: noteId })
+    .update(updateData)
+    .returning('*');
+
+  await createAuditLog(req, {
+    userId,
+    action: 'text_note_updated',
+    entityType: 'text_note',
+    entityId: noteId,
+    oldValues: textNote,
+    newValues: updatedTextNote,
+  });
+
+  res.json({
+    success: true,
+    message: 'Text note updated successfully',
+    data: { textNote: updatedTextNote },
+  });
+}
+
+/**
+ * Delete a text note
+ */
+export async function deleteTextNote(req: Request, res: Response) {
+  const userId = (req as any).user.userId;
+  const { id: projectId, noteId } = req.params;
+
+  // Verify project ownership
+  const project = await db('projects')
+    .where({ id: projectId, user_id: userId })
+    .whereNull('deleted_at')
+    .first();
+
+  if (!project) {
+    throw new NotFoundError('Project not found');
+  }
+
+  const textNote = await db('text_notes')
+    .where({ id: noteId, project_id: projectId })
+    .first();
+
+  if (!textNote) {
+    throw new NotFoundError('Text note not found');
+  }
+
+  await db('text_notes').where({ id: noteId }).del();
+
+  await createAuditLog(req, {
+    userId,
+    action: 'text_note_deleted',
+    entityType: 'text_note',
+    entityId: noteId,
+    oldValues: textNote,
+  });
+
+  res.json({
+    success: true,
+    message: 'Text note deleted successfully',
   });
 }

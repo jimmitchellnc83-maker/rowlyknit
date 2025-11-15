@@ -58,6 +58,7 @@ router.post(
     body('isVisible').optional().isBoolean(),
     body('incrementPattern').optional().isObject(),
     body('sortOrder').optional().isNumeric(),
+    body('notes').optional().isString(),
   ],
   validate,
   asyncHandler(countersController.createCounter)

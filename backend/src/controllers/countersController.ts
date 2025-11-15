@@ -80,6 +80,7 @@ export async function createCounter(req: Request, res: Response) {
     isVisible = true,
     incrementPattern,
     sortOrder,
+    notes,
   } = req.body;
 
   if (!name) {
@@ -120,6 +121,7 @@ export async function createCounter(req: Request, res: Response) {
       is_visible: isVisible,
       increment_pattern: incrementPattern ? JSON.stringify(incrementPattern) : null,
       sort_order: finalSortOrder,
+      notes: notes || null,
       created_at: new Date(),
       updated_at: new Date(),
     })
@@ -198,6 +200,7 @@ export async function updateCounter(req: Request, res: Response) {
     updateData.increment_pattern = updates.increment_pattern ? JSON.stringify(updates.increment_pattern) : null;
   }
   if (updates.sort_order !== undefined) updateData.sort_order = updates.sort_order;
+  if (updates.notes !== undefined) updateData.notes = updates.notes;
 
   const [updatedCounter] = await db('counters')
     .where({ id: counterId })

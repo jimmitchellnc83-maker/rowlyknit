@@ -150,4 +150,74 @@ router.delete(
   asyncHandler(notesController.deleteStructuredMemo)
 );
 
+/**
+ * Text Notes Routes
+ */
+
+/**
+ * @route   GET /api/projects/:id/text-notes
+ * @desc    Get all text notes for a project
+ * @access  Private
+ */
+router.get(
+  '/projects/:id/text-notes',
+  validateUUID('id'),
+  asyncHandler(notesController.getTextNotes)
+);
+
+/**
+ * @route   GET /api/projects/:id/text-notes/:noteId
+ * @desc    Get single text note by ID
+ * @access  Private
+ */
+router.get(
+  '/projects/:id/text-notes/:noteId',
+  [validateUUID('id'), validateUUID('noteId')],
+  validate,
+  asyncHandler(notesController.getTextNote)
+);
+
+/**
+ * @route   POST /api/projects/:id/text-notes
+ * @desc    Create a text note
+ * @access  Private
+ */
+router.post(
+  '/projects/:id/text-notes',
+  [
+    validateUUID('id'),
+    body('content').notEmpty().isString(),
+    body('title').optional().isString(),
+    body('patternId').optional().isUUID(),
+    body('tags').optional().isArray(),
+    body('isPinned').optional().isBoolean(),
+  ],
+  validate,
+  asyncHandler(notesController.createTextNote)
+);
+
+/**
+ * @route   PUT /api/projects/:id/text-notes/:noteId
+ * @desc    Update a text note
+ * @access  Private
+ */
+router.put(
+  '/projects/:id/text-notes/:noteId',
+  [validateUUID('id'), validateUUID('noteId')],
+  validate,
+  asyncHandler(notesController.updateTextNote)
+);
+
+/**
+ * @route   DELETE /api/projects/:id/text-notes/:noteId
+ * @desc    Delete a text note
+ * @access  Private
+ */
+router.delete(
+  '/projects/:id/text-notes/:noteId',
+  [validateUUID('id'), validateUUID('noteId')],
+  validate,
+  asyncHandler(notesController.deleteTextNote)
+);
+
 export default router;

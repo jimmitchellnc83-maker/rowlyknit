@@ -127,7 +127,7 @@ export async function startSession(req: Request, res: Response) {
       mood,
       location,
       notes,
-      starting_counter_values: JSON.stringify(counterValues),
+      starting_counter_values: counterValues,
       created_at: new Date(),
     })
     .returning('*');
@@ -205,7 +205,7 @@ export async function endSession(req: Request, res: Response) {
       end_time: endTime,
       duration_seconds: durationSeconds,
       rows_completed: rowsCompleted,
-      ending_counter_values: JSON.stringify(counterValues),
+      ending_counter_values: counterValues,
       notes: notes || session.notes,
       mood: mood || session.mood,
     })
