@@ -130,7 +130,7 @@ export async function createCounter(req: Request, res: Response) {
   // Create initial history entry
   await db('counter_history').insert({
     counter_id: counter.id,
-    old_value: null,
+    old_value: 0, // For new counters, old value is 0
     new_value: currentValue,
     action: 'created',
     user_note: null,
