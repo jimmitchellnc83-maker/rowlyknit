@@ -38,7 +38,6 @@ export const AudioNotes: React.FC<AudioNotesProps> = ({
   const [playingNoteId, setPlayingNoteId] = useState<string | null>(null);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editTranscription, setEditTranscription] = useState('');
-  const [_transcribing, _setTranscribing] = useState(false);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -76,17 +75,9 @@ export const AudioNotes: React.FC<AudioNotesProps> = ({
         // Stop all tracks
         stream.getTracks().forEach((track) => track.stop());
 
-        // Try to get transcription using Web Speech API
-        let transcription: string | undefined;
+        // Save the note (transcription can be added manually later)
         try {
-          transcription = await transcribeAudio(audioBlob);
-        } catch (error) {
-          console.log('Transcription not available:', error);
-        }
-
-        // Save the note
-        try {
-          await onSaveNote(audioBlob, transcription);
+          await onSaveNote(audioBlob, undefined);
         } catch (error) {
           console.error('Failed to save audio note:', error);
           alert('Failed to save audio note');
@@ -117,38 +108,6 @@ export const AudioNotes: React.FC<AudioNotesProps> = ({
         recordingIntervalRef.current = null;
       }
     }
-  };
-
-  const transcribeAudio = async (_audioBlob: Blob): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      // Check if browser supports Web Speech API
-      const SpeechRecognition =
-        (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-
-      if (!SpeechRecognition) {
-        reject(new Error('Speech recognition not supported'));
-        return;
-      }
-
-      const recognition = new SpeechRecognition();
-      recognition.continuous = false;
-      recognition.interimResults = false;
-      recognition.lang = 'en-US';
-
-      recognition.onresult = (event: any) => {
-        const transcript = event.results[0][0].transcript;
-        resolve(transcript);
-      };
-
-      recognition.onerror = (event: any) => {
-        reject(event.error);
-      };
-
-      // Note: Web Speech API doesn't directly support blob input
-      // This is a simplified approach - in production, you'd send to a server
-      // for transcription using services like Google Speech-to-Text, AWS Transcribe, etc.
-      reject(new Error('Direct blob transcription not supported in browser'));
-    });
   };
 
   const playAudio = (note: AudioNote) => {

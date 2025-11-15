@@ -7,6 +7,13 @@
     @apply bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
   }
+
+  /* Ensure all form inputs have visible text */
+  input,
+  textarea,
+  select {
+    @apply text-gray-900 dark:text-gray-100;
+  }
 }
 
 @layer components {

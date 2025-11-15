@@ -30,7 +30,7 @@ const INCREMENT_PATTERNS: { value: string; label: string; description: string }[
 
 export default function CounterForm({ counter, onSave, onCancel }: CounterFormProps) {
   const [name, setName] = useState(counter?.name || '');
-  const [type, setType] = useState(counter?.type || 'row');
+  const [type, setType] = useState(counter?.type || 'rows');
   const [currentValue, setCurrentValue] = useState(counter?.current_value || 0);
   const [targetValue, setTargetValue] = useState(counter?.target_value || '');
   const [incrementBy] = useState(counter?.increment_by || 1);
@@ -119,7 +119,7 @@ export default function CounterForm({ counter, onSave, onCancel }: CounterFormPr
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent text-gray-900"
               placeholder="e.g., Main Row Counter"
               required
             />
@@ -133,11 +133,11 @@ export default function CounterForm({ counter, onSave, onCancel }: CounterFormPr
             <select
               value={type}
               onChange={(e) => setType(e.target.value as any)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent text-gray-900"
             >
-              <option value="row">Row Counter</option>
-              <option value="stitch">Stitch Counter</option>
-              <option value="repeat">Repeat Counter</option>
+              <option value="rows">Row Counter</option>
+              <option value="stitches">Stitch Counter</option>
+              <option value="repeats">Repeat Counter</option>
               <option value="custom">Custom Counter</option>
             </select>
           </div>
@@ -152,7 +152,7 @@ export default function CounterForm({ counter, onSave, onCancel }: CounterFormPr
                 type="number"
                 value={currentValue}
                 onChange={(e) => setCurrentValue(Number(e.target.value))}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent text-gray-900"
               />
             </div>
 
@@ -164,7 +164,7 @@ export default function CounterForm({ counter, onSave, onCancel }: CounterFormPr
                 type="number"
                 value={targetValue}
                 onChange={(e) => setTargetValue(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent text-gray-900"
                 placeholder="No limit"
               />
             </div>
@@ -180,7 +180,7 @@ export default function CounterForm({ counter, onSave, onCancel }: CounterFormPr
                 type="number"
                 value={minValue}
                 onChange={(e) => setMinValue(Number(e.target.value))}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent text-gray-900"
               />
             </div>
 
@@ -192,7 +192,7 @@ export default function CounterForm({ counter, onSave, onCancel }: CounterFormPr
                 type="number"
                 value={maxValue}
                 onChange={(e) => setMaxValue(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent text-gray-900"
                 placeholder="No limit"
               />
             </div>
@@ -234,7 +234,7 @@ export default function CounterForm({ counter, onSave, onCancel }: CounterFormPr
                   type="number"
                   value={customIncrement}
                   onChange={(e) => setCustomIncrement(Number(e.target.value))}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent text-gray-900"
                   min="1"
                 />
               </div>
@@ -269,7 +269,7 @@ export default function CounterForm({ counter, onSave, onCancel }: CounterFormPr
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent text-gray-900"
               rows={3}
               placeholder="Add any notes or reminders for this counter..."
             />
