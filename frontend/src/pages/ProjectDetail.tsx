@@ -97,7 +97,7 @@ export default function ProjectDetail() {
     fetchPhotos();
     fetchAvailableItems();
     fetchAudioNotes();
-    fetchStructuredMemos();
+    // fetchStructuredMemos(); // Temporarily disabled - feature not yet implemented
 
     if (id) {
       joinProject(id);

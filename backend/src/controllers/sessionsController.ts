@@ -127,7 +127,7 @@ export async function startSession(req: Request, res: Response) {
       mood,
       location,
       notes,
-      counter_values: JSON.stringify(counterValues),
+      starting_counter_values: JSON.stringify(counterValues),
       created_at: new Date(),
     })
     .returning('*');
@@ -186,7 +186,7 @@ export async function endSession(req: Request, res: Response) {
     .where({ project_id: projectId })
     .select('id', 'name', 'current_value');
 
-  const counterValues = JSON.parse(session.counter_values || '{}');
+  const counterValues = JSON.parse(session.starting_counter_values || '{}');
   let rowsCompleted = 0;
 
   counters.forEach((c) => {
@@ -205,7 +205,7 @@ export async function endSession(req: Request, res: Response) {
       end_time: endTime,
       duration_seconds: durationSeconds,
       rows_completed: rowsCompleted,
-      counter_values: JSON.stringify(counterValues),
+      ending_counter_values: JSON.stringify(counterValues),
       notes: notes || session.notes,
       mood: mood || session.mood,
     })
