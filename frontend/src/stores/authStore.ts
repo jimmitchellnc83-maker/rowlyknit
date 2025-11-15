@@ -14,7 +14,7 @@ interface AuthState {
   user: User | null;
   accessToken: string | null;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string, rememberMe?: boolean) => Promise<void>;
   register: (data: any) => Promise<void>;
   logout: () => Promise<void>;
   setUser: (user: User) => void;
@@ -29,10 +29,11 @@ export const useAuthStore = create<AuthState>()(
       accessToken: null,
       isAuthenticated: false,
 
-      login: async (email: string, password: string) => {
+      login: async (email: string, password: string, rememberMe?: boolean) => {
         const response = await axios.post('/api/auth/login', {
           email,
           password,
+          rememberMe,
         });
 
         const { user, accessToken } = response.data.data;

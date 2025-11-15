@@ -97,7 +97,7 @@ export async function register(req: Request, res: Response) {
  * Login user
  */
 export async function login(req: Request, res: Response) {
-  const { email, password } = req.body;
+  const { email, password, rememberMe } = req.body;
 
   // Find user
   const user = await db('users')
@@ -132,7 +132,10 @@ export async function login(req: Request, res: Response) {
     sessionId: '',
   });
 
-  const sessionExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+  // Set session expiry based on "Remember Me"
+  // Remember Me: 30 days, Regular: 7 days
+  const sessionDays = rememberMe ? 30 : 7;
+  const sessionExpires = new Date(Date.now() + sessionDays * 24 * 60 * 60 * 1000);
 
   const [session] = await db('sessions')
     .insert({
@@ -167,7 +170,7 @@ export async function login(req: Request, res: Response) {
 
   res.cookie('refreshToken', refreshToken, {
     ...cookieOptions,
-    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    maxAge: sessionDays * 24 * 60 * 60 * 1000, // 7 or 30 days based on Remember Me
   });
 
   // Log audit

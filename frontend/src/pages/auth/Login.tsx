@@ -6,6 +6,7 @@ import { toast } from 'react-toastify';
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const login = useAuthStore((state) => state.login);
@@ -21,7 +22,7 @@ export default function Login() {
     setIsLoading(true);
 
     try {
-      await login(email, password);
+      await login(email, password, rememberMe);
       toast.success('Login successful!');
       navigate('/dashboard');
     } catch (error: any) {
@@ -75,6 +76,16 @@ export default function Login() {
           </div>
 
           <div className="flex items-center justify-between">
+            <label className="flex items-center">
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 dark:focus:ring-purple-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                disabled={isLoading}
+              />
+              <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">Remember me for 30 days</span>
+            </label>
             <Link
               to="/forgot-password"
               className="text-sm text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 transition"
