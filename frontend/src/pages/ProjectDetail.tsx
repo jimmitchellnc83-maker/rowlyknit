@@ -2,14 +2,14 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   FiArrowLeft, FiEdit2, FiTrash2, FiCalendar, FiClock, FiCheck, FiImage,
-  FiPlus, FiX, FiPackage,  FiUser, FiAlertCircle, FiMic, FiPlay, FiPause, FiEye, FiEyeOff
+  FiPlus, FiX, FiPackage,  FiUser, FiAlertCircle, FiMic, FiEye, FiEyeOff
 } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import PhotoGallery from '../components/PhotoGallery';
 import FileUpload from '../components/FileUpload';
 import CounterManager from '../components/counters/CounterManager';
-import { SessionManager } from '../components/sessions';
+import { SessionManager, SessionTimer, SessionHistory } from '../components/sessions';
 import { useWebSocket } from '../contexts/WebSocketContext';
 import { AudioNotes } from '../components/notes/AudioNotes';
 import { HandwrittenNotes } from '../components/notes/HandwrittenNotes';
@@ -48,10 +48,8 @@ export default function ProjectDetail() {
 
   // Knitting Mode state
   const [knittingMode, setKnittingMode] = useState(false);
-  const [isSessionActive, setIsSessionActive] = useState(false);
-  const [sessionStartTime, setSessionStartTime] = useState<Date | null>(null);
-  const [sessionElapsed, setSessionElapsed] = useState(0); // in seconds
-  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+  const [showKnittingVoiceNotes, setShowKnittingVoiceNotes] = useState(false);
+  const [showKnittingHistory, setShowKnittingHistory] = useState(false);
 
   // Notes state
   const [audioNotes, setAudioNotes] = useState<any[]>([]);
@@ -112,23 +110,38 @@ export default function ProjectDetail() {
     };
   }, [id, joinProject, leaveProject]);
 
-  // Timer effect - update elapsed time every second when session is active
+  // Session and counter state for knitting mode integration
+  const [currentSession, setCurrentSession] = useState<any>(null);
+  const [sessions, setSessions] = useState<any[]>([]);
+
   useEffect(() => {
-    let interval: ReturnType<typeof setInterval> | null = null;
-
-    if (isSessionActive && sessionStartTime) {
-      interval = setInterval(() => {
-        const elapsed = Math.floor((new Date().getTime() - sessionStartTime.getTime()) / 1000);
-        setSessionElapsed(elapsed);
-      }, 1000);
-    } else {
-      setSessionElapsed(0);
+    if (knittingMode) {
+      fetchSessions();
+      checkActiveSession();
     }
+  }, [knittingMode]);
 
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [isSessionActive, sessionStartTime]);
+  const checkActiveSession = async () => {
+    try {
+      const response = await axios.get(`/api/projects/${id}/sessions/active`);
+      if (response.data.success && response.data.data) {
+        setCurrentSession(response.data.data);
+      }
+    } catch (error) {
+      // No active session
+      setCurrentSession(null);
+    }
+  };
+
+  const fetchSessions = async () => {
+    try {
+      const response = await axios.get(`/api/projects/${id}/sessions`);
+      setSessions(response.data.success ? response.data.data.sessions || [] : []);
+    } catch (error) {
+      console.error('Failed to fetch sessions:', error);
+      setSessions([]);
+    }
+  };
 
   const fetchProject = async () => {
     try {
@@ -470,68 +483,63 @@ export default function ProjectDetail() {
     }
   };
 
-  const handleToggleSession = async () => {
-    if (!isSessionActive) {
-      // Start session
-      try {
-        const response = await axios.post(`/api/projects/${id}/sessions`, {
-          notes: 'Knitting session'
-        });
-        const session = response.data.data.session;
-        setCurrentSessionId(session.id);
-        setIsSessionActive(true);
-        setSessionStartTime(new Date());
-        toast.success('Knitting session started! 🎉');
-      } catch (error) {
-        console.error('Failed to start session:', error);
-        toast.error('Failed to start session');
-      }
-    } else {
-      // Stop session
-      if (currentSessionId) {
-        try {
-          const duration = sessionStartTime ? Math.round((new Date().getTime() - sessionStartTime.getTime()) / 60000) : 0;
-          await axios.put(`/api/projects/${id}/sessions/${currentSessionId}`, {
-            end_time: new Date().toISOString()
-          });
+  // Get current counter values for session tracking
+  const getCurrentCounterValues = () => {
+    const counterValues: Record<string, number> = {};
+    if (project?.counters) {
+      project.counters.forEach((counter: any) => {
+        counterValues[counter.id] = counter.current_count || 0;
+      });
+    }
+    return counterValues;
+  };
 
-          setIsSessionActive(false);
-          setSessionStartTime(null);
-          setCurrentSessionId(null);
-          setSessionElapsed(0);
-          toast.success(`Session ended! Duration: ${duration} minute${duration !== 1 ? 's' : ''}`);
-        } catch (error) {
-          console.error('Failed to end session:', error);
-          toast.error('Failed to end session');
-        }
-      }
+  const handleStartSession = async (): Promise<any> => {
+    try {
+      const response = await axios.post(`/api/projects/${id}/sessions/start`, {
+        mood: undefined,
+        location: undefined,
+        notes: 'Knitting session',
+      });
+      const newSession = response.data.success ? response.data.data.session : response.data;
+      setCurrentSession(newSession);
+      await fetchSessions();
+      toast.success('Knitting session started! 🎉');
+      return newSession;
+    } catch (error) {
+      console.error('Failed to start session:', error);
+      toast.error('Failed to start session');
+      throw error;
     }
   };
 
-  const handleQuickVoiceNote = () => {
-    // Scroll to notes section and switch to audio tab
-    setNotesTab('audio');
-    // Exit knitting mode to access notes
-    setKnittingMode(false);
-    toast.info('Switched to notes - start recording your voice note!');
-    // Scroll to notes section after a short delay
-    setTimeout(() => {
-      const notesSection = document.getElementById('notes-section');
-      if (notesSection) {
-        notesSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
-    }, 100);
+  const handleEndSession = async (notes?: string, mood?: string) => {
+    if (!currentSession) return;
+
+    try {
+      await axios.post(`/api/projects/${id}/sessions/${currentSession.id}/end`, {
+        notes,
+        mood,
+      });
+      setCurrentSession(null);
+      await fetchSessions();
+      toast.success('Session ended and saved!');
+    } catch (error) {
+      console.error('Failed to end session:', error);
+      toast.error('Failed to end session');
+      throw error;
+    }
   };
 
-  const formatElapsedTime = (seconds: number): string => {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
-
-    if (hours > 0) {
-      return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  const handleDeleteSession = async (sessionId: string) => {
+    try {
+      await axios.delete(`/api/projects/${id}/sessions/${sessionId}`);
+      await fetchSessions();
+      toast.success('Session deleted');
+    } catch (error) {
+      console.error('Failed to delete session:', error);
+      toast.error('Failed to delete session');
     }
-    return `${minutes}:${secs.toString().padStart(2, '0')}`;
   };
 
   const handlePhotoUpload = async (file: File) => {
@@ -676,76 +684,82 @@ export default function ProjectDetail() {
         </div>
       </div>
 
-      {/* Knitting Mode - Simplified UI */}
+      {/* Knitting Mode - Full Featured UI */}
       {knittingMode ? (
         <div className="space-y-4 md:space-y-6">
-          {/* Quick Action Bar */}
-          <div className="bg-gradient-to-r from-green-600 to-green-700 rounded-lg shadow-lg p-4 md:p-6">
-            <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-              <div className="flex flex-col md:flex-row items-center gap-3 text-white">
-                <div className="flex items-center gap-3">
-                  <div className={`w-4 h-4 rounded-full ${isSessionActive ? 'bg-red-500 animate-pulse' : 'bg-white/50'}`}></div>
-                  <span className="font-semibold text-lg md:text-xl">
-                    {isSessionActive ? 'Knitting in Progress' : 'Ready to Start'}
-                  </span>
-                </div>
-                {isSessionActive && (
-                  <div className="flex items-center gap-2 bg-white/20 px-4 py-2 rounded-lg">
-                    <FiClock className="h-5 w-5" />
-                    <span className="text-2xl font-mono font-bold tabular-nums">
-                      {formatElapsedTime(sessionElapsed)}
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex gap-3 w-full md:w-auto">
+          {/* Session Timer with Row Tracking */}
+          <div className="bg-white rounded-lg shadow-lg p-4 md:p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl md:text-2xl font-bold text-gray-900">Session Timer</h2>
+              <div className="flex gap-2">
                 <button
-                  onClick={handleToggleSession}
-                  className={`flex-1 md:flex-initial px-6 py-4 md:py-3 rounded-lg font-semibold transition flex items-center justify-center gap-2 min-h-[64px] md:min-h-[56px] ${
-                    isSessionActive
-                      ? 'bg-red-500 hover:bg-red-600 text-white'
-                      : 'bg-white hover:bg-gray-100 text-green-700'
+                  onClick={() => setShowKnittingVoiceNotes(!showKnittingVoiceNotes)}
+                  className={`px-4 py-2 rounded-lg transition flex items-center gap-2 ${
+                    showKnittingVoiceNotes
+                      ? 'bg-purple-600 text-white'
+                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                   }`}
                 >
-                  {isSessionActive ? (
-                    <>
-                      <FiPause className="h-6 w-6 md:h-5 md:w-5" />
-                      <span className="text-base md:text-sm">Stop Session</span>
-                    </>
-                  ) : (
-                    <>
-                      <FiPlay className="h-6 w-6 md:h-5 md:w-5" />
-                      <span className="text-base md:text-sm">Start Session</span>
-                    </>
-                  )}
+                  <FiMic className="h-5 w-5" />
+                  <span className="hidden md:inline">Voice Notes</span>
                 </button>
-
                 <button
-                  onClick={handleQuickVoiceNote}
-                  className="px-6 py-4 md:py-3 bg-white hover:bg-gray-100 text-green-700 rounded-lg font-semibold transition flex items-center justify-center gap-2 min-h-[64px] md:min-h-[56px]"
-                  title="Quick voice note"
+                  onClick={() => setShowKnittingHistory(!showKnittingHistory)}
+                  className={`px-4 py-2 rounded-lg transition flex items-center gap-2 ${
+                    showKnittingHistory
+                      ? 'bg-purple-600 text-white'
+                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  }`}
                 >
-                  <FiMic className="h-6 w-6 md:h-5 md:w-5" />
-                  <span className="hidden md:inline text-sm">Voice Note</span>
+                  <FiClock className="h-5 w-5" />
+                  <span className="hidden md:inline">History</span>
                 </button>
               </div>
             </div>
+            <SessionTimer
+              projectId={id!}
+              currentSession={currentSession}
+              onStartSession={handleStartSession}
+              onEndSession={handleEndSession}
+              getCurrentCounterValues={getCurrentCounterValues}
+            />
           </div>
 
-          {/* Counters - Large Display */}
-          <div className="bg-white rounded-lg shadow-lg p-4 md:p-6">
-            <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-4 md:mb-6">Active Counters</h2>
-            <CounterManager projectId={id!} />
-          </div>
+          {/* Voice Notes - Embedded in Knitting Mode */}
+          {showKnittingVoiceNotes && (
+            <div className="bg-white rounded-lg shadow-lg p-4 md:p-6">
+              <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-4">Voice Notes</h2>
+              <AudioNotes
+                projectId={id!}
+                notes={audioNotes}
+                onSaveNote={handleSaveAudioNote}
+                onDeleteNote={handleDeleteAudioNote}
+                onUpdateTranscription={handleUpdateAudioTranscription}
+              />
+            </div>
+          )}
 
-          {/* Pattern Preview Section - Knitting Mode */}
+          {/* Session History - Embedded in Knitting Mode */}
+          {showKnittingHistory && sessions.length > 0 && (
+            <div className="bg-white rounded-lg shadow-lg p-4 md:p-6">
+              <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-4">Session History</h2>
+              <SessionHistory sessions={sessions} onDeleteSession={handleDeleteSession} />
+            </div>
+          )}
+
+          {/* Pattern Preview - Knitting Mode */}
           {project.patterns && project.patterns.length > 0 && (
             <PatternPreview
               patterns={project.patterns}
               mode="knitting"
             />
           )}
+
+          {/* Counters - Large Display */}
+          <div className="bg-white rounded-lg shadow-lg p-4 md:p-6">
+            <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-4 md:mb-6">Active Counters</h2>
+            <CounterManager projectId={id!} />
+          </div>
         </div>
       ) : (
         <>
