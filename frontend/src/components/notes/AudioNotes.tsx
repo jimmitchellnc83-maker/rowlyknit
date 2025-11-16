@@ -42,6 +42,7 @@ export const AudioNotes: React.FC<AudioNotesProps> = ({
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const recordingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const recordingTimeRef = useRef<number>(0);
   const audioElementsRef = useRef<Map<string, HTMLAudioElement>>(new Map());
   const recordingMimeTypeRef = useRef<string>('audio/webm');
 
@@ -126,8 +127,11 @@ export const AudioNotes: React.FC<AudioNotesProps> = ({
         }
 
         // Save the note with duration (transcription can be added manually later)
+        // Use ref value instead of state to get the current recording time
+        const duration = recordingTimeRef.current;
+        console.log(`⏱️  Recording duration: ${duration} seconds`);
         try {
-          await onSaveNote(audioBlob, recordingTime, undefined);
+          await onSaveNote(audioBlob, duration, undefined);
           console.log('✅ Audio note saved successfully');
         } catch (error) {
           console.error('Failed to save audio note:', error);
@@ -144,10 +148,12 @@ export const AudioNotes: React.FC<AudioNotesProps> = ({
       mediaRecorder.start(1000); // Request data every 1000ms for reliability
       setIsRecording(true);
       setRecordingTime(0);
+      recordingTimeRef.current = 0;
 
       // Start recording timer
       recordingIntervalRef.current = setInterval(() => {
-        setRecordingTime((prev) => prev + 1);
+        recordingTimeRef.current += 1;
+        setRecordingTime(recordingTimeRef.current);
       }, 1000);
     } catch (error) {
       console.error('Failed to start recording:', error);
