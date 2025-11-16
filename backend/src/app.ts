@@ -10,6 +10,11 @@ import path from 'path';
 // Load environment variables
 dotenv.config();
 
+// Validate environment variables before starting app
+import { validateEnvironmentVariables, validateSecretStrength } from './utils/validateEnv';
+validateEnvironmentVariables();
+validateSecretStrength();
+
 // Import configuration
 import './config/database';
 import './config/redis';

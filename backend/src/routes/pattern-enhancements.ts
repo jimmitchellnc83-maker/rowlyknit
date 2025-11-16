@@ -34,10 +34,10 @@ router.post(
   '/patterns/:patternId/sections',
   [
     validateUUID('patternId'),
-    body('name').trim().notEmpty().isLength({ max: 255 }),
-    body('pageNumber').optional().isNumeric(),
-    body('yPosition').optional().isNumeric(),
-    body('sortOrder').optional().isNumeric(),
+    body('name').trim().notEmpty().isLength({ max: 255 }).escape(),
+    body('pageNumber').optional().isInt({ min: 1 }),
+    body('yPosition').optional().isFloat(),
+    body('sortOrder').optional().isInt({ min: 0 }),
   ],
   validate,
   asyncHandler(patternEnhancementsController.createPatternSection)
@@ -50,7 +50,14 @@ router.post(
  */
 router.put(
   '/patterns/:patternId/sections/:sectionId',
-  [validateUUID('patternId'), validateUUID('sectionId')],
+  [
+    validateUUID('patternId'),
+    validateUUID('sectionId'),
+    body('name').optional().trim().isLength({ max: 255 }).escape(),
+    body('pageNumber').optional().isInt({ min: 1 }),
+    body('yPosition').optional().isFloat(),
+    body('sortOrder').optional().isInt({ min: 0 }),
+  ],
   validate,
   asyncHandler(patternEnhancementsController.updatePatternSection)
 );
@@ -92,11 +99,11 @@ router.post(
   [
     validateUUID('patternId'),
     body('projectId').optional().isUUID(),
-    body('name').trim().notEmpty().isLength({ max: 255 }),
-    body('pageNumber').notEmpty().isNumeric(),
-    body('yPosition').optional().isNumeric(),
-    body('zoomLevel').optional().isNumeric(),
-    body('color').optional().isString(),
+    body('name').trim().notEmpty().isLength({ max: 255 }).escape(),
+    body('pageNumber').notEmpty().isInt({ min: 1 }),
+    body('yPosition').optional().isFloat(),
+    body('zoomLevel').optional().isFloat({ min: 0.1, max: 5.0 }),
+    body('color').optional().matches(/^#[0-9A-Fa-f]{6}$/),
   ],
   validate,
   asyncHandler(patternEnhancementsController.createPatternBookmark)
@@ -109,7 +116,16 @@ router.post(
  */
 router.put(
   '/patterns/:patternId/bookmarks/:bookmarkId',
-  [validateUUID('patternId'), validateUUID('bookmarkId')],
+  [
+    validateUUID('patternId'),
+    validateUUID('bookmarkId'),
+    body('projectId').optional().isUUID(),
+    body('name').optional().trim().isLength({ max: 255 }).escape(),
+    body('pageNumber').optional().isInt({ min: 1 }),
+    body('yPosition').optional().isFloat(),
+    body('zoomLevel').optional().isFloat({ min: 0.1, max: 5.0 }),
+    body('color').optional().matches(/^#[0-9A-Fa-f]{6}$/),
+  ],
   validate,
   asyncHandler(patternEnhancementsController.updatePatternBookmark)
 );
@@ -151,10 +167,14 @@ router.post(
   [
     validateUUID('patternId'),
     body('projectId').optional().isUUID(),
-    body('pageNumber').notEmpty().isNumeric(),
+    body('pageNumber').notEmpty().isInt({ min: 1 }),
     body('coordinates').notEmpty().isObject(),
-    body('color').optional().isString(),
-    body('opacity').optional().isNumeric(),
+    body('coordinates.x').isFloat(),
+    body('coordinates.y').isFloat(),
+    body('coordinates.width').isFloat({ min: 0 }),
+    body('coordinates.height').isFloat({ min: 0 }),
+    body('color').optional().matches(/^#[0-9A-Fa-f]{6}$/),
+    body('opacity').optional().isFloat({ min: 0, max: 1 }),
   ],
   validate,
   asyncHandler(patternEnhancementsController.createPatternHighlight)
@@ -167,7 +187,19 @@ router.post(
  */
 router.put(
   '/patterns/:patternId/highlights/:highlightId',
-  [validateUUID('patternId'), validateUUID('highlightId')],
+  [
+    validateUUID('patternId'),
+    validateUUID('highlightId'),
+    body('projectId').optional().isUUID(),
+    body('pageNumber').optional().isInt({ min: 1 }),
+    body('coordinates').optional().isObject(),
+    body('coordinates.x').optional().isFloat(),
+    body('coordinates.y').optional().isFloat(),
+    body('coordinates.width').optional().isFloat({ min: 0 }),
+    body('coordinates.height').optional().isFloat({ min: 0 }),
+    body('color').optional().matches(/^#[0-9A-Fa-f]{6}$/),
+    body('opacity').optional().isFloat({ min: 0, max: 1 }),
+  ],
   validate,
   asyncHandler(patternEnhancementsController.updatePatternHighlight)
 );
@@ -209,10 +241,10 @@ router.post(
   [
     validateUUID('patternId'),
     body('projectId').optional().isUUID(),
-    body('pageNumber').notEmpty().isNumeric(),
+    body('pageNumber').notEmpty().isInt({ min: 1 }),
     body('annotationType').notEmpty().isIn(['text', 'drawing', 'handwriting', 'image']),
     body('data').optional().isObject(),
-    body('imageUrl').optional().isString(),
+    body('imageUrl').optional().isURL({ protocols: ['http', 'https'], require_protocol: true }),
   ],
   validate,
   asyncHandler(patternEnhancementsController.createPatternAnnotation)
@@ -225,7 +257,15 @@ router.post(
  */
 router.put(
   '/patterns/:patternId/annotations/:annotationId',
-  [validateUUID('patternId'), validateUUID('annotationId')],
+  [
+    validateUUID('patternId'),
+    validateUUID('annotationId'),
+    body('projectId').optional().isUUID(),
+    body('pageNumber').optional().isInt({ min: 1 }),
+    body('annotationType').optional().isIn(['text', 'drawing', 'handwriting', 'image']),
+    body('data').optional().isObject(),
+    body('imageUrl').optional().isURL({ protocols: ['http', 'https'], require_protocol: true }),
+  ],
   validate,
   asyncHandler(patternEnhancementsController.updatePatternAnnotation)
 );
