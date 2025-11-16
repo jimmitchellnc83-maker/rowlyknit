@@ -23,7 +23,10 @@ export const initializeSocket = (httpServer: HTTPServer): Server => {
         return next(new Error('Authentication error: No token provided'));
       }
 
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key') as { userId: string; email: string };
+      if (!process.env.JWT_SECRET) {
+        throw new Error('Missing required environment variable: JWT_SECRET. Please set it in your .env file.');
+      }
+      const decoded = jwt.verify(token, process.env.JWT_SECRET) as { userId: string; email: string };
       (socket as any).userId = decoded.userId;
       (socket as any).userEmail = decoded.email;
 

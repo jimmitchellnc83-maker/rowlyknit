@@ -74,8 +74,11 @@ app.use(cors(corsOptions));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Cookie parser
-app.use(cookieParser());
+// Cookie parser with CSRF secret for signed cookies
+if (!process.env.CSRF_SECRET) {
+  throw new Error('Missing required environment variable: CSRF_SECRET. Please set it in your .env file.');
+}
+app.use(cookieParser(process.env.CSRF_SECRET));
 
 // Compression middleware
 app.use(compression());

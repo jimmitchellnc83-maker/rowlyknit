@@ -1,8 +1,17 @@
 import jwt from 'jsonwebtoken';
 import { v4 as uuidv4 } from 'uuid';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
-const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'your-refresh-secret-change-in-production';
+// Helper function to get required environment variable or fail
+function getRequiredEnv(key: string): string {
+  const value = process.env[key];
+  if (!value) {
+    throw new Error(`Missing required environment variable: ${key}. Please set it in your .env file.`);
+  }
+  return value;
+}
+
+const JWT_SECRET = getRequiredEnv('JWT_SECRET');
+const JWT_REFRESH_SECRET = getRequiredEnv('JWT_REFRESH_SECRET');
 const JWT_EXPIRY = process.env.JWT_EXPIRY || '15m';
 const JWT_REFRESH_EXPIRY = process.env.JWT_REFRESH_EXPIRY || '7d';
 
