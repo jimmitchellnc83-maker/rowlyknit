@@ -30,11 +30,12 @@ interface PatternViewerProps {
   patternId?: string;
   projectId?: string;
   onClose?: () => void;
+  fullscreen?: boolean;
 }
 
 const ZOOM_LEVELS = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
 
-export default function PatternViewer({ fileUrl, filename, patternId, projectId, onClose }: PatternViewerProps) {
+export default function PatternViewer({ fileUrl, filename, patternId, projectId, onClose, fullscreen = true }: PatternViewerProps) {
   const [numPages, setNumPages] = useState<number>(0);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [zoomIndex, setZoomIndex] = useState<number>(2); // Start at 1.0
@@ -167,7 +168,7 @@ export default function PatternViewer({ fileUrl, filename, patternId, projectId,
   }, []);
 
   return (
-    <div className="fixed inset-0 bg-gray-900 z-50 flex flex-col">
+    <div className={fullscreen ? "fixed inset-0 bg-gray-900 z-50 flex flex-col" : "bg-gray-900 flex flex-col h-full"}>
       {/* Toolbar */}
       <div className="bg-gray-800 text-white p-3 flex items-center justify-between shadow-lg">
         <div className="flex items-center gap-4">

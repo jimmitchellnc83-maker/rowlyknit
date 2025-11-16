@@ -459,11 +459,12 @@ export default function PatternDetail() {
 
       {/* PDF Viewer Tab */}
       {activeTab === 'viewer' && selectedPdfFile && (
-        <div className="bg-white rounded-lg shadow p-6">
+        <div className="bg-white rounded-lg shadow overflow-hidden" style={{ height: '800px' }}>
           <PatternViewer
             fileUrl={`/api/uploads/patterns/${id}/files/${selectedPdfFile.id}/download`}
             filename={selectedPdfFile.original_filename}
             patternId={id}
+            fullscreen={false}
           />
         </div>
       )}
