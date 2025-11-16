@@ -80,6 +80,12 @@ export const AudioNotes: React.FC<AudioNotesProps> = ({
 
   const startRecording = async () => {
     try {
+      // Check if MediaRecorder API is supported
+      if (!window.MediaRecorder) {
+        alert('❌ Audio recording is not supported in this browser. Please use Chrome, Firefox, Edge, or Safari.');
+        return;
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
       // Detect supported mime type
@@ -129,6 +135,12 @@ export const AudioNotes: React.FC<AudioNotesProps> = ({
         }
       };
 
+      // Add error handler for MediaRecorder
+      mediaRecorder.onerror = (event: any) => {
+        console.error('🔴 MediaRecorder error:', event.error);
+        alert(`Recording error: ${event.error?.message || 'Unknown error occurred'}`);
+      };
+
       mediaRecorder.start(1000); // Request data every 1000ms for reliability
       setIsRecording(true);
       setRecordingTime(0);
@@ -139,7 +151,25 @@ export const AudioNotes: React.FC<AudioNotesProps> = ({
       }, 1000);
     } catch (error) {
       console.error('Failed to start recording:', error);
-      alert('Failed to access microphone. Please grant microphone permissions.');
+
+      // Provide specific error messages based on error type
+      if (error instanceof DOMException) {
+        switch (error.name) {
+          case 'NotAllowedError':
+            alert('🎤 Microphone access denied. Please allow microphone permissions in your browser settings and try again.');
+            break;
+          case 'NotFoundError':
+            alert('🎤 No microphone found. Please connect a microphone and try again.');
+            break;
+          case 'NotReadableError':
+            alert('🎤 Microphone is already in use by another application. Please close other apps using the microphone and try again.');
+            break;
+          default:
+            alert(`🎤 Failed to access microphone: ${error.message}`);
+        }
+      } else {
+        alert('Failed to access microphone. Please grant microphone permissions.');
+      }
     }
   };
 
