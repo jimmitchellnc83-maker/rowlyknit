@@ -82,6 +82,11 @@ export async function getAudioNote(req: Request, res: Response) {
 export async function createAudioNote(req: Request, res: Response) {
   const userId = (req as any).user.userId;
   const { id: projectId } = req.params;
+
+  // Debug logging
+  console.log('📥 Audio note request body:', req.body);
+  console.log('📥 Audio note file:', (req as any).file?.originalname);
+
   const { patternId, transcription, durationSeconds } = req.body;
   const file = (req as any).file;
 
