@@ -19,14 +19,14 @@
   input:not([type="checkbox"]):not([type="radio"]),
   textarea,
   select {
-    color: #111827 !important; /* gray-900 */
+    color: #000000 !important; /* pure black */
   }
 
   @media (prefers-color-scheme: dark) {
     input:not([type="checkbox"]):not([type="radio"]),
     textarea,
     select {
-      color: #f3f4f6 !important; /* gray-100 */
+      color: #ffffff !important; /* pure white */
     }
   }
 }
