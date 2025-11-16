@@ -58,14 +58,15 @@ docker compose build --no-cache
 echo -e "${GREEN}✅ Containers built${NC}"
 echo ""
 
-echo -e "${YELLOW}⏹️  Step 4: Stopping old containers...${NC}"
-docker compose down
-echo -e "${GREEN}✅ Old containers stopped${NC}"
+echo -e "${YELLOW}🔄 Step 4: Recreating application containers (preserving database)...${NC}"
+# Stop and recreate only app containers, preserve postgres and redis volumes
+docker compose up -d --force-recreate --no-deps backend frontend nginx
+echo -e "${GREEN}✅ Application containers recreated${NC}"
 echo ""
 
-echo -e "${YELLOW}🚀 Step 5: Starting new containers...${NC}"
-docker compose up -d
-echo -e "${GREEN}✅ Containers started${NC}"
+echo -e "${YELLOW}🗄️  Step 5: Ensuring database containers are running...${NC}"
+docker compose up -d postgres redis
+echo -e "${GREEN}✅ Database containers verified${NC}"
 echo ""
 
 echo -e "${YELLOW}⏳ Step 6: Waiting for services to be ready...${NC}"
