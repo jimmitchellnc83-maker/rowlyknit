@@ -714,79 +714,85 @@ export default function ProjectDetail() {
 
       {/* Knitting Mode - Full Featured UI */}
       {knittingMode ? (
-        <div className="space-y-4 md:space-y-6">
-          {/* Session Timer with Row Tracking */}
-          <div className="bg-white rounded-lg shadow-lg p-4 md:p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl md:text-2xl font-bold text-gray-900">Session Timer</h2>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setShowKnittingVoiceNotes(!showKnittingVoiceNotes)}
-                  className={`px-4 py-2 rounded-lg transition flex items-center gap-2 ${
-                    showKnittingVoiceNotes
-                      ? 'bg-purple-600 text-white'
-                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                  }`}
-                >
-                  <FiMic className="h-5 w-5" />
-                  <span className="hidden md:inline">Voice Notes</span>
-                </button>
-                <button
-                  onClick={() => setShowKnittingHistory(!showKnittingHistory)}
-                  className={`px-4 py-2 rounded-lg transition flex items-center gap-2 ${
-                    showKnittingHistory
-                      ? 'bg-purple-600 text-white'
-                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                  }`}
-                >
-                  <FiClock className="h-5 w-5" />
-                  <span className="hidden md:inline">History</span>
-                </button>
-              </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
+          {/* Main Content - Left Column */}
+          <div className="lg:col-span-2 space-y-4 md:space-y-6">
+            {/* Pattern Preview - Knitting Mode */}
+            {project.patterns && project.patterns.length > 0 && (
+              <PatternPreview
+                patterns={project.patterns}
+                mode="knitting"
+              />
+            )}
+
+            {/* Counters - Large Display */}
+            <div className="bg-white rounded-lg shadow-lg p-4 md:p-6">
+              <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-4 md:mb-6">Active Counters</h2>
+              <CounterManager projectId={id!} />
             </div>
-            <SessionTimer
-              projectId={id!}
-              currentSession={currentSession}
-              onStartSession={handleStartSession}
-              onEndSession={handleEndSession}
-              getCurrentCounterValues={getCurrentCounterValues}
-            />
           </div>
 
-          {/* Voice Notes - Embedded in Knitting Mode */}
-          {showKnittingVoiceNotes && (
+          {/* Sidebar - Right Column */}
+          <div className="space-y-4 md:space-y-6">
+            {/* Session Timer with Row Tracking */}
             <div className="bg-white rounded-lg shadow-lg p-4 md:p-6">
-              <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-4">Voice Notes</h2>
-              <AudioNotes
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg md:text-xl font-bold text-gray-900">Session Timer</h2>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setShowKnittingVoiceNotes(!showKnittingVoiceNotes)}
+                    className={`p-2 rounded-lg transition ${
+                      showKnittingVoiceNotes
+                        ? 'bg-purple-600 text-white'
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    }`}
+                    title="Voice Notes"
+                  >
+                    <FiMic className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => setShowKnittingHistory(!showKnittingHistory)}
+                    className={`p-2 rounded-lg transition ${
+                      showKnittingHistory
+                        ? 'bg-purple-600 text-white'
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    }`}
+                    title="History"
+                  >
+                    <FiClock className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+              <SessionTimer
                 projectId={id!}
-                notes={audioNotes}
-                onSaveNote={handleSaveAudioNote}
-                onDeleteNote={handleDeleteAudioNote}
-                onUpdateTranscription={handleUpdateAudioTranscription}
+                currentSession={currentSession}
+                onStartSession={handleStartSession}
+                onEndSession={handleEndSession}
+                getCurrentCounterValues={getCurrentCounterValues}
               />
             </div>
-          )}
 
-          {/* Session History - Embedded in Knitting Mode */}
-          {showKnittingHistory && sessions.length > 0 && (
-            <div className="bg-white rounded-lg shadow-lg p-4 md:p-6">
-              <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-4">Session History</h2>
-              <SessionHistory sessions={sessions} onDeleteSession={handleDeleteSession} />
-            </div>
-          )}
+            {/* Voice Notes - Embedded in Knitting Mode */}
+            {showKnittingVoiceNotes && (
+              <div className="bg-white rounded-lg shadow-lg p-4 md:p-6">
+                <h2 className="text-lg md:text-xl font-bold text-gray-900 mb-4">Voice Notes</h2>
+                <AudioNotes
+                  projectId={id!}
+                  notes={audioNotes}
+                  onSaveNote={handleSaveAudioNote}
+                  onDeleteNote={handleDeleteAudioNote}
+                  onUpdateTranscription={handleUpdateAudioTranscription}
+                />
+              </div>
+            )}
 
-          {/* Pattern Preview - Knitting Mode */}
-          {project.patterns && project.patterns.length > 0 && (
-            <PatternPreview
-              patterns={project.patterns}
-              mode="knitting"
-            />
-          )}
-
-          {/* Counters - Large Display */}
-          <div className="bg-white rounded-lg shadow-lg p-4 md:p-6">
-            <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-4 md:mb-6">Active Counters</h2>
-            <CounterManager projectId={id!} />
+            {/* Session History - Embedded in Knitting Mode */}
+            {showKnittingHistory && sessions.length > 0 && (
+              <div className="bg-white rounded-lg shadow-lg p-4 md:p-6">
+                <h2 className="text-lg md:text-xl font-bold text-gray-900 mb-4">Session History</h2>
+                <SessionHistory sessions={sessions} onDeleteSession={handleDeleteSession} />
+              </div>
+            )}
           </div>
         </div>
       ) : (
