@@ -401,9 +401,10 @@ export default function ProjectDetail() {
     }
   };
 
-  const handleSaveAudioNote = async (audioBlob: Blob, transcription?: string) => {
+  const handleSaveAudioNote = async (audioBlob: Blob, durationSeconds: number, transcription?: string) => {
     const formData = new FormData();
     formData.append('audio', audioBlob, 'audio-note.webm');
+    formData.append('durationSeconds', durationSeconds.toString());
     if (transcription) {
       formData.append('transcription', transcription);
     }

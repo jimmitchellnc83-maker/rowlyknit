@@ -19,7 +19,7 @@ interface AudioNotesProps {
   patternId?: string;
   notes: AudioNote[];
   getCurrentCounterValues?: () => Record<string, number>;
-  onSaveNote: (audioBlob: Blob, transcription?: string) => Promise<void>;
+  onSaveNote: (audioBlob: Blob, durationSeconds: number, transcription?: string) => Promise<void>;
   onDeleteNote: (noteId: string) => Promise<void>;
   onUpdateTranscription?: (noteId: string, transcription: string) => Promise<void>;
 }
@@ -125,9 +125,9 @@ export const AudioNotes: React.FC<AudioNotesProps> = ({
           return;
         }
 
-        // Save the note (transcription can be added manually later)
+        // Save the note with duration (transcription can be added manually later)
         try {
-          await onSaveNote(audioBlob, undefined);
+          await onSaveNote(audioBlob, recordingTime, undefined);
           console.log('✅ Audio note saved successfully');
         } catch (error) {
           console.error('Failed to save audio note:', error);
