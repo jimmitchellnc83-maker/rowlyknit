@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   FiArrowLeft, FiEdit2, FiTrash2, FiCalendar, FiClock, FiCheck, FiImage,
-  FiPlus, FiX, FiPackage,  FiUser, FiAlertCircle, FiMic, FiEye, FiEyeOff
+  FiPlus, FiX, FiUser, FiAlertCircle, FiMic, FiEye, FiEyeOff
 } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
@@ -784,108 +784,6 @@ export default function ProjectDetail() {
             />
           )}
 
-          {/* Yarn Usage Tracker */}
-          {project.yarn && project.yarn.length > 0 && (
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-gray-900">Yarn Usage</h2>
-                <button
-                  onClick={() => setShowAddYarnModal(true)}
-                  className="flex items-center px-3 py-1.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition text-sm"
-                >
-                  <FiPlus className="mr-1 h-4 w-4" />
-                  Add Yarn
-                </button>
-              </div>
-
-              <div className="space-y-4">
-                {project.yarn.map((y: any) => {
-                  const percentage = getYarnPercentage(y);
-                  const isLowStock = y.low_stock_alert && y.yards_remaining <= (y.low_stock_threshold || 0);
-
-                  return (
-                    <div key={y.id} className="border border-gray-200 rounded-lg p-4">
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex-1">
-                          <h3 className="font-medium text-gray-900">
-                            {y.brand} {y.name}
-                            {y.color && <span className="text-gray-600"> - {y.color}</span>}
-                          </h3>
-                          <p className="text-sm text-gray-500">{y.weight}</p>
-                        </div>
-                        <button
-                          onClick={() => handleRemoveYarn(y.id)}
-                          className="text-red-600 hover:text-red-700 p-1"
-                          title="Remove yarn"
-                        >
-                          <FiX className="h-5 w-5" />
-                        </button>
-                      </div>
-
-                      {/* Usage Stats */}
-                      <div className="grid grid-cols-2 gap-4 mb-3">
-                        <div>
-                          <p className="text-xs text-gray-500">Used in Project</p>
-                          <p className="text-sm font-medium text-gray-900">
-                            {y.skeins_used || 0} skeins, {y.yards_used || 0} yds
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-gray-500">Remaining in Stash</p>
-                          <p className="text-sm font-medium text-gray-900">
-                            {y.skeins_remaining || 0} skeins, {y.yards_remaining || 0} yds
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Progress Bar */}
-                      <div className="mb-2">
-                        <div className="flex items-center justify-between text-xs text-gray-600 mb-1">
-                          <span>Stash Level</span>
-                          <span>{percentage.toFixed(0)}%</span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                          <div
-                            className={`h-2 rounded-full transition-all ${
-                              percentage < 20 ? 'bg-red-500' : percentage < 50 ? 'bg-yellow-500' : 'bg-green-500'
-                            }`}
-                            style={{ width: `${percentage}%` }}
-                          />
-                        </div>
-                      </div>
-
-                      {/* Low Stock Warning */}
-                      {isLowStock && (
-                        <div className="flex items-center text-orange-600 text-sm mt-2">
-                          <FiAlertCircle className="mr-2 h-4 w-4" />
-                          Low stock! Only {y.yards_remaining} yards remaining
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Add Yarn Button if none */}
-          {(!project.yarn || project.yarn.length === 0) && (
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="text-center py-8">
-                <FiPackage className="mx-auto h-12 w-12 text-gray-400 mb-3" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No Yarn Added</h3>
-                <p className="text-gray-500 mb-4">Add yarn to track usage and stash levels</p>
-                <button
-                  onClick={() => setShowAddYarnModal(true)}
-                  className="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
-                >
-                  <FiPlus className="mr-2" />
-                  Add Yarn
-                </button>
-              </div>
-            </div>
-          )}
-
           {/* Notes */}
           {project.notes && (
             <div className="bg-white rounded-lg shadow p-6">
@@ -1143,6 +1041,104 @@ export default function ProjectDetail() {
               <p className="text-sm text-gray-500">No tools added</p>
             )}
           </div>
+
+          {/* Yarn Usage */}
+          {project.yarn && project.yarn.length > 0 ? (
+            <div className="bg-white rounded-lg shadow p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-gray-900">Yarn Usage</h2>
+                <button
+                  onClick={() => setShowAddYarnModal(true)}
+                  className="text-purple-600 hover:text-purple-700"
+                  title="Add yarn"
+                >
+                  <FiPlus className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                {project.yarn.map((y: any) => {
+                  const percentage = getYarnPercentage(y);
+                  const isLowStock = y.low_stock_alert && y.yards_remaining <= (y.low_stock_threshold || 0);
+
+                  return (
+                    <div key={y.id} className="border border-gray-200 rounded-lg p-3">
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex-1">
+                          <h3 className="text-sm font-medium text-gray-900">
+                            {y.brand} {y.name}
+                            {y.color && <span className="text-gray-600"> - {y.color}</span>}
+                          </h3>
+                          <p className="text-xs text-gray-500">{y.weight}</p>
+                        </div>
+                        <button
+                          onClick={() => handleRemoveYarn(y.id)}
+                          className="text-red-600 hover:text-red-700 p-1"
+                          title="Remove yarn"
+                        >
+                          <FiX className="h-4 w-4" />
+                        </button>
+                      </div>
+
+                      {/* Usage Stats */}
+                      <div className="space-y-2 mb-3">
+                        <div>
+                          <p className="text-xs text-gray-500">Used in Project</p>
+                          <p className="text-xs font-medium text-gray-900">
+                            {y.skeins_used || 0} skeins, {y.yards_used || 0} yds
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500">Remaining in Stash</p>
+                          <p className="text-xs font-medium text-gray-900">
+                            {y.skeins_remaining || 0} skeins, {y.yards_remaining || 0} yds
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Progress Bar */}
+                      <div className="mb-2">
+                        <div className="flex items-center justify-between text-xs text-gray-600 mb-1">
+                          <span>Stash Level</span>
+                          <span>{percentage.toFixed(0)}%</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div
+                            className={`h-2 rounded-full transition-all ${
+                              percentage < 20 ? 'bg-red-500' : percentage < 50 ? 'bg-yellow-500' : 'bg-green-500'
+                            }`}
+                            style={{ width: `${percentage}%` }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Low Stock Warning */}
+                      {isLowStock && (
+                        <div className="flex items-center text-orange-600 text-xs mt-2">
+                          <FiAlertCircle className="mr-1 h-3 w-3" />
+                          Low stock! Only {y.yards_remaining} yards remaining
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            <div className="bg-white rounded-lg shadow p-6">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-lg font-semibold text-gray-900">Yarn Usage</h2>
+                <button
+                  onClick={() => setShowAddYarnModal(true)}
+                  className="text-purple-600 hover:text-purple-700"
+                  title="Add yarn"
+                >
+                  <FiPlus className="h-5 w-5" />
+                </button>
+              </div>
+              <p className="text-sm text-gray-500">No yarn added</p>
+            </div>
+          )}
         </div>
       </div>
         </>
