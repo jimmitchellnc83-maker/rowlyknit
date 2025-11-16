@@ -220,7 +220,9 @@ export default function ProjectDetail() {
   const handleSaveNotes = async () => {
     try {
       await axios.put(`/api/projects/${id}`, {
-        ...formData,
+        name: project?.name,
+        description: project?.description,
+        status: project?.status,
         notes: notesText,
       });
       toast.success('Notes saved successfully!');
