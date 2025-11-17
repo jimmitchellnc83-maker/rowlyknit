@@ -12,6 +12,12 @@ function getRequiredEnv(key: string): string {
 
 const JWT_SECRET = getRequiredEnv('JWT_SECRET');
 const JWT_REFRESH_SECRET = getRequiredEnv('JWT_REFRESH_SECRET');
+
+// Validate that JWT secrets are different for security
+if (JWT_SECRET === JWT_REFRESH_SECRET) {
+  throw new Error('Security Error: JWT_SECRET and JWT_REFRESH_SECRET must be different values!');
+}
+
 const JWT_EXPIRY = process.env.JWT_EXPIRY || '15m';
 const JWT_REFRESH_EXPIRY = process.env.JWT_REFRESH_EXPIRY || '7d';
 

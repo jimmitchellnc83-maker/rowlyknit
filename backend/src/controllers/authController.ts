@@ -160,7 +160,7 @@ export async function login(req: Request, res: Response) {
   const cookieOptions = {
     httpOnly: true,
     secure: isProduction,
-    sameSite: (isProduction ? 'strict' : 'lax') as const,
+    sameSite: 'lax' as const, // Use 'lax' for cross-origin cookie support
   };
 
   res.cookie('accessToken', accessToken, {
@@ -246,7 +246,7 @@ export async function refreshToken(req: Request, res: Response) {
   res.cookie('accessToken', accessToken, {
     httpOnly: true,
     secure: isProduction,
-    sameSite: isProduction ? 'strict' : 'lax',
+    sameSite: 'lax' as const, // Use 'lax' for cross-origin cookie support
     maxAge: 15 * 60 * 1000, // 15 minutes
   });
 
