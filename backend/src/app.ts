@@ -10,6 +10,11 @@ import path from 'path';
 // Load environment variables
 dotenv.config();
 
+// Validate environment variables before starting app
+import { validateEnvironmentVariables, validateSecretStrength } from './utils/validateEnv';
+validateEnvironmentVariables();
+validateSecretStrength();
+
 // Import configuration
 import './config/database';
 import './config/redis';
@@ -62,9 +67,21 @@ app.use(helmet({
   },
 }));
 
-// CORS configuration
+// CORS configuration with origin validation
+const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',').map(o => o.trim()) || ['http://localhost:3000'];
 const corsOptions = {
-  origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000'],
+  origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+    // Allow requests with no origin (mobile apps, Postman, etc.)
+    if (!origin) return callback(null, true);
+
+    // Check if origin is in whitelist
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      logger.warn(`CORS blocked request from unauthorized origin: ${origin}`);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
   optionsSuccessStatus: 200,
 };

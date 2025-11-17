@@ -2,10 +2,25 @@ import { Request, Response } from 'express';
 import db from '../config/database';
 import { NotFoundError, ValidationError } from '../utils/errorHandler';
 import { createAuditLog } from '../middleware/auditLog';
+import logger from '../config/logger';
 import { PDFDocument, rgb } from 'pdf-lib';
 import axios from 'axios';
 import fs from 'fs';
 import path from 'path';
+
+/**
+ * Serialize pattern JSONB fields to strings for frontend compatibility
+ */
+function serializePattern(pattern: any) {
+  return {
+    ...pattern,
+    yarn_requirements: pattern.yarn_requirements ? JSON.stringify(pattern.yarn_requirements) : null,
+    gauge: pattern.gauge ? JSON.stringify(pattern.gauge) : null,
+    needle_sizes: pattern.needle_sizes ? JSON.stringify(pattern.needle_sizes) : null,
+    sizes_available: pattern.sizes_available ? JSON.stringify(pattern.sizes_available) : null,
+    tags: pattern.tags ? JSON.stringify(pattern.tags) : null,
+  };
+}
 
 /**
  * Get all patterns for current user
@@ -42,10 +57,13 @@ export async function getPatterns(req: Request, res: Response) {
     .limit(Number(limit))
     .offset(offset);
 
+  // Serialize JSONB fields to strings for frontend
+  const serializedPatterns = patterns.map(serializePattern);
+
   res.json({
     success: true,
     data: {
-      patterns,
+      patterns: serializedPatterns,
       pagination: {
         page: Number(page),
         limit: Number(limit),
@@ -79,11 +97,14 @@ export async function getPattern(req: Request, res: Response) {
     .whereNull('p.deleted_at')
     .select('p.*', 'pp.modifications');
 
+  // Serialize JSONB fields to strings for frontend
+  const serializedPattern = serializePattern(pattern);
+
   res.json({
     success: true,
     data: {
       pattern: {
-        ...pattern,
+        ...serializedPattern,
         projects,
       },
     },
@@ -295,7 +316,7 @@ export async function collatePatterns(req: Request, res: Response) {
       const pdfFile = pdfFiles.find((f) => f.pattern_id === patternId);
 
       if (!pdfFile) {
-        console.warn(`No PDF file found for pattern ${patternId}, skipping...`);
+        logger.warn('No PDF file found for pattern, skipping', { patternId });
         continue;
       }
 
@@ -382,8 +403,8 @@ export async function collatePatterns(req: Request, res: Response) {
         },
       },
     });
-  } catch (error) {
-    console.error('Error collating PDFs:', error);
+  } catch (error: any) {
+    logger.error('Error collating PDFs', { error: error.message, stack: error.stack });
     throw new Error('Failed to collate PDF files');
   }
 }

@@ -79,3 +79,8 @@ Thumbs.db
 .temp/
 *.bak
 PRODUCTION_SECRETS.env
+*SECRET*.env
+*.production
+!*.production.example
+backend/.env.production
+frontend/.env.production

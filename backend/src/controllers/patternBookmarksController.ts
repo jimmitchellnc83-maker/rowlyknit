@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import db from '../config/database';
-import { NotFoundError, ValidationError, ForbiddenError } from '../utils/errorHandler';
+import { NotFoundError, ValidationError } from '../utils/errorHandler';
 
 /**
  * Get all bookmarks for a pattern (optionally filtered by project)

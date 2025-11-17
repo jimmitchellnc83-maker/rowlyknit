@@ -107,12 +107,36 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        manualChunks: {
-          vendor: ['react', 'react-dom', 'react-router-dom'],
-          ui: ['react-icons', 'react-toastify'],
+        manualChunks: (id) => {
+          // Separate vendor chunks for better caching
+          if (id.includes('node_modules')) {
+            // React core libraries
+            if (id.includes('react') || id.includes('react-dom') || id.includes('react-router')) {
+              return 'vendor-react';
+            }
+            // PDF.js is large, split it separately
+            if (id.includes('pdfjs-dist') || id.includes('react-pdf')) {
+              return 'vendor-pdf';
+            }
+            // UI libraries
+            if (id.includes('react-icons') || id.includes('react-toastify')) {
+              return 'vendor-ui';
+            }
+            // Query and state management
+            if (id.includes('@tanstack') || id.includes('zustand')) {
+              return 'vendor-state';
+            }
+            // Utility libraries
+            if (id.includes('date-fns') || id.includes('lodash') || id.includes('validator')) {
+              return 'vendor-utils';
+            }
+            // Everything else from node_modules
+            return 'vendor-other';
+          }
         },
       },
     },
     sourcemap: true,
+    chunkSizeWarningLimit: 1000,
   },
 });
