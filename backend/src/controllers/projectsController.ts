@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import db from '../config/database';
 import { NotFoundError, ForbiddenError, ValidationError } from '../utils/errorHandler';
 import { createAuditLog } from '../middleware/auditLog';
+import { ALLOWED_FIELDS } from '../utils/inputSanitizer';
 
 /**
  * Get all projects for current user
@@ -153,7 +154,6 @@ export async function createProject(req: Request, res: Response) {
 export async function updateProject(req: Request, res: Response) {
   const userId = (req as any).user.userId;
   const { id } = req.params;
-  const updates = req.body;
 
   const project = await db('projects')
     .where({ id, user_id: userId })
@@ -164,12 +164,38 @@ export async function updateProject(req: Request, res: Response) {
     throw new NotFoundError('Project not found');
   }
 
+  // Whitelist allowed fields to prevent mass assignment
+  const {
+    name,
+    description,
+    projectType,
+    startDate,
+    targetCompletionDate,
+    completedDate,
+    status,
+    notes,
+    metadata,
+    tags,
+  } = req.body;
+
+  const updateData: any = {
+    updated_at: new Date(),
+  };
+
+  if (name !== undefined) updateData.name = name;
+  if (description !== undefined) updateData.description = description;
+  if (projectType !== undefined) updateData.project_type = projectType;
+  if (startDate !== undefined) updateData.start_date = startDate;
+  if (targetCompletionDate !== undefined) updateData.target_completion_date = targetCompletionDate;
+  if (completedDate !== undefined) updateData.completed_date = completedDate;
+  if (status !== undefined) updateData.status = status;
+  if (notes !== undefined) updateData.notes = notes;
+  if (metadata !== undefined) updateData.metadata = JSON.stringify(metadata);
+  if (tags !== undefined) updateData.tags = JSON.stringify(tags);
+
   const [updatedProject] = await db('projects')
     .where({ id })
-    .update({
-      ...updates,
-      updated_at: new Date(),
-    })
+    .update(updateData)
     .returning('*');
 
   await createAuditLog(req, {
