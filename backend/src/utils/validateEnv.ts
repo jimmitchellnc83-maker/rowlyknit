@@ -9,8 +9,6 @@ interface EnvVar {
 const REQUIRED_ENV_VARS: EnvVar[] = [
   { name: 'NODE_ENV', required: true, description: 'Application environment (development/production)' },
   { name: 'PORT', required: true, description: 'Server port' },
-  { name: 'DATABASE_URL', required: true, description: 'PostgreSQL connection string' },
-  { name: 'REDIS_URL', required: true, description: 'Redis connection string' },
   { name: 'JWT_SECRET', required: true, description: 'JWT signing secret' },
   { name: 'JWT_REFRESH_SECRET', required: true, description: 'JWT refresh token secret' },
   { name: 'CSRF_SECRET', required: true, description: 'CSRF protection secret' },
@@ -19,7 +17,7 @@ const REQUIRED_ENV_VARS: EnvVar[] = [
 ];
 
 const PRODUCTION_ENV_VARS: EnvVar[] = [
-  { name: 'EMAIL_API_KEY', required: true, description: 'Email service API key' },
+  { name: 'EMAIL_API_KEY', required: false, description: 'Email service API key (recommended for production)' },
   { name: 'SENTRY_DSN', required: false, description: 'Sentry error monitoring DSN (optional but recommended)' },
   { name: 'REDIS_PASSWORD', required: false, description: 'Redis password (recommended for production)' },
 ];

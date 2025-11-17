@@ -59,7 +59,18 @@ export function auditMiddleware(
       // Extract entity info from URL
       const pathParts = req.path.split('/').filter(Boolean);
       const entityType = pathParts[1] || 'unknown'; // e.g., /api/projects -> projects
-      const entityId = pathParts[2] || null;
+
+      // UUID regex pattern
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+      // Only set entityId if it's a valid UUID, otherwise null
+      let entityId = null;
+      for (const part of pathParts) {
+        if (uuidRegex.test(part)) {
+          entityId = part;
+          break;
+        }
+      }
 
       // Create audit log (async, don't block response)
       createAuditLog(req, {
