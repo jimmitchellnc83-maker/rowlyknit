@@ -1,4 +1,4 @@
-import axios, { AxiosError, AxiosRequestConfig, InternalAxiosRequestHeaders } from 'axios';
+import axios, { AxiosError, AxiosRequestConfig } from 'axios';
 
 /**
  * Enhanced Axios Configuration
@@ -32,7 +32,7 @@ async function fetchCsrfToken(): Promise<string> {
       withCredentials: true,
     });
     csrfToken = response.data.csrfToken;
-    return csrfToken;
+    return csrfToken || '';
   } catch (error) {
     console.error('Failed to fetch CSRF token:', error);
     throw error;
@@ -62,7 +62,7 @@ apiClient.interceptors.request.use(
       try {
         const token = await getCsrfToken();
         if (!config.headers) {
-          config.headers = {} as InternalAxiosRequestHeaders;
+          config.headers = {} as any;
         }
         config.headers['x-csrf-token'] = token;
       } catch (error) {
