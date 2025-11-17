@@ -13,7 +13,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./backend/migrations:/docker-entrypoint-initdb.d
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"  # Bind to localhost only - not publicly accessible
     networks:
       - rowly_network
     healthcheck:
@@ -33,7 +33,7 @@ services:
     volumes:
       - redis_data:/data
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"  # Bind to localhost only - not publicly accessible
     networks:
       - rowly_network
     healthcheck:
