@@ -1,4 +1,4 @@
-import jwt from 'jsonwebtoken';
+import jwt, { SignOptions } from 'jsonwebtoken';
 import { v4 as uuidv4 } from 'uuid';
 
 // Helper function to get required environment variable or fail
@@ -37,22 +37,22 @@ export interface RefreshTokenPayload {
  * Generate access token
  */
 export function generateAccessToken(payload: TokenPayload): string {
-  return jwt.sign(
-    { ...payload, jti: uuidv4() },
-    JWT_SECRET,
-    { algorithm: 'HS256', expiresIn: JWT_EXPIRY }
-  );
+  const options: any = {
+    algorithm: 'HS256',
+    expiresIn: JWT_EXPIRY,
+  };
+  return jwt.sign({ ...payload, jti: uuidv4() }, JWT_SECRET, options);
 }
 
 /**
  * Generate refresh token
  */
 export function generateRefreshToken(payload: RefreshTokenPayload): string {
-  return jwt.sign(
-    { ...payload, jti: uuidv4() },
-    JWT_REFRESH_SECRET,
-    { algorithm: 'HS256', expiresIn: JWT_REFRESH_EXPIRY }
-  );
+  const options: any = {
+    algorithm: 'HS256',
+    expiresIn: JWT_REFRESH_EXPIRY,
+  };
+  return jwt.sign({ ...payload, jti: uuidv4() }, JWT_REFRESH_SECRET, options);
 }
 
 /**
