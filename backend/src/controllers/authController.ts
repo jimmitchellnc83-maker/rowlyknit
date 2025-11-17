@@ -137,7 +137,7 @@ export async function login(req: Request, res: Response) {
   const sessionDays = rememberMe ? 30 : 7;
   const sessionExpires = new Date(Date.now() + sessionDays * 24 * 60 * 60 * 1000);
 
-  const [session] = await db('sessions')
+  const [_session] = await db('sessions')
     .insert({
       user_id: user.id,
       refresh_token: refreshToken,
