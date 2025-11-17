@@ -2,6 +2,7 @@ import { Server as HTTPServer } from 'http';
 import { Server, Socket } from 'socket.io';
 import logger from './logger';
 import jwt from 'jsonwebtoken';
+import db from './database';
 
 let io: Server | null = null;
 
@@ -46,9 +47,24 @@ export const initializeSocket = (httpServer: HTTPServer): Server => {
     socket.join(`user:${userId}`);
 
     // Handle project room joins
-    socket.on('join:project', (projectId: string) => {
-      socket.join(`project:${projectId}`);
-      logger.info(`User ${userId} joined project room: ${projectId}`);
+    socket.on('join:project', async (projectId: string) => {
+      try {
+        // Verify user owns this project
+        const project = await db('projects')
+          .where({ id: projectId, user_id: userId, deleted_at: null })
+          .first();
+
+        if (project) {
+          socket.join(`project:${projectId}`);
+          logger.info(`User ${userId} joined project room: ${projectId}`);
+        } else {
+          logger.warn(`User ${userId} denied access to project room: ${projectId} (not owner or project doesn't exist)`);
+          socket.emit('error', { message: 'Access denied to project room' });
+        }
+      } catch (err) {
+        logger.error(`Error joining project room: ${err}`);
+        socket.emit('error', { message: 'Failed to join project room' });
+      }
     });
 
     socket.on('leave:project', (projectId: string) => {
