@@ -173,10 +173,13 @@ export async function healthCheckHandler(req: Request, res: Response): Promise<v
     const checks = { database, redis, memory, disk };
 
     // Determine overall status
+    // Only database and Redis failures should make the service unhealthy (503)
+    // Memory and heap issues are degraded (200) - service can still function
+    const hasCriticalFailure = database.status === 'fail' || redis.status === 'fail';
     const hasFailure = Object.values(checks).some(check => check.status === 'fail');
     const hasWarning = Object.values(checks).some(check => check.status === 'warn');
 
-    const status: HealthStatus['status'] = hasFailure ? 'unhealthy' : hasWarning ? 'degraded' : 'healthy';
+    const status: HealthStatus['status'] = hasCriticalFailure ? 'unhealthy' : hasFailure || hasWarning ? 'degraded' : 'healthy';
 
     const healthStatus: HealthStatus = {
       status,
@@ -195,8 +198,8 @@ export async function healthCheckHandler(req: Request, res: Response): Promise<v
       checks: Object.entries(checks).map(([name, check]) => ({ name, status: check.status })),
     });
 
-    // Return appropriate HTTP status code
-    const httpStatus = status === 'healthy' ? 200 : status === 'degraded' ? 200 : 503;
+    // Return HTTP 200 for healthy and degraded, 503 only for critical failures
+    const httpStatus = status === 'unhealthy' ? 503 : 200;
 
     res.status(httpStatus).json({
       success: status !== 'unhealthy',
