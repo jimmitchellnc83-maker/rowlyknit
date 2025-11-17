@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import db from '../config/database';
 import { NotFoundError, ValidationError } from '../utils/errorHandler';
 import { createAuditLog } from '../middleware/auditLog';
-import { ALLOWED_FIELDS } from '../utils/inputSanitizer';
+import { ALLOWED_FIELDS, sanitizeSearchQuery } from '../utils/inputSanitizer';
 
 export async function getTools(req: Request, res: Response) {
   const userId = (req as any).user.userId;
@@ -17,10 +17,11 @@ export async function getTools(req: Request, res: Response) {
   }
 
   if (search) {
+    const sanitizedSearch = sanitizeSearchQuery(search as string);
     query = query.where((builder) => {
       builder
-        .where('name', 'ilike', `%${search}%`)
-        .orWhere('brand', 'ilike', `%${search}%`);
+        .where('name', 'ilike', `%${sanitizedSearch}%`)
+        .orWhere('brand', 'ilike', `%${sanitizedSearch}%`);
     });
   }
 

@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import db from '../config/database';
 import { NotFoundError, ForbiddenError, ValidationError } from '../utils/errorHandler';
 import { createAuditLog } from '../middleware/auditLog';
-import { ALLOWED_FIELDS } from '../utils/inputSanitizer';
+import { ALLOWED_FIELDS, sanitizeSearchQuery } from '../utils/inputSanitizer';
 
 /**
  * Get all projects for current user
@@ -20,10 +20,11 @@ export async function getProjects(req: Request, res: Response) {
   }
 
   if (search) {
+    const sanitizedSearch = sanitizeSearchQuery(search as string);
     query = query.where((builder) => {
       builder
-        .where('name', 'ilike', `%${search}%`)
-        .orWhere('description', 'ilike', `%${search}%`);
+        .where('name', 'ilike', `%${sanitizedSearch}%`)
+        .orWhere('description', 'ilike', `%${sanitizedSearch}%`);
     });
   }
 

@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import db from '../config/database';
 import { NotFoundError, ValidationError } from '../utils/errorHandler';
 import { createAuditLog } from '../middleware/auditLog';
-import { ALLOWED_FIELDS } from '../utils/inputSanitizer';
+import { ALLOWED_FIELDS, sanitizeSearchQuery } from '../utils/inputSanitizer';
 
 export async function getRecipients(req: Request, res: Response) {
   const userId = (req as any).user.userId;
@@ -13,11 +13,12 @@ export async function getRecipients(req: Request, res: Response) {
     .whereNull('deleted_at');
 
   if (search) {
+    const sanitizedSearch = sanitizeSearchQuery(search as string);
     query = query.where((builder) => {
       builder
-        .where('first_name', 'ilike', `%${search}%`)
-        .orWhere('last_name', 'ilike', `%${search}%`)
-        .orWhere('relationship', 'ilike', `%${search}%`);
+        .where('first_name', 'ilike', `%${sanitizedSearch}%`)
+        .orWhere('last_name', 'ilike', `%${sanitizedSearch}%`)
+        .orWhere('relationship', 'ilike', `%${sanitizedSearch}%`);
     });
   }
 

@@ -7,7 +7,7 @@ import { PDFDocument, rgb } from 'pdf-lib';
 import axios from 'axios';
 import fs from 'fs';
 import path from 'path';
-import { pickFields, ALLOWED_FIELDS } from '../utils/inputSanitizer';
+import { pickFields, ALLOWED_FIELDS, sanitizeSearchQuery } from '../utils/inputSanitizer';
 
 /**
  * Serialize pattern JSONB fields to strings for frontend compatibility
@@ -43,11 +43,12 @@ export async function getPatterns(req: Request, res: Response) {
   }
 
   if (search) {
+    const sanitizedSearch = sanitizeSearchQuery(search as string);
     query = query.where((builder) => {
       builder
-        .where('name', 'ilike', `%${search}%`)
-        .orWhere('description', 'ilike', `%${search}%`)
-        .orWhere('designer', 'ilike', `%${search}%`);
+        .where('name', 'ilike', `%${sanitizedSearch}%`)
+        .orWhere('description', 'ilike', `%${sanitizedSearch}%`)
+        .orWhere('designer', 'ilike', `%${sanitizedSearch}%`);
     });
   }
 
