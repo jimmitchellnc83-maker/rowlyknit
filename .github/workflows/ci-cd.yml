@@ -6,6 +6,15 @@ on:
   pull_request:
     branches: [ main ]
 
+# Prevent multiple deployments from running concurrently
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+# Restrict default permissions
+permissions:
+  contents: read
+
 env:
   NODE_VERSION: '18'
   DOCKER_REGISTRY: ghcr.io
@@ -123,10 +132,41 @@ jobs:
         env:
           VITE_API_URL: https://rowlyknit.com
 
+  # Secret scanning
+  secret-scan:
+    name: Secret Detection
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Gitleaks secret scanner
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+
+      - name: Verify no hardcoded secrets in env files
+        run: |
+          echo "Checking for hardcoded secrets in configuration files..."
+          if grep -r "SECRET.*=" backend/.env.example frontend/.env.example 2>/dev/null | grep -v "CHANGE_THIS" | grep -v "your-" | grep -v "example"; then
+            echo "ERROR: Potential hardcoded secret found!"
+            exit 1
+          fi
+          echo "No hardcoded secrets detected"
+
   # Security scanning
   security-scan:
     name: Security Scan
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
 
     steps:
       - uses: actions/checkout@v4
@@ -138,32 +178,44 @@ jobs:
           scan-ref: '.'
           format: 'sarif'
           output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
 
       - name: Upload Trivy results to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v2
+        if: always()
         with:
           sarif_file: 'trivy-results.sarif'
 
+      - name: Setup Node.js for audits
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
       - name: Run npm audit (backend)
         working-directory: ./backend
-        run: npm audit --audit-level=high
-        continue-on-error: true
+        run: |
+          npm audit --audit-level=high --production || true
+          npm audit --audit-level=critical --production
+        continue-on-error: false
 
       - name: Run npm audit (frontend)
         working-directory: ./frontend
-        run: npm audit --audit-level=high
-        continue-on-error: true
+        run: |
+          npm audit --audit-level=high --production || true
+          npm audit --audit-level=critical --production
+        continue-on-error: false
 
   # Build and push Docker images
   build-images:
     name: Build Docker Images
     runs-on: ubuntu-latest
-    needs: [backend-test, frontend-test]
+    needs: [backend-test, frontend-test, secret-scan]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
     permissions:
       contents: read
       packages: write
+      security-events: write
 
     steps:
       - uses: actions/checkout@v4
@@ -189,6 +241,7 @@ jobs:
             type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build and push backend image
+        id: build-backend
         uses: docker/build-push-action@v5
         with:
           context: ./backend
@@ -197,6 +250,21 @@ jobs:
           labels: ${{ steps.meta-backend.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Scan backend image for vulnerabilities
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}/backend:latest
+          format: 'sarif'
+          output: 'trivy-backend-results.sarif'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Upload backend scan results
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: 'trivy-backend-results.sarif'
+          category: 'backend-image'
 
       - name: Extract metadata (frontend)
         id: meta-frontend
@@ -209,6 +277,7 @@ jobs:
             type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build and push frontend image
+        id: build-frontend
         uses: docker/build-push-action@v5
         with:
           context: ./frontend
@@ -220,13 +289,31 @@ jobs:
           build-args: |
             VITE_API_URL=https://rowlyknit.com
 
+      - name: Scan frontend image for vulnerabilities
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}/frontend:latest
+          format: 'sarif'
+          output: 'trivy-frontend-results.sarif'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Upload frontend scan results
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: 'trivy-frontend-results.sarif'
+          category: 'frontend-image'
+
   # Deploy to production
   deploy:
     name: Deploy to Production
     runs-on: ubuntu-latest
-    needs: [build-images, security-scan]
+    needs: [build-images, security-scan, secret-scan]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     environment: production
+
+    permissions:
+      contents: read
 
     steps:
       - uses: actions/checkout@v4

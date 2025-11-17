@@ -1,7 +1,8 @@
 import { Request, Response } from 'express';
 import db from '../config/database';
-import { NotFoundError, ForbiddenError, ValidationError } from '../utils/errorHandler';
+import { NotFoundError, ValidationError } from '../utils/errorHandler';
 import { createAuditLog } from '../middleware/auditLog';
+import logger from '../config/logger';
 import fs from 'fs';
 import path from 'path';
 import { promisify } from 'util';
@@ -84,8 +85,10 @@ export async function createAudioNote(req: Request, res: Response) {
   const { id: projectId } = req.params;
 
   // Debug logging
-  console.log('📥 Audio note request body:', req.body);
-  console.log('📥 Audio note file:', (req as any).file?.originalname);
+  logger.debug('Audio note request received', {
+    body: req.body,
+    filename: (req as any).file?.originalname
+  });
 
   const { patternId, transcription, durationSeconds } = req.body;
   const file = (req as any).file;

@@ -7,6 +7,7 @@ import { PDFDocument, rgb } from 'pdf-lib';
 import axios from 'axios';
 import fs from 'fs';
 import path from 'path';
+import { pickFields, ALLOWED_FIELDS } from '../utils/inputSanitizer';
 
 /**
  * Serialize pattern JSONB fields to strings for frontend compatibility
@@ -180,7 +181,6 @@ export async function createPattern(req: Request, res: Response) {
 export async function updatePattern(req: Request, res: Response) {
   const userId = (req as any).user.userId;
   const { id } = req.params;
-  const updates = req.body;
 
   const pattern = await db('patterns')
     .where({ id, user_id: userId })
@@ -191,12 +191,48 @@ export async function updatePattern(req: Request, res: Response) {
     throw new NotFoundError('Pattern not found');
   }
 
+  // Whitelist allowed fields to prevent mass assignment
+  const {
+    name,
+    description,
+    designer,
+    source,
+    sourceUrl,
+    difficulty,
+    category,
+    yarnRequirements,
+    needleSizes,
+    gauge,
+    sizesAvailable,
+    estimatedYardage,
+    notes,
+    tags,
+    isFavorite,
+  } = req.body;
+
+  const updateData: any = {
+    updated_at: new Date(),
+  };
+
+  if (name !== undefined) updateData.name = name;
+  if (description !== undefined) updateData.description = description;
+  if (designer !== undefined) updateData.designer = designer;
+  if (source !== undefined) updateData.source = source;
+  if (sourceUrl !== undefined) updateData.source_url = sourceUrl;
+  if (difficulty !== undefined) updateData.difficulty = difficulty;
+  if (category !== undefined) updateData.category = category;
+  if (yarnRequirements !== undefined) updateData.yarn_requirements = JSON.stringify(yarnRequirements);
+  if (needleSizes !== undefined) updateData.needle_sizes = JSON.stringify(needleSizes);
+  if (gauge !== undefined) updateData.gauge = gauge ? JSON.stringify(gauge) : null;
+  if (sizesAvailable !== undefined) updateData.sizes_available = JSON.stringify(sizesAvailable);
+  if (estimatedYardage !== undefined) updateData.estimated_yardage = estimatedYardage;
+  if (notes !== undefined) updateData.notes = notes;
+  if (tags !== undefined) updateData.tags = JSON.stringify(tags);
+  if (isFavorite !== undefined) updateData.is_favorite = isFavorite;
+
   const [updatedPattern] = await db('patterns')
     .where({ id })
-    .update({
-      ...updates,
-      updated_at: new Date(),
-    })
+    .update(updateData)
     .returning('*');
 
   await createAuditLog(req, {
