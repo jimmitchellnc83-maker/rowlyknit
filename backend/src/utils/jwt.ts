@@ -34,7 +34,7 @@ export function generateAccessToken(payload: TokenPayload): string {
   return jwt.sign(
     { ...payload, jti: uuidv4() },
     JWT_SECRET,
-    { expiresIn: JWT_EXPIRY } as any
+    { algorithm: 'HS256', expiresIn: JWT_EXPIRY }
   );
 }
 
@@ -45,7 +45,7 @@ export function generateRefreshToken(payload: RefreshTokenPayload): string {
   return jwt.sign(
     { ...payload, jti: uuidv4() },
     JWT_REFRESH_SECRET,
-    { expiresIn: JWT_REFRESH_EXPIRY } as any
+    { algorithm: 'HS256', expiresIn: JWT_REFRESH_EXPIRY }
   );
 }
 
@@ -54,7 +54,7 @@ export function generateRefreshToken(payload: RefreshTokenPayload): string {
  */
 export function verifyAccessToken(token: string): TokenPayload {
   try {
-    return jwt.verify(token, JWT_SECRET) as TokenPayload;
+    return jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] }) as TokenPayload;
   } catch (error) {
     throw new Error('Invalid or expired token');
   }
@@ -65,7 +65,7 @@ export function verifyAccessToken(token: string): TokenPayload {
  */
 export function verifyRefreshToken(token: string): RefreshTokenPayload {
   try {
-    return jwt.verify(token, JWT_REFRESH_SECRET) as RefreshTokenPayload;
+    return jwt.verify(token, JWT_REFRESH_SECRET, { algorithms: ['HS256'] }) as RefreshTokenPayload;
   } catch (error) {
     throw new Error('Invalid or expired refresh token');
   }

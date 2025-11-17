@@ -46,23 +46,25 @@ export const initializeSocket = (httpServer: HTTPServer): Server => {
     // Join user-specific room
     socket.join(`user:${userId}`);
 
-    // Handle project room joins
+    // Handle project room joins - VERIFY OWNERSHIP FIRST
     socket.on('join:project', async (projectId: string) => {
       try {
-        // Verify user owns this project
+        // Security: Verify user owns this project before allowing them to join
         const project = await db('projects')
-          .where({ id: projectId, user_id: userId, deleted_at: null })
+          .where({ id: projectId, user_id: userId })
+          .whereNull('deleted_at')
           .first();
 
-        if (project) {
-          socket.join(`project:${projectId}`);
-          logger.info(`User ${userId} joined project room: ${projectId}`);
-        } else {
-          logger.warn(`User ${userId} denied access to project room: ${projectId} (not owner or project doesn't exist)`);
-          socket.emit('error', { message: 'Access denied to project room' });
+        if (!project) {
+          logger.warn(`User ${userId} attempted to join unauthorized project: ${projectId}`);
+          socket.emit('error', { message: 'Unauthorized: You do not have access to this project' });
+          return;
         }
-      } catch (err) {
-        logger.error(`Error joining project room: ${err}`);
+
+        socket.join(`project:${projectId}`);
+        logger.info(`User ${userId} joined project room: ${projectId}`);
+      } catch (error) {
+        logger.error(`Error joining project room: ${error}`);
         socket.emit('error', { message: 'Failed to join project room' });
       }
     });

@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import db from '../config/database';
 import { NotFoundError, ValidationError } from '../utils/errorHandler';
 import { createAuditLog } from '../middleware/auditLog';
+import { ALLOWED_FIELDS, sanitizeSearchQuery } from '../utils/inputSanitizer';
 
 export async function getTools(req: Request, res: Response) {
   const userId = (req as any).user.userId;
@@ -16,10 +17,11 @@ export async function getTools(req: Request, res: Response) {
   }
 
   if (search) {
+    const sanitizedSearch = sanitizeSearchQuery(search as string);
     query = query.where((builder) => {
       builder
-        .where('name', 'ilike', `%${search}%`)
-        .orWhere('brand', 'ilike', `%${search}%`);
+        .where('name', 'ilike', `%${sanitizedSearch}%`)
+        .orWhere('brand', 'ilike', `%${sanitizedSearch}%`);
     });
   }
 
@@ -120,7 +122,6 @@ export async function createTool(req: Request, res: Response) {
 export async function updateTool(req: Request, res: Response) {
   const userId = (req as any).user.userId;
   const { id } = req.params;
-  const updates = req.body;
 
   const tool = await db('tools')
     .where({ id, user_id: userId })
@@ -131,12 +132,36 @@ export async function updateTool(req: Request, res: Response) {
     throw new NotFoundError('Tool not found');
   }
 
+  // Whitelist allowed fields to prevent mass assignment
+  const {
+    name,
+    type,
+    size,
+    material,
+    brand,
+    purchaseDate,
+    purchaseLocation,
+    purchasePrice,
+    notes,
+  } = req.body;
+
+  const updateData: any = {
+    updated_at: new Date(),
+  };
+
+  if (name !== undefined) updateData.name = name;
+  if (type !== undefined) updateData.type = type;
+  if (size !== undefined) updateData.size = size;
+  if (material !== undefined) updateData.material = material;
+  if (brand !== undefined) updateData.brand = brand;
+  if (purchaseDate !== undefined) updateData.purchase_date = purchaseDate;
+  if (purchaseLocation !== undefined) updateData.purchase_location = purchaseLocation;
+  if (purchasePrice !== undefined) updateData.purchase_price = purchasePrice;
+  if (notes !== undefined) updateData.notes = notes;
+
   const [updatedTool] = await db('tools')
     .where({ id })
-    .update({
-      ...updates,
-      updated_at: new Date(),
-    })
+    .update(updateData)
     .returning('*');
 
   await createAuditLog(req, {

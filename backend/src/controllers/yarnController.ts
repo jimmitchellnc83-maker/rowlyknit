@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import db from '../config/database';
 import { NotFoundError, ValidationError } from '../utils/errorHandler';
 import { createAuditLog } from '../middleware/auditLog';
+import { ALLOWED_FIELDS, sanitizeSearchQuery } from '../utils/inputSanitizer';
 
 export async function getYarn(req: Request, res: Response) {
   const userId = (req as any).user.userId;
@@ -20,11 +21,12 @@ export async function getYarn(req: Request, res: Response) {
   }
 
   if (search) {
+    const sanitizedSearch = sanitizeSearchQuery(search as string);
     query = query.where((builder) => {
       builder
-        .where('name', 'ilike', `%${search}%`)
-        .orWhere('brand', 'ilike', `%${search}%`)
-        .orWhere('color', 'ilike', `%${search}%`);
+        .where('name', 'ilike', `%${sanitizedSearch}%`)
+        .orWhere('brand', 'ilike', `%${sanitizedSearch}%`)
+        .orWhere('color', 'ilike', `%${sanitizedSearch}%`);
     });
   }
 
@@ -138,7 +140,6 @@ export async function createYarn(req: Request, res: Response) {
 export async function updateYarn(req: Request, res: Response) {
   const userId = (req as any).user.userId;
   const { id } = req.params;
-  const updates = req.body;
 
   const yarn = await db('yarn')
     .where({ id, user_id: userId })
@@ -149,12 +150,53 @@ export async function updateYarn(req: Request, res: Response) {
     throw new NotFoundError('Yarn not found');
   }
 
+  // Whitelist allowed fields to prevent mass assignment
+  const {
+    brand,
+    name,
+    weight,
+    fiber,
+    colorName,
+    colorCode,
+    yardage,
+    gramsPerSkein,
+    purchaseDate,
+    purchaseLocation,
+    purchasePrice,
+    quantity,
+    notes,
+  } = req.body;
+
+  const updateData: any = {
+    updated_at: new Date(),
+  };
+
+  if (brand !== undefined) updateData.brand = brand;
+  if (name !== undefined) updateData.name = name;
+  if (weight !== undefined) updateData.weight = weight;
+  if (fiber !== undefined) updateData.fiber_content = fiber;
+  if (colorName !== undefined) updateData.color = colorName;
+  if (colorCode !== undefined) updateData.color_code = colorCode;
+  if (yardage !== undefined) {
+    updateData.yards_total = yardage;
+    updateData.yards_remaining = yardage;
+  }
+  if (gramsPerSkein !== undefined) {
+    updateData.grams_total = gramsPerSkein;
+    updateData.grams_remaining = gramsPerSkein;
+  }
+  if (purchaseDate !== undefined) updateData.purchase_date = purchaseDate;
+  if (purchaseLocation !== undefined) updateData.purchase_location = purchaseLocation;
+  if (purchasePrice !== undefined) updateData.price_per_skein = purchasePrice;
+  if (quantity !== undefined) {
+    updateData.skeins_total = quantity;
+    updateData.skeins_remaining = quantity;
+  }
+  if (notes !== undefined) updateData.notes = notes;
+
   const [updatedYarn] = await db('yarn')
     .where({ id })
-    .update({
-      ...updates,
-      updated_at: new Date(),
-    })
+    .update(updateData)
     .returning('*');
 
   await createAuditLog(req, {

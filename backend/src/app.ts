@@ -124,15 +124,13 @@ app.use('/api/', apiLimiter);
 // Static files (uploads)
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
-// Health check endpoint
-app.get('/health', (req, res) => {
-  res.json({
-    success: true,
-    message: 'Rowly API is running',
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV,
-  });
-});
+// Import health check handlers
+import { healthCheckHandler, livenessProbe, readinessProbe } from './utils/healthCheck';
+
+// Health check endpoints
+app.get('/health', healthCheckHandler); // Comprehensive health check
+app.get('/health/live', livenessProbe); // Kubernetes liveness probe
+app.get('/health/ready', readinessProbe); // Kubernetes readiness probe
 
 // Metrics endpoint (Prometheus)
 app.get('/metrics', metricsEndpoint);

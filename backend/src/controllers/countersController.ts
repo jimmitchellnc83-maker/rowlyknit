@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import db from '../config/database';
-import { NotFoundError, ForbiddenError, ValidationError } from '../utils/errorHandler';
+import { NotFoundError, ValidationError } from '../utils/errorHandler';
 import { createAuditLog } from '../middleware/auditLog';
 
 /**

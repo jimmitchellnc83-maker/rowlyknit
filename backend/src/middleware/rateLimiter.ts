@@ -1,31 +1,132 @@
 import rateLimit from 'express-rate-limit';
 import RedisStore from 'rate-limit-redis';
 import { redisClient } from '../config/redis';
+import { Request } from 'express';
+import logger from '../config/logger';
 
 /**
- * General API rate limiter - 100 requests per minute
+ * User tier definitions for rate limiting
  */
-export const apiLimiter = rateLimit({
-  store: new RedisStore({
-    sendCommand: ((...args: any[]) => redisClient.call(args[0], ...args.slice(1))) as any,
-  }),
-  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '60000'), // 1 minute
-  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100'),
-  message: {
-    success: false,
-    message: 'Too many requests, please try again later',
+enum UserTier {
+  FREE = 'free',
+  PREMIUM = 'premium',
+  ADMIN = 'admin',
+}
+
+/**
+ * Rate limit configurations by user tier
+ */
+const TIER_LIMITS = {
+  [UserTier.FREE]: {
+    perMinute: 60,
+    perHour: 1000,
+    perDay: 10000,
   },
-  standardHeaders: true,
-  legacyHeaders: false,
-  keyGenerator: (req) => {
-    // Use user ID if authenticated, otherwise IP
-    return (req as any).user?.userId || req.ip || 'unknown';
+  [UserTier.PREMIUM]: {
+    perMinute: 120,
+    perHour: 5000,
+    perDay: 50000,
   },
-  skip: (req) => {
-    // Skip rate limiting for health checks
-    return req.path === '/health' || req.path === '/api/health';
+  [UserTier.ADMIN]: {
+    perMinute: 300,
+    perHour: 15000,
+    perDay: 100000,
   },
-});
+};
+
+/**
+ * Get user tier from request (can be extended to check database)
+ */
+function getUserTier(req: Request): UserTier {
+  const user = (req as any).user;
+  if (!user) return UserTier.FREE;
+
+  // Check if user is admin (can be extended with database lookup)
+  if (user.role === 'admin') return UserTier.ADMIN;
+
+  // Check if user has premium subscription (can be extended with database lookup)
+  if (user.isPremium) return UserTier.PREMIUM;
+
+  return UserTier.FREE;
+}
+
+/**
+ * Create dynamic rate limiter based on user tier
+ */
+function createDynamicLimiter(window: 'perMinute' | 'perHour' | 'perDay') {
+  const windowConfig = {
+    perMinute: 60000, // 1 minute
+    perHour: 3600000, // 1 hour
+    perDay: 86400000, // 24 hours
+  };
+
+  return rateLimit({
+    store: new RedisStore({
+      sendCommand: ((...args: any[]) => redisClient.call(args[0], ...args.slice(1))) as any,
+    }),
+    windowMs: windowConfig[window],
+    max: (req) => {
+      const tier = getUserTier(req);
+      const limit = TIER_LIMITS[tier][window];
+
+      // Log when user approaches limit
+      const userId = (req as any).user?.userId || req.ip;
+      logger.debug(`Rate limit check for ${userId}: tier=${tier}, limit=${limit}, window=${window}`);
+
+      return limit;
+    },
+    message: (req) => {
+      const tier = getUserTier(req);
+      const limit = TIER_LIMITS[tier][window];
+
+      return {
+        success: false,
+        message: `Rate limit exceeded. Your tier allows ${limit} requests per ${window.replace('per', '').toLowerCase()}.`,
+        tier,
+        limit,
+        window,
+      };
+    },
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: (req) => {
+      const userId = (req as any).user?.userId;
+      const tier = getUserTier(req);
+      // Include tier in key to separate limits by tier
+      return userId ? `user:${userId}:${tier}:${window}` : `ip:${req.ip}:${window}`;
+    },
+    skip: (req) => {
+      // Skip rate limiting for health checks
+      return req.path === '/health' || req.path === '/api/health';
+    },
+    handler: (req, res) => {
+      const tier = getUserTier(req);
+      const userId = (req as any).user?.userId || req.ip;
+
+      logger.warn('Rate limit exceeded', {
+        userId,
+        tier,
+        window,
+        ip: req.ip,
+        path: req.path,
+        method: req.method,
+      });
+
+      res.status(429).json({
+        success: false,
+        message: `Too many requests. Your ${tier} tier allows ${TIER_LIMITS[tier][window]} requests per ${window.replace('per', '').toLowerCase()}.`,
+        tier,
+        limit: TIER_LIMITS[tier][window],
+        retryAfter: res.getHeader('Retry-After'),
+      });
+    },
+  });
+}
+
+/**
+ * General API rate limiter - Per minute limit based on user tier
+ */
+export const apiLimiter = createDynamicLimiter('perMinute');
 
 /**
  * Strict rate limiter for authentication endpoints - 5 requests per minute
@@ -88,3 +189,69 @@ export const passwordResetLimiter = rateLimit({
     return req.body.email || req.ip || 'unknown';
   },
 });
+
+/**
+ * Hourly API rate limiter based on user tier
+ */
+export const apiLimiterHourly = createDynamicLimiter('perHour');
+
+/**
+ * Daily API rate limiter based on user tier
+ */
+export const apiLimiterDaily = createDynamicLimiter('perDay');
+
+/**
+ * Get current rate limit status for a user
+ * Can be used in an API endpoint to show users their current usage
+ */
+export async function getRateLimitStatus(req: Request) {
+  const tier = getUserTier(req);
+  const userId = (req as any).user?.userId;
+  const limits = TIER_LIMITS[tier];
+
+  if (!userId) {
+    return {
+      tier,
+      limits,
+      message: 'Authentication required to see detailed rate limit status',
+    };
+  }
+
+  try {
+    // Get current usage from Redis for each window
+    const windows = ['perMinute', 'perHour', 'perDay'] as const;
+    const usage: Record<string, any> = {};
+
+    for (const window of windows) {
+      const key = `user:${userId}:${tier}:${window}`;
+      const count = await redisClient.get(key);
+      const ttl = await redisClient.ttl(key);
+
+      usage[window] = {
+        used: parseInt(count || '0'),
+        limit: limits[window],
+        remaining: limits[window] - parseInt(count || '0'),
+        resetsIn: ttl > 0 ? ttl : null,
+      };
+    }
+
+    return {
+      tier,
+      userId,
+      limits,
+      usage,
+    };
+  } catch (error) {
+    logger.error('Error getting rate limit status', { error, userId });
+    return {
+      tier,
+      limits,
+      error: 'Failed to retrieve rate limit status',
+    };
+  }
+}
+
+/**
+ * Export user tier enum and limits for use in other modules
+ */
+export { UserTier, TIER_LIMITS };

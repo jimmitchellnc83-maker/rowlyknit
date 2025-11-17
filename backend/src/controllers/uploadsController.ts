@@ -5,6 +5,8 @@ import path from 'path';
 import fs from 'fs';
 import { promisify } from 'util';
 import db from '../config/database';
+import logger from '../config/logger';
+import { sanitizeHeaderValue } from '../utils/inputSanitizer';
 
 const unlinkAsync = promisify(fs.unlink);
 
@@ -172,7 +174,7 @@ export const uploadProjectPhoto = async (req: Request, res: Response) => {
       data: { photo },
     });
   } catch (error: any) {
-    console.error('Upload error:', error);
+    logger.error('Upload error', { error: error.message, stack: error.stack });
     res.status(500).json({
       success: false,
       message: 'Failed to upload photo',
@@ -210,7 +212,7 @@ export const getProjectPhotos = async (req: Request, res: Response) => {
       data: { photos },
     });
   } catch (error: any) {
-    console.error('Error fetching photos:', error);
+    logger.error('Error fetching photos', { error: error.message, stack: error.stack });
     res.status(500).json({
       success: false,
       message: 'Failed to fetch photos',
@@ -264,8 +266,8 @@ export const deleteProjectPhoto = async (req: Request, res: Response) => {
 
       if (fs.existsSync(filepath)) await unlinkAsync(filepath);
       if (fs.existsSync(thumbnailPath)) await unlinkAsync(thumbnailPath);
-    } catch (fileError) {
-      console.error('Error deleting files:', fileError);
+    } catch (fileError: any) {
+      logger.error('Error deleting files', { error: fileError.message });
       // Continue even if file deletion fails
     }
 
@@ -274,7 +276,7 @@ export const deleteProjectPhoto = async (req: Request, res: Response) => {
       message: 'Photo deleted successfully',
     });
   } catch (error: any) {
-    console.error('Error deleting photo:', error);
+    logger.error('Error deleting photo', { error: error.message, stack: error.stack });
     res.status(500).json({
       success: false,
       message: 'Failed to delete photo',
@@ -362,7 +364,7 @@ export const uploadPatternFile = async (req: Request, res: Response) => {
       data: { file },
     });
   } catch (error: any) {
-    console.error('Pattern file upload error:', error);
+    logger.error('Pattern file upload error', { error: error.message, stack: error.stack });
     res.status(500).json({
       success: false,
       message: 'Failed to upload pattern file',
@@ -401,7 +403,7 @@ export const getPatternFiles = async (req: Request, res: Response) => {
       data: { files },
     });
   } catch (error: any) {
-    console.error('Error fetching pattern files:', error);
+    logger.error('Error fetching pattern files', { error: error.message, stack: error.stack });
     res.status(500).json({
       success: false,
       message: 'Failed to fetch pattern files',
@@ -452,8 +454,8 @@ export const deletePatternFile = async (req: Request, res: Response) => {
     try {
       const filepath = path.join('uploads/patterns', file.filename);
       if (fs.existsSync(filepath)) await unlinkAsync(filepath);
-    } catch (fileError) {
-      console.error('Error deleting file:', fileError);
+    } catch (fileError: any) {
+      logger.error('Error deleting file', { error: fileError.message });
       // Continue even if file deletion fails
     }
 
@@ -462,7 +464,7 @@ export const deletePatternFile = async (req: Request, res: Response) => {
       message: 'Pattern file deleted successfully',
     });
   } catch (error: any) {
-    console.error('Error deleting pattern file:', error);
+    logger.error('Error deleting pattern file', { error: error.message, stack: error.stack });
     res.status(500).json({
       success: false,
       message: 'Failed to delete pattern file',
@@ -514,22 +516,25 @@ export const downloadPatternFile = async (req: Request, res: Response) => {
     // Set headers for download/viewing
     res.setHeader('Content-Type', file.mime_type);
 
+    // Sanitize filename to prevent header injection attacks
+    const sanitizedFilename = sanitizeHeaderValue(file.original_filename);
+
     // Use inline disposition for PDFs and images to allow browser viewing
     // Use attachment for other file types to trigger download
     const forceDownload = req.query.download === 'true';
     const isViewableInBrowser = file.file_type === 'pdf' || file.file_type === 'image';
 
     if (isViewableInBrowser && !forceDownload) {
-      res.setHeader('Content-Disposition', `inline; filename="${file.original_filename}"`);
+      res.setHeader('Content-Disposition', `inline; filename="${sanitizedFilename}"`);
     } else {
-      res.setHeader('Content-Disposition', `attachment; filename="${file.original_filename}"`);
+      res.setHeader('Content-Disposition', `attachment; filename="${sanitizedFilename}"`);
     }
 
     // Stream the file
     const fileStream = fs.createReadStream(filepath);
     fileStream.pipe(res);
   } catch (error: any) {
-    console.error('Error downloading pattern file:', error);
+    logger.error('Error downloading pattern file', { error: error.message, stack: error.stack });
     res.status(500).json({
       success: false,
       message: 'Failed to download pattern file',
@@ -613,7 +618,7 @@ export const uploadYarnPhoto = async (req: Request, res: Response) => {
       data: { photo },
     });
   } catch (error: any) {
-    console.error('Yarn photo upload error:', error);
+    logger.error('Yarn photo upload error', { error: error.message, stack: error.stack });
     res.status(500).json({
       success: false,
       message: 'Failed to upload yarn photo',
@@ -652,7 +657,7 @@ export const getYarnPhotos = async (req: Request, res: Response) => {
       data: { photos },
     });
   } catch (error: any) {
-    console.error('Error fetching yarn photos:', error);
+    logger.error('Error fetching yarn photos', { error: error.message, stack: error.stack });
     res.status(500).json({
       success: false,
       message: 'Failed to fetch yarn photos',
@@ -706,8 +711,8 @@ export const deleteYarnPhoto = async (req: Request, res: Response) => {
 
       if (fs.existsSync(filepath)) await unlinkAsync(filepath);
       if (fs.existsSync(thumbnailPath)) await unlinkAsync(thumbnailPath);
-    } catch (fileError) {
-      console.error('Error deleting files:', fileError);
+    } catch (fileError: any) {
+      logger.error('Error deleting files', { error: fileError.message });
       // Continue even if file deletion fails
     }
 
@@ -716,7 +721,7 @@ export const deleteYarnPhoto = async (req: Request, res: Response) => {
       message: 'Yarn photo deleted successfully',
     });
   } catch (error: any) {
-    console.error('Error deleting yarn photo:', error);
+    logger.error('Error deleting yarn photo', { error: error.message, stack: error.stack });
     res.status(500).json({
       success: false,
       message: 'Failed to delete yarn photo',

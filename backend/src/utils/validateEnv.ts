@@ -74,6 +74,7 @@ export function validateEnvironmentVariables(): void {
 export function validateSecretStrength(): void {
   const MIN_SECRET_LENGTH = 32;
   const warnings: string[] = [];
+  const errors: string[] = [];
 
   const secretsToCheck = ['JWT_SECRET', 'JWT_REFRESH_SECRET', 'CSRF_SECRET', 'SESSION_SECRET'];
 
@@ -84,8 +85,23 @@ export function validateSecretStrength(): void {
     }
   });
 
+  // CRITICAL: JWT_SECRET and JWT_REFRESH_SECRET must be different
+  if (process.env.JWT_SECRET && process.env.JWT_REFRESH_SECRET) {
+    if (process.env.JWT_SECRET === process.env.JWT_REFRESH_SECRET) {
+      errors.push(`❌ SECURITY ERROR: JWT_SECRET and JWT_REFRESH_SECRET must be different!`);
+      errors.push(`   Using the same secret for both tokens compromises security.`);
+      errors.push(`   Generate different secrets using: openssl rand -base64 32`);
+    }
+  }
+
   if (warnings.length > 0) {
     logger.warn('Secret strength warnings:');
     warnings.forEach(warning => logger.warn(warning));
+  }
+
+  if (errors.length > 0) {
+    logger.error('❌ Critical security error:');
+    errors.forEach(error => logger.error(error));
+    throw new Error('JWT secrets validation failed: JWT_SECRET and JWT_REFRESH_SECRET must be different');
   }
 }

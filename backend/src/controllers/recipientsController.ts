@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import db from '../config/database';
 import { NotFoundError, ValidationError } from '../utils/errorHandler';
 import { createAuditLog } from '../middleware/auditLog';
+import { ALLOWED_FIELDS, sanitizeSearchQuery } from '../utils/inputSanitizer';
 
 export async function getRecipients(req: Request, res: Response) {
   const userId = (req as any).user.userId;
@@ -12,11 +13,12 @@ export async function getRecipients(req: Request, res: Response) {
     .whereNull('deleted_at');
 
   if (search) {
+    const sanitizedSearch = sanitizeSearchQuery(search as string);
     query = query.where((builder) => {
       builder
-        .where('first_name', 'ilike', `%${search}%`)
-        .orWhere('last_name', 'ilike', `%${search}%`)
-        .orWhere('relationship', 'ilike', `%${search}%`);
+        .where('first_name', 'ilike', `%${sanitizedSearch}%`)
+        .orWhere('last_name', 'ilike', `%${sanitizedSearch}%`)
+        .orWhere('relationship', 'ilike', `%${sanitizedSearch}%`);
     });
   }
 
@@ -122,7 +124,6 @@ export async function createRecipient(req: Request, res: Response) {
 export async function updateRecipient(req: Request, res: Response) {
   const userId = (req as any).user.userId;
   const { id } = req.params;
-  const updates = req.body;
 
   const recipient = await db('recipients')
     .where({ id, user_id: userId })
@@ -133,12 +134,28 @@ export async function updateRecipient(req: Request, res: Response) {
     throw new NotFoundError('Recipient not found');
   }
 
+  // Whitelist allowed fields to prevent mass assignment
+  const {
+    name,
+    relationship,
+    measurements,
+    preferences,
+    notes,
+  } = req.body;
+
+  const updateData: any = {
+    updated_at: new Date(),
+  };
+
+  if (name !== undefined) updateData.name = name;
+  if (relationship !== undefined) updateData.relationship = relationship;
+  if (measurements !== undefined) updateData.measurements = JSON.stringify(measurements);
+  if (preferences !== undefined) updateData.preferences = JSON.stringify(preferences);
+  if (notes !== undefined) updateData.notes = notes;
+
   const [updatedRecipient] = await db('recipients')
     .where({ id })
-    .update({
-      ...updates,
-      updated_at: new Date(),
-    })
+    .update(updateData)
     .returning('*');
 
   await createAuditLog(req, {
