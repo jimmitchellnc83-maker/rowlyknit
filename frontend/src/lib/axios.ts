@@ -61,9 +61,6 @@ apiClient.interceptors.request.use(
     if (config.method && unsafeMethods.includes(config.method.toUpperCase())) {
       try {
         const token = await getCsrfToken();
-        if (!config.headers) {
-          config.headers = {} as any;
-        }
         config.headers['x-csrf-token'] = token;
       } catch (error) {
         console.error('Failed to attach CSRF token:', error);
