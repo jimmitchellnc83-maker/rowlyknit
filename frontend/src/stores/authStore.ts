@@ -118,4 +118,5 @@ export const useAuthStore = create<AuthState>()(
 );
 
 // Initialize auth on app load
-useAuthStore.getState().checkAuth();
+// Disabled during troubleshooting - was causing blank page
+// useAuthStore.getState().checkAuth();
