@@ -18,6 +18,7 @@ export default function CounterManager({ projectId }: CounterManagerProps) {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [showCounterSelector, setShowCounterSelector] = useState(false);
   const [showLinkModal, setShowLinkModal] = useState(false);
   const [editingCounter, setEditingCounter] = useState<Counter | null>(null);
   const [selectedCounter, setSelectedCounter] = useState<Counter | null>(null);
@@ -135,7 +136,7 @@ export default function CounterManager({ projectId }: CounterManagerProps) {
         <h2 className="text-2xl font-bold text-gray-900">Counters</h2>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => setShowHistory(true)}
+            onClick={() => setShowCounterSelector(true)}
             className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition flex items-center gap-2"
           >
             <FiClock className="h-4 w-4" />
@@ -232,6 +233,64 @@ export default function CounterManager({ projectId }: CounterManagerProps) {
             setEditingCounter(null);
           }}
         />
+      )}
+
+      {/* Counter Selector Modal for History */}
+      {showCounterSelector && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                <FiClock className="h-5 w-5" />
+                Select Counter for History
+              </h3>
+              <button
+                onClick={() => setShowCounterSelector(false)}
+                className="text-gray-400 hover:text-gray-600 text-2xl"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="p-4 max-h-96 overflow-y-auto">
+              {counters.length === 0 ? (
+                <p className="text-center text-gray-500 py-8">No counters available</p>
+              ) : (
+                <div className="space-y-2">
+                  {counters.map((counter) => (
+                    <button
+                      key={counter.id}
+                      onClick={() => {
+                        setSelectedCounter(counter);
+                        setShowCounterSelector(false);
+                        setShowHistory(true);
+                      }}
+                      className="w-full text-left px-4 py-3 bg-gray-50 hover:bg-purple-50 rounded-lg transition flex items-center justify-between group"
+                    >
+                      <div>
+                        <div className="font-medium text-gray-900">{counter.name}</div>
+                        <div className="text-sm text-gray-500">
+                          Current: {counter.current_value}
+                          {counter.target_value && ` / ${counter.target_value}`}
+                        </div>
+                      </div>
+                      <FiClock className="h-5 w-5 text-gray-400 group-hover:text-purple-600" />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="p-4 border-t border-gray-200">
+              <button
+                onClick={() => setShowCounterSelector(false)}
+                className="w-full px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Counter History Modal */}
