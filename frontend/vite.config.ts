@@ -99,6 +99,16 @@ export default defineConfig({
         ],
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/api/, /\.(?:js|css)$/],
+        // Explicitly ignore JS and CSS files from all caching
+        manifestTransforms: [
+          (entries) => {
+            // Filter out any JS or CSS files that might have been included
+            const manifest = entries.filter(
+              (entry) => !entry.url.endsWith('.js') && !entry.url.endsWith('.css')
+            );
+            return { manifest };
+          },
+        ],
       },
     }),
   ],

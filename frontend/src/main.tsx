@@ -21,17 +21,37 @@ window.addEventListener('unhandledrejection', (event) => {
   console.error('Unhandled promise rejection:', event.reason);
 });
 
-// Register service worker for offline support
+// IMPORTANT: Unregister old service workers and clear cache to fix React undefined issue
+// This ensures we don't serve stale JS bundles from the service worker cache
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').then(
-      (registration) => {
-        console.log('ServiceWorker registered:', registration);
-      },
-      (error) => {
-        console.log('ServiceWorker registration failed:', error);
+  window.addEventListener('load', async () => {
+    try {
+      // Get all service worker registrations
+      const registrations = await navigator.serviceWorker.getRegistrations();
+
+      // Unregister all existing service workers
+      for (const registration of registrations) {
+        console.log('Unregistering old service worker...');
+        await registration.unregister();
       }
-    );
+
+      // Clear all caches
+      if ('caches' in window) {
+        const cacheNames = await caches.keys();
+        for (const cacheName of cacheNames) {
+          console.log('Deleting cache:', cacheName);
+          await caches.delete(cacheName);
+        }
+      }
+
+      console.log('✅ All service workers unregistered and caches cleared');
+
+      // Now register the new service worker
+      const registration = await navigator.serviceWorker.register('/sw.js');
+      console.log('✅ New ServiceWorker registered:', registration);
+    } catch (error) {
+      console.error('❌ ServiceWorker error:', error);
+    }
   });
 }
 
