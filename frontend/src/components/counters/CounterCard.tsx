@@ -146,9 +146,22 @@ export default function CounterCard({ counter, onUpdate: _onUpdate, onEdit, onDe
     triggerHaptic('light');
   };
 
-  // Debounced versions to prevent double-taps
+  // Debounced versions to prevent double-taps (button clicks only)
   const handleIncrement = useCallback(preventDoubleTap(handleIncrementInternal, 500), [count, counter]);
   const handleDecrement = useCallback(preventDoubleTap(handleDecrementInternal, 500), [count, counter]);
+
+  // Voice command handlers - NO debouncing for responsive voice control
+  const handleVoiceIncrement = () => {
+    console.log('[Voice] Increment command received');
+    handleIncrementInternal();
+    toast.success('Row added! 🎤', { autoClose: 800 });
+  };
+
+  const handleVoiceDecrement = () => {
+    console.log('[Voice] Decrement command received');
+    handleDecrementInternal();
+    toast.info('Row removed! 🎤', { autoClose: 800 });
+  };
 
   const handleResetInternal = async () => {
     if (confirm(`Reset "${counter.name}" to ${counter.min_value}?`)) {
@@ -213,43 +226,72 @@ export default function CounterCard({ counter, onUpdate: _onUpdate, onEdit, onDe
     }
   };
 
-  // Voice control
+  // Voice control with improved responsiveness
   useEffect(() => {
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       recognitionRef.current = new SpeechRecognition();
+
+      // Optimized settings for knitting counter voice control
       recognitionRef.current.continuous = true;
       recognitionRef.current.interimResults = false;
       recognitionRef.current.lang = 'en-US';
+      recognitionRef.current.maxAlternatives = 1; // Faster processing with single best result
 
       recognitionRef.current.onresult = (event: any) => {
         const last = event.results.length - 1;
         const command = event.results[last][0].transcript.toLowerCase().trim();
+        const confidence = event.results[last][0].confidence;
 
+        console.log(`[Voice] Recognized: "${command}" (confidence: ${(confidence * 100).toFixed(0)}%)`);
+
+        // Process voice commands immediately without debouncing
         if (command.includes('next') || command.includes('plus') || command.includes('add')) {
-          handleIncrement();
-          toast.success('Row added! 🎤', { autoClose: 1000 });
+          handleVoiceIncrement();
         } else if (command.includes('back') || command.includes('minus') || command.includes('undo')) {
-          handleDecrement();
-          toast.info('Row removed! 🎤', { autoClose: 1000 });
+          handleVoiceDecrement();
         } else if (command.includes('reset')) {
+          console.log('[Voice] Reset command received');
           handleReset();
+        } else {
+          console.log(`[Voice] Unrecognized command: "${command}"`);
         }
       };
 
       recognitionRef.current.onerror = (event: any) => {
-        if (event.error !== 'no-speech') {
-          toast.error('Voice control error');
-          setIsListening(false);
+        console.error('[Voice] Recognition error:', event.error);
+
+        // Only show error toast for actual errors, not normal events
+        if (event.error !== 'no-speech' && event.error !== 'aborted') {
+          toast.error(`Voice error: ${event.error}`, { autoClose: 2000 });
+
+          // Stop listening on serious errors
+          if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+            setIsListening(false);
+          }
         }
       };
 
+      recognitionRef.current.onstart = () => {
+        console.log('[Voice] Recognition started');
+      };
+
       recognitionRef.current.onend = () => {
+        console.log('[Voice] Recognition ended, isListening:', isListening);
+
+        // Auto-restart if still supposed to be listening
         if (isListening) {
           try {
-            recognitionRef.current.start();
+            // Small delay before restart to prevent rapid cycling
+            setTimeout(() => {
+              if (isListening && recognitionRef.current) {
+                recognitionRef.current.start();
+                console.log('[Voice] Recognition restarted');
+              }
+            }, 100);
           } catch (e) {
-            console.error('Error restarting recognition:', e);
+            console.error('[Voice] Error restarting recognition:', e);
+            setIsListening(false);
           }
         }
       };
@@ -259,8 +301,9 @@ export default function CounterCard({ counter, onUpdate: _onUpdate, onEdit, onDe
       if (recognitionRef.current && isListening) {
         try {
           recognitionRef.current.stop();
+          console.log('[Voice] Recognition stopped (cleanup)');
         } catch (e) {
-          console.error('Error stopping recognition:', e);
+          console.error('[Voice] Error stopping recognition:', e);
         }
       }
     };
