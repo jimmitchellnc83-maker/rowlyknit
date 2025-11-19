@@ -132,8 +132,16 @@ export default defineConfig({
         manualChunks: (id) => {
           // Separate vendor chunks for better caching
           if (id.includes('node_modules')) {
-            // React core libraries
-            if (id.includes('react') || id.includes('react-dom') || id.includes('react-router')) {
+            // React core libraries + dependencies that need React
+            // CRITICAL: Keep React, React-DOM, React-Router, and use-sync-external-store together
+            // to prevent "React is undefined" errors in dependencies
+            if (
+              id.includes('react') ||
+              id.includes('react-dom') ||
+              id.includes('react-router') ||
+              id.includes('use-sync-external-store') ||
+              id.includes('scheduler')
+            ) {
               return 'vendor-react';
             }
             // PDF.js is large, split it separately
@@ -144,7 +152,7 @@ export default defineConfig({
             if (id.includes('react-icons') || id.includes('react-toastify')) {
               return 'vendor-ui';
             }
-            // Query and state management
+            // Query and state management (but NOT use-sync-external-store)
             if (id.includes('@tanstack') || id.includes('zustand')) {
               return 'vendor-state';
             }
