@@ -56,23 +56,30 @@ export default function RowCounter({ counter, onUpdate }: RowCounterProps) {
   };
 
   const handleIncrement = () => {
-    const newCount = count + 1;
-    setCount(newCount);
-    updateCountOnServer(newCount);
-    emitCounterIncrement(counter.id, counter.project_id, newCount);
+    // Use functional setState to avoid stale closure issues with rapid voice commands
+    setCount(prevCount => {
+      const newCount = prevCount + 1;
+      updateCountOnServer(newCount);
+      emitCounterIncrement(counter.id, counter.project_id, newCount);
+      return newCount;
+    });
 
     // Play audio feedback
     playFeedbackSound('increment');
   };
 
   const handleDecrement = () => {
-    if (count > 0) {
-      const newCount = count - 1;
-      setCount(newCount);
-      updateCountOnServer(newCount);
-      emitCounterDecrement(counter.id, counter.project_id, newCount);
-      playFeedbackSound('decrement');
-    }
+    // Use functional setState to avoid stale closure issues
+    setCount(prevCount => {
+      if (prevCount > 0) {
+        const newCount = prevCount - 1;
+        updateCountOnServer(newCount);
+        emitCounterDecrement(counter.id, counter.project_id, newCount);
+        playFeedbackSound('decrement');
+        return newCount;
+      }
+      return prevCount;
+    });
   };
 
   const handleReset = async () => {

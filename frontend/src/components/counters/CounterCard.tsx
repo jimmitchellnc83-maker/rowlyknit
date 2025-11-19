@@ -114,34 +114,48 @@ export default function CounterCard({ counter, onUpdate: _onUpdate, onEdit, onDe
 
   const handleIncrementInternal = () => {
     const increment = calculateIncrement();
-    const newCount = count + increment;
 
-    // Check max_value constraint
-    if (counter.max_value && newCount > counter.max_value) {
-      toast.warning(`Cannot exceed maximum value of ${counter.max_value}`);
-      return;
-    }
+    // Use functional setState to avoid stale closure issues with rapid voice commands
+    setCount(prevCount => {
+      const newCount = prevCount + increment;
 
-    setCount(newCount);
-    updateCountOnServer(newCount);
-    emitCounterIncrement(counter.id, counter.project_id, newCount);
+      // Check max_value constraint
+      if (counter.max_value && newCount > counter.max_value) {
+        toast.warning(`Cannot exceed maximum value of ${counter.max_value}`);
+        return prevCount; // Don't update if exceeds max
+      }
+
+      // Update server and emit WebSocket event with new value
+      updateCountOnServer(newCount);
+      emitCounterIncrement(counter.id, counter.project_id, newCount);
+
+      return newCount;
+    });
+
     playFeedbackSound('increment');
     triggerHaptic('light');
   };
 
   const handleDecrementInternal = () => {
     const increment = calculateIncrement();
-    const newCount = count - increment;
 
-    // Check min_value constraint
-    if (newCount < counter.min_value) {
-      toast.warning(`Cannot go below minimum value of ${counter.min_value}`);
-      return;
-    }
+    // Use functional setState to avoid stale closure issues
+    setCount(prevCount => {
+      const newCount = prevCount - increment;
 
-    setCount(newCount);
-    updateCountOnServer(newCount);
-    emitCounterDecrement(counter.id, counter.project_id, newCount);
+      // Check min_value constraint
+      if (newCount < counter.min_value) {
+        toast.warning(`Cannot go below minimum value of ${counter.min_value}`);
+        return prevCount; // Don't update if below min
+      }
+
+      // Update server and emit WebSocket event with new value
+      updateCountOnServer(newCount);
+      emitCounterDecrement(counter.id, counter.project_id, newCount);
+
+      return newCount;
+    });
+
     playFeedbackSound('decrement');
     triggerHaptic('light');
   };
@@ -165,8 +179,9 @@ export default function CounterCard({ counter, onUpdate: _onUpdate, onEdit, onDe
 
   const handleResetInternal = async () => {
     if (confirm(`Reset "${counter.name}" to ${counter.min_value}?`)) {
-      setCount(counter.min_value);
-      updateCountOnServer(counter.min_value);
+      const resetValue = counter.min_value;
+      setCount(resetValue);
+      updateCountOnServer(resetValue);
       emitCounterReset(counter.id, counter.project_id);
       triggerHaptic('medium');
       toast.success('Counter reset');
