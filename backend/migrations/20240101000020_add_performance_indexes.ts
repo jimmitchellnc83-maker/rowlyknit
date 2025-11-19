@@ -10,6 +10,10 @@ import type { Knex } from 'knex';
  * - Updated timestamp queries
  */
 
+// Disable transactions for this migration because CREATE INDEX CONCURRENTLY
+// cannot run inside a transaction block
+export const config = { transaction: false };
+
 export async function up(knex: Knex): Promise<void> {
   // Users table indexes
   await knex.raw(`
