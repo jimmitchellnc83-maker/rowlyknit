@@ -85,40 +85,60 @@ export default function MagicMarkerManager({ projectId, counters }: MagicMarkerM
 
     switch (formData.triggerType) {
       case 'counter_value':
-        if (!formData.triggerValue) {
+        if (!formData.triggerValue || formData.triggerValue.trim() === '') {
           toast.error('Please enter trigger value');
+          return;
+        }
+        const counterValue = parseInt(formData.triggerValue);
+        if (isNaN(counterValue)) {
+          toast.error('Trigger value must be a valid number');
           return;
         }
         triggerCondition = {
           operator: formData.operator,
-          value: parseInt(formData.triggerValue),
+          value: counterValue,
         };
         break;
       case 'row_interval':
-        if (!formData.interval) {
+        if (!formData.interval || formData.interval.trim() === '') {
           toast.error('Please enter interval');
           return;
         }
+        const rowInterval = parseInt(formData.interval);
+        if (isNaN(rowInterval) || rowInterval <= 0) {
+          toast.error('Interval must be a positive number');
+          return;
+        }
         triggerCondition = {
-          interval: parseInt(formData.interval),
+          interval: rowInterval,
         };
         break;
       case 'stitch_count':
-        if (!formData.triggerValue) {
+        if (!formData.triggerValue || formData.triggerValue.trim() === '') {
           toast.error('Please enter stitch count');
           return;
         }
-        triggerCondition = {
-          count: parseInt(formData.triggerValue),
-        };
-        break;
-      case 'time_based':
-        if (!formData.interval) {
-          toast.error('Please enter time interval (minutes)');
+        const stitchCount = parseInt(formData.triggerValue);
+        if (isNaN(stitchCount) || stitchCount <= 0) {
+          toast.error('Stitch count must be a positive number');
           return;
         }
         triggerCondition = {
-          minutes: parseInt(formData.interval),
+          count: stitchCount,
+        };
+        break;
+      case 'time_based':
+        if (!formData.interval || formData.interval.trim() === '') {
+          toast.error('Please enter time interval (minutes)');
+          return;
+        }
+        const timeInterval = parseInt(formData.interval);
+        if (isNaN(timeInterval) || timeInterval <= 0) {
+          toast.error('Time interval must be a positive number');
+          return;
+        }
+        triggerCondition = {
+          minutes: timeInterval,
         };
         break;
     }
