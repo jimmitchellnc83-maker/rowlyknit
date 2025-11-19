@@ -6,6 +6,16 @@ import path from 'path';
 export default defineConfig({
   plugins: [
     react(),
+    // Plugin to inject build timestamp into HTML
+    {
+      name: 'html-transform',
+      transformIndexHtml(html) {
+        return html.replace(
+          'VITE_BUILD_TIMESTAMP',
+          new Date().toISOString()
+        );
+      },
+    },
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'robots.txt', 'apple-touch-icon.png'],
@@ -38,7 +48,11 @@ export default defineConfig({
         cleanupOutdatedCaches: true,
         skipWaiting: true,
         clientsClaim: true,
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,webp}'],
+        // Don't let service worker control JS/CSS - let browser handle these
+        // This allows hard refreshes to work properly
+        globPatterns: ['**/*.{html,ico,png,svg,webp}'],
+        // Exclude JS/CSS from precaching to allow hard refresh to work
+        globIgnores: ['**/*.js', '**/*.css'],
         runtimeCaching: [
           {
             urlPattern: /^https?:\/\/.*\/api\/.*/i,
@@ -80,20 +94,11 @@ export default defineConfig({
               },
             },
           },
-          {
-            urlPattern: /\.(?:js|css)$/,
-            handler: 'StaleWhileRevalidate',
-            options: {
-              cacheName: 'static-resources',
-              expiration: {
-                maxEntries: 50,
-                maxAgeSeconds: 60 * 60 * 24 * 7, // 7 days
-              },
-            },
-          },
+          // DO NOT cache JS/CSS in service worker - let nginx/browser handle it
+          // This ensures hard refresh (Ctrl+Shift+R) works properly
         ],
         navigateFallback: '/index.html',
-        navigateFallbackDenylist: [/^\/api/],
+        navigateFallbackDenylist: [/^\/api/, /\.(?:js|css)$/],
       },
     }),
   ],
