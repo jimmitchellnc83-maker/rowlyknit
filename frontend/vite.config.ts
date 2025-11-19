@@ -53,10 +53,6 @@ export default defineConfig({
         globPatterns: ['**/*.{html,ico,png,svg,webp}'],
         // Exclude JS/CSS from precaching to allow hard refresh to work
         globIgnores: ['**/*.js', '**/*.css'],
-        // Explicitly include index.html in precache
-        additionalManifestEntries: [
-          { url: '/index.html', revision: null },
-        ],
         runtimeCaching: [
           {
             urlPattern: /^https?:\/\/.*\/api\/.*/i,
@@ -101,8 +97,10 @@ export default defineConfig({
           // DO NOT cache JS/CSS in service worker - let nginx/browser handle it
           // This ensures hard refresh (Ctrl+Shift+R) works properly
         ],
-        // Remove navigateFallback to prevent service worker errors
-        // The app doesn't need client-side routing fallback
+        // Disable navigation fallback by setting allowlist to empty array
+        // This prevents the "non-precached-url" error for index.html
+        // nginx handles all routing - service worker should only cache API/assets
+        navigateFallbackAllowlist: [],
         // Explicitly ignore JS and CSS files from all caching
         manifestTransforms: [
           (entries) => {
