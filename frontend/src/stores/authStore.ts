@@ -118,5 +118,10 @@ export const useAuthStore = create<AuthState>()(
 );
 
 // Initialize auth on app load
-// Disabled during troubleshooting - was causing blank page
-// useAuthStore.getState().checkAuth();
+// Only run checkAuth in browser environment after hydration
+if (typeof window !== 'undefined') {
+  // Delay checkAuth to avoid blocking initial render
+  Promise.resolve().then(() => {
+    useAuthStore.getState().checkAuth();
+  });
+}
