@@ -22,6 +22,10 @@ export default function CounterCard({ counter, onUpdate: _onUpdate, onEdit, onDe
   const menuRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
 
+  // Refs to store latest handler functions to avoid stale closures in voice recognition
+  const handleIncrementRef = useRef<() => void>(() => {});
+  const handleDecrementRef = useRef<() => void>(() => {});
+
   // Swipe gesture state
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
@@ -119,8 +123,11 @@ export default function CounterCard({ counter, onUpdate: _onUpdate, onEdit, onDe
     setCount(prevCount => {
       const newCount = prevCount + increment;
 
+      console.log(`[Counter ${counter.name}] Increment: ${prevCount} -> ${newCount} (+${increment})`);
+
       // Check max_value constraint
       if (counter.max_value && newCount > counter.max_value) {
+        console.warn(`[Counter ${counter.name}] Cannot exceed max value ${counter.max_value}`);
         toast.warning(`Cannot exceed maximum value of ${counter.max_value}`);
         return prevCount; // Don't update if exceeds max
       }
@@ -143,8 +150,11 @@ export default function CounterCard({ counter, onUpdate: _onUpdate, onEdit, onDe
     setCount(prevCount => {
       const newCount = prevCount - increment;
 
+      console.log(`[Counter ${counter.name}] Decrement: ${prevCount} -> ${newCount} (-${increment})`);
+
       // Check min_value constraint
       if (newCount < counter.min_value) {
+        console.warn(`[Counter ${counter.name}] Cannot go below min value ${counter.min_value}`);
         toast.warning(`Cannot go below minimum value of ${counter.min_value}`);
         return prevCount; // Don't update if below min
       }
@@ -164,16 +174,20 @@ export default function CounterCard({ counter, onUpdate: _onUpdate, onEdit, onDe
   const handleIncrement = useCallback(preventDoubleTap(handleIncrementInternal, 500), [count, counter]);
   const handleDecrement = useCallback(preventDoubleTap(handleDecrementInternal, 500), [count, counter]);
 
+  // Update refs with latest handlers on every render to avoid stale closures
+  handleIncrementRef.current = handleIncrementInternal;
+  handleDecrementRef.current = handleDecrementInternal;
+
   // Voice command handlers - NO debouncing for responsive voice control
   const handleVoiceIncrement = () => {
     console.log('[Voice] Increment command received');
-    handleIncrementInternal();
+    handleIncrementRef.current(); // Use ref to always call the latest version
     toast.success('Row added! 🎤', { autoClose: 800 });
   };
 
   const handleVoiceDecrement = () => {
     console.log('[Voice] Decrement command received');
-    handleDecrementInternal();
+    handleDecrementRef.current(); // Use ref to always call the latest version
     toast.info('Row removed! 🎤', { autoClose: 800 });
   };
 

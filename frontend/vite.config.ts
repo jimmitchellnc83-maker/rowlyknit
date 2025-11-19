@@ -53,6 +53,10 @@ export default defineConfig({
         globPatterns: ['**/*.{html,ico,png,svg,webp}'],
         // Exclude JS/CSS from precaching to allow hard refresh to work
         globIgnores: ['**/*.js', '**/*.css'],
+        // Explicitly include index.html in precache
+        additionalManifestEntries: [
+          { url: '/index.html', revision: null },
+        ],
         runtimeCaching: [
           {
             urlPattern: /^https?:\/\/.*\/api\/.*/i,
