@@ -1,23 +1,21 @@
 import axios, { AxiosError, AxiosRequestConfig } from 'axios';
 
 /**
- * Enhanced Axios Configuration
+ * Global Axios Configuration
  * - CSRF token handling
  * - Request/response interceptors
  * - Retry logic with exponential backoff
  * - Comprehensive error handling
  * - Development logging
+ *
+ * This configures the DEFAULT axios instance so all imports get this configuration
  */
 
-// Create axios instance with defaults
-const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000',
-  timeout: 30000, // 30 seconds
-  withCredentials: true, // Enable cookies for session/CSRF
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
+// Configure axios defaults globally
+axios.defaults.baseURL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+axios.defaults.timeout = 30000; // 30 seconds
+axios.defaults.withCredentials = true; // Enable cookies for session/CSRF
+axios.defaults.headers.common['Content-Type'] = 'application/json';
 
 // CSRF token cache
 let csrfToken: string | null = null;
@@ -27,15 +25,13 @@ let csrfToken: string | null = null;
  */
 async function fetchCsrfToken(): Promise<string> {
   try {
-    const response = await axios.get('/api/csrf-token', {
-      baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000',
-      withCredentials: true,
-    });
+    const response = await axios.get('/api/csrf-token');
     csrfToken = response.data.csrfToken;
     return csrfToken || '';
   } catch (error) {
     console.error('Failed to fetch CSRF token:', error);
-    throw error;
+    // Don't throw - allow app to continue without CSRF token
+    return '';
   }
 }
 
@@ -54,16 +50,19 @@ async function getCsrfToken(): Promise<string> {
  * - Add CSRF token to unsafe methods (POST, PUT, DELETE, PATCH)
  * - Log requests in development
  */
-apiClient.interceptors.request.use(
+axios.interceptors.request.use(
   async (config) => {
     // Add CSRF token for unsafe methods
     const unsafeMethods = ['POST', 'PUT', 'DELETE', 'PATCH'];
     if (config.method && unsafeMethods.includes(config.method.toUpperCase())) {
       try {
         const token = await getCsrfToken();
-        config.headers['x-csrf-token'] = token;
+        if (token) {
+          config.headers['x-csrf-token'] = token;
+        }
       } catch (error) {
         console.error('Failed to attach CSRF token:', error);
+        // Don't block request if CSRF fails
       }
     }
 
@@ -92,7 +91,7 @@ apiClient.interceptors.request.use(
  * - Log responses in development
  * - Handle CSRF token expiration
  */
-apiClient.interceptors.response.use(
+axios.interceptors.response.use(
   (response) => {
     // Log successful responses in development
     if (import.meta.env.DEV) {
@@ -122,8 +121,10 @@ apiClient.interceptors.response.use(
       // Clear CSRF token
       csrfToken = null;
 
-      // Only redirect if not already on login page
-      if (!window.location.pathname.includes('/login')) {
+      // Only redirect if not already on login/auth pages
+      const currentPath = window.location.pathname;
+      const authPaths = ['/login', '/register', '/forgot-password', '/reset-password', '/verify-email'];
+      if (!authPaths.some(path => currentPath.includes(path))) {
         window.location.href = '/login';
       }
       return Promise.reject(error);
@@ -142,7 +143,7 @@ apiClient.interceptors.response.use(
           await fetchCsrfToken();
 
           // Retry original request with new token
-          return apiClient(originalRequest);
+          return axios(originalRequest);
         } catch (retryError) {
           console.error('Failed to retry request after CSRF refresh:', retryError);
           return Promise.reject(error);
@@ -166,7 +167,7 @@ apiClient.interceptors.response.use(
         }
 
         await new Promise(resolve => setTimeout(resolve, delay));
-        return apiClient(originalRequest);
+        return axios(originalRequest);
       }
     }
 
@@ -210,4 +211,5 @@ export async function refreshCsrfToken(): Promise<string> {
   return fetchCsrfToken();
 }
 
-export default apiClient;
+// Export the configured axios instance as default
+export default axios;
