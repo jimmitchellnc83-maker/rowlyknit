@@ -85,8 +85,40 @@ axios.interceptors.request.use(
 );
 
 /**
+ * Refresh access token using refresh token
+ */
+let isRefreshing = false;
+let failedQueue: Array<{ resolve: (value?: unknown) => void; reject: (reason?: unknown) => void }> = [];
+
+const processQueue = (error: unknown, token: string | null = null) => {
+  failedQueue.forEach(prom => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
+  failedQueue = [];
+};
+
+async function refreshAccessToken(): Promise<string | null> {
+  try {
+    const response = await axios.post('/api/auth/refresh');
+    if (response.data.success && response.data.data?.accessToken) {
+      return response.data.data.accessToken;
+    }
+    return null;
+  } catch (error) {
+    console.error('Failed to refresh access token:', error);
+    return null;
+  }
+}
+
+/**
  * Response Interceptor
  * - Handle common HTTP errors
+ * - Token refresh on 401 errors
+ * - Rate limit handling with exponential backoff (429)
  * - Retry failed requests
  * - Log responses in development
  * - Handle CSRF token expiration
@@ -103,7 +135,12 @@ axios.interceptors.response.use(
     return response;
   },
   async (error: AxiosError) => {
-    const originalRequest = error.config as AxiosRequestConfig & { _retry?: boolean; _retryCount?: number };
+    const originalRequest = error.config as AxiosRequestConfig & {
+      _retry?: boolean;
+      _retryCount?: number;
+      _rateLimitRetry?: boolean;
+      _rateLimitRetryCount?: number;
+    };
 
     // Log errors in development
     if (import.meta.env.DEV) {
@@ -116,18 +153,85 @@ axios.interceptors.response.use(
       });
     }
 
-    // Handle 401 Unauthorized - redirect to login
-    if (error.response?.status === 401) {
-      // Clear CSRF token
-      csrfToken = null;
+    // Handle 401 Unauthorized - try to refresh token
+    if (error.response?.status === 401 && originalRequest) {
+      // Don't retry refresh endpoint itself
+      if (originalRequest.url?.includes('/auth/refresh') || originalRequest.url?.includes('/auth/login')) {
+        // Clear CSRF token
+        csrfToken = null;
 
-      // Only redirect if not already on login/auth pages
-      const currentPath = window.location.pathname;
-      const authPaths = ['/login', '/register', '/forgot-password', '/reset-password', '/verify-email'];
-      if (!authPaths.some(path => currentPath.includes(path))) {
-        window.location.href = '/login';
+        // Redirect to login if not already on auth pages
+        const currentPath = window.location.pathname;
+        const authPaths = ['/login', '/register', '/forgot-password', '/reset-password', '/verify-email'];
+        if (!authPaths.some(path => currentPath.includes(path))) {
+          window.location.href = '/login';
+        }
+        return Promise.reject(error);
       }
-      return Promise.reject(error);
+
+      // If already retrying, don't retry again
+      if (originalRequest._retry) {
+        csrfToken = null;
+        const currentPath = window.location.pathname;
+        const authPaths = ['/login', '/register', '/forgot-password', '/reset-password', '/verify-email'];
+        if (!authPaths.some(path => currentPath.includes(path))) {
+          window.location.href = '/login';
+        }
+        return Promise.reject(error);
+      }
+
+      if (isRefreshing) {
+        // Queue this request while token is being refreshed
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        })
+          .then(() => {
+            return axios(originalRequest);
+          })
+          .catch(err => {
+            return Promise.reject(err);
+          });
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      try {
+        const newToken = await refreshAccessToken();
+
+        if (newToken) {
+          processQueue(null, newToken);
+
+          // Update axios default header
+          axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
+
+          // Retry the original request
+          return axios(originalRequest);
+        } else {
+          // Token refresh failed
+          processQueue(error, null);
+          csrfToken = null;
+
+          const currentPath = window.location.pathname;
+          const authPaths = ['/login', '/register', '/forgot-password', '/reset-password', '/verify-email'];
+          if (!authPaths.some(path => currentPath.includes(path))) {
+            window.location.href = '/login';
+          }
+          return Promise.reject(error);
+        }
+      } catch (refreshError) {
+        processQueue(refreshError, null);
+        csrfToken = null;
+
+        const currentPath = window.location.pathname;
+        const authPaths = ['/login', '/register', '/forgot-password', '/reset-password', '/verify-email'];
+        if (!authPaths.some(path => currentPath.includes(path))) {
+          window.location.href = '/login';
+        }
+        return Promise.reject(error);
+      } finally {
+        isRefreshing = false;
+      }
     }
 
     // Handle 403 Forbidden - might be CSRF token issue
@@ -148,6 +252,52 @@ axios.interceptors.response.use(
           console.error('Failed to retry request after CSRF refresh:', retryError);
           return Promise.reject(error);
         }
+      }
+    }
+
+    // Handle 429 Too Many Requests - retry with exponential backoff
+    if (error.response?.status === 429 && originalRequest) {
+      const maxRateLimitRetries = 3;
+      const rateLimitRetryCount = originalRequest._rateLimitRetryCount || 0;
+
+      if (rateLimitRetryCount < maxRateLimitRetries && !originalRequest._rateLimitRetry) {
+        originalRequest._rateLimitRetry = true;
+        originalRequest._rateLimitRetryCount = rateLimitRetryCount + 1;
+
+        // Get retry-after from headers (in seconds) or use exponential backoff
+        const retryAfterHeader = error.response.headers['retry-after'];
+        const retryAfterSeconds = retryAfterHeader ? parseInt(retryAfterHeader, 10) : null;
+
+        // Use retry-after if provided, otherwise exponential backoff: 2s, 4s, 8s
+        const delay = retryAfterSeconds
+          ? retryAfterSeconds * 1000
+          : Math.pow(2, rateLimitRetryCount + 1) * 1000;
+
+        if (import.meta.env.DEV) {
+          console.log(`[Rate Limit Retry] Attempt ${rateLimitRetryCount + 1}/${maxRateLimitRetries} after ${delay}ms`);
+        }
+
+        await new Promise(resolve => setTimeout(resolve, delay));
+
+        // Reset retry flag before retrying
+        originalRequest._rateLimitRetry = false;
+
+        return axios(originalRequest);
+      } else {
+        // Max retries reached, dispatch event for UI notification
+        const retryAfter = error.response.headers['retry-after'];
+        const errorData = error.response.data as { message?: string; tier?: string; limit?: number };
+
+        window.dispatchEvent(new CustomEvent('rate-limit-exceeded', {
+          detail: {
+            message: errorData.message || 'Rate limit exceeded',
+            tier: errorData.tier,
+            limit: errorData.limit,
+            retryAfter: retryAfter ? parseInt(retryAfter, 10) : null,
+          }
+        }));
+
+        console.warn('Rate limit exceeded. Max retries reached. Retry after:', retryAfter);
       }
     }
 
@@ -174,12 +324,6 @@ axios.interceptors.response.use(
     // Handle 404 Not Found
     if (error.response?.status === 404) {
       console.warn('Resource not found:', originalRequest?.url);
-    }
-
-    // Handle 429 Too Many Requests
-    if (error.response?.status === 429) {
-      const retryAfter = error.response.headers['retry-after'];
-      console.warn('Rate limit exceeded. Retry after:', retryAfter);
     }
 
     // Handle 500 Internal Server Error

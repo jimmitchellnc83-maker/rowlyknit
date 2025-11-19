@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from './stores/authStore';
 import PWAInstallPrompt from './components/PWAInstallPrompt';
 import OfflineIndicator from './components/OfflineIndicator';
+import { RateLimitNotifier } from './components/RateLimitNotifier';
 
 // Layouts
 import MainLayout from './components/layouts/MainLayout';
@@ -41,6 +42,7 @@ function App() {
     <>
       <OfflineIndicator />
       <PWAInstallPrompt />
+      <RateLimitNotifier />
       <Routes>
         {/* Auth routes */}
       <Route element={<AuthLayout />}>

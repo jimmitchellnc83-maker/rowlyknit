@@ -20,8 +20,9 @@ const WebSocketContext = createContext<WebSocketContextType | undefined>(undefin
 export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
-  const { accessToken } = useAuthStore();
+  const { accessToken, refreshToken } = useAuthStore();
   const socketRef = useRef<Socket | null>(null);
+  const isRefreshingRef = useRef(false);
 
   useEffect(() => {
     if (!accessToken) {
@@ -52,6 +53,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     newSocket.on('connect', () => {
       console.log('✅ Socket.IO connected:', newSocket.id);
       setIsConnected(true);
+      isRefreshingRef.current = false;
     });
 
     newSocket.on('disconnect', (reason) => {
@@ -59,9 +61,82 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       setIsConnected(false);
     });
 
-    newSocket.on('connect_error', (error) => {
+    newSocket.on('connect_error', async (error) => {
       console.error('Socket.IO connection error:', error);
       setIsConnected(false);
+
+      // Check if it's an authentication error
+      const errorMessage = error.message.toLowerCase();
+      if (
+        (errorMessage.includes('auth') ||
+          errorMessage.includes('unauthorized') ||
+          errorMessage.includes('jwt') ||
+          errorMessage.includes('token')) &&
+        !isRefreshingRef.current
+      ) {
+        isRefreshingRef.current = true;
+        console.log('🔄 Attempting to refresh token for Socket.IO...');
+
+        try {
+          const newToken = await refreshToken();
+
+          if (newToken) {
+            console.log('✅ Token refreshed successfully, reconnecting Socket.IO...');
+
+            // Update socket auth token
+            if (newSocket.auth) {
+              (newSocket.auth as any).token = newToken;
+            }
+
+            // Reconnect with new token
+            newSocket.connect();
+          } else {
+            console.error('❌ Token refresh failed, cannot reconnect Socket.IO');
+          }
+        } catch (refreshError) {
+          console.error('❌ Error during token refresh:', refreshError);
+        } finally {
+          isRefreshingRef.current = false;
+        }
+      }
+    });
+
+    // Listen for auth error events from server
+    newSocket.on('error', async (error: any) => {
+      console.error('Socket.IO error event:', error);
+
+      // Check if it's an authentication error
+      if (
+        (error.type === 'auth' ||
+          error.message?.includes('auth') ||
+          error.message?.includes('unauthorized') ||
+          error.message?.includes('token')) &&
+        !isRefreshingRef.current
+      ) {
+        isRefreshingRef.current = true;
+        console.log('🔄 Auth error received, attempting to refresh token...');
+
+        try {
+          const newToken = await refreshToken();
+
+          if (newToken) {
+            console.log('✅ Token refreshed, reconnecting Socket.IO...');
+
+            // Disconnect and reconnect with new token
+            newSocket.disconnect();
+
+            if (newSocket.auth) {
+              (newSocket.auth as any).token = newToken;
+            }
+
+            newSocket.connect();
+          }
+        } catch (refreshError) {
+          console.error('❌ Error during token refresh:', refreshError);
+        } finally {
+          isRefreshingRef.current = false;
+        }
+      }
     });
 
     socketRef.current = newSocket;
@@ -74,7 +149,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         socketRef.current = null;
       }
     };
-  }, [accessToken]);
+  }, [accessToken, refreshToken]);
 
   const joinProject = useCallback((projectId: string) => {
     if (socketRef.current?.connected) {

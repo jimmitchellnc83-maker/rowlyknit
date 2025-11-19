@@ -20,6 +20,7 @@ interface AuthState {
   setUser: (user: User) => void;
   setToken: (token: string) => void;
   checkAuth: () => Promise<void>;
+  refreshToken: () => Promise<string | null>;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -77,6 +78,31 @@ export const useAuthStore = create<AuthState>()(
         axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       },
 
+      refreshToken: async (): Promise<string | null> => {
+        try {
+          const response = await axios.post('/api/auth/refresh');
+          if (response.data.success && response.data.data?.accessToken) {
+            const newToken = response.data.data.accessToken;
+
+            set({ accessToken: newToken });
+            axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
+
+            return newToken;
+          }
+          return null;
+        } catch (error) {
+          console.error('Token refresh failed:', error);
+          // Clear auth state on refresh failure
+          set({
+            user: null,
+            accessToken: null,
+            isAuthenticated: false,
+          });
+          delete axios.defaults.headers.common['Authorization'];
+          return null;
+        }
+      },
+
       checkAuth: async () => {
         const { accessToken } = get();
 
@@ -117,18 +143,27 @@ export const useAuthStore = create<AuthState>()(
   )
 );
 
-// Initialize auth on app load - TEMPORARILY DISABLED FOR DEBUGGING
-// This was causing blank page issues
+// Initialize auth on app load - Re-enabled with safety checks
 // Only run checkAuth in browser environment after hydration
-// if (typeof window !== 'undefined') {
-//   // Delay checkAuth to avoid blocking initial render
-//   // Only run if we have a token in storage
-//   setTimeout(() => {
-//     const state = useAuthStore.getState();
-//     if (state.accessToken) {
-//       state.checkAuth().catch((error) => {
-//         console.error('checkAuth failed on initialization:', error);
-//       });
-//     }
-//   }, 500); // Delay to ensure React is fully mounted
-// }
+if (typeof window !== 'undefined') {
+  // Delay checkAuth to avoid blocking initial render
+  // Only run if we have a token in storage
+  // Use requestIdleCallback if available, fallback to setTimeout
+  const initAuth = () => {
+    const state = useAuthStore.getState();
+    if (state.accessToken) {
+      state.checkAuth().catch((error) => {
+        console.error('checkAuth failed on initialization:', error);
+        // Silently fail - user will be redirected to login if needed
+      });
+    }
+  };
+
+  if ('requestIdleCallback' in window) {
+    // Run during browser idle time for better performance
+    window.requestIdleCallback(initAuth, { timeout: 2000 });
+  } else {
+    // Fallback with longer delay for older browsers
+    setTimeout(initAuth, 1000);
+  }
+}
