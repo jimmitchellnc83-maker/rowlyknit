@@ -101,6 +101,37 @@ export async function createMagicMarker(req: Request, res: Response) {
     throw new ValidationError(`Alert type must be one of: ${validAlertTypes.join(', ')}`);
   }
 
+  // Validate trigger condition structure based on trigger type
+  if (typeof triggerCondition !== 'object' || triggerCondition === null) {
+    throw new ValidationError('Trigger condition must be an object');
+  }
+
+  switch (triggerType) {
+    case 'counter_value':
+      if (!triggerCondition.operator || !['equals', 'greater_than', 'less_than', 'multiple_of'].includes(triggerCondition.operator)) {
+        throw new ValidationError('Counter value trigger requires a valid operator (equals, greater_than, less_than, multiple_of)');
+      }
+      if (typeof triggerCondition.value !== 'number') {
+        throw new ValidationError('Counter value trigger requires a numeric value');
+      }
+      break;
+    case 'row_interval':
+      if (typeof triggerCondition.interval !== 'number' || triggerCondition.interval <= 0) {
+        throw new ValidationError('Row interval trigger requires a positive numeric interval');
+      }
+      break;
+    case 'stitch_count':
+      if (typeof triggerCondition.count !== 'number' || triggerCondition.count <= 0) {
+        throw new ValidationError('Stitch count trigger requires a positive numeric count');
+      }
+      break;
+    case 'time_based':
+      if (typeof triggerCondition.minutes !== 'number' || triggerCondition.minutes <= 0) {
+        throw new ValidationError('Time-based trigger requires a positive numeric minutes value');
+      }
+      break;
+  }
+
   // Verify project ownership
   const project = await db('projects')
     .where({ id: projectId, user_id: userId })
@@ -338,7 +369,7 @@ export async function checkMagicMarkers(projectId: string, counterId: string, co
         break;
 
       case 'stitch_count':
-        if (counterValue === condition.stitchCount) {
+        if (counterValue === condition.count) {
           shouldTrigger = true;
         }
         break;

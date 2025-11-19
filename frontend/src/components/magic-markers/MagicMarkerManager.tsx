@@ -50,6 +50,7 @@ export default function MagicMarkerManager({ projectId, counters }: MagicMarkerM
     name: '',
     counterId: '',
     triggerType: 'counter_value',
+    operator: 'equals',
     triggerValue: '',
     interval: '',
     alertMessage: '',
@@ -89,6 +90,7 @@ export default function MagicMarkerManager({ projectId, counters }: MagicMarkerM
           return;
         }
         triggerCondition = {
+          operator: formData.operator,
           value: parseInt(formData.triggerValue),
         };
         break;
@@ -170,6 +172,7 @@ export default function MagicMarkerManager({ projectId, counters }: MagicMarkerM
       name: '',
       counterId: '',
       triggerType: 'counter_value',
+      operator: 'equals',
       triggerValue: '',
       interval: '',
       alertMessage: '',
@@ -181,7 +184,13 @@ export default function MagicMarkerManager({ projectId, counters }: MagicMarkerM
     const condition = marker.trigger_condition;
     switch (marker.trigger_type) {
       case 'counter_value':
-        return `When counter reaches ${condition.value}`;
+        const operatorText = {
+          equals: '=',
+          greater_than: '>',
+          less_than: '<',
+          multiple_of: 'is multiple of',
+        }[condition.operator] || condition.operator;
+        return `When counter ${operatorText} ${condition.value}`;
       case 'row_interval':
         return `Every ${condition.interval} rows`;
       case 'stitch_count':
@@ -351,18 +360,37 @@ export default function MagicMarkerManager({ projectId, counters }: MagicMarkerM
               </div>
 
               {(formData.triggerType === 'counter_value' || formData.triggerType === 'stitch_count') && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Trigger Value
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.triggerValue}
-                    onChange={(e) => setFormData({ ...formData, triggerValue: e.target.value })}
-                    placeholder="e.g., 100"
-                    className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-purple-500"
-                  />
-                </div>
+                <>
+                  {formData.triggerType === 'counter_value' && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Comparison Operator
+                      </label>
+                      <select
+                        value={formData.operator}
+                        onChange={(e) => setFormData({ ...formData, operator: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-purple-500"
+                      >
+                        <option value="equals">Equals (=)</option>
+                        <option value="greater_than">Greater than (&gt;)</option>
+                        <option value="less_than">Less than (&lt;)</option>
+                        <option value="multiple_of">Is multiple of</option>
+                      </select>
+                    </div>
+                  )}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Trigger Value
+                    </label>
+                    <input
+                      type="number"
+                      value={formData.triggerValue}
+                      onChange={(e) => setFormData({ ...formData, triggerValue: e.target.value })}
+                      placeholder="e.g., 100"
+                      className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-purple-500"
+                    />
+                  </div>
+                </>
               )}
 
               {(formData.triggerType === 'row_interval' || formData.triggerType === 'time_based') && (
