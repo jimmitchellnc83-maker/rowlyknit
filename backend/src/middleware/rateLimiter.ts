@@ -15,22 +15,24 @@ enum UserTier {
 
 /**
  * Rate limit configurations by user tier
+ * Note: Limits are generous to accommodate normal usage patterns
+ * Dashboard makes ~6 API calls on load, so limits account for this
  */
 const TIER_LIMITS = {
   [UserTier.FREE]: {
-    perMinute: 60,
-    perHour: 1000,
-    perDay: 10000,
+    perMinute: 300,  // Increased from 60 to handle dashboard loads and normal usage
+    perHour: 5000,   // Increased from 1000
+    perDay: 50000,   // Increased from 10000
   },
   [UserTier.PREMIUM]: {
-    perMinute: 120,
-    perHour: 5000,
-    perDay: 50000,
+    perMinute: 600,  // Increased from 120
+    perHour: 15000,  // Increased from 5000
+    perDay: 150000,  // Increased from 50000
   },
   [UserTier.ADMIN]: {
-    perMinute: 300,
-    perHour: 15000,
-    perDay: 100000,
+    perMinute: 1000, // Increased from 300
+    perHour: 30000,  // Increased from 15000
+    perDay: 300000,  // Increased from 100000
   },
 };
 
@@ -90,9 +92,27 @@ function createDynamicLimiter(window: 'perMinute' | 'perHour' | 'perDay') {
     standardHeaders: true,
     legacyHeaders: false,
     keyGenerator: (req) => {
-      const userId = (req as any).user?.userId;
+      // Try to get user ID from req.user (if auth middleware already ran)
+      let userId = (req as any).user?.userId;
+
+      // If not available, try to extract from JWT token in Authorization header
+      if (!userId) {
+        const authHeader = req.headers.authorization;
+        if (authHeader && authHeader.startsWith('Bearer ')) {
+          try {
+            const token = authHeader.substring(7);
+            // Quick decode of JWT payload (without verification, just for user ID)
+            const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
+            userId = payload.userId;
+          } catch (error) {
+            // If token parsing fails, userId remains undefined
+          }
+        }
+      }
+
       const tier = getUserTier(req);
       // Include tier in key to separate limits by tier
+      // Use userId if available, otherwise fall back to IP
       return userId ? `user:${userId}:${tier}:${window}` : `ip:${req.ip}:${window}`;
     },
     skip: (req) => {
