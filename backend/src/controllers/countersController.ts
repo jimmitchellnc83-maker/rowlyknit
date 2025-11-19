@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import db from '../config/database';
 import { NotFoundError, ValidationError } from '../utils/errorHandler';
 import { createAuditLog } from '../middleware/auditLog';
+import { getIO } from '../config/socket';
 
 /**
  * Get all counters for a project
@@ -456,100 +457,156 @@ async function checkAndExecuteCounterLinks(
       is_active: true,
     });
 
+  console.log(`[Counter Links] Checking ${links.length} link(s) for counter ${counterId} (value: ${newValue})`);
+
   for (const link of links) {
     let shouldTrigger = false;
 
-    // Parse trigger condition
-    const condition = link.trigger_condition;
-    if (typeof condition === 'object' && condition !== null) {
-      const { type, value } = condition as any;
-
-      switch (type) {
-        case 'equals':
-          shouldTrigger = newValue === value;
-          break;
-        case 'greater_than':
-          shouldTrigger = newValue > value;
-          break;
-        case 'less_than':
-          shouldTrigger = newValue < value;
-          break;
-        case 'multiple_of':
-          shouldTrigger = newValue % value === 0;
-          break;
-        case 'every_n':
-          shouldTrigger = newValue % value === 0 && newValue > 0;
-          break;
-      }
-    }
-
-    if (shouldTrigger) {
-      // Get target counter
-      const targetCounter = await db('counters')
-        .where({ id: link.target_counter_id })
-        .first();
-
-      if (!targetCounter) continue;
-
-      const targetOldValue = targetCounter.current_value;
-      let targetNewValue = targetOldValue;
-
-      // Parse and execute action
-      const action = link.action;
-      if (typeof action === 'object' && action !== null) {
-        const { type, value } = action as any;
-
-        switch (type) {
-          case 'increment':
-            targetNewValue = targetOldValue + (value || 1);
-            break;
-          case 'decrement':
-            targetNewValue = targetOldValue - (value || 1);
-            break;
-          case 'reset':
-            targetNewValue = value || 0;
-            break;
-          case 'set':
-            targetNewValue = value;
-            break;
+    try {
+      // Parse trigger condition (stored as JSON string in database)
+      let condition = link.trigger_condition;
+      if (typeof condition === 'string') {
+        try {
+          condition = JSON.parse(condition);
+        } catch (e) {
+          console.error(`[Counter Links] Failed to parse trigger_condition for link ${link.id}:`, e);
+          continue;
         }
       }
 
-      // Apply min/max constraints
-      if (targetCounter.min_value !== null && targetNewValue < targetCounter.min_value) {
-        targetNewValue = targetCounter.min_value;
-      }
-      if (targetCounter.max_value !== null && targetNewValue > targetCounter.max_value) {
-        targetNewValue = targetCounter.max_value;
+      if (typeof condition === 'object' && condition !== null) {
+        const { type, value } = condition as any;
+
+        console.log(`[Counter Links] Link ${link.id}: Checking condition ${type} ${value} against ${newValue}`);
+
+        switch (type) {
+          case 'equals':
+            shouldTrigger = newValue === value;
+            break;
+          case 'greater_than':
+            shouldTrigger = newValue > value;
+            break;
+          case 'less_than':
+            shouldTrigger = newValue < value;
+            break;
+          case 'multiple_of':
+          case 'modulo':
+            shouldTrigger = value > 0 && newValue % value === 0;
+            break;
+          case 'every_n':
+            shouldTrigger = value > 0 && newValue % value === 0 && newValue > 0;
+            break;
+        }
+
+        console.log(`[Counter Links] Link ${link.id}: Trigger = ${shouldTrigger}`);
       }
 
-      // Update target counter
-      await db('counters')
-        .where({ id: link.target_counter_id })
-        .update({
-          current_value: targetNewValue,
-          updated_at: new Date(),
+      if (shouldTrigger) {
+        // Get target counter
+        const targetCounter = await db('counters')
+          .where({ id: link.target_counter_id })
+          .first();
+
+        if (!targetCounter) {
+          console.warn(`[Counter Links] Target counter ${link.target_counter_id} not found for link ${link.id}`);
+          continue;
+        }
+
+        const targetOldValue = targetCounter.current_value;
+        let targetNewValue = targetOldValue;
+
+        // Parse and execute action (stored as JSON string in database)
+        let action = link.action;
+        if (typeof action === 'string') {
+          try {
+            action = JSON.parse(action);
+          } catch (e) {
+            console.error(`[Counter Links] Failed to parse action for link ${link.id}:`, e);
+            continue;
+          }
+        }
+
+        if (typeof action === 'object' && action !== null) {
+          const { type, value } = action as any;
+
+          console.log(`[Counter Links] Executing action ${type} ${value !== undefined ? value : ''} on counter ${link.target_counter_id}`);
+
+          switch (type) {
+            case 'increment':
+              targetNewValue = targetOldValue + (value || 1);
+              break;
+            case 'decrement':
+              targetNewValue = targetOldValue - (value || 1);
+              break;
+            case 'reset':
+              targetNewValue = value !== undefined ? value : 0;
+              break;
+            case 'set':
+              targetNewValue = value;
+              break;
+          }
+        }
+
+        // Apply min/max constraints
+        if (targetCounter.min_value !== null && targetNewValue < targetCounter.min_value) {
+          console.log(`[Counter Links] Clamping to min_value: ${targetCounter.min_value}`);
+          targetNewValue = targetCounter.min_value;
+        }
+        if (targetCounter.max_value !== null && targetNewValue > targetCounter.max_value) {
+          console.log(`[Counter Links] Clamping to max_value: ${targetCounter.max_value}`);
+          targetNewValue = targetCounter.max_value;
+        }
+
+        console.log(`[Counter Links] Updating counter ${link.target_counter_id}: ${targetOldValue} → ${targetNewValue}`);
+
+        // Update target counter
+        await db('counters')
+          .where({ id: link.target_counter_id })
+          .update({
+            current_value: targetNewValue,
+            updated_at: new Date(),
+          });
+
+        // Create history entry for target counter
+        await db('counter_history').insert({
+          counter_id: link.target_counter_id,
+          old_value: targetOldValue,
+          new_value: targetNewValue,
+          action: 'linked_update',
+          user_note: `Auto-updated by linked counter: ${counterId}`,
+          created_at: new Date(),
         });
 
-      // Create history entry for target counter
-      await db('counter_history').insert({
-        counter_id: link.target_counter_id,
-        old_value: targetOldValue,
-        new_value: targetNewValue,
-        action: 'linked_update',
-        user_note: `Auto-updated by linked counter: ${counterId}`,
-        created_at: new Date(),
-      });
+        // Audit log
+        await createAuditLog(req, {
+          userId,
+          action: 'counter_linked_update',
+          entityType: 'counter',
+          entityId: link.target_counter_id,
+          oldValues: { current_value: targetOldValue },
+          newValues: { current_value: targetNewValue },
+        });
 
-      // Audit log
-      await createAuditLog(req, {
-        userId,
-        action: 'counter_linked_update',
-        entityType: 'counter',
-        entityId: link.target_counter_id,
-        oldValues: { current_value: targetOldValue },
-        newValues: { current_value: targetNewValue },
-      });
+        // Emit WebSocket event for real-time updates
+        try {
+          const io = getIO();
+          io.to(`project:${targetCounter.project_id}`).emit('counter:updated', {
+            counterId: link.target_counter_id,
+            projectId: targetCounter.project_id,
+            currentValue: targetNewValue,
+            linkedFrom: counterId,
+          });
+          console.log(`[Counter Links] WebSocket event emitted for counter ${link.target_counter_id}`);
+        } catch (socketError) {
+          // Don't fail the whole operation if WebSocket fails
+          console.error(`[Counter Links] Failed to emit WebSocket event:`, socketError);
+        }
+
+        console.log(`[Counter Links] Successfully updated linked counter ${link.target_counter_id}`);
+      }
+    } catch (error) {
+      console.error(`[Counter Links] Error processing link ${link.id}:`, error);
+      // Continue processing other links even if one fails
     }
   }
 }
