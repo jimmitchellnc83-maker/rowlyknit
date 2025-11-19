@@ -97,8 +97,8 @@ export default defineConfig({
           // DO NOT cache JS/CSS in service worker - let nginx/browser handle it
           // This ensures hard refresh (Ctrl+Shift+R) works properly
         ],
-        navigateFallback: '/index.html',
-        navigateFallbackDenylist: [/^\/api/, /\.(?:js|css)$/],
+        // Remove navigateFallback to prevent service worker errors
+        // The app doesn't need client-side routing fallback
         // Explicitly ignore JS and CSS files from all caching
         manifestTransforms: [
           (entries) => {
