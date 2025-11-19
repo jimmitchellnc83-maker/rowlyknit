@@ -34,16 +34,26 @@ docker compose build --no-cache frontend
 echo -e "${GREEN}✅ Frontend rebuilt with cache fixes${NC}"
 echo ""
 
-echo -e "${YELLOW}🔄 Step 3: Restarting nginx and frontend...${NC}"
-docker compose up -d --force-recreate --no-deps frontend nginx
+echo -e "${YELLOW}🔄 Step 3: Stopping containers...${NC}"
+docker compose stop frontend nginx
+echo -e "${GREEN}✅ Containers stopped${NC}"
+echo ""
+
+echo -e "${YELLOW}🗑️  Step 4: Removing old containers...${NC}"
+docker compose rm -f frontend nginx
+echo -e "${GREEN}✅ Old containers removed${NC}"
+echo ""
+
+echo -e "${YELLOW}🚀 Step 5: Starting fresh containers...${NC}"
+docker compose up -d frontend nginx
 echo -e "${GREEN}✅ Services restarted${NC}"
 echo ""
 
-echo -e "${YELLOW}⏳ Step 4: Waiting for services to stabilize...${NC}"
+echo -e "${YELLOW}⏳ Step 6: Waiting for services to stabilize...${NC}"
 sleep 5
 echo ""
 
-echo -e "${YELLOW}🏥 Step 5: Health checks...${NC}"
+echo -e "${YELLOW}🏥 Step 7: Health checks...${NC}"
 if curl -f http://localhost:3000 > /dev/null 2>&1; then
     echo -e "${GREEN}✅ Frontend is healthy${NC}"
 else
