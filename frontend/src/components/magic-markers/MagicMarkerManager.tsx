@@ -184,12 +184,13 @@ export default function MagicMarkerManager({ projectId, counters }: MagicMarkerM
     const condition = marker.trigger_condition;
     switch (marker.trigger_type) {
       case 'counter_value':
-        const operatorText = {
+        const operatorMap: Record<string, string> = {
           equals: '=',
           greater_than: '>',
           less_than: '<',
           multiple_of: 'is multiple of',
-        }[condition.operator] || condition.operator;
+        };
+        const operatorText = operatorMap[condition.operator as string] || condition.operator;
         return `When counter ${operatorText} ${condition.value}`;
       case 'row_interval':
         return `Every ${condition.interval} rows`;
