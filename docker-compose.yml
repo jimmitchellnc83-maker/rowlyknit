@@ -60,8 +60,8 @@ services:
       - ./backups:/backups
       - /var/log/rowly:/var/log/rowly
     ports:
-      - "5000:5000"
-      - "9090:9090"  # Prometheus metrics
+      - "127.0.0.1:5000:5000"  # Bind to localhost only - not publicly accessible
+      - "127.0.0.1:9090:9090"  # Prometheus metrics - localhost only
     depends_on:
       postgres:
         condition: service_healthy
@@ -85,7 +85,7 @@ services:
     container_name: rowly_frontend
     restart: unless-stopped
     ports:
-      - "3000:80"
+      - "127.0.0.1:3000:80"  # Bind to localhost only - not publicly accessible
     networks:
       - rowly_network
     depends_on:
