@@ -137,8 +137,11 @@ export async function createCounterLink(req: Request, res: Response) {
     throw new ValidationError('Source and target counters cannot be the same');
   }
 
-  if (!triggerCondition || !action) {
-    throw new ValidationError('Trigger condition and action are required');
+  // Only require triggerCondition and action for link types that use them
+  if (linkType !== 'advance_together') {
+    if (!triggerCondition || !action) {
+      throw new ValidationError('Trigger condition and action are required for this link type');
+    }
   }
 
   // Verify project ownership
@@ -166,17 +169,25 @@ export async function createCounterLink(req: Request, res: Response) {
   }
 
   // Create the link
+  const linkData: any = {
+    source_counter_id: sourceCounterId,
+    target_counter_id: targetCounterId,
+    link_type: linkType || 'conditional',
+    is_active: isActive,
+    created_at: new Date(),
+    updated_at: new Date(),
+  };
+
+  // Only include trigger_condition and action if they exist
+  if (triggerCondition) {
+    linkData.trigger_condition = JSON.stringify(triggerCondition);
+  }
+  if (action) {
+    linkData.action = JSON.stringify(action);
+  }
+
   const [link] = await db('counter_links')
-    .insert({
-      source_counter_id: sourceCounterId,
-      target_counter_id: targetCounterId,
-      link_type: linkType || 'conditional',
-      trigger_condition: JSON.stringify(triggerCondition),
-      action: JSON.stringify(action),
-      is_active: isActive,
-      created_at: new Date(),
-      updated_at: new Date(),
-    })
+    .insert(linkData)
     .returning('*');
 
   await createAuditLog(req, {
