@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FiBookmark, FiEdit3, FiHighlight, FiPlus, FiTrash2 } from 'react-icons/fi';
+import { FiBookmark, FiEdit3, FiEdit, FiPlus, FiTrash2 } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 
@@ -240,7 +240,7 @@ export default function PatternAnnotationsManager({
               }`}
             >
               <div className="flex items-center gap-2">
-                <FiHighlight className="h-4 w-4" />
+                <FiEdit className="h-4 w-4" />
                 Highlights ({highlights.length})
               </div>
             </button>
@@ -424,7 +424,7 @@ export default function PatternAnnotationsManager({
                 <div>
                   {highlights.length === 0 ? (
                     <div className="text-center py-12">
-                      <FiHighlight className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                      <FiEdit className="mx-auto h-12 w-12 text-gray-400 mb-4" />
                       <h3 className="text-lg font-medium text-gray-900 mb-2">No highlights yet</h3>
                       <p className="text-gray-500 mb-6">
                         Highlights must be created directly on the PDF viewer
