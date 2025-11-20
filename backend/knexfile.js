@@ -65,11 +65,11 @@ const config = {
       max: parseInt(process.env.DB_POOL_MAX || '10'),
     },
     migrations: {
-      directory: path.join(__dirname, 'migrations'),
+      directory: path.join(__dirname, 'dist', 'migrations'),
       tableName: 'knex_migrations',
     },
     seeds: {
-      directory: path.join(__dirname, 'seeds'),
+      directory: path.join(__dirname, 'dist', 'seeds'),
     },
   },
 };
