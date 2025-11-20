@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { FiArrowLeft, FiEdit2, FiTrash2, FiFileText, FiGrid, FiTool } from 'react-icons/fi';
+import { FiArrowLeft, FiEdit2, FiTrash2, FiFileText, FiGrid, FiTool, FiX } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import PatternFileUpload from '../components/PatternFileUpload';
@@ -554,7 +554,14 @@ export default function PatternDetail() {
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-xl font-semibold text-gray-900">Pattern Charts</h2>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
+              <button
+                onClick={() => navigate(`/patterns/${id}/builder`)}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2"
+              >
+                <FiGrid />
+                Pattern Builder
+              </button>
               <button
                 onClick={() => setShowChartUpload(true)}
                 className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2"
@@ -582,7 +589,13 @@ export default function PatternDetail() {
               <p className="text-gray-500 mb-4">
                 Create or import knitting charts to visualize your pattern
               </p>
-              <div className="flex gap-3 justify-center">
+              <div className="flex gap-3 justify-center flex-wrap">
+                <button
+                  onClick={() => navigate(`/patterns/${id}/builder`)}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                >
+                  Pattern Builder
+                </button>
                 <button
                   onClick={() => setShowChartUpload(true)}
                   className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
