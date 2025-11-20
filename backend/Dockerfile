@@ -48,6 +48,7 @@ RUN npm install --omit=dev && \
 # Copy built application from builder
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/migrations ./migrations
+COPY --from=builder /app/knexfile.ts ./knexfile.ts
 
 # Create necessary directories
 RUN mkdir -p /app/uploads /backups /var/log/rowly && \
