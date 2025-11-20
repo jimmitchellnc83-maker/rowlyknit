@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { FiArrowLeft, FiDownload, FiFileText, FiSave } from 'react-icons/fi';
+import { toast } from 'react-toastify';
 
 // Symbol library based on Craft Yarn Council standards
 interface SymbolData {
@@ -109,7 +110,14 @@ export default function PatternBuilder() {
       instructions += rowInstructions.join(', ') || 'Empty row';
       instructions += '\n';
     }
-    alert(instructions);
+    // Copy to clipboard and show toast notification
+    navigator.clipboard.writeText(instructions).then(() => {
+      toast.success('Pattern instructions copied to clipboard!');
+    }).catch(() => {
+      // Fallback: show in console and toast
+      console.log(instructions);
+      toast.info('Pattern instructions generated - check browser console');
+    });
   };
 
   const savePattern = () => {
@@ -122,7 +130,8 @@ export default function PatternBuilder() {
     const patterns = JSON.parse(localStorage.getItem('rowly-patterns') || '[]');
     patterns.push(pattern);
     localStorage.setItem('rowly-patterns', JSON.stringify(patterns));
-    alert('Pattern saved successfully!');
+    toast.success('Pattern saved to browser storage!');
+    toast.warning('Note: This is temporary storage. Use Export to save permanently.');
   };
 
   const filteredSymbols = (category: string): SymbolData[] => {
@@ -203,7 +212,7 @@ export default function PatternBuilder() {
               <input
                 type="number"
                 value={rows}
-                onChange={(e) => setRows(parseInt(e.target.value) || 1)}
+                onChange={(e) => setRows(Math.max(1, parseInt(e.target.value) || 1))}
                 className="w-16 px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-purple-500"
                 min="1"
                 max="100"
@@ -214,7 +223,7 @@ export default function PatternBuilder() {
               <input
                 type="number"
                 value={cols}
-                onChange={(e) => setCols(parseInt(e.target.value) || 1)}
+                onChange={(e) => setCols(Math.max(1, parseInt(e.target.value) || 1))}
                 className="w-16 px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-purple-500"
                 min="1"
                 max="100"

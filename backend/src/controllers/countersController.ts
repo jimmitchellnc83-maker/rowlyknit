@@ -112,7 +112,7 @@ export async function createCounter(req: Request, res: Response) {
     .insert({
       project_id: projectId,
       name,
-      type: type || 'rows',
+      type: type || 'row',  // Fixed: Changed from 'rows' to 'row' to match database schema
       current_value: currentValue,
       target_value: targetValue,
       increment_by: incrementBy,
