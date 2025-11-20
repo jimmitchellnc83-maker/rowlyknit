@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import {
   FiUser,
-  FiMail,
   FiLock,
   FiSettings,
   FiBarChart2,
