@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react';
 import { FiUpload, FiX } from 'react-icons/fi';
+import { toast } from 'react-toastify';
 
 interface FileUploadProps {
   onUpload: (file: File) => Promise<void>;
@@ -21,14 +22,14 @@ export default function FileUpload({
   const handleFileSelect = (file: File) => {
     // Validate file type
     if (!accept.split(',').some(type => file.type.match(type.trim()))) {
-      alert(`Invalid file type. Accepted types: ${accept}`);
+      toast.error(`Invalid file type. Accepted types: ${accept}`);
       return;
     }
 
     // Validate file size
     const fileSizeMB = file.size / (1024 * 1024);
     if (fileSizeMB > maxSize) {
-      alert(`File size exceeds ${maxSize}MB limit`);
+      toast.error(`File size exceeds ${maxSize}MB limit`);
       return;
     }
 
@@ -76,14 +77,16 @@ export default function FileUpload({
     setUploading(true);
     try {
       await onUpload(selectedFile);
+      toast.success('File uploaded successfully!');
       // Reset after successful upload
       setSelectedFile(null);
       setPreview(null);
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Upload error:', error);
+      toast.error(error.response?.data?.message || error.message || 'Failed to upload file. Please try again.');
     } finally {
       setUploading(false);
     }
