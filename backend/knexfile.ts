@@ -68,11 +68,11 @@ const config: { [key: string]: Knex.Config } = {
       max: parseInt(process.env.DB_POOL_MAX || '10'),
     },
     migrations: {
-      directory: '/app/dist/migrations',
+      directory: path.join(__dirname, 'migrations'),
       tableName: 'knex_migrations',
     },
     seeds: {
-      directory: '/app/dist/seeds',
+      directory: path.join(__dirname, 'seeds'),
     },
   },
 };
