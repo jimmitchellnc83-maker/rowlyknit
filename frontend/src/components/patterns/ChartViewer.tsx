@@ -68,7 +68,6 @@ export const ChartViewer: React.FC<ChartViewerProps> = ({
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const printCanvasRef = useRef<HTMLCanvasElement>(null);
 
   const CELL_SIZE = 40;
   const PADDING = 60;
