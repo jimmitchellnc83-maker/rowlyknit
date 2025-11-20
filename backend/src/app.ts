@@ -42,6 +42,7 @@ import patternEnhancementsRoutes from './routes/pattern-enhancements';
 import notesRoutes from './routes/notes';
 import magicMarkersRoutes from './routes/magic-markers';
 import patternBookmarksRoutes from './routes/patternBookmarks';
+import chartsRoutes from './routes/charts';
 
 // Create Express app
 const app: Application = express();
@@ -147,6 +148,7 @@ app.use('/api', notesRoutes);
 app.use('/api', magicMarkersRoutes);
 app.use('/api', patternEnhancementsRoutes);
 app.use('/api', patternBookmarksRoutes);
+app.use('/api', chartsRoutes);
 app.use('/api/projects', projectsRoutes);
 app.use('/api/patterns', patternsRoutes);
 app.use('/api/yarn', yarnRoutes);

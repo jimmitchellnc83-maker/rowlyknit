@@ -8,6 +8,8 @@ import PatternFileUpload from '../components/PatternFileUpload';
 import BookmarkManager from '../components/patterns/BookmarkManager';
 import PatternViewer from '../components/patterns/PatternViewer';
 import { ChartViewer } from '../components/patterns/ChartViewer';
+import { ChartEditor } from '../components/patterns/ChartEditor';
+import { ChartUpload } from '../components/patterns/ChartUpload';
 import LoadingSpinner from '../components/LoadingSpinner';
 import PatternSectionsManager from '../components/patterns/PatternSectionsManager';
 import PatternAnnotationsManager from '../components/patterns/PatternAnnotationsManager';
@@ -68,11 +70,18 @@ export default function PatternDetail() {
   const [showSectionsModal, setShowSectionsModal] = useState(false);
   const [showAnnotationsModal, setShowAnnotationsModal] = useState(false);
   const [showCollationModal, setShowCollationModal] = useState(false);
+  const [charts, setCharts] = useState<any[]>([]);
+  const [selectedChart, setSelectedChart] = useState<any | null>(null);
+  const [showChartEditor, setShowChartEditor] = useState(false);
+  const [showChartUpload, setShowChartUpload] = useState(false);
+  const [showChartViewer, setShowChartViewer] = useState(false);
+  const [editingChart, setEditingChart] = useState<any | null>(null);
 
   useEffect(() => {
     if (id) {
       fetchPattern();
       fetchPatternFiles();
+      fetchCharts();
     }
   }, [id]);
 
@@ -209,6 +218,71 @@ export default function PatternDetail() {
       console.error('Error deleting file:', error);
       toast.error('Failed to delete file');
     }
+  };
+
+  const fetchCharts = async () => {
+    try {
+      const response = await axios.get(`/api/patterns/${id}/charts`);
+      setCharts(response.data.data.charts || []);
+    } catch (error: any) {
+      console.error('Error fetching charts:', error);
+      // Don't show error toast - it's okay if there are no charts yet
+    }
+  };
+
+  const fetchChartDetail = async (chartId: string) => {
+    try {
+      const response = await axios.get(`/api/patterns/${id}/charts/${chartId}`);
+      return response.data.data.chart;
+    } catch (error: any) {
+      console.error('Error fetching chart:', error);
+      toast.error('Failed to load chart');
+      return null;
+    }
+  };
+
+  const handleChartSaved = () => {
+    setShowChartEditor(false);
+    setShowChartUpload(false);
+    setEditingChart(null);
+    fetchCharts();
+  };
+
+  const handleChartEdit = async (chart: any) => {
+    const chartDetail = await fetchChartDetail(chart.id);
+    if (chartDetail) {
+      setEditingChart(chartDetail);
+      setShowChartEditor(true);
+    }
+  };
+
+  const handleChartView = async (chart: any) => {
+    const chartDetail = await fetchChartDetail(chart.id);
+    if (chartDetail) {
+      setSelectedChart(chartDetail);
+      setShowChartViewer(true);
+    }
+  };
+
+  const handleChartDelete = async (chartId: string, chartTitle: string) => {
+    if (!confirm(`Are you sure you want to delete "${chartTitle}"?`)) {
+      return;
+    }
+
+    try {
+      await axios.delete(`/api/patterns/${id}/charts/${chartId}`);
+      toast.success('Chart deleted successfully');
+      fetchCharts();
+    } catch (error: any) {
+      console.error('Error deleting chart:', error);
+      toast.error('Failed to delete chart');
+    }
+  };
+
+  const handleChartUpload = (chartData: any) => {
+    setEditingChart(chartData);
+    setShowChartUpload(false);
+    setShowChartEditor(true);
   };
 
   const getDifficultyColor = (difficulty: string) => {
@@ -476,19 +550,153 @@ export default function PatternDetail() {
       )}
 
       {/* Charts Tab */}
-      {activeTab === 'charts' && (
+      {activeTab === 'charts' && !showChartEditor && !showChartUpload && !showChartViewer && (
         <div className="bg-white rounded-lg shadow p-6">
-          <div className="text-center py-12">
-            <FiGrid className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Chart Viewer</h3>
-            <p className="text-gray-500 mb-4">
-              Interactive knitting chart viewer with zoom and rotation
-            </p>
-            <p className="text-sm text-gray-400">
-              Charts will be displayed here when chart data is available.
-              <br />
-              Future enhancement: Add chart upload/creation functionality.
-            </p>
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-xl font-semibold text-gray-900">Pattern Charts</h2>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowChartUpload(true)}
+                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2"
+              >
+                <FiGrid />
+                Import Chart
+              </button>
+              <button
+                onClick={() => {
+                  setEditingChart(null);
+                  setShowChartEditor(true);
+                }}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+              >
+                <FiGrid />
+                Create Chart
+              </button>
+            </div>
+          </div>
+
+          {charts.length === 0 ? (
+            <div className="text-center py-12">
+              <FiGrid className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No Charts Yet</h3>
+              <p className="text-gray-500 mb-4">
+                Create or import knitting charts to visualize your pattern
+              </p>
+              <div className="flex gap-3 justify-center">
+                <button
+                  onClick={() => setShowChartUpload(true)}
+                  className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+                >
+                  Import Chart
+                </button>
+                <button
+                  onClick={() => {
+                    setEditingChart(null);
+                    setShowChartEditor(true);
+                  }}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  Create New Chart
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {charts.map((chart) => (
+                <div
+                  key={chart.id}
+                  className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition"
+                >
+                  <div className="flex justify-between items-start mb-3">
+                    <h3 className="font-semibold text-gray-900">{chart.title}</h3>
+                    <div className="flex gap-1">
+                      <button
+                        onClick={() => handleChartEdit(chart)}
+                        className="p-1 text-blue-600 hover:bg-blue-50 rounded"
+                        title="Edit Chart"
+                      >
+                        <FiEdit2 size={16} />
+                      </button>
+                      <button
+                        onClick={() => handleChartDelete(chart.id, chart.title)}
+                        className="p-1 text-red-600 hover:bg-red-50 rounded"
+                        title="Delete Chart"
+                      >
+                        <FiTrash2 size={16} />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="text-sm text-gray-600 space-y-1 mb-3">
+                    <div>Size: {chart.rows} × {chart.cols}</div>
+                    <div>Type: {chart.is_in_the_round ? 'In the Round' : 'Flat'}</div>
+                    {chart.notes && (
+                      <div className="text-xs text-gray-500 line-clamp-2">{chart.notes}</div>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => handleChartView(chart)}
+                    className="w-full px-3 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 text-sm font-medium"
+                  >
+                    View Chart
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Chart Editor Modal */}
+      {activeTab === 'charts' && showChartEditor && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-7xl w-full max-h-[90vh] overflow-y-auto">
+            <ChartEditor
+              patternId={id!}
+              chartData={editingChart}
+              onSave={handleChartSaved}
+              onCancel={() => {
+                setShowChartEditor(false);
+                setEditingChart(null);
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Chart Upload Modal */}
+      {activeTab === 'charts' && showChartUpload && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <ChartUpload
+            onUpload={handleChartUpload}
+            onCancel={() => setShowChartUpload(false)}
+          />
+        </div>
+      )}
+
+      {/* Chart Viewer Modal */}
+      {activeTab === 'charts' && showChartViewer && selectedChart && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-6xl w-full max-h-[90vh] overflow-y-auto p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-2xl font-bold text-gray-800">{selectedChart.title}</h2>
+              <button
+                onClick={() => {
+                  setShowChartViewer(false);
+                  setSelectedChart(null);
+                }}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <FiX size={24} />
+              </button>
+            </div>
+            <ChartViewer
+              chartData={selectedChart.chartData}
+              symbols={selectedChart.symbols}
+              rows={selectedChart.rows}
+              cols={selectedChart.cols}
+              title={selectedChart.title}
+              isInTheRound={selectedChart.is_in_the_round}
+            />
           </div>
         </div>
       )}
