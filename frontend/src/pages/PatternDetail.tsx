@@ -62,6 +62,9 @@ export default function PatternDetail() {
     sizesAvailable: '',
     notes: '',
   });
+  const [showSectionsModal, setShowSectionsModal] = useState(false);
+  const [showAnnotationsModal, setShowAnnotationsModal] = useState(false);
+  const [showCollationModal, setShowCollationModal] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -497,7 +500,10 @@ export default function PatternDetail() {
               <p className="text-sm text-gray-600 mb-3">
                 Organize your pattern into sections for easier navigation
               </p>
-              <button className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">
+              <button
+                onClick={() => setShowSectionsModal(true)}
+                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
+              >
                 Manage Sections
               </button>
             </div>
@@ -506,7 +512,10 @@ export default function PatternDetail() {
               <p className="text-sm text-gray-600 mb-3">
                 Add notes and annotations directly to your pattern
               </p>
-              <button className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">
+              <button
+                onClick={() => setShowAnnotationsModal(true)}
+                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
+              >
                 Add Annotations
               </button>
             </div>
@@ -515,9 +524,123 @@ export default function PatternDetail() {
               <p className="text-sm text-gray-600 mb-3">
                 Combine multiple PDFs into a single pattern document
               </p>
-              <button className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">
+              <button
+                onClick={() => setShowCollationModal(true)}
+                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
+              >
                 Collate PDFs
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Pattern Sections Modal */}
+      {showSectionsModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-gray-900">Manage Pattern Sections</h2>
+              <button
+                onClick={() => setShowSectionsModal(false)}
+                className="text-gray-400 hover:text-gray-600 text-2xl"
+              >
+                ×
+              </button>
+            </div>
+            <div className="p-6">
+              <div className="text-center py-8">
+                <FiFileText className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">Pattern Sections</h3>
+                <p className="text-gray-500 mb-4">
+                  Organize your pattern into sections like "Body", "Sleeves", "Finishing", etc.
+                </p>
+                <p className="text-sm text-gray-400">
+                  This feature is coming soon! You'll be able to create custom sections and jump between them quickly.
+                </p>
+              </div>
+              <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
+                <button
+                  onClick={() => setShowSectionsModal(false)}
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Pattern Annotations Modal */}
+      {showAnnotationsModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-gray-900">Pattern Annotations</h2>
+              <button
+                onClick={() => setShowAnnotationsModal(false)}
+                className="text-gray-400 hover:text-gray-600 text-2xl"
+              >
+                ×
+              </button>
+            </div>
+            <div className="p-6">
+              <div className="text-center py-8">
+                <FiEdit2 className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">Add Notes & Annotations</h3>
+                <p className="text-gray-500 mb-4">
+                  Add personal notes, modifications, and annotations directly to your pattern pages.
+                </p>
+                <p className="text-sm text-gray-400">
+                  This feature is coming soon! You'll be able to highlight text, add sticky notes, and track your modifications.
+                </p>
+              </div>
+              <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
+                <button
+                  onClick={() => setShowAnnotationsModal(false)}
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Pattern Collation Modal */}
+      {showCollationModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-gray-900">Collate Pattern PDFs</h2>
+              <button
+                onClick={() => setShowCollationModal(false)}
+                className="text-gray-400 hover:text-gray-600 text-2xl"
+              >
+                ×
+              </button>
+            </div>
+            <div className="p-6">
+              <div className="text-center py-8">
+                <FiFileText className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">Combine Multiple PDFs</h3>
+                <p className="text-gray-500 mb-4">
+                  Combine multiple pattern PDFs into a single document for easier reading.
+                </p>
+                <p className="text-sm text-gray-400">
+                  This feature is coming soon! You'll be able to select multiple PDFs, reorder them, and merge them into one file.
+                </p>
+              </div>
+              <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
+                <button
+                  onClick={() => setShowCollationModal(false)}
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         </div>
