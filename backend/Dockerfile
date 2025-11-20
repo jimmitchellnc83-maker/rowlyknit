@@ -11,6 +11,7 @@ RUN npm install -g npm@10
 COPY package*.json ./
 COPY tsconfig.json ./
 COPY knexfile.ts ./
+COPY knexfile.js ./
 
 # Install dependencies (including TypeScript)
 RUN npm install && \
@@ -48,7 +49,7 @@ RUN npm install --omit=dev && \
 # Copy built application from builder
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/migrations ./migrations
-COPY --from=builder /app/knexfile.ts ./knexfile.ts
+COPY --from=builder /app/knexfile.js ./knexfile.js
 
 # Create necessary directories
 RUN mkdir -p /app/uploads /backups /var/log/rowly && \
