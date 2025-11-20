@@ -84,3 +84,28 @@ PRODUCTION_SECRETS.env
 !*.production.example
 backend/.env.production
 frontend/.env.production
+
+# Documentation artifacts (archive old versions but track new ones)
+docs/archive/*.DRAFT.md
+docs/archive/*.OLD.md
+
+# Temporary scripts and deployment artifacts
+*.expect
+*.exp.log
+deploy-*.log
+deployment-*.log
+
+# Local development files
+.local/
+local-config.*
+scratch/
+tmp/
+
+# Package manager files
+package-lock.json.bak
+yarn.lock.bak
+
+# Editor/IDE specific
+.vscode/settings.json
+.idea/workspace.xml
+*.sublime-workspace

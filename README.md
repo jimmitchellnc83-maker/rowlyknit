@@ -4,132 +4,50 @@
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Production](https://img.shields.io/badge/production-rowlyknit.com-green)](https://rowlyknit.com)
 
-Rowly is a production-ready, full-stack web application for managing knitting projects, patterns, yarn stash, tools, and more. Built with modern technologies and designed for knitters who want to track multiple projects simultaneously.
+Rowly is a production-ready, full-stack Progressive Web App for managing knitting projects, patterns, yarn stash, tools, and more. Built with modern technologies and designed for knitters who want to track multiple projects simultaneously with offline support.
 
-## ✨ Features
+## ✨ Key Features
 
-### Core Functionality
-- **Project Management**: Track multiple knitting projects with photos, notes, and progress
-- **Row/Stitch Counters**: Multiple counters per project with history and undo functionality
-- **Pattern Library**: Upload and organize PDF patterns with full-text search
-- **Yarn Stash**: Comprehensive inventory management with photos and usage tracking
-- **Tool Tracker**: Manage needles, hooks, and accessories
-- **Recipient Profiles**: Track measurements and gift history
+- **Project Management** - Track multiple knitting projects with photos, notes, and progress
+- **Row/Stitch Counters** - Multiple counters per project with history and undo
+- **Pattern Library** - Upload and organize PDF patterns with full-featured viewer
+- **Yarn Stash Management** - Comprehensive inventory with photos and usage tracking
+- **Tool Tracker** - Manage needles, hooks, and accessories
+- **Offline Support** - Service workers and IndexedDB for full offline functionality
+- **Progressive Web App** - Install on mobile devices like a native app
+- **Dark Mode** - Full dark mode support with system preference detection
 
-### Technical Features
-- **Offline Support**: Service workers and IndexedDB for offline functionality
-- **Progressive Web App**: Install on mobile devices like a native app
-- **Real-time Sync**: Automatic synchronization when online
-- **Responsive Design**: Mobile-first, touch-friendly interface (44px+ touch targets)
-- **Dark Mode**: Full dark mode support
-- **Accessibility**: WCAG 2.1 AA compliant with ARIA labels
+## 🏗️ Technology Stack
 
-### Security & Compliance
-- **JWT Authentication**: Secure, rotating tokens with HttpOnly cookies
-- **Rate Limiting**: Redis-based protection against abuse
-- **GDPR Compliant**: Data export, deletion, and consent management
-- **Security Headers**: Helmet.js with CSP, HSTS, and more
-- **Input Validation**: Comprehensive sanitization and validation
-- **SSL/TLS**: Let's Encrypt certificates with automatic renewal
-
-### Production Features
-- **Monitoring**: Structured logging with Winston, error tracking
-- **Metrics**: Prometheus-compatible metrics endpoint
-- **Automated Backups**: Hourly database backups with 30-day retention
-- **Health Checks**: Liveness and readiness probes
-- **Zero-Downtime Deployment**: Docker-based blue-green deployment
-- **CI/CD**: Automated testing, security scanning, and deployment
-
-## 🏗️ Architecture
-
-### Technology Stack
-
-**Backend:**
-- Node.js 18+ with Express
-- PostgreSQL 16 (database)
-- Redis 7 (caching, rate limiting)
-- TypeScript
-- Knex.js (migrations, query builder)
-
-**Frontend:**
-- React 18 with TypeScript
-- Vite (build tool)
-- Tailwind CSS (styling)
-- React Query (data fetching)
-- Zustand (state management)
-- Service Workers (offline support)
-
-**Infrastructure:**
-- Docker & Docker Compose
-- Nginx (reverse proxy)
-- Let's Encrypt (SSL/TLS)
-- Digital Ocean (hosting)
-- Cloudflare (CDN, DNS)
-- GitHub Actions (CI/CD)
-
-### System Architecture
-
-```
-┌─────────────┐
-│  Cloudflare │ (CDN, DNS, DDoS protection)
-└──────┬──────┘
-       │
-┌──────▼──────┐
-│    Nginx    │ (Reverse proxy, SSL termination)
-└──────┬──────┘
-       │
-       ├──────────────┬──────────────┐
-       │              │              │
-┌──────▼──────┐ ┌────▼─────┐ ┌─────▼──────┐
-│  Frontend   │ │ Backend  │ │ Static     │
-│  (React)    │ │ (Node.js)│ │ Files      │
-└─────────────┘ └────┬─────┘ └────────────┘
-                     │
-           ┌─────────┴─────────┐
-           │                   │
-      ┌────▼─────┐      ┌─────▼────┐
-      │PostgreSQL│      │  Redis   │
-      └──────────┘      └──────────┘
-```
+**Backend:** Node.js 18 + Express + TypeScript + PostgreSQL 16 + Redis 7
+**Frontend:** React 18 + Vite + TypeScript + Tailwind CSS + Zustand + React Query
+**Infrastructure:** Docker + Nginx + Let's Encrypt + Digital Ocean + Cloudflare
+**Security:** JWT authentication, rate limiting, CSRF protection, security headers (Helmet.js)
 
 ## 🚀 Quick Start
 
-### Prerequisites
-
-- Node.js 18+ and npm 9+
-- Docker and Docker Compose
-- Git
-
 ### Local Development
 
-1. **Clone the repository**
 ```bash
+# Clone the repository
 git clone https://github.com/jimmitchellnc83-maker/rowlyknit.git
 cd rowlyknit
-```
 
-2. **Backend setup**
-```bash
+# Backend setup
 cd backend
 npm install
 cp .env.example .env
-# Edit .env with your configuration
 npm run migrate
 npm run seed
 npm run dev
-```
 
-3. **Frontend setup**
-```bash
+# Frontend setup (in new terminal)
 cd frontend
 npm install
 npm run dev
 ```
 
-4. **Access the application**
-- Frontend: http://localhost:3000
-- Backend API: http://localhost:5000
-- API Documentation: http://localhost:5000/api
+**Access:** Frontend at `http://localhost:3000` | Backend API at `http://localhost:5000`
 
 ### Docker Development
 
@@ -137,170 +55,98 @@ npm run dev
 docker-compose up -d
 ```
 
-## 📦 Production Deployment
+## 📚 Documentation
 
-### Digital Ocean Server Setup
+- **[Getting Started](docs/getting-started/)** - Setup guides, codebase analysis, demo guide
+- **[Deployment](docs/deployment/)** - Production deployment and troubleshooting
+- **[Features](docs/features/)** - Implemented features and integration roadmap
+- **[Security](docs/security/)** - Security audit reports and best practices
+- **[API Reference](docs/api/)** - API documentation and examples
 
-1. **Initial server configuration**
-```bash
-ssh root@165.227.97.4
-cd /home/user/rowlyknit/deployment/scripts
-chmod +x server-setup.sh
-./server-setup.sh
-```
+### Quick Links
 
-2. **Configure environment variables**
-```bash
-cd /home/user/rowlyknit/backend
-cp .env.example .env
-nano .env  # Edit with production values
-```
-
-3. **Setup SSL certificates**
-```bash
-cd /home/user/rowlyknit/deployment/scripts
-chmod +x setup-ssl.sh
-./setup-ssl.sh
-```
-
-4. **Deploy application**
-```bash
-chmod +x deploy.sh
-./deploy.sh
-```
-
-5. **Enable systemd service**
-```bash
-systemctl enable rowly
-systemctl start rowly
-systemctl status rowly
-```
-
-### Environment Variables
-
-See [backend/.env.example](backend/.env.example) for all required environment variables.
-
-Critical production variables:
-- `JWT_SECRET`: 32+ character random string
-- `DB_PASSWORD`: Strong database password
-- `REDIS_PASSWORD`: Redis password
-- `EMAIL_API_KEY`: Email service API key
+- 📖 [Codebase Analysis](docs/getting-started/CODEBASE_ANALYSIS.md)
+- 🚀 [Deployment Guide](docs/deployment/DEPLOYMENT_GUIDE.md)
+- 🛠️ [Troubleshooting](docs/deployment/TROUBLESHOOTING.md)
+- ✅ [Features Complete](docs/features/FEATURES_COMPLETE.md)
+- 🔒 [Security Audit](docs/security/SECURITY_AUDIT_FINAL_2025.md)
 
 ## 🧪 Testing
 
-### Backend Tests
 ```bash
-cd backend
-npm test                 # Run all tests
-npm run test:watch      # Watch mode
-npm run test:coverage   # With coverage
-```
+# Backend tests
+cd backend && npm test
 
-### Frontend Tests
-```bash
-cd frontend
-npm test                # Run all tests
-npm run test:ui         # UI mode with Vitest
-```
+# Frontend tests
+cd frontend && npm test
 
-### E2E Tests
-```bash
+# E2E tests
 npm run test:e2e
 ```
 
-## 📊 Monitoring & Logs
+## 📦 Production Deployment
 
-### View Application Logs
 ```bash
-docker-compose logs -f backend
-docker-compose logs -f frontend
+# Run deployment script
+cd scripts/deployment
+./DEPLOY_TO_PRODUCTION_NOW.sh
 ```
 
-### Prometheus Metrics
-```
-http://localhost:9090/metrics
-```
+For detailed deployment instructions, see [docs/deployment/DEPLOYMENT_GUIDE.md](docs/deployment/DEPLOYMENT_GUIDE.md)
 
-### Health Checks
-- Backend: https://rowlyknit.com/health
-- Database: Check PostgreSQL container health
-- Redis: Check Redis container health
+## 🗄️ Database Management
 
-## 🔒 Security
-
-### Security Features
-- JWT with rotating tokens
-- HttpOnly, Secure, SameSite cookies
-- CSRF protection
-- Rate limiting (5 req/min for auth, 100 req/min for API)
-- Input sanitization and validation
-- Security headers (CSP, HSTS, X-Frame-Options, etc.)
-- SQL injection prevention (parameterized queries)
-- XSS protection
-
-### Security Scanning
 ```bash
-npm audit                        # Check dependencies
-docker run --rm -v $(pwd):/code aquasecurity/trivy fs /code  # Vulnerability scanning
-```
-
-## 📈 Performance
-
-### Performance Targets (SLOs)
-- **API Response Time**: 95% < 200ms, 99% < 500ms
-- **Page Load Time**: < 3 seconds on 3G
-- **Uptime**: 99.9% availability
-- **Error Rate**: < 0.1% for 5xx errors
-
-### Optimization Features
-- Code splitting and lazy loading
-- Image compression and thumbnails
-- CDN caching (Cloudflare)
-- Database indexes on frequently queried fields
-- Redis caching for rate limiting and sessions
-- Gzip/Brotli compression
-
-## 🗄️ Database
-
-### Run Migrations
-```bash
+# Run migrations
 cd backend
-npm run migrate              # Run all migrations
-npm run migrate:rollback     # Rollback last migration
-```
+npm run migrate
 
-### Seed Sample Data
-```bash
+# Seed sample data
 npm run seed
-```
 
-### Manual Backup
-```bash
+# Create backup
 docker-compose exec postgres pg_dump -U rowly_user rowly_production > backup.sql
 ```
 
-### Restore Backup
+## 🔒 Security Features
+
+- JWT with rotating tokens and HttpOnly cookies
+- Rate limiting (Redis-based): 5 req/min for auth, 100 req/min for API
+- CSRF protection with double-submit cookies
+- Security headers: CSP, HSTS, X-Frame-Options
+- Input sanitization and validation (Zod)
+- SQL injection prevention (parameterized queries)
+- GDPR compliance with data export/deletion
+
+## 📊 Performance & Monitoring
+
+**Performance Targets:**
+- API Response Time: 95% < 200ms, 99% < 500ms
+- Page Load Time: < 3 seconds on 3G
+- Uptime: 99.9% availability
+
+**Monitoring:**
 ```bash
-docker-compose exec -T postgres psql -U rowly_user rowly_production < backup.sql
+# View logs
+docker-compose logs -f backend
+
+# Health checks
+curl https://rowlyknit.com/health
+
+# Metrics
+curl https://rowlyknit.com/metrics
 ```
 
 ## 🌐 API Documentation
 
-### Authentication Endpoints
+Full API documentation available at: https://rowlyknit.com/api-docs
+
+**Key Endpoints:**
 - `POST /api/auth/register` - Register new user
 - `POST /api/auth/login` - Login
-- `POST /api/auth/logout` - Logout
-- `POST /api/auth/refresh` - Refresh access token
-- `GET /api/auth/profile` - Get current user profile
-
-### Project Endpoints
 - `GET /api/projects` - List all projects
-- `GET /api/projects/:id` - Get project details
-- `POST /api/projects` - Create project
-- `PUT /api/projects/:id` - Update project
-- `DELETE /api/projects/:id` - Delete project
-
-Full API documentation: https://rowlyknit.com/api-docs
+- `GET /api/patterns` - List patterns
+- `GET /api/yarn` - List yarn stash
 
 ## 🤝 Contributing
 
@@ -310,7 +156,14 @@ Full API documentation: https://rowlyknit.com/api-docs
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
-See [CONTRIBUTING.md](docs/CONTRIBUTING.md) for detailed guidelines.
+## 🎯 Roadmap
+
+- [ ] Mobile apps (React Native)
+- [ ] Social features (share projects)
+- [ ] AI pattern suggestions
+- [ ] Video tutorials integration
+- [ ] Multi-language support
+- [ ] Marketplace for patterns
 
 ## 📝 License
 
@@ -322,30 +175,10 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Issues**: [GitHub Issues](https://github.com/jimmitchellnc83-maker/rowlyknit/issues)
 - **Email**: support@rowlyknit.com
 
-## 🎯 Roadmap
-
-- [ ] Mobile apps (React Native)
-- [ ] Social features (share projects)
-- [ ] AI pattern suggestions
-- [ ] Video tutorials integration
-- [ ] Multi-language support
-- [ ] Marketplace for patterns
-
-## 📸 Screenshots
-
-Coming soon!
-
-## 🙏 Acknowledgments
-
-- Knitting community for feature suggestions
-- Open source contributors
-- Digital Ocean for hosting
-
 ---
 
 **Demo Account**
-- Email: demo@rowlyknit.com
-- Password: Demo123!@#
+Email: demo@rowlyknit.com | Password: Demo123!@#
 
 **Production URL**: https://rowlyknit.com
 **Server IP**: 165.227.97.4
