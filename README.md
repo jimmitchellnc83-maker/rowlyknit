@@ -86,10 +86,20 @@ npm run test:e2e
 
 ## 📦 Production Deployment
 
+**Quick Reference:**
+- 📋 [Production Deployment Status](PRODUCTION_DEPLOYMENT_STATUS.md) - Current status and setup guide
+- ⚡ [Production Quick Reference](PRODUCTION_QUICK_REFERENCE.md) - Command cheat sheet
+
+**Deploy to Production:**
 ```bash
+# SSH to production server
+ssh root@rowlyknit-production
+
+# Navigate to app directory (IMPORTANT!)
+cd /home/user/rowlyknit
+
 # Run deployment script
-cd scripts/deployment
-./DEPLOY_TO_PRODUCTION_NOW.sh
+bash scripts/deployment/DEPLOY_TO_PRODUCTION_NOW.sh
 ```
 
 For detailed deployment instructions, see [docs/deployment/DEPLOYMENT_GUIDE.md](docs/deployment/DEPLOYMENT_GUIDE.md)
