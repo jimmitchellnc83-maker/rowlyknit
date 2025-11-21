@@ -90,6 +90,7 @@ function App() {
         <Route path="/patterns" element={<Patterns />} />
         <Route path="/patterns/:id" element={<PatternDetail />} />
         <Route path="/patterns/:id/builder" element={<PatternBuilder />} />
+        <Route path="/pattern-builder" element={<PatternBuilder />} />
         <Route path="/yarn" element={<YarnStash />} />
         <Route path="/tools" element={<Tools />} />
         <Route path="/recipients" element={<Recipients />} />

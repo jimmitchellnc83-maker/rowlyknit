@@ -145,15 +145,15 @@ export default function PatternBuilder() {
       {/* Header */}
       <div className="mb-6">
         <button
-          onClick={() => navigate(`/patterns/${id}`)}
+          onClick={() => navigate(id ? `/patterns/${id}` : '/patterns')}
           className="flex items-center text-purple-600 hover:text-purple-700 mb-4 min-h-[48px]"
         >
           <FiArrowLeft className="mr-2 h-5 w-5" />
-          <span className="text-base">Back to Pattern</span>
+          <span className="text-base">{id ? 'Back to Pattern' : 'Back to Patterns'}</span>
         </button>
 
-        <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">Knitting Pattern Builder</h1>
-        <p className="text-gray-600">Create and design custom knitting patterns with standard stitch symbols</p>
+        <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">Knitting Pattern Builder</h1>
+        <p className="text-gray-600 dark:text-gray-400">Create and design custom knitting patterns with standard stitch symbols</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr_300px] gap-4">
