@@ -29,8 +29,20 @@ export interface Counter {
   sort_order: number;
   display_color: string;
   increment_pattern?: IncrementPattern;
+  parent_counter_id?: string;
+  auto_reset: boolean;
+  children?: Counter[];
   created_at: string;
   updated_at: string;
+}
+
+export type IncrementMode = 'linked' | 'independent';
+
+export interface CounterUpdateResult {
+  id: string;
+  new_value: number;
+  reset: boolean;
+  completion_message?: string;
 }
 
 export interface CounterHistory {
