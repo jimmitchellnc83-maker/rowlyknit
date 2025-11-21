@@ -54,27 +54,20 @@ export async function getChart(req: Request, res: Response) {
     throw new NotFoundError('Chart not found');
   }
 
-  // Get chart cells with symbol details
-  const cells = await db('chart_cells')
-    .where({ chart_id: chartId })
-    .select('row', 'col', 'symbol_id')
-    .orderBy(['row', 'col']);
-
-  // Get symbols used in this chart
+  // Get symbols used in this chart (for custom symbols)
   const symbolIds = await db('chart_symbol_associations')
     .where({ chart_id: chartId })
     .pluck('symbol_id');
 
-  const symbols = await db('chart_symbols')
-    .whereIn('id', symbolIds)
-    .select('id', 'symbol', 'name', 'description', 'color', 'category');
+  const symbols = symbolIds.length > 0
+    ? await db('chart_symbols')
+        .whereIn('id', symbolIds)
+        .select('id', 'symbol', 'name', 'description', 'color', 'category')
+    : [];
 
-  // Format cells for frontend
-  const chartData = cells.map(cell => ({
-    row: cell.row,
-    col: cell.col,
-    symbol: cell.symbol_id,
-  }));
+  // Parse chart_data from JSONB column
+  // The chart_data column stores cell data directly as JSON
+  const chartData = chart.chart_data || [];
 
   res.json({
     success: true,
@@ -127,7 +120,7 @@ export async function createChart(req: Request, res: Response) {
 
   // Create chart in transaction
   const chart = await db.transaction(async (trx) => {
-    // Insert chart
+    // Insert chart with chart_data JSONB column
     const [newChart] = await trx('pattern_charts')
       .insert({
         pattern_id: patternId,
@@ -137,25 +130,14 @@ export async function createChart(req: Request, res: Response) {
         is_in_the_round: isInTheRound || false,
         notes,
         sort_order: sortOrder,
+        // Store chart data directly as JSONB instead of using chart_cells table
+        chart_data: chartData && Array.isArray(chartData) ? JSON.stringify(chartData) : null,
         created_at: new Date(),
         updated_at: new Date(),
       })
       .returning('*');
 
-    // Insert chart cells if provided
-    if (chartData && Array.isArray(chartData) && chartData.length > 0) {
-      const cells = chartData.map((cell: any) => ({
-        chart_id: newChart.id,
-        row: cell.row,
-        col: cell.col,
-        symbol_id: cell.symbol,
-        created_at: new Date(),
-      }));
-
-      await trx('chart_cells').insert(cells);
-    }
-
-    // Insert symbol associations if provided
+    // Insert symbol associations if provided (for custom symbols tracking)
     if (symbolIds && Array.isArray(symbolIds) && symbolIds.length > 0) {
       const associations = symbolIds.map((symbolId: string) => ({
         chart_id: newChart.id,
@@ -233,31 +215,17 @@ export async function updateChart(req: Request, res: Response) {
     if (isInTheRound !== undefined) updateData.is_in_the_round = isInTheRound;
     if (notes !== undefined) updateData.notes = notes;
 
+    // Store chart data directly as JSONB instead of using chart_cells table
+    if (chartData !== undefined) {
+      updateData.chart_data = chartData && Array.isArray(chartData) ? JSON.stringify(chartData) : null;
+    }
+
     const [updated] = await trx('pattern_charts')
       .where({ id: chartId })
       .update(updateData)
       .returning('*');
 
-    // Update chart cells if provided
-    if (chartData && Array.isArray(chartData)) {
-      // Delete existing cells
-      await trx('chart_cells').where({ chart_id: chartId }).del();
-
-      // Insert new cells
-      if (chartData.length > 0) {
-        const cells = chartData.map((cell: any) => ({
-          chart_id: chartId,
-          row: cell.row,
-          col: cell.col,
-          symbol_id: cell.symbol,
-          created_at: new Date(),
-        }));
-
-        await trx('chart_cells').insert(cells);
-      }
-    }
-
-    // Update symbol associations if provided
+    // Update symbol associations if provided (for custom symbols tracking)
     if (symbolIds && Array.isArray(symbolIds)) {
       // Delete existing associations
       await trx('chart_symbol_associations').where({ chart_id: chartId }).del();
