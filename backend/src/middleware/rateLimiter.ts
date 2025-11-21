@@ -3,6 +3,7 @@ import RedisStore from 'rate-limit-redis';
 import { redisClient } from '../config/redis';
 import { Request } from 'express';
 import logger from '../config/logger';
+import { verifyAccessToken } from '../utils/jwt';
 
 /**
  * User tier definitions for rate limiting
@@ -101,11 +102,12 @@ function createDynamicLimiter(window: 'perMinute' | 'perHour' | 'perDay') {
         if (authHeader && authHeader.startsWith('Bearer ')) {
           try {
             const token = authHeader.substring(7);
-            // Quick decode of JWT payload (without verification, just for user ID)
-            const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
+            // Verify JWT and extract userId securely
+            const payload = verifyAccessToken(token);
             userId = payload.userId;
           } catch (error) {
-            // If token parsing fails, userId remains undefined
+            // If token verification fails, fall back to IP-based rate limiting
+            // This is expected for expired/invalid tokens
           }
         }
       }

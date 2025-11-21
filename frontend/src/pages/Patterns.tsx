@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FiPlus, FiTrash2, FiBook, FiEdit2 } from 'react-icons/fi';
+import { FiPlus, FiTrash2, FiBook, FiEdit2, FiSearch, FiX } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { PDFCollation } from '../components/patterns';
@@ -25,6 +25,12 @@ export default function Patterns() {
   const [editingPattern, setEditingPattern] = useState<Pattern | null>(null);
   const [patternFiles, setPatternFiles] = useState<File[]>([]);
   const [uploadingFiles, setUploadingFiles] = useState(false);
+
+  // Search and filter state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [difficultyFilter, setDifficultyFilter] = useState<string>('all');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
+
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -167,6 +173,44 @@ export default function Patterns() {
     }
   };
 
+  // Filter and search patterns
+  const filteredPatterns = useMemo(() => {
+    return patterns.filter((pattern) => {
+      // Search filter
+      const searchLower = searchQuery.toLowerCase();
+      const matchesSearch =
+        !searchQuery ||
+        pattern.name.toLowerCase().includes(searchLower) ||
+        pattern.description?.toLowerCase().includes(searchLower) ||
+        pattern.designer?.toLowerCase().includes(searchLower) ||
+        pattern.category?.toLowerCase().includes(searchLower);
+
+      // Difficulty filter
+      const matchesDifficulty =
+        difficultyFilter === 'all' || pattern.difficulty === difficultyFilter;
+
+      // Category filter
+      const matchesCategory =
+        categoryFilter === 'all' || pattern.category === categoryFilter;
+
+      return matchesSearch && matchesDifficulty && matchesCategory;
+    });
+  }, [patterns, searchQuery, difficultyFilter, categoryFilter]);
+
+  // Get unique categories for filter dropdown
+  const categories = useMemo(() => {
+    const cats = new Set(patterns.map((p) => p.category).filter(Boolean));
+    return Array.from(cats).sort();
+  }, [patterns]);
+
+  const clearFilters = () => {
+    setSearchQuery('');
+    setDifficultyFilter('all');
+    setCategoryFilter('all');
+  };
+
+  const hasActiveFilters = searchQuery || difficultyFilter !== 'all' || categoryFilter !== 'all';
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -201,6 +245,70 @@ export default function Patterns() {
         </div>
       </div>
 
+      {/* Search and Filter Bar */}
+      {patterns.length > 0 && (
+        <div className="bg-white rounded-lg shadow p-4 mb-6">
+          <div className="flex flex-col md:flex-row gap-4">
+            {/* Search Input */}
+            <div className="flex-1 relative">
+              <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search patterns, designers..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              />
+            </div>
+
+            {/* Difficulty Filter */}
+            <select
+              value={difficultyFilter}
+              onChange={(e) => setDifficultyFilter(e.target.value)}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            >
+              <option value="all">All Difficulties</option>
+              <option value="beginner">Beginner</option>
+              <option value="intermediate">Intermediate</option>
+              <option value="advanced">Advanced</option>
+              <option value="expert">Expert</option>
+            </select>
+
+            {/* Category Filter */}
+            <select
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            >
+              <option value="all">All Categories</option>
+              {categories.map((cat) => (
+                <option key={cat} value={cat}>
+                  {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                </option>
+              ))}
+            </select>
+
+            {/* Clear Filters */}
+            {hasActiveFilters && (
+              <button
+                onClick={clearFilters}
+                className="flex items-center px-4 py-2 text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
+              >
+                <FiX className="mr-2" />
+                Clear
+              </button>
+            )}
+          </div>
+
+          {/* Results count */}
+          {hasActiveFilters && (
+            <div className="mt-3 text-sm text-gray-600">
+              Showing {filteredPatterns.length} of {patterns.length} patterns
+            </div>
+          )}
+        </div>
+      )}
+
       {patterns.length === 0 ? (
         <div className="bg-white rounded-lg shadow p-12 text-center">
           <FiBook className="mx-auto h-16 w-16 text-gray-400 mb-4" />
@@ -214,9 +322,22 @@ export default function Patterns() {
             Add Your First Pattern
           </button>
         </div>
+      ) : filteredPatterns.length === 0 ? (
+        <div className="bg-white rounded-lg shadow p-12 text-center">
+          <FiSearch className="mx-auto h-16 w-16 text-gray-400 mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">No matching patterns</h3>
+          <p className="text-gray-500 mb-4">Try adjusting your search or filters</p>
+          <button
+            onClick={clearFilters}
+            className="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
+          >
+            <FiX className="mr-2" />
+            Clear Filters
+          </button>
+        </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {patterns.map((pattern) => (
+          {filteredPatterns.map((pattern) => (
             <div
               key={pattern.id}
               className="bg-white rounded-lg shadow hover:shadow-lg transition"

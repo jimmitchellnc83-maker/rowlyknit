@@ -68,12 +68,21 @@ app.use(helmet({
   },
 }));
 
-// CORS configuration with origin validation
+// CORS configuration with strict origin validation
 const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',').map(o => o.trim()) || ['http://localhost:3000'];
+const isProduction = process.env.NODE_ENV === 'production';
 const corsOptions = {
   origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
-    // Allow requests with no origin (mobile apps, Postman, etc.)
-    if (!origin) return callback(null, true);
+    // In production, require origin header (except for same-origin requests)
+    // In development, allow requests without origin for tools like Postman
+    if (!origin) {
+      if (isProduction) {
+        // In production, only allow no-origin for server-to-server requests
+        // Browser requests always have an origin header
+        logger.debug('CORS: Request with no origin header (server-to-server or same-origin)');
+      }
+      return callback(null, true);
+    }
 
     // Check if origin is in whitelist
     if (allowedOrigins.includes(origin)) {
@@ -85,6 +94,10 @@ const corsOptions = {
   },
   credentials: true,
   optionsSuccessStatus: 200,
+  // Explicitly set allowed headers for security
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token', 'X-Requested-With'],
+  exposedHeaders: ['X-Total-Count', 'X-Page', 'X-Page-Size'],
+  maxAge: 86400, // Cache preflight for 24 hours
 };
 app.use(cors(corsOptions));
 

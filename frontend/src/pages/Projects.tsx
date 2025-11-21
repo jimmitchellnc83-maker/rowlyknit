@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { FiPlus, FiTrash2, FiCalendar, FiClock } from 'react-icons/fi';
+import { FiPlus, FiTrash2, FiCalendar, FiClock, FiSearch, FiX } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 
@@ -20,6 +20,12 @@ export default function Projects() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
+
+  // Search and filter state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [typeFilter, setTypeFilter] = useState<string>('all');
+
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -100,6 +106,43 @@ export default function Projects() {
     return new Date(dateString).toLocaleDateString();
   };
 
+  // Filter and search projects
+  const filteredProjects = useMemo(() => {
+    return projects.filter((project) => {
+      // Search filter
+      const searchLower = searchQuery.toLowerCase();
+      const matchesSearch =
+        !searchQuery ||
+        project.name.toLowerCase().includes(searchLower) ||
+        project.description?.toLowerCase().includes(searchLower) ||
+        project.project_type?.toLowerCase().includes(searchLower);
+
+      // Status filter
+      const matchesStatus =
+        statusFilter === 'all' || project.status === statusFilter;
+
+      // Type filter
+      const matchesType =
+        typeFilter === 'all' || project.project_type === typeFilter;
+
+      return matchesSearch && matchesStatus && matchesType;
+    });
+  }, [projects, searchQuery, statusFilter, typeFilter]);
+
+  // Get unique project types for filter dropdown
+  const projectTypes = useMemo(() => {
+    const types = new Set(projects.map((p) => p.project_type).filter(Boolean));
+    return Array.from(types).sort();
+  }, [projects]);
+
+  const clearFilters = () => {
+    setSearchQuery('');
+    setStatusFilter('all');
+    setTypeFilter('all');
+  };
+
+  const hasActiveFilters = searchQuery || statusFilter !== 'all' || typeFilter !== 'all';
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -125,6 +168,70 @@ export default function Projects() {
         </button>
       </div>
 
+      {/* Search and Filter Bar */}
+      {projects.length > 0 && (
+        <div className="bg-white rounded-lg shadow p-4 mb-6">
+          <div className="flex flex-col md:flex-row gap-4">
+            {/* Search Input */}
+            <div className="flex-1 relative">
+              <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search projects..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              />
+            </div>
+
+            {/* Status Filter */}
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            >
+              <option value="all">All Statuses</option>
+              <option value="active">Active</option>
+              <option value="paused">Paused</option>
+              <option value="completed">Completed</option>
+              <option value="archived">Archived</option>
+            </select>
+
+            {/* Type Filter */}
+            <select
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            >
+              <option value="all">All Types</option>
+              {projectTypes.map((type) => (
+                <option key={type} value={type}>
+                  {type.charAt(0).toUpperCase() + type.slice(1)}
+                </option>
+              ))}
+            </select>
+
+            {/* Clear Filters */}
+            {hasActiveFilters && (
+              <button
+                onClick={clearFilters}
+                className="flex items-center px-4 py-2 text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
+              >
+                <FiX className="mr-2" />
+                Clear
+              </button>
+            )}
+          </div>
+
+          {/* Results count */}
+          {hasActiveFilters && (
+            <div className="mt-3 text-sm text-gray-600">
+              Showing {filteredProjects.length} of {projects.length} projects
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Projects Grid */}
       {projects.length === 0 ? (
         <div className="bg-white rounded-lg shadow p-12 text-center">
@@ -139,9 +246,22 @@ export default function Projects() {
             Create Your First Project
           </button>
         </div>
+      ) : filteredProjects.length === 0 ? (
+        <div className="bg-white rounded-lg shadow p-12 text-center">
+          <FiSearch className="mx-auto h-16 w-16 text-gray-400 mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">No matching projects</h3>
+          <p className="text-gray-500 mb-4">Try adjusting your search or filters</p>
+          <button
+            onClick={clearFilters}
+            className="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
+          >
+            <FiX className="mr-2" />
+            Clear Filters
+          </button>
+        </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {projects.map((project) => (
+          {filteredProjects.map((project) => (
             <div
               key={project.id}
               className="bg-white rounded-lg shadow hover:shadow-lg transition p-6"

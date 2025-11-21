@@ -1,5 +1,6 @@
 import jwt, { SignOptions } from 'jsonwebtoken';
 import { v4 as uuidv4 } from 'uuid';
+import crypto from 'crypto';
 
 // Helper function to get required environment variable or fail
 function getRequiredEnv(key: string): string {
@@ -85,15 +86,16 @@ export function decodeToken(token: string): any {
 }
 
 /**
- * Generate email verification token
+ * Generate email verification token using cryptographically secure random bytes
  */
 export function generateVerificationToken(): string {
-  return uuidv4() + uuidv4(); // Extra long token for email verification
+  return crypto.randomBytes(32).toString('hex'); // 64 character hex string
 }
 
 /**
- * Generate password reset token
+ * Generate password reset token using cryptographically secure random bytes
+ * Uses 32 bytes (256 bits) of entropy for security
  */
 export function generateResetToken(): string {
-  return uuidv4() + uuidv4(); // Extra long token for password reset
+  return crypto.randomBytes(32).toString('hex'); // 64 character hex string
 }
