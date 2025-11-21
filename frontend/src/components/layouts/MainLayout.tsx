@@ -13,7 +13,8 @@ import {
   FiTool,
   FiUsers,
   FiUser,
-  FiLogOut
+  FiLogOut,
+  FiBarChart2
 } from 'react-icons/fi';
 
 export default function MainLayout() {
@@ -41,6 +42,7 @@ export default function MainLayout() {
 
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: FiHome, shortName: 'Home' },
+    { name: 'Stats', href: '/stats', icon: FiBarChart2, shortName: 'Stats' },
     { name: 'Projects', href: '/projects', icon: FiFolder, shortName: 'Projects' },
     { name: 'Patterns', href: '/patterns', icon: FiBook, shortName: 'Patterns' },
     { name: 'Yarn Stash', href: '/yarn', icon: FiPackage, shortName: 'Stash' },

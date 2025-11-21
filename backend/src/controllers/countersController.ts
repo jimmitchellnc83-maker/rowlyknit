@@ -33,6 +33,54 @@ export async function getCounters(req: Request, res: Response) {
 }
 
 /**
+ * Get counters in hierarchical structure
+ */
+export async function getCounterHierarchy(req: Request, res: Response) {
+  const userId = (req as any).user.userId;
+  const { id: projectId } = req.params;
+
+  // Verify project ownership
+  const project = await db('projects')
+    .where({ id: projectId, user_id: userId })
+    .whereNull('deleted_at')
+    .first();
+
+  if (!project) {
+    throw new NotFoundError('Project not found');
+  }
+
+  // Get all counters for the project
+  const counters = await db('counters')
+    .where({ project_id: projectId })
+    .orderBy('sort_order', 'asc')
+    .orderBy('created_at', 'asc');
+
+  // Build hierarchy
+  const counterMap = new Map<string, any>();
+  const rootCounters: any[] = [];
+
+  // First pass: create map of all counters with empty children array
+  counters.forEach((counter: any) => {
+    counterMap.set(counter.id, { ...counter, children: [] });
+  });
+
+  // Second pass: build hierarchy
+  counters.forEach((counter: any) => {
+    const counterWithChildren = counterMap.get(counter.id);
+    if (counter.parent_counter_id && counterMap.has(counter.parent_counter_id)) {
+      counterMap.get(counter.parent_counter_id).children.push(counterWithChildren);
+    } else {
+      rootCounters.push(counterWithChildren);
+    }
+  });
+
+  res.json({
+    success: true,
+    data: { counters: rootCounters },
+  });
+}
+
+/**
  * Get single counter by ID
  */
 export async function getCounter(req: Request, res: Response) {
@@ -82,6 +130,8 @@ export async function createCounter(req: Request, res: Response) {
     incrementPattern,
     sortOrder,
     notes,
+    parentCounterId,
+    autoReset = false,
   } = req.body;
 
   if (!name) {
@@ -123,6 +173,8 @@ export async function createCounter(req: Request, res: Response) {
       increment_pattern: incrementPattern ? JSON.stringify(incrementPattern) : null,
       sort_order: finalSortOrder,
       notes: notes || null,
+      parent_counter_id: parentCounterId || null,
+      auto_reset: autoReset,
       created_at: new Date(),
       updated_at: new Date(),
     })
@@ -609,4 +661,169 @@ async function checkAndExecuteCounterLinks(
       // Continue processing other links even if one fails
     }
   }
+}
+
+/**
+ * Increment counter with all children (for linked mode)
+ */
+export async function incrementWithChildren(req: Request, res: Response) {
+  const userId = (req as any).user.userId;
+  const { id: projectId, counterId } = req.params;
+  const { amount = 1, mode = 'linked' } = req.body;
+
+  // Verify project ownership
+  const project = await db('projects')
+    .where({ id: projectId, user_id: userId })
+    .whereNull('deleted_at')
+    .first();
+
+  if (!project) {
+    throw new NotFoundError('Project not found');
+  }
+
+  // Get the counter
+  const counter = await db('counters')
+    .where({ id: counterId, project_id: projectId })
+    .first();
+
+  if (!counter) {
+    throw new NotFoundError('Counter not found');
+  }
+
+  const updates: Array<{
+    id: string;
+    new_value: number;
+    reset: boolean;
+    completion_message?: string;
+  }> = [];
+
+  // Update primary counter
+  const oldValue = counter.current_value;
+  let newValue = oldValue + amount;
+
+  // Apply min/max constraints
+  if (counter.min_value !== null && newValue < counter.min_value) {
+    newValue = counter.min_value;
+  }
+  if (counter.max_value !== null && newValue > counter.max_value) {
+    newValue = counter.max_value;
+  }
+
+  await db('counters')
+    .where({ id: counterId })
+    .update({
+      current_value: newValue,
+      updated_at: new Date(),
+    });
+
+  // Create history entry
+  await db('counter_history').insert({
+    counter_id: counterId,
+    old_value: oldValue,
+    new_value: newValue,
+    action: amount > 0 ? 'increment' : 'decrement',
+    created_at: new Date(),
+  });
+
+  updates.push({
+    id: counterId,
+    new_value: newValue,
+    reset: false,
+  });
+
+  // If linked mode, update all child counters
+  if (mode === 'linked') {
+    const children = await db('counters')
+      .where({ parent_counter_id: counterId, project_id: projectId })
+      .orderBy('sort_order', 'asc');
+
+    for (const child of children) {
+      const childOldValue = child.current_value;
+      let childNewValue = childOldValue + amount;
+      let didReset = false;
+      let completionMessage: string | undefined;
+
+      // Check if child should auto-reset
+      if (child.auto_reset && child.target_value && amount > 0) {
+        if (childNewValue >= child.target_value) {
+          // Calculate reset value (handle cases where increment > remaining)
+          const completedRepeats = Math.floor(childNewValue / child.target_value);
+          childNewValue = childNewValue % child.target_value;
+          if (childNewValue === 0) {
+            childNewValue = child.target_value; // Show full before reset animation
+          }
+
+          // Actually reset to 1 (or min_value) for the next repeat
+          if (childOldValue + amount >= child.target_value) {
+            childNewValue = child.min_value || 1;
+            didReset = true;
+            completionMessage = `${child.name} complete! Starting repeat ${completedRepeats + 1}.`;
+          }
+        }
+      }
+
+      // Apply min/max constraints
+      if (child.min_value !== null && childNewValue < child.min_value) {
+        childNewValue = child.min_value;
+      }
+      if (child.max_value !== null && childNewValue > child.max_value) {
+        childNewValue = child.max_value;
+      }
+
+      await db('counters')
+        .where({ id: child.id })
+        .update({
+          current_value: childNewValue,
+          updated_at: new Date(),
+        });
+
+      // Create history entry for child
+      await db('counter_history').insert({
+        counter_id: child.id,
+        old_value: childOldValue,
+        new_value: childNewValue,
+        action: didReset ? 'reset' : (amount > 0 ? 'increment' : 'decrement'),
+        user_note: didReset ? completionMessage : `Linked update from parent counter`,
+        created_at: new Date(),
+      });
+
+      updates.push({
+        id: child.id,
+        new_value: childNewValue,
+        reset: didReset,
+        completion_message: completionMessage,
+      });
+    }
+  }
+
+  // Emit WebSocket events for real-time updates
+  try {
+    const io = getIO();
+    updates.forEach((update) => {
+      io.to(`project:${projectId}`).emit('counter:updated', {
+        counterId: update.id,
+        projectId,
+        currentValue: update.new_value,
+        reset: update.reset,
+      });
+    });
+  } catch (socketError) {
+    console.error('[Counter Hierarchy] Failed to emit WebSocket events:', socketError);
+  }
+
+  // Audit log
+  await createAuditLog(req, {
+    userId,
+    action: 'counter_increment_with_children',
+    entityType: 'counter',
+    entityId: counterId,
+    oldValues: { current_value: oldValue },
+    newValues: { current_value: newValue, updates },
+  });
+
+  res.json({
+    success: true,
+    message: 'Counters updated successfully',
+    data: { updated_counters: updates },
+  });
 }
