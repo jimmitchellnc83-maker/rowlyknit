@@ -3,6 +3,7 @@ import db from '../config/database';
 import { NotFoundError, ValidationError } from '../utils/errorHandler';
 import { createAuditLog } from '../middleware/auditLog';
 import { getIO } from '../config/socket';
+import logger from '../config/logger';
 
 /**
  * Get all counters for a project
@@ -457,7 +458,7 @@ async function checkAndExecuteCounterLinks(
       is_active: true,
     });
 
-  console.log(`[Counter Links] Checking ${links.length} link(s) for counter ${counterId} (value: ${newValue})`);
+  logger.debug(`[Counter Links] Checking ${links.length} link(s) for counter ${counterId}`, { counterId, newValue });
 
   for (const link of links) {
     let shouldTrigger = false;
@@ -469,7 +470,7 @@ async function checkAndExecuteCounterLinks(
         try {
           condition = JSON.parse(condition);
         } catch (e) {
-          console.error(`[Counter Links] Failed to parse trigger_condition for link ${link.id}:`, e);
+          logger.error(`[Counter Links] Failed to parse trigger_condition for link ${link.id}`, { linkId: link.id, error: e });
           continue;
         }
       }
@@ -477,7 +478,7 @@ async function checkAndExecuteCounterLinks(
       if (typeof condition === 'object' && condition !== null) {
         const { type, value } = condition as any;
 
-        console.log(`[Counter Links] Link ${link.id}: Checking condition ${type} ${value} against ${newValue}`);
+        logger.debug(`[Counter Links] Link ${link.id}: Checking condition`, { linkId: link.id, type, value, newValue });
 
         switch (type) {
           case 'equals':
@@ -498,7 +499,7 @@ async function checkAndExecuteCounterLinks(
             break;
         }
 
-        console.log(`[Counter Links] Link ${link.id}: Trigger = ${shouldTrigger}`);
+        logger.debug(`[Counter Links] Link ${link.id}: Trigger = ${shouldTrigger}`, { linkId: link.id, shouldTrigger });
       }
 
       if (shouldTrigger) {
@@ -508,7 +509,7 @@ async function checkAndExecuteCounterLinks(
           .first();
 
         if (!targetCounter) {
-          console.warn(`[Counter Links] Target counter ${link.target_counter_id} not found for link ${link.id}`);
+          logger.warn(`[Counter Links] Target counter not found`, { targetCounterId: link.target_counter_id, linkId: link.id });
           continue;
         }
 
@@ -521,7 +522,7 @@ async function checkAndExecuteCounterLinks(
           try {
             action = JSON.parse(action);
           } catch (e) {
-            console.error(`[Counter Links] Failed to parse action for link ${link.id}:`, e);
+            logger.error(`[Counter Links] Failed to parse action for link`, { linkId: link.id, error: e });
             continue;
           }
         }
@@ -529,7 +530,7 @@ async function checkAndExecuteCounterLinks(
         if (typeof action === 'object' && action !== null) {
           const { type, value } = action as any;
 
-          console.log(`[Counter Links] Executing action ${type} ${value !== undefined ? value : ''} on counter ${link.target_counter_id}`);
+          logger.debug(`[Counter Links] Executing action`, { type, value, targetCounterId: link.target_counter_id });
 
           switch (type) {
             case 'increment':
@@ -549,15 +550,15 @@ async function checkAndExecuteCounterLinks(
 
         // Apply min/max constraints
         if (targetCounter.min_value !== null && targetNewValue < targetCounter.min_value) {
-          console.log(`[Counter Links] Clamping to min_value: ${targetCounter.min_value}`);
+          logger.debug(`[Counter Links] Clamping to min_value`, { minValue: targetCounter.min_value });
           targetNewValue = targetCounter.min_value;
         }
         if (targetCounter.max_value !== null && targetNewValue > targetCounter.max_value) {
-          console.log(`[Counter Links] Clamping to max_value: ${targetCounter.max_value}`);
+          logger.debug(`[Counter Links] Clamping to max_value`, { maxValue: targetCounter.max_value });
           targetNewValue = targetCounter.max_value;
         }
 
-        console.log(`[Counter Links] Updating counter ${link.target_counter_id}: ${targetOldValue} → ${targetNewValue}`);
+        logger.debug(`[Counter Links] Updating counter`, { targetCounterId: link.target_counter_id, oldValue: targetOldValue, newValue: targetNewValue });
 
         // Update target counter
         await db('counters')
@@ -596,16 +597,16 @@ async function checkAndExecuteCounterLinks(
             currentValue: targetNewValue,
             linkedFrom: counterId,
           });
-          console.log(`[Counter Links] WebSocket event emitted for counter ${link.target_counter_id}`);
+          logger.debug(`[Counter Links] WebSocket event emitted`, { targetCounterId: link.target_counter_id });
         } catch (socketError) {
           // Don't fail the whole operation if WebSocket fails
-          console.error(`[Counter Links] Failed to emit WebSocket event:`, socketError);
+          logger.error(`[Counter Links] Failed to emit WebSocket event`, { error: socketError });
         }
 
-        console.log(`[Counter Links] Successfully updated linked counter ${link.target_counter_id}`);
+        logger.debug(`[Counter Links] Successfully updated linked counter`, { targetCounterId: link.target_counter_id });
       }
     } catch (error) {
-      console.error(`[Counter Links] Error processing link ${link.id}:`, error);
+      logger.error(`[Counter Links] Error processing link`, { linkId: link.id, error });
       // Continue processing other links even if one fails
     }
   }

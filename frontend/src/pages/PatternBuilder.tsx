@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { FiArrowLeft, FiDownload, FiFileText, FiSave } from 'react-icons/fi';
+import { FiArrowLeft, FiDownload, FiFileText, FiSave, FiLoader } from 'react-icons/fi';
 import { toast } from 'react-toastify';
+import axios from '../lib/axios';
 
 // Symbol library based on Craft Yarn Council standards
 interface SymbolData {
@@ -57,7 +58,7 @@ interface GridData {
 }
 
 export default function PatternBuilder() {
-  const { id } = useParams<{ id: string }>();
+  const { id: patternId } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
   const [selectedSymbol, setSelectedSymbol] = useState<SymbolData>(symbolLibrary.basic[0]);
@@ -66,6 +67,57 @@ export default function PatternBuilder() {
   const [cols, setCols] = useState(16);
   const [patternName, setPatternName] = useState('Untitled Pattern');
   const [searchQuery, setSearchQuery] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [chartId, setChartId] = useState<string | null>(null);
+  const [currentPatternId, setCurrentPatternId] = useState<string | null>(patternId || null);
+
+  // Load existing chart data if editing an existing pattern
+  useEffect(() => {
+    if (patternId) {
+      loadExistingChart();
+    }
+  }, [patternId]);
+
+  const loadExistingChart = async () => {
+    if (!patternId) return;
+
+    try {
+      // First get the pattern to verify it exists
+      const patternResponse = await axios.get(`/api/patterns/${patternId}`);
+      if (patternResponse.data.success) {
+        setPatternName(patternResponse.data.data.pattern.name || 'Untitled Pattern');
+      }
+
+      // Then get any existing charts
+      const chartsResponse = await axios.get(`/api/patterns/${patternId}/charts`);
+      if (chartsResponse.data.success && chartsResponse.data.data.charts?.length > 0) {
+        const chart = chartsResponse.data.data.charts[0]; // Load the first chart
+        setChartId(chart.id);
+        setRows(chart.rows || 12);
+        setCols(chart.cols || 16);
+
+        // Convert chart cells to our gridData format
+        if (chart.cells && Array.isArray(chart.cells)) {
+          const newGridData: GridData = {};
+          chart.cells.forEach((cell: { row: number; col: number; symbol_id?: string }) => {
+            const key = `${cell.row}-${cell.col}`;
+            // Try to find the symbol in our library
+            for (const category of Object.keys(symbolLibrary)) {
+              const found = symbolLibrary[category].find(s => s.symbol === cell.symbol_id || s.name === cell.symbol_id);
+              if (found) {
+                newGridData[key] = found;
+                break;
+              }
+            }
+          });
+          setGridData(newGridData);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading chart:', error);
+      // Don't show error for 404 - pattern might not have charts yet
+    }
+  };
 
   const placeSymbol = (row: number, col: number, symbolData: SymbolData = selectedSymbol) => {
     const key = `${row}-${col}`;
@@ -121,18 +173,101 @@ export default function PatternBuilder() {
     });
   };
 
-  const savePattern = () => {
-    const pattern = {
-      name: patternName,
-      rows,
-      columns: cols,
-      data: gridData
-    };
-    const patterns = JSON.parse(localStorage.getItem('rowly-patterns') || '[]');
-    patterns.push(pattern);
-    localStorage.setItem('rowly-patterns', JSON.stringify(patterns));
-    toast.success('Pattern saved to browser storage!');
-    toast.warning('Note: This is temporary storage. Use Export to save permanently.');
+  const savePattern = async () => {
+    if (!patternName.trim()) {
+      toast.error('Please enter a pattern name');
+      return;
+    }
+
+    setSaving(true);
+
+    try {
+      let targetPatternId = currentPatternId;
+
+      // If no pattern exists yet, create one first
+      if (!targetPatternId) {
+        const patternResponse = await axios.post('/api/patterns', {
+          name: patternName,
+          description: 'Created with Pattern Builder',
+          category: 'custom',
+        });
+
+        if (patternResponse.data.success) {
+          targetPatternId = patternResponse.data.data.pattern.id;
+          setCurrentPatternId(targetPatternId);
+        } else {
+          throw new Error('Failed to create pattern');
+        }
+      }
+
+      // Convert gridData to chartData format for backend
+      const chartData = Object.entries(gridData).map(([key, symbolData]) => {
+        const [row, col] = key.split('-').map(Number);
+        return {
+          row,
+          col,
+          symbol: symbolData.symbol,
+          name: symbolData.name,
+          abbr: symbolData.abbr,
+        };
+      });
+
+      // Save or update the chart
+      if (chartId) {
+        // Update existing chart
+        await axios.put(`/api/patterns/${targetPatternId}/charts/${chartId}`, {
+          title: patternName,
+          rows,
+          cols,
+          chartData,
+          notes: `Pattern with ${Object.keys(gridData).length} stitches`,
+        });
+        toast.success('Pattern updated successfully!');
+      } else {
+        // Create new chart
+        const chartResponse = await axios.post(`/api/patterns/${targetPatternId}/charts`, {
+          title: patternName,
+          rows,
+          cols,
+          chartData,
+          notes: `Pattern with ${Object.keys(gridData).length} stitches`,
+        });
+
+        if (chartResponse.data.success) {
+          setChartId(chartResponse.data.data.chart.id);
+        }
+        toast.success('Pattern saved to your library!');
+      }
+
+      // Also save to localStorage as backup
+      const pattern = {
+        name: patternName,
+        rows,
+        columns: cols,
+        data: gridData,
+        patternId: targetPatternId,
+        chartId: chartId,
+        savedAt: new Date().toISOString(),
+      };
+      localStorage.setItem('rowly-pattern-backup', JSON.stringify(pattern));
+    } catch (error: any) {
+      console.error('Error saving pattern:', error);
+      toast.error(error.response?.data?.message || 'Failed to save pattern. Please try again.');
+
+      // Fall back to localStorage on error
+      const pattern = {
+        name: patternName,
+        rows,
+        columns: cols,
+        data: gridData
+      };
+      const patterns = JSON.parse(localStorage.getItem('rowly-patterns') || '[]');
+      patterns.push(pattern);
+      localStorage.setItem('rowly-patterns', JSON.stringify(patterns));
+      toast.info('Pattern saved locally as backup.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   // Improved search - searches name, abbreviation, and description
@@ -165,11 +300,11 @@ export default function PatternBuilder() {
       {/* Header */}
       <div className="mb-6">
         <button
-          onClick={() => navigate(id ? `/patterns/${id}` : '/patterns')}
+          onClick={() => navigate(currentPatternId ? `/patterns/${currentPatternId}` : '/patterns')}
           className="flex items-center text-purple-600 hover:text-purple-700 mb-4 min-h-[48px]"
         >
           <FiArrowLeft className="mr-2 h-5 w-5" />
-          <span className="text-base">{id ? 'Back to Pattern' : 'Back to Patterns'}</span>
+          <span className="text-base">{currentPatternId ? 'Back to Pattern' : 'Back to Patterns'}</span>
         </button>
 
         <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">Knitting Pattern Builder</h1>
@@ -386,10 +521,11 @@ export default function PatternBuilder() {
               </button>
               <button
                 onClick={savePattern}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
+                disabled={saving}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <FiSave />
-                Save Pattern
+                {saving ? <FiLoader className="animate-spin" /> : <FiSave />}
+                {saving ? 'Saving...' : 'Save to Library'}
               </button>
             </div>
           </div>

@@ -493,3 +493,218 @@ export async function resetPassword(req: Request, res: Response) {
     message: 'Password reset successful. Please login with your new password.',
   });
 }
+
+/**
+ * Update user profile
+ */
+export async function updateProfile(req: Request, res: Response) {
+  const userId = (req as any).user?.userId;
+  const { firstName, lastName, username, preferences } = req.body;
+
+  const user = await db('users')
+    .where({ id: userId })
+    .whereNull('deleted_at')
+    .first();
+
+  if (!user) {
+    throw new NotFoundError('User not found');
+  }
+
+  // Build update object
+  const updateData: Record<string, any> = {
+    updated_at: new Date(),
+  };
+
+  if (firstName !== undefined) updateData.first_name = firstName;
+  if (lastName !== undefined) updateData.last_name = lastName;
+  if (preferences !== undefined) updateData.preferences = preferences;
+
+  // Check username uniqueness if being updated
+  if (username !== undefined && username !== user.username) {
+    const existingUser = await db('users')
+      .where({ username })
+      .whereNot({ id: userId })
+      .whereNull('deleted_at')
+      .first();
+
+    if (existingUser) {
+      throw new ConflictError('Username is already taken');
+    }
+    updateData.username = username;
+  }
+
+  // Update user
+  const [updatedUser] = await db('users')
+    .where({ id: userId })
+    .update(updateData)
+    .returning([
+      'id',
+      'email',
+      'first_name',
+      'last_name',
+      'username',
+      'profile_image',
+      'email_verified',
+      'preferences',
+      'created_at',
+    ]);
+
+  // Log audit
+  await createAuditLog(req, {
+    userId,
+    action: 'profile_updated',
+    entityType: 'user',
+    entityId: userId,
+    oldValues: {
+      firstName: user.first_name,
+      lastName: user.last_name,
+      username: user.username,
+    },
+    newValues: {
+      firstName: updatedUser.first_name,
+      lastName: updatedUser.last_name,
+      username: updatedUser.username,
+    },
+  });
+
+  res.json({
+    success: true,
+    message: 'Profile updated successfully',
+    data: {
+      user: {
+        id: updatedUser.id,
+        email: updatedUser.email,
+        firstName: updatedUser.first_name,
+        lastName: updatedUser.last_name,
+        username: updatedUser.username,
+        profileImage: updatedUser.profile_image,
+        emailVerified: updatedUser.email_verified,
+        preferences: updatedUser.preferences,
+        createdAt: updatedUser.created_at,
+      },
+    },
+  });
+}
+
+/**
+ * Change password (for authenticated users)
+ */
+export async function changePassword(req: Request, res: Response) {
+  const userId = (req as any).user?.userId;
+  const { currentPassword, newPassword } = req.body;
+
+  if (!currentPassword || !newPassword) {
+    throw new ValidationError('Current password and new password are required');
+  }
+
+  const user = await db('users')
+    .where({ id: userId })
+    .whereNull('deleted_at')
+    .first();
+
+  if (!user) {
+    throw new NotFoundError('User not found');
+  }
+
+  // Verify current password
+  const isPasswordValid = await comparePassword(currentPassword, user.password_hash);
+  if (!isPasswordValid) {
+    throw new UnauthorizedError('Current password is incorrect');
+  }
+
+  // Validate new password strength
+  const passwordValidation = validatePasswordStrength(newPassword);
+  if (!passwordValidation.valid) {
+    throw new ValidationError('New password does not meet requirements', passwordValidation.errors);
+  }
+
+  // Hash new password
+  const passwordHash = await hashPassword(newPassword);
+
+  // Update password
+  await db('users')
+    .where({ id: userId })
+    .update({
+      password_hash: passwordHash,
+      updated_at: new Date(),
+    });
+
+  // Revoke all other sessions (keep current session)
+  const { refreshToken } = req.cookies;
+  await db('sessions')
+    .where({ user_id: userId })
+    .whereNot({ refresh_token: refreshToken })
+    .update({ is_revoked: true, updated_at: new Date() });
+
+  // Log audit
+  await createAuditLog(req, {
+    userId,
+    action: 'password_changed',
+    entityType: 'user',
+    entityId: userId,
+  });
+
+  res.json({
+    success: true,
+    message: 'Password changed successfully. Other sessions have been logged out.',
+  });
+}
+
+/**
+ * Resend email verification
+ */
+export async function resendVerificationEmail(req: Request, res: Response) {
+  const { email } = req.body;
+
+  if (!email || !validator.isEmail(email)) {
+    throw new ValidationError('Valid email address is required');
+  }
+
+  const user = await db('users')
+    .where({ email })
+    .whereNull('deleted_at')
+    .first();
+
+  // Always return success to prevent email enumeration
+  if (!user || user.email_verified) {
+    res.json({
+      success: true,
+      message: 'If an unverified account exists with this email, a verification link has been sent.',
+    });
+    return;
+  }
+
+  // Generate new verification token
+  const verificationToken = generateVerificationToken();
+  const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+  // Update user with new token
+  await db('users')
+    .where({ id: user.id })
+    .update({
+      verification_token: verificationToken,
+      verification_token_expires: verificationExpires,
+      updated_at: new Date(),
+    });
+
+  // Send verification email
+  const verificationUrl = `${process.env.APP_URL}/verify-email?token=${verificationToken}`;
+  await emailService.sendWelcomeEmail(
+    email,
+    user.first_name || 'there',
+    verificationUrl
+  );
+
+  // Log audit
+  await createAuditLog(req, {
+    userId: user.id,
+    action: 'verification_email_resent',
+    entityType: 'user',
+    entityId: user.id,
+  });
+
+  res.json({
+    success: true,
+    message: 'If an unverified account exists with this email, a verification link has been sent.',
+  });
+}

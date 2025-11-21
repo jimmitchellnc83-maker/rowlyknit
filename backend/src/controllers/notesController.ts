@@ -9,6 +9,12 @@ import { promisify } from 'util';
 
 const writeFileAsync = promisify(fs.writeFile);
 
+// Ensure handwritten notes upload directory exists
+const handwrittenNotesDir = 'uploads/handwritten-notes';
+if (!fs.existsSync(handwrittenNotesDir)) {
+  fs.mkdirSync(handwrittenNotesDir, { recursive: true });
+}
+
 /**
  * Audio Notes
  */
@@ -678,5 +684,178 @@ export async function deleteTextNote(req: Request, res: Response) {
   res.json({
     success: true,
     message: 'Text note deleted successfully',
+  });
+}
+
+/**
+ * Handwritten Notes
+ */
+
+/**
+ * Get all handwritten notes for a project
+ */
+export async function getHandwrittenNotes(req: Request, res: Response) {
+  const userId = (req as any).user.userId;
+  const { id: projectId } = req.params;
+
+  // Verify project ownership
+  const project = await db('projects')
+    .where({ id: projectId, user_id: userId })
+    .whereNull('deleted_at')
+    .first();
+
+  if (!project) {
+    throw new NotFoundError('Project not found');
+  }
+
+  const handwrittenNotes = await db('handwritten_notes')
+    .where({ project_id: projectId })
+    .orderBy('created_at', 'desc');
+
+  res.json({
+    success: true,
+    data: { handwrittenNotes },
+  });
+}
+
+/**
+ * Get single handwritten note by ID
+ */
+export async function getHandwrittenNote(req: Request, res: Response) {
+  const userId = (req as any).user.userId;
+  const { id: projectId, noteId } = req.params;
+
+  // Verify project ownership
+  const project = await db('projects')
+    .where({ id: projectId, user_id: userId })
+    .whereNull('deleted_at')
+    .first();
+
+  if (!project) {
+    throw new NotFoundError('Project not found');
+  }
+
+  const handwrittenNote = await db('handwritten_notes')
+    .where({ id: noteId, project_id: projectId })
+    .first();
+
+  if (!handwrittenNote) {
+    throw new NotFoundError('Handwritten note not found');
+  }
+
+  res.json({
+    success: true,
+    data: { handwrittenNote },
+  });
+}
+
+/**
+ * Create a handwritten note
+ */
+export async function createHandwrittenNote(req: Request, res: Response) {
+  const userId = (req as any).user.userId;
+  const { id: projectId } = req.params;
+  const file = (req as any).file;
+
+  if (!file) {
+    throw new ValidationError('Image file is required');
+  }
+
+  // Verify project ownership
+  const project = await db('projects')
+    .where({ id: projectId, user_id: userId })
+    .whereNull('deleted_at')
+    .first();
+
+  if (!project) {
+    throw new NotFoundError('Project not found');
+  }
+
+  // Generate unique filename
+  const timestamp = Date.now();
+  const ext = path.extname(file.originalname) || '.png';
+  const filename = `handwritten-${projectId}-${timestamp}${ext}`;
+  const filepath = path.join(handwrittenNotesDir, filename);
+
+  // Save image file
+  await writeFileAsync(filepath, file.buffer);
+
+  // Create image URL (relative path for serving)
+  const imageUrl = `/uploads/handwritten-notes/${filename}`;
+
+  const [handwrittenNote] = await db('handwritten_notes')
+    .insert({
+      project_id: projectId,
+      image_url: imageUrl,
+      title: req.body.title || null,
+      created_at: new Date(),
+      updated_at: new Date(),
+    })
+    .returning('*');
+
+  await createAuditLog(req, {
+    userId,
+    action: 'handwritten_note_created',
+    entityType: 'handwritten_note',
+    entityId: handwrittenNote.id,
+    newValues: handwrittenNote,
+  });
+
+  res.status(201).json({
+    success: true,
+    message: 'Handwritten note saved successfully',
+    data: { handwrittenNote },
+  });
+}
+
+/**
+ * Delete a handwritten note
+ */
+export async function deleteHandwrittenNote(req: Request, res: Response) {
+  const userId = (req as any).user.userId;
+  const { id: projectId, noteId } = req.params;
+
+  // Verify project ownership
+  const project = await db('projects')
+    .where({ id: projectId, user_id: userId })
+    .whereNull('deleted_at')
+    .first();
+
+  if (!project) {
+    throw new NotFoundError('Project not found');
+  }
+
+  const handwrittenNote = await db('handwritten_notes')
+    .where({ id: noteId, project_id: projectId })
+    .first();
+
+  if (!handwrittenNote) {
+    throw new NotFoundError('Handwritten note not found');
+  }
+
+  // Delete the file
+  try {
+    const filepath = path.join(handwrittenNotesDir, path.basename(handwrittenNote.image_url));
+    if (fs.existsSync(filepath)) {
+      fs.unlinkSync(filepath);
+    }
+  } catch (error) {
+    logger.error('Error deleting handwritten note file', { error });
+    // Continue even if file deletion fails
+  }
+
+  await db('handwritten_notes').where({ id: noteId }).del();
+
+  await createAuditLog(req, {
+    userId,
+    action: 'handwritten_note_deleted',
+    entityType: 'handwritten_note',
+    entityId: noteId,
+    oldValues: handwrittenNote,
+  });
+
+  res.json({
+    success: true,
+    message: 'Handwritten note deleted successfully',
   });
 }

@@ -11,6 +11,15 @@ export async function getSessions(req: Request, res: Response) {
   const { id: projectId } = req.params;
   const { page = 1, limit = 20, sortBy = 'start_time', sortOrder = 'desc' } = req.query;
 
+  // Whitelist allowed sort columns to prevent SQL injection
+  const allowedSortColumns = ['start_time', 'end_time', 'duration_seconds', 'rows_completed', 'created_at'];
+  const allowedSortOrders = ['asc', 'desc'];
+
+  const safeSortBy = allowedSortColumns.includes(sortBy as string) ? (sortBy as string) : 'start_time';
+  const safeSortOrder = allowedSortOrders.includes((sortOrder as string).toLowerCase())
+    ? (sortOrder as string).toLowerCase()
+    : 'desc';
+
   // Verify project ownership
   const project = await db('projects')
     .where({ id: projectId, user_id: userId })
@@ -28,7 +37,7 @@ export async function getSessions(req: Request, res: Response) {
 
   const sessions = await db('knitting_sessions')
     .where({ project_id: projectId })
-    .orderBy(sortBy as string, sortOrder as string)
+    .orderBy(safeSortBy, safeSortOrder)
     .limit(Number(limit))
     .offset(offset);
 

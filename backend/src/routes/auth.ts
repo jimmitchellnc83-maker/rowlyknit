@@ -98,4 +98,51 @@ router.post(
   asyncHandler(authController.resetPassword)
 );
 
+/**
+ * @route   PUT /api/auth/profile
+ * @desc    Update user profile
+ * @access  Private
+ */
+router.put(
+  '/profile',
+  authenticate,
+  [
+    body('firstName').optional().trim(),
+    body('lastName').optional().trim(),
+    body('username').optional().trim().isLength({ min: 3, max: 30 }),
+    body('preferences').optional().isObject(),
+  ],
+  validate,
+  asyncHandler(authController.updateProfile)
+);
+
+/**
+ * @route   POST /api/auth/change-password
+ * @desc    Change password for authenticated user
+ * @access  Private
+ */
+router.post(
+  '/change-password',
+  authenticate,
+  [
+    body('currentPassword').notEmpty().withMessage('Current password is required'),
+    body('newPassword').isLength({ min: 8 }).withMessage('New password must be at least 8 characters'),
+  ],
+  validate,
+  asyncHandler(authController.changePassword)
+);
+
+/**
+ * @route   POST /api/auth/resend-verification
+ * @desc    Resend email verification link
+ * @access  Public
+ */
+router.post(
+  '/resend-verification',
+  authLimiter,
+  [body('email').isEmail().normalizeEmail()],
+  validate,
+  asyncHandler(authController.resendVerificationEmail)
+);
+
 export default router;

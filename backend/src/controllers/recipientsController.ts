@@ -136,10 +136,14 @@ export async function updateRecipient(req: Request, res: Response) {
 
   // Whitelist allowed fields to prevent mass assignment
   const {
-    name,
+    firstName,
+    lastName,
     relationship,
     measurements,
     preferences,
+    birthday,
+    clothingSize,
+    shoeSize,
     notes,
   } = req.body;
 
@@ -147,10 +151,14 @@ export async function updateRecipient(req: Request, res: Response) {
     updated_at: new Date(),
   };
 
-  if (name !== undefined) updateData.name = name;
+  if (firstName !== undefined) updateData.first_name = firstName;
+  if (lastName !== undefined) updateData.last_name = lastName;
   if (relationship !== undefined) updateData.relationship = relationship;
   if (measurements !== undefined) updateData.measurements = JSON.stringify(measurements);
   if (preferences !== undefined) updateData.preferences = JSON.stringify(preferences);
+  if (birthday !== undefined) updateData.birthday = birthday;
+  if (clothingSize !== undefined) updateData.clothing_size = clothingSize;
+  if (shoeSize !== undefined) updateData.shoe_size = shoeSize;
   if (notes !== undefined) updateData.notes = notes;
 
   const [updatedRecipient] = await db('recipients')

@@ -261,7 +261,7 @@ export const deleteProjectPhoto = async (req: Request, res: Response) => {
 
     // Delete physical files
     try {
-      const filepath = path.join(photo.filename);
+      const filepath = path.join('uploads/projects', photo.filename);
       const thumbnailPath = path.join('uploads/projects/thumbnails', photo.thumbnail_filename);
 
       if (fs.existsSync(filepath)) await unlinkAsync(filepath);

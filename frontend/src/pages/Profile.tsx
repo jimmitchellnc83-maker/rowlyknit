@@ -64,7 +64,7 @@ export default function Profile() {
       const [projectsRes, patternsRes, yarnsRes] = await Promise.all([
         axios.get('/api/projects').catch(() => ({ data: { data: { projects: [] } } })),
         axios.get('/api/patterns').catch(() => ({ data: { data: { patterns: [] } } })),
-        axios.get('/api/yarns').catch(() => ({ data: { data: { yarns: [] } } })),
+        axios.get('/api/yarn').catch(() => ({ data: { data: { yarn: [] } } })),
       ]);
 
       const projects = projectsRes.data.data.projects || [];
@@ -78,7 +78,7 @@ export default function Profile() {
         activeProjects: activeProjects.length,
         completedProjects: completedProjects.length,
         totalPatterns: patternsRes.data.data.patterns?.length || 0,
-        totalYarns: yarnsRes.data.data.yarns?.length || 0,
+        totalYarns: yarnsRes.data.data.yarn?.length || 0,
       });
     } catch (error) {
       console.error('Error fetching stats:', error);
