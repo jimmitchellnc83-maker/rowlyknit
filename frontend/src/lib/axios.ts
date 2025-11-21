@@ -324,16 +324,35 @@ axios.interceptors.response.use(
     // Handle 404 Not Found
     if (error.response?.status === 404) {
       console.warn('Resource not found:', originalRequest?.url);
+      // Dispatch event for UI notification
+      window.dispatchEvent(new CustomEvent('api-error', {
+        detail: { status: 404, message: 'The requested resource was not found' }
+      }));
     }
 
     // Handle 500 Internal Server Error
     if (error.response?.status === 500) {
       console.error('Server error:', error.response.data);
+      window.dispatchEvent(new CustomEvent('api-error', {
+        detail: { status: 500, message: 'A server error occurred. Please try again later.' }
+      }));
     }
 
     // Handle 503 Service Unavailable
     if (error.response?.status === 503) {
       console.error('Service unavailable. Server might be down.');
+      window.dispatchEvent(new CustomEvent('api-error', {
+        detail: { status: 503, message: 'Service is temporarily unavailable. Please try again later.' }
+      }));
+    }
+
+    // Handle validation errors (422)
+    if (error.response?.status === 422) {
+      const errorData = error.response.data as { errors?: Array<{ msg: string }> };
+      const message = errorData.errors?.[0]?.msg || 'Validation error';
+      window.dispatchEvent(new CustomEvent('api-error', {
+        detail: { status: 422, message }
+      }));
     }
 
     return Promise.reject(error);

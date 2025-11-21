@@ -2,7 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ToastContainer } from 'react-toastify';
+import { ToastContainer, toast } from 'react-toastify';
 import App from './App';
 import ErrorBoundary from './components/ErrorBoundary';
 import { WebSocketProvider } from './contexts/WebSocketContext';
@@ -20,6 +20,25 @@ window.addEventListener('error', (event) => {
 window.addEventListener('unhandledrejection', (event) => {
   console.error('Unhandled promise rejection:', event.reason);
 });
+
+// Global API error handler - shows toast notifications for API errors
+window.addEventListener('api-error', ((event: CustomEvent<{ status: number; message: string }>) => {
+  const { status, message } = event.detail;
+  // Only show toast for certain errors (not 404s for resources that might not exist)
+  if (status >= 500) {
+    toast.error(message);
+  } else if (status === 422) {
+    toast.warning(message);
+  }
+}) as EventListener);
+
+// Rate limit exceeded handler
+window.addEventListener('rate-limit-exceeded', ((event: CustomEvent<{ message: string; retryAfter?: number }>) => {
+  const { message, retryAfter } = event.detail;
+  toast.warning(`${message}${retryAfter ? ` Please wait ${retryAfter} seconds.` : ''}`, {
+    autoClose: retryAfter ? retryAfter * 1000 : 5000,
+  });
+}) as EventListener);
 
 // IMPORTANT: Unregister old service workers and clear cache to fix React undefined issue
 // This ensures we don't serve stale JS bundles from the service worker cache
