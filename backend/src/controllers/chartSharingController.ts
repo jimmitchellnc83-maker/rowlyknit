@@ -254,7 +254,7 @@ export const downloadSharedChart = async (req: Request, res: Response) => {
  */
 export const getShareStatistics = async (req: Request, res: Response) => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
 
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });
@@ -275,7 +275,7 @@ export const getShareStatistics = async (req: Request, res: Response) => {
  */
 export const getMySharedItems = async (req: Request, res: Response) => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
 
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });
@@ -297,7 +297,7 @@ export const getMySharedItems = async (req: Request, res: Response) => {
 export const revokeShare = async (req: Request, res: Response) => {
   try {
     const { type, token } = req.params;
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
 
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });
@@ -326,7 +326,7 @@ export const revokeShare = async (req: Request, res: Response) => {
  */
 export const getExportHistory = async (req: Request, res: Response) => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
     const { limit = 20, offset = 0 } = req.query;
 
     if (!userId) {
