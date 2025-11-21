@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { FiArrowLeft, FiEdit2, FiTrash2, FiFileText, FiGrid, FiTool, FiX } from 'react-icons/fi';
+import { FiArrowLeft, FiEdit2, FiTrash2, FiFileText, FiGrid, FiTool, FiX, FiSettings } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import PatternFileUpload from '../components/PatternFileUpload';
@@ -348,18 +348,25 @@ export default function PatternDetail() {
 
           <div className="flex gap-2 flex-wrap">
             <button
-              onClick={handleEditClick}
-              className="flex items-center justify-center px-4 py-3 md:py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition min-h-[48px] md:min-h-0 flex-1 sm:flex-none"
+              onClick={() => navigate(`/patterns/${id}/builder`)}
+              className="flex items-center justify-center px-4 py-3 md:py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition min-h-[48px] md:min-h-0 flex-1 sm:flex-none"
             >
-              <FiEdit2 className="mr-2 h-5 w-5 md:h-4 md:w-4" />
-              <span className="text-base md:text-sm">Edit</span>
+              <FiGrid className="mr-2 h-5 w-5 md:h-4 md:w-4" />
+              <span className="text-base md:text-sm">Edit Pattern</span>
+            </button>
+            <button
+              onClick={handleEditClick}
+              className="flex items-center justify-center px-4 py-3 md:py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition min-h-[48px] md:min-h-0"
+              title="Edit pattern details"
+            >
+              <FiSettings className="h-5 w-5 md:h-4 md:w-4" />
             </button>
             <button
               onClick={handleDeletePattern}
-              className="flex items-center justify-center px-4 py-3 md:py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition min-h-[48px] md:min-h-0 flex-1 sm:flex-none"
+              className="flex items-center justify-center px-4 py-3 md:py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition min-h-[48px] md:min-h-0"
+              title="Delete pattern"
             >
-              <FiTrash2 className="mr-2 h-5 w-5 md:h-4 md:w-4" />
-              <span className="text-base md:text-sm">Delete</span>
+              <FiTrash2 className="h-5 w-5 md:h-4 md:w-4" />
             </button>
           </div>
         </div>

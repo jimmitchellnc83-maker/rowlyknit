@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FiPlus, FiTrash2, FiBook, FiEdit2, FiSearch, FiX } from 'react-icons/fi';
+import { FiPlus, FiTrash2, FiBook, FiSearch, FiX, FiSettings, FiGrid } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { PDFCollation } from '../components/patterns';
@@ -390,12 +390,22 @@ export default function Patterns() {
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
+                      navigate(`/patterns/${pattern.id}/builder`);
+                    }}
+                    className="flex-1 px-3 py-2 bg-green-50 text-green-600 rounded-lg hover:bg-green-100 transition flex items-center justify-center text-sm"
+                  >
+                    <FiGrid className="mr-2 h-4 w-4" />
+                    Edit Pattern
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
                       handleEditClick(pattern);
                     }}
-                    className="flex-1 px-3 py-2 bg-purple-50 text-purple-600 rounded-lg hover:bg-purple-100 transition flex items-center justify-center text-sm"
+                    className="px-3 py-2 bg-gray-50 text-gray-600 rounded-lg hover:bg-gray-100 transition flex items-center justify-center text-sm"
+                    title="Edit pattern details"
                   >
-                    <FiEdit2 className="mr-2 h-4 w-4" />
-                    Edit
+                    <FiSettings className="h-4 w-4" />
                   </button>
                   <button
                     onClick={(e) => {
@@ -403,18 +413,13 @@ export default function Patterns() {
                       handleDeletePattern(pattern.id, pattern.name);
                     }}
                     disabled={deletingId === pattern.id}
-                    className="flex-1 px-3 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition flex items-center justify-center text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-3 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition flex items-center justify-center text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Delete pattern"
                   >
                     {deletingId === pattern.id ? (
-                      <>
-                        <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-red-600 border-t-transparent inline-block" />
-                        Deleting...
-                      </>
+                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-red-600 border-t-transparent inline-block" />
                     ) : (
-                      <>
-                        <FiTrash2 className="mr-2 h-4 w-4" />
-                        Delete
-                      </>
+                      <FiTrash2 className="h-4 w-4" />
                     )}
                   </button>
                 </div>
