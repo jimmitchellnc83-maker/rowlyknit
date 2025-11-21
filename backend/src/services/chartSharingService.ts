@@ -222,7 +222,7 @@ export const getShareStats = async (
       db.raw('COALESCE(SUM(copy_count), 0) as copies'),
       db.raw('COALESCE(SUM(download_count), 0) as downloads')
     )
-    .first();
+    .first() as { count: string; views: string; copies: string; downloads: string } | undefined;
 
   const patternStats = await db('shared_patterns')
     .where({ user_id: userId })
@@ -230,7 +230,7 @@ export const getShareStats = async (
       db.raw('COUNT(*) as count'),
       db.raw('COALESCE(SUM(view_count), 0) as views')
     )
-    .first();
+    .first() as { count: string; views: string } | undefined;
 
   return {
     total_shares: Number(chartStats?.count || 0) + Number(patternStats?.count || 0),
