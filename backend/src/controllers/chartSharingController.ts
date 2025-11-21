@@ -21,7 +21,7 @@ export const shareChart = async (req: Request, res: Response) => {
   try {
     const { chartId } = req.params;
     const { visibility, allow_copy, allow_download, expires_in_days, password } = req.body;
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
 
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });
@@ -105,7 +105,7 @@ export const copySharedChart = async (req: Request, res: Response) => {
   try {
     const { token } = req.params;
     const { password } = req.body;
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
 
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });
@@ -159,7 +159,7 @@ export const exportChartHandler = async (req: Request, res: Response) => {
   try {
     const { chartId } = req.params;
     const { format, options = {} } = req.body;
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
 
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });

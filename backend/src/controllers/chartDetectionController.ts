@@ -18,7 +18,7 @@ const UPLOAD_DIR = process.env.UPLOAD_DIR || './uploads/charts';
  */
 export const detectFromImage = async (req: Request, res: Response) => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
 
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });
@@ -108,7 +108,7 @@ export const detectFromImage = async (req: Request, res: Response) => {
 export const getDetectionResult = async (req: Request, res: Response) => {
   try {
     const { detectionId } = req.params;
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
 
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });
@@ -153,7 +153,7 @@ export const applyDetectionCorrections = async (req: Request, res: Response) => 
   try {
     const { detectionId } = req.params;
     const { corrections } = req.body;
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
 
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });
@@ -234,7 +234,7 @@ export const applyDetectionCorrections = async (req: Request, res: Response) => 
 export const saveDetectedChart = async (req: Request, res: Response) => {
   try {
     const { detection_id, project_id, chart_name } = req.body;
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
 
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });
@@ -305,7 +305,7 @@ export const saveDetectedChart = async (req: Request, res: Response) => {
  */
 export const getSymbols = async (req: Request, res: Response) => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
 
     const symbols = await getSymbolLibrary(userId);
 
@@ -322,7 +322,7 @@ export const getSymbols = async (req: Request, res: Response) => {
  */
 export const getDetectionHistory = async (req: Request, res: Response) => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
     const { status, project_id, limit = 20, offset = 0 } = req.query;
 
     if (!userId) {
@@ -369,7 +369,7 @@ export const getDetectionHistory = async (req: Request, res: Response) => {
 export const deleteDetection = async (req: Request, res: Response) => {
   try {
     const { detectionId } = req.params;
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
 
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });
