@@ -25,6 +25,7 @@ export default function Patterns() {
   const [editingPattern, setEditingPattern] = useState<Pattern | null>(null);
   const [patternFiles, setPatternFiles] = useState<File[]>([]);
   const [uploadingFiles, setUploadingFiles] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   // Search and filter state
   const [searchQuery, setSearchQuery] = useState('');
@@ -147,16 +148,20 @@ export default function Patterns() {
   };
 
   const handleDeletePattern = async (id: string, name: string) => {
+    if (deletingId) return;
     if (!confirm(`Are you sure you want to delete "${name}"?`)) {
       return;
     }
+    setDeletingId(id);
     try {
       await axios.delete(`/api/patterns/${id}`);
       toast.success('Pattern deleted successfully');
       fetchPatterns();
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error deleting pattern:', error);
       toast.error('Failed to delete pattern');
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -397,10 +402,20 @@ export default function Patterns() {
                       e.stopPropagation();
                       handleDeletePattern(pattern.id, pattern.name);
                     }}
-                    className="flex-1 px-3 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition flex items-center justify-center text-sm"
+                    disabled={deletingId === pattern.id}
+                    className="flex-1 px-3 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition flex items-center justify-center text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <FiTrash2 className="mr-2 h-4 w-4" />
-                    Delete
+                    {deletingId === pattern.id ? (
+                      <>
+                        <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-red-600 border-t-transparent inline-block" />
+                        Deleting...
+                      </>
+                    ) : (
+                      <>
+                        <FiTrash2 className="mr-2 h-4 w-4" />
+                        Delete
+                      </>
+                    )}
                   </button>
                 </div>
               </div>

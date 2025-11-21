@@ -20,6 +20,8 @@ export default function Projects() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   // Search and filter state
   const [searchQuery, setSearchQuery] = useState('');
@@ -52,7 +54,9 @@ export default function Projects() {
 
   const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
 
+    setIsSubmitting(true);
     try {
       await axios.post('/api/projects', formData);
       toast.success('Project created successfully!');
@@ -65,24 +69,31 @@ export default function Projects() {
         targetCompletionDate: '',
       });
       fetchProjects();
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error creating project:', error);
-      toast.error(error.response?.data?.message || 'Failed to create project');
+      const axiosError = error as { response?: { data?: { message?: string } } };
+      toast.error(axiosError.response?.data?.message || 'Failed to create project');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleDeleteProject = async (id: string, name: string) => {
+    if (deletingId) return;
     if (!confirm(`Are you sure you want to delete "${name}"?`)) {
       return;
     }
 
+    setDeletingId(id);
     try {
       await axios.delete(`/api/projects/${id}`);
       toast.success('Project deleted successfully');
       fetchProjects();
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error deleting project:', error);
       toast.error('Failed to delete project');
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -314,10 +325,15 @@ export default function Projects() {
                 </Link>
                 <button
                   onClick={() => handleDeleteProject(project.id, project.name)}
-                  className="px-3 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition"
+                  disabled={deletingId === project.id}
+                  className="px-3 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition disabled:opacity-50 disabled:cursor-not-allowed"
                   title="Delete project"
                 >
-                  <FiTrash2 className="h-4 w-4" />
+                  {deletingId === project.id ? (
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-red-600 border-t-transparent inline-block" />
+                  ) : (
+                    <FiTrash2 className="h-4 w-4" />
+                  )}
                 </button>
               </div>
             </div>
@@ -413,15 +429,17 @@ export default function Projects() {
                 <button
                   type="button"
                   onClick={() => setShowCreateModal(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition"
+                  disabled={isSubmitting}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
+                  disabled={isSubmitting}
+                  className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Create Project
+                  {isSubmitting ? 'Creating...' : 'Create Project'}
                 </button>
               </div>
             </form>
