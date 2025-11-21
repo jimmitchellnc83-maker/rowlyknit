@@ -3,6 +3,7 @@ import { body, query } from 'express-validator';
 import * as patternsController from '../controllers/patternsController';
 import * as blogImportController from '../controllers/blogImportController';
 import * as patternExportController from '../controllers/patternExportController';
+import * as gaugeAdjustmentController from '../controllers/gaugeAdjustmentController';
 import { authenticate } from '../middleware/auth';
 import { validate, validateUUID, validatePagination, validateSearch } from '../middleware/validator';
 import { asyncHandler } from '../utils/errorHandler';
@@ -87,6 +88,28 @@ router.post(
   ],
   validate,
   asyncHandler(patternExportController.calculateYarn)
+);
+
+/**
+ * @route   POST /api/patterns/:patternId/calculate-adjustment
+ * @desc    Calculate gauge adjustment for pattern
+ * @access  Private
+ */
+router.post(
+  '/:patternId/calculate-adjustment',
+  [
+    validateUUID('patternId'),
+    body('pattern_gauge').isObject().withMessage('Pattern gauge is required'),
+    body('pattern_gauge.stitches').isNumeric(),
+    body('pattern_gauge.rows').isNumeric(),
+    body('pattern_gauge.measurement').optional().isNumeric(),
+    body('actual_gauge').isObject().withMessage('Actual gauge is required'),
+    body('actual_gauge.stitches').isNumeric(),
+    body('actual_gauge.rows').isNumeric(),
+    body('actual_gauge.measurement').optional().isNumeric(),
+  ],
+  validate,
+  asyncHandler(gaugeAdjustmentController.calculateAdjustment)
 );
 
 /**
