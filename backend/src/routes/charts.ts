@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { body, query } from 'express-validator';
 import multer from 'multer';
 import * as chartDetectionController from '../controllers/chartDetectionController';
+import * as chartSharingController from '../controllers/chartSharingController';
 import { authenticate } from '../middleware/auth';
 import { validate, validateUUID } from '../middleware/validator';
 import { asyncHandler } from '../utils/errorHandler';
@@ -128,6 +129,85 @@ router.delete(
   '/detection/:detectionId',
   validateUUID('detectionId'),
   asyncHandler(chartDetectionController.deleteDetection)
+);
+
+/**
+ * Chart Sharing & Export Routes
+ */
+
+/**
+ * @route   POST /api/charts/:chartId/share
+ * @desc    Create shareable link for chart
+ * @access  Private
+ */
+router.post(
+  '/:chartId/share',
+  [
+    validateUUID('chartId'),
+    body('visibility').optional().isIn(['public', 'private']),
+    body('allow_copy').optional().isBoolean(),
+    body('allow_download').optional().isBoolean(),
+    body('expires_in_days').optional().isInt({ min: 1, max: 365 }),
+    body('password').optional().isString().isLength({ min: 4, max: 50 }),
+  ],
+  validate,
+  asyncHandler(chartSharingController.shareChart)
+);
+
+/**
+ * @route   POST /api/charts/:chartId/export
+ * @desc    Export chart to specified format
+ * @access  Private
+ */
+router.post(
+  '/:chartId/export',
+  [
+    validateUUID('chartId'),
+    body('format').isIn(['pdf', 'png', 'csv', 'ravelry', 'markdown']),
+    body('options').optional().isObject(),
+  ],
+  validate,
+  asyncHandler(chartSharingController.exportChartHandler)
+);
+
+/**
+ * @route   GET /api/shares
+ * @desc    Get user's shared items
+ * @access  Private
+ */
+router.get(
+  '/shares',
+  asyncHandler(chartSharingController.getMySharedItems)
+);
+
+/**
+ * @route   GET /api/shares/stats
+ * @desc    Get share statistics
+ * @access  Private
+ */
+router.get(
+  '/shares/stats',
+  asyncHandler(chartSharingController.getShareStatistics)
+);
+
+/**
+ * @route   DELETE /api/shares/:type/:token
+ * @desc    Revoke a share link
+ * @access  Private
+ */
+router.delete(
+  '/shares/:type/:token',
+  asyncHandler(chartSharingController.revokeShare)
+);
+
+/**
+ * @route   GET /api/exports/history
+ * @desc    Get export history
+ * @access  Private
+ */
+router.get(
+  '/exports/history',
+  asyncHandler(chartSharingController.getExportHistory)
 );
 
 export default router;
