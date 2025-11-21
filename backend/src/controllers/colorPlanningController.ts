@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { db } from '../db';
+import db from '../config/database';
 import {
   generateGradientSequence,
   calculateColorYardage,
@@ -17,7 +17,7 @@ export const designGradient = async (req: Request, res: Response) => {
   try {
     const { projectId } = req.params;
     const { total_rows, colors, transition_style, stripe_width } = req.body;
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
 
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });
@@ -75,7 +75,7 @@ export const saveColorTransition = async (req: Request, res: Response) => {
   try {
     const { projectId } = req.params;
     const { name, transition_type, color_sequence, transition_settings, total_rows } = req.body;
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
 
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });
@@ -114,7 +114,7 @@ export const saveColorTransition = async (req: Request, res: Response) => {
 export const getColorTransitions = async (req: Request, res: Response) => {
   try {
     const { projectId } = req.params;
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
 
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });
@@ -147,7 +147,7 @@ export const extractColors = async (req: Request, res: Response) => {
   try {
     const { projectId } = req.params;
     const { num_colors = 6 } = req.body;
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
 
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });
@@ -198,7 +198,7 @@ export const extractColors = async (req: Request, res: Response) => {
 export const generatePalette = async (req: Request, res: Response) => {
   try {
     const { base_color, scheme, save, name } = req.body;
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
 
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });
@@ -250,7 +250,7 @@ export const generatePalette = async (req: Request, res: Response) => {
 export const getColorRequirements = async (req: Request, res: Response) => {
   try {
     const { projectId } = req.params;
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
 
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });
@@ -311,7 +311,7 @@ export const addProjectColor = async (req: Request, res: Response) => {
   try {
     const { projectId } = req.params;
     const { color_name, hex_code, yarn_id, estimated_yardage } = req.body;
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
 
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });
@@ -356,7 +356,7 @@ export const addProjectColor = async (req: Request, res: Response) => {
 export const getProjectColors = async (req: Request, res: Response) => {
   try {
     const { projectId } = req.params;
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
 
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });
@@ -394,7 +394,7 @@ export const getProjectColors = async (req: Request, res: Response) => {
  */
 export const getSavedPalettes = async (req: Request, res: Response) => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
     const { project_id } = req.query;
 
     if (!userId) {

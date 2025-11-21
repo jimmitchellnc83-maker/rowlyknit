@@ -8,7 +8,7 @@ import logger from '../config/logger';
  * POST /api/patterns/:id/export
  */
 export async function exportPattern(req: Request, res: Response): Promise<void> {
-  const userId = req.user!.id;
+  const userId = req.user!.userId;
   const { id: patternId } = req.params;
   const {
     projectId,
@@ -69,7 +69,7 @@ export async function exportPattern(req: Request, res: Response): Promise<void> 
  * POST /api/patterns/:id/calculate-yarn
  */
 export async function calculateYarn(req: Request, res: Response): Promise<void> {
-  const userId = req.user!.id;
+  const userId = req.user!.userId;
   const { id: patternId } = req.params;
   const {
     baseYardage,

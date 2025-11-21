@@ -7,7 +7,7 @@ import logger from '../config/logger';
  * POST /api/patterns/:patternId/calculate-adjustment
  */
 export async function calculateAdjustment(req: Request, res: Response): Promise<void> {
-  const userId = req.user!.id;
+  const userId = req.user!.userId;
   const { patternId } = req.params;
   const { pattern_gauge, actual_gauge } = req.body;
 
@@ -81,7 +81,7 @@ export async function calculateAdjustment(req: Request, res: Response): Promise<
  * POST /api/projects/:projectId/apply-gauge-adjustment
  */
 export async function applyAdjustment(req: Request, res: Response): Promise<void> {
-  const userId = req.user!.id;
+  const userId = req.user!.userId;
   const { projectId } = req.params;
   const { pattern_gauge, actual_gauge, adjusted_instructions, original_instructions } = req.body;
 
@@ -136,7 +136,7 @@ export async function applyAdjustment(req: Request, res: Response): Promise<void
  * GET /api/projects/:projectId/gauge-adjustments
  */
 export async function getAdjustmentHistory(req: Request, res: Response): Promise<void> {
-  const userId = req.user!.id;
+  const userId = req.user!.userId;
   const { projectId } = req.params;
 
   try {
@@ -173,7 +173,7 @@ export async function getAdjustmentHistory(req: Request, res: Response): Promise
  * DELETE /api/projects/:projectId/gauge-adjustment
  */
 export async function clearAdjustment(req: Request, res: Response): Promise<void> {
-  const userId = req.user!.id;
+  const userId = req.user!.userId;
   const { projectId } = req.params;
 
   try {

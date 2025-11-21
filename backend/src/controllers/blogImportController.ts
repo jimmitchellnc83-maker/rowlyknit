@@ -7,7 +7,7 @@ import logger from '../config/logger';
  * POST /api/patterns/import-from-url
  */
 export async function extractFromUrl(req: Request, res: Response): Promise<void> {
-  const userId = req.user!.id;
+  const userId = req.user!.userId;
   const { url } = req.body;
 
   try {
@@ -60,7 +60,7 @@ export async function extractFromUrl(req: Request, res: Response): Promise<void>
  * POST /api/patterns/save-imported
  */
 export async function saveImportedPattern(req: Request, res: Response): Promise<void> {
-  const userId = req.user!.id;
+  const userId = req.user!.userId;
   const { importId, patternData, sourceUrl } = req.body;
 
   try {
@@ -116,7 +116,7 @@ export async function saveImportedPattern(req: Request, res: Response): Promise<
  * GET /api/patterns/imports
  */
 export async function getImportHistory(req: Request, res: Response): Promise<void> {
-  const userId = req.user!.id;
+  const userId = req.user!.userId;
   const limit = parseInt(req.query.limit as string, 10) || 20;
 
   try {
@@ -145,7 +145,7 @@ export async function getImportHistory(req: Request, res: Response): Promise<voi
  * GET /api/patterns/imports/:importId
  */
 export async function getImport(req: Request, res: Response): Promise<void> {
-  const userId = req.user!.id;
+  const userId = req.user!.userId;
   const { importId } = req.params;
 
   try {

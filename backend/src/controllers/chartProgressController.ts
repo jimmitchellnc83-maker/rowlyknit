@@ -13,7 +13,7 @@ interface CompletedCell {
  * GET /api/projects/:projectId/charts/:chartId/progress
  */
 export async function getProgress(req: Request, res: Response): Promise<void> {
-  const userId = req.user!.id;
+  const userId = req.user!.userId;
   const { projectId, chartId } = req.params;
 
   try {
@@ -80,7 +80,7 @@ export async function getProgress(req: Request, res: Response): Promise<void> {
  * POST /api/projects/:projectId/charts/:chartId/progress
  */
 export async function updateProgress(req: Request, res: Response): Promise<void> {
-  const userId = req.user!.id;
+  const userId = req.user!.userId;
   const { projectId, chartId } = req.params;
   const { current_row, current_column, completed_cells, completed_rows, tracking_enabled } = req.body;
 
@@ -147,7 +147,7 @@ export async function updateProgress(req: Request, res: Response): Promise<void>
  * POST /api/projects/:projectId/charts/:chartId/mark-cell
  */
 export async function markCell(req: Request, res: Response): Promise<void> {
-  const userId = req.user!.id;
+  const userId = req.user!.userId;
   const { projectId, chartId } = req.params;
   const { row, column, completed } = req.body;
 
@@ -240,7 +240,7 @@ export async function markCell(req: Request, res: Response): Promise<void> {
  * POST /api/projects/:projectId/charts/:chartId/mark-row
  */
 export async function markRow(req: Request, res: Response): Promise<void> {
-  const userId = req.user!.id;
+  const userId = req.user!.userId;
   const { projectId, chartId } = req.params;
   const { row, completed, totalColumns } = req.body;
 
@@ -343,7 +343,7 @@ export async function markRow(req: Request, res: Response): Promise<void> {
  * DELETE /api/projects/:projectId/charts/:chartId/progress
  */
 export async function clearProgress(req: Request, res: Response): Promise<void> {
-  const userId = req.user!.id;
+  const userId = req.user!.userId;
   const { projectId, chartId } = req.params;
 
   try {
@@ -404,7 +404,7 @@ export async function clearProgress(req: Request, res: Response): Promise<void> 
  * POST /api/projects/:projectId/charts/:chartId/set-direction
  */
 export async function setDirection(req: Request, res: Response): Promise<void> {
-  const userId = req.user!.id;
+  const userId = req.user!.userId;
   const { projectId, chartId } = req.params;
   const { working_direction } = req.body;
 
@@ -459,7 +459,7 @@ export async function setDirection(req: Request, res: Response): Promise<void> {
  * POST /api/projects/:projectId/charts/:chartId/advance-stitch
  */
 export async function advanceStitch(req: Request, res: Response): Promise<void> {
-  const userId = req.user!.id;
+  const userId = req.user!.userId;
   const { projectId, chartId } = req.params;
   const { direction, chart_width, chart_height } = req.body;
 
@@ -510,7 +510,7 @@ export async function advanceStitch(req: Request, res: Response): Promise<void> 
  * POST /api/projects/:projectId/charts/:chartId/toggle-direction
  */
 export async function toggleDirection(req: Request, res: Response): Promise<void> {
-  const userId = req.user!.id;
+  const userId = req.user!.userId;
   const { projectId, chartId } = req.params;
 
   try {

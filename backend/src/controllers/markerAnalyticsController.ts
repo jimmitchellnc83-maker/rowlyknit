@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { db } from '../db';
+import db from '../config/database';
 import {
   analyzePatternForMarkers,
   calculateMarkerAnalytics,
@@ -14,7 +14,7 @@ import {
 export const analyzeMarkersForProject = async (req: Request, res: Response) => {
   try {
     const { projectId } = req.params;
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
 
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });
@@ -84,7 +84,7 @@ export const acceptMarkerSuggestion = async (req: Request, res: Response) => {
   try {
     const { projectId } = req.params;
     const { suggestion } = req.body as { suggestion: MarkerSuggestion };
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
 
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });
@@ -136,7 +136,7 @@ export const acceptMarkerSuggestion = async (req: Request, res: Response) => {
 export const getMarkerTimeline = async (req: Request, res: Response) => {
   try {
     const { projectId } = req.params;
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
 
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });
@@ -195,7 +195,7 @@ export const getMarkerTimeline = async (req: Request, res: Response) => {
 export const getMarkerAnalytics = async (req: Request, res: Response) => {
   try {
     const { projectId } = req.params;
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
 
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });
@@ -232,7 +232,7 @@ export const recordMarkerEvent = async (req: Request, res: Response) => {
   try {
     const { markerId } = req.params;
     const { event_type, at_row } = req.body;
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
 
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });
@@ -295,7 +295,7 @@ export const updateMarkerPosition = async (req: Request, res: Response) => {
   try {
     const { markerId } = req.params;
     const { trigger_value, end_value } = req.body;
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
 
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });
@@ -345,7 +345,7 @@ export const updateMarkerColor = async (req: Request, res: Response) => {
   try {
     const { markerId } = req.params;
     const { color } = req.body;
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
 
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });
@@ -388,7 +388,7 @@ export const getUpcomingMarkers = async (req: Request, res: Response) => {
   try {
     const { projectId } = req.params;
     const { rows_ahead = 5 } = req.query;
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
 
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });
