@@ -1,6 +1,8 @@
 // @ts-nocheck
-import React, { useState, useRef, useEffect } from 'react';
-import { FiZoomIn, FiZoomOut, FiRotateCw, FiInfo } from 'react-icons/fi';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { FiZoomIn, FiZoomOut, FiRotateCw, FiInfo, FiTarget } from 'react-icons/fi';
+import SymbolDefinitionPopover from './SymbolDefinitionPopover';
+import { KNITTING_SYMBOLS, getSymbolById, getSymbolByChar, type KnittingSymbol } from '../../data/knittingSymbols';
 
 interface ChartSymbol {
   id: string;
@@ -41,15 +43,57 @@ export const ChartViewer: React.FC<ChartViewerProps> = ({
   const [showLegend, setShowLegend] = useState(true);
   const [highlightedRow, setHighlightedRow] = useState<number | null>(null);
   const [highlightedCell, setHighlightedCell] = useState<{row: number, col: number} | null>(null);
+
+  // Symbol highlighting state
+  const [highlightedSymbolId, setHighlightedSymbolId] = useState<string | null>(null);
+  const [highlightedCells, setHighlightedCells] = useState<ChartCell[]>([]);
+  const [selectedSymbol, setSelectedSymbol] = useState<KnittingSymbol | null>(null);
+  const [popoverPosition, setPopoverPosition] = useState<{ x: number; y: number } | null>(null);
+  const [highlightMode, setHighlightMode] = useState<'cell' | 'symbol'>('cell');
+
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const CELL_SIZE = 40;
   const _PADDING = 60;
 
+  // Find all cells with a given symbol
+  const findCellsWithSymbol = useCallback((symbolId: string): ChartCell[] => {
+    return chartData.filter(cell => cell.symbol === symbolId);
+  }, [chartData]);
+
+  // Get enhanced symbol definition from our knitting symbols database
+  const getEnhancedSymbol = useCallback((symbolId: string): KnittingSymbol | undefined => {
+    // First try to find by ID in our comprehensive database
+    let knittingSymbol = getSymbolById(symbolId);
+    if (knittingSymbol) return knittingSymbol;
+
+    // Try to find by looking up the symbol character from the chart's symbol list
+    const chartSymbol = symbols.find(s => s.id === symbolId);
+    if (chartSymbol) {
+      knittingSymbol = getSymbolByChar(chartSymbol.symbol);
+      if (knittingSymbol) return knittingSymbol;
+
+      // Create a fallback symbol from the chart's symbol data
+      return {
+        id: chartSymbol.id,
+        symbol: chartSymbol.symbol,
+        name: chartSymbol.name,
+        abbreviation: chartSymbol.id.toUpperCase(),
+        description: chartSymbol.description,
+        instructions: 'See pattern instructions for details.',
+        category: 'special' as const,
+        color: chartSymbol.color,
+        difficulty: 'intermediate' as const,
+      };
+    }
+
+    return undefined;
+  }, [symbols]);
+
   useEffect(() => {
     renderChart();
-  }, [chartData, zoom, rotation, pan, highlightedRow, highlightedCell]);
+  }, [chartData, zoom, rotation, pan, highlightedRow, highlightedCell, highlightedCells, highlightMode]);
 
   const renderChart = () => {
     const canvas = canvasRef.current;
@@ -124,8 +168,8 @@ export const ChartViewer: React.FC<ChartViewerProps> = ({
       ctx.fillText((col + 1).toString(), x, startY - 20);
     }
 
-    // Highlight row if selected
-    if (highlightedRow !== null) {
+    // Highlight row if selected (only in cell mode)
+    if (highlightMode === 'cell' && highlightedRow !== null) {
       ctx.fillStyle = 'rgba(59, 130, 246, 0.2)';
       const rowIndex = rows - highlightedRow;
       ctx.fillRect(
@@ -136,8 +180,35 @@ export const ChartViewer: React.FC<ChartViewerProps> = ({
       );
     }
 
-    // Highlight cell if selected
-    if (highlightedCell) {
+    // Highlight all cells with the selected symbol (symbol mode)
+    if (highlightMode === 'symbol' && highlightedCells.length > 0) {
+      ctx.fillStyle = 'rgba(168, 85, 247, 0.35)'; // Purple highlight
+      highlightedCells.forEach(cell => {
+        const rowIndex = rows - cell.row;
+        ctx.fillRect(
+          startX + cell.col * CELL_SIZE,
+          startY + rowIndex * CELL_SIZE,
+          CELL_SIZE,
+          CELL_SIZE
+        );
+      });
+
+      // Draw border around highlighted cells
+      ctx.strokeStyle = '#8B5CF6';
+      ctx.lineWidth = 2;
+      highlightedCells.forEach(cell => {
+        const rowIndex = rows - cell.row;
+        ctx.strokeRect(
+          startX + cell.col * CELL_SIZE + 1,
+          startY + rowIndex * CELL_SIZE + 1,
+          CELL_SIZE - 2,
+          CELL_SIZE - 2
+        );
+      });
+    }
+
+    // Highlight single cell if selected (cell mode)
+    if (highlightMode === 'cell' && highlightedCell) {
       ctx.fillStyle = 'rgba(34, 197, 94, 0.3)';
       const rowIndex = rows - highlightedCell.row;
       ctx.fillRect(
@@ -160,8 +231,20 @@ export const ChartViewer: React.FC<ChartViewerProps> = ({
       const y = startY + rowIndex * CELL_SIZE + CELL_SIZE / 2;
 
       if (symbol) {
-        ctx.fillStyle = symbol.color || '#000000';
-        ctx.fillText(symbol.symbol, x, y);
+        // Check if this symbol is highlighted
+        const isHighlighted = highlightMode === 'symbol' &&
+          highlightedCells.some(hc => hc.row === cell.row && hc.col === cell.col);
+
+        if (isHighlighted) {
+          // Draw with emphasis for highlighted symbols
+          ctx.font = 'bold 22px Arial';
+          ctx.fillStyle = symbol.color || '#000000';
+          ctx.fillText(symbol.symbol, x, y);
+          ctx.font = '20px Arial';
+        } else {
+          ctx.fillStyle = symbol.color || '#000000';
+          ctx.fillText(symbol.symbol, x, y);
+        }
       }
     });
 
@@ -217,12 +300,43 @@ export const ChartViewer: React.FC<ChartViewerProps> = ({
     const row = rows - rowIndex;
 
     if (col >= 0 && col < cols && row > 0 && row <= rows) {
-      setHighlightedCell({ row, col });
-      setHighlightedRow(row);
+      // Find the cell and its symbol
+      const clickedCell = chartData.find(c => c.row === row && c.col === col);
+
+      if (clickedCell && highlightMode === 'symbol') {
+        // Symbol highlight mode - highlight all instances of this symbol
+        const symbolId = clickedCell.symbol;
+        const cellsWithSymbol = findCellsWithSymbol(symbolId);
+        const enhancedSymbol = getEnhancedSymbol(symbolId);
+
+        setHighlightedSymbolId(symbolId);
+        setHighlightedCells(cellsWithSymbol);
+        setSelectedSymbol(enhancedSymbol || null);
+        setPopoverPosition({ x: e.clientX + 10, y: e.clientY + 10 });
+        setHighlightedCell(null);
+        setHighlightedRow(null);
+      } else {
+        // Cell highlight mode - highlight single cell and row
+        setHighlightedCell({ row, col });
+        setHighlightedRow(row);
+        setHighlightedCells([]);
+        setHighlightedSymbolId(null);
+        setSelectedSymbol(null);
+        setPopoverPosition(null);
+      }
     } else {
-      setHighlightedCell(null);
-      setHighlightedRow(null);
+      // Clicked outside chart - clear all highlights
+      clearHighlights();
     }
+  };
+
+  const clearHighlights = () => {
+    setHighlightedCell(null);
+    setHighlightedRow(null);
+    setHighlightedCells([]);
+    setHighlightedSymbolId(null);
+    setSelectedSymbol(null);
+    setPopoverPosition(null);
   };
 
   const handleZoomIn = () => {
@@ -241,8 +355,32 @@ export const ChartViewer: React.FC<ChartViewerProps> = ({
     setZoom(1);
     setPan({ x: 0, y: 0 });
     setRotation(0);
-    setHighlightedRow(null);
+    clearHighlights();
+  };
+
+  const toggleHighlightMode = () => {
+    setHighlightMode(prev => prev === 'cell' ? 'symbol' : 'cell');
+    clearHighlights();
+  };
+
+  const handleClosePopover = () => {
+    setSelectedSymbol(null);
+    setPopoverPosition(null);
+    // Keep highlights visible for reference
+  };
+
+  // Handle legend symbol click to highlight all instances
+  const handleLegendSymbolClick = (symbolId: string, e: React.MouseEvent) => {
+    const cellsWithSymbol = findCellsWithSymbol(symbolId);
+    const enhancedSymbol = getEnhancedSymbol(symbolId);
+
+    setHighlightMode('symbol');
+    setHighlightedSymbolId(symbolId);
+    setHighlightedCells(cellsWithSymbol);
+    setSelectedSymbol(enhancedSymbol || null);
+    setPopoverPosition({ x: e.clientX + 10, y: e.clientY + 10 });
     setHighlightedCell(null);
+    setHighlightedRow(null);
   };
 
   return (
@@ -275,6 +413,13 @@ export const ChartViewer: React.FC<ChartViewerProps> = ({
             </button>
           )}
           <button
+            onClick={toggleHighlightMode}
+            className={`control-btn ${highlightMode === 'symbol' ? 'active' : ''}`}
+            title={highlightMode === 'symbol' ? 'Symbol Highlight Mode (tap to highlight all instances)' : 'Cell Highlight Mode'}
+          >
+            <FiTarget />
+          </button>
+          <button
             onClick={() => setShowLegend(!showLegend)}
             className={`control-btn ${showLegend ? 'active' : ''}`}
             title="Toggle Legend"
@@ -285,6 +430,20 @@ export const ChartViewer: React.FC<ChartViewerProps> = ({
             Reset View
           </button>
         </div>
+      </div>
+
+      {/* Mode indicator */}
+      <div className="mode-indicator">
+        {highlightMode === 'symbol' ? (
+          <span className="mode-badge symbol-mode">
+            <FiTarget className="inline h-3 w-3 mr-1" />
+            Symbol Mode: Tap any symbol to highlight all instances
+          </span>
+        ) : (
+          <span className="mode-badge cell-mode">
+            Cell Mode: Tap to highlight individual cells
+          </span>
+        )}
       </div>
 
       <div className="chart-container">
@@ -304,31 +463,66 @@ export const ChartViewer: React.FC<ChartViewerProps> = ({
         {showLegend && (
           <div className="symbol-legend">
             <h3 className="legend-title">Symbol Legend</h3>
+            <p className="legend-hint">Click any symbol to highlight all instances</p>
             <div className="legend-items">
-              {symbols.map((symbol) => (
-                <div key={symbol.id} className="legend-item">
-                  <span
-                    className="legend-symbol"
-                    style={{ color: symbol.color || '#000000' }}
+              {symbols.map((symbol) => {
+                const isHighlighted = highlightedSymbolId === symbol.id;
+                const instanceCount = findCellsWithSymbol(symbol.id).length;
+                return (
+                  <div
+                    key={symbol.id}
+                    className={`legend-item ${isHighlighted ? 'highlighted' : ''}`}
+                    onClick={(e) => handleLegendSymbolClick(symbol.id, e)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        handleLegendSymbolClick(symbol.id, e as any);
+                      }
+                    }}
                   >
-                    {symbol.symbol}
-                  </span>
-                  <div className="legend-info">
-                    <div className="legend-name">{symbol.name}</div>
-                    <div className="legend-description">{symbol.description}</div>
+                    <span
+                      className="legend-symbol"
+                      style={{ color: symbol.color || '#000000' }}
+                    >
+                      {symbol.symbol}
+                    </span>
+                    <div className="legend-info">
+                      <div className="legend-name">{symbol.name}</div>
+                      <div className="legend-description">{symbol.description}</div>
+                      <div className="legend-count">{instanceCount} in chart</div>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
 
-        {highlightedCell && (
+        {/* Cell info display */}
+        {highlightMode === 'cell' && highlightedCell && (
           <div className="chart-info">
             <strong>Selected:</strong> Row {highlightedCell.row}, Stitch {highlightedCell.col + 1}
           </div>
         )}
+
+        {/* Symbol highlight info display */}
+        {highlightMode === 'symbol' && highlightedCells.length > 0 && !selectedSymbol && (
+          <div className="chart-info symbol-info">
+            <strong>{highlightedCells.length}</strong> instances highlighted
+          </div>
+        )}
       </div>
+
+      {/* Symbol Definition Popover */}
+      {selectedSymbol && popoverPosition && (
+        <SymbolDefinitionPopover
+          symbol={selectedSymbol}
+          position={popoverPosition}
+          instanceCount={highlightedCells.length}
+          onClose={handleClosePopover}
+        />
+      )}
 
       <style>{`
         .chart-viewer {
@@ -378,9 +572,9 @@ export const ChartViewer: React.FC<ChartViewerProps> = ({
         }
 
         .control-btn.active {
-          background-color: #3b82f6;
+          background-color: #8B5CF6;
           color: white;
-          border-color: #3b82f6;
+          border-color: #8B5CF6;
         }
 
         .control-btn-text {
@@ -405,6 +599,27 @@ export const ChartViewer: React.FC<ChartViewerProps> = ({
           color: #4b5563;
           min-width: 50px;
           text-align: center;
+        }
+
+        .mode-indicator {
+          padding: 8px 16px;
+          background-color: #faf5ff;
+          border-bottom: 1px solid #e9d5ff;
+        }
+
+        .mode-badge {
+          font-size: 12px;
+          font-weight: 500;
+          display: inline-flex;
+          align-items: center;
+        }
+
+        .mode-badge.symbol-mode {
+          color: #7c3aed;
+        }
+
+        .mode-badge.cell-mode {
+          color: #6b7280;
         }
 
         .chart-container {
@@ -437,20 +652,41 @@ export const ChartViewer: React.FC<ChartViewerProps> = ({
         .legend-title {
           font-size: 16px;
           font-weight: 600;
-          margin-bottom: 12px;
+          margin-bottom: 4px;
           color: #111827;
+        }
+
+        .legend-hint {
+          font-size: 11px;
+          color: #8B5CF6;
+          margin-bottom: 12px;
         }
 
         .legend-items {
           display: flex;
           flex-direction: column;
-          gap: 12px;
+          gap: 8px;
         }
 
         .legend-item {
           display: flex;
           gap: 12px;
           align-items: flex-start;
+          padding: 8px;
+          border-radius: 6px;
+          cursor: pointer;
+          transition: all 0.2s;
+          border: 2px solid transparent;
+        }
+
+        .legend-item:hover {
+          background-color: #faf5ff;
+          border-color: #e9d5ff;
+        }
+
+        .legend-item.highlighted {
+          background-color: #f3e8ff;
+          border-color: #8B5CF6;
         }
 
         .legend-symbol {
@@ -474,6 +710,13 @@ export const ChartViewer: React.FC<ChartViewerProps> = ({
         .legend-description {
           font-size: 12px;
           color: #6b7280;
+          margin-bottom: 4px;
+        }
+
+        .legend-count {
+          font-size: 11px;
+          color: #8B5CF6;
+          font-weight: 500;
         }
 
         .chart-info {
@@ -487,6 +730,10 @@ export const ChartViewer: React.FC<ChartViewerProps> = ({
           border-radius: 6px;
           font-size: 14px;
           pointer-events: none;
+        }
+
+        .chart-info.symbol-info {
+          background-color: rgba(139, 92, 246, 0.9);
         }
 
         @media (max-width: 768px) {
