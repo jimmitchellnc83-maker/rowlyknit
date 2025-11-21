@@ -321,36 +321,45 @@ export default function PatternBuilder() {
 
           <input
             type="text"
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent mb-4"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent mb-4"
             placeholder="Search symbols..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
 
           <div className="space-y-4">
-            {Object.keys(symbolLibrary).map(category => (
-              <div key={category}>
-                <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
-                  {category}
+            {Object.keys(symbolLibrary).map(category => {
+              const symbols = filteredSymbols(category);
+              if (symbols.length === 0) return null;
+              return (
+                <div key={category}>
+                  <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                    {category}
+                  </div>
+                  <div className="grid grid-cols-4 gap-2">
+                    {symbols.map((symbolData, idx) => (
+                      <div
+                        key={idx}
+                        className={`aspect-square border rounded-lg flex items-center justify-center cursor-pointer transition-all hover:bg-gray-100 dark:hover:bg-gray-700 hover:border-purple-500 hover:scale-105 ${
+                          selectedSymbol === symbolData ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/30' : 'border-gray-200 dark:border-gray-600'
+                        }`}
+                        onClick={() => setSelectedSymbol(symbolData)}
+                        draggable
+                        onDragStart={(e) => e.dataTransfer.setData('symbol', JSON.stringify(symbolData))}
+                        title={`${symbolData.name}${symbolData.abbr ? ` (${symbolData.abbr})` : ''}: ${symbolData.desc}`}
+                      >
+                        {renderSymbol(symbolData, 'xl')}
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                <div className="grid grid-cols-4 gap-2">
-                  {filteredSymbols(category).map((symbolData, idx) => (
-                    <div
-                      key={idx}
-                      className={`aspect-square border rounded-lg flex items-center justify-center cursor-pointer transition-all hover:bg-gray-100 dark:hover:bg-gray-700 hover:border-purple-500 hover:scale-105 ${
-                        selectedSymbol === symbolData ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/30' : 'border-gray-200 dark:border-gray-600'
-                      }`}
-                      onClick={() => setSelectedSymbol(symbolData)}
-                      draggable
-                      onDragStart={(e) => e.dataTransfer.setData('symbol', JSON.stringify(symbolData))}
-                      title={`${symbolData.name}${symbolData.abbr ? ` (${symbolData.abbr})` : ''}: ${symbolData.desc}`}
-                    >
-                      {renderSymbol(symbolData, 'xl')}
-                    </div>
-                  ))}
-                </div>
+              );
+            })}
+            {searchQuery && Object.keys(symbolLibrary).every(cat => filteredSymbols(cat).length === 0) && (
+              <div className="text-center py-4 text-gray-500 dark:text-gray-400">
+                No symbols found for "{searchQuery}"
               </div>
-            ))}
+            )}
           </div>
         </div>
 
