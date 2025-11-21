@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { FiArrowLeft, FiDownload, FiFileText, FiSave, FiLoader, FiGrid } from 'react-icons/fi';
+import { FiArrowLeft, FiDownload, FiFileText, FiSave, FiLoader, FiGrid, FiBook } from 'react-icons/fi';
 import { toast } from 'react-toastify';
 import axios from '../lib/axios';
 
@@ -397,13 +397,26 @@ export default function PatternBuilder() {
     <div className="max-w-[1400px] mx-auto p-4 md:p-6">
       {/* Header */}
       <div className="mb-6">
-        <button
-          onClick={() => navigate(currentPatternId ? `/patterns/${currentPatternId}` : '/patterns')}
-          className="flex items-center text-purple-600 hover:text-purple-700 mb-4 min-h-[48px]"
-        >
-          <FiArrowLeft className="mr-2 h-5 w-5" />
-          <span className="text-base">{currentPatternId ? 'Back to Pattern' : 'Back to Patterns'}</span>
-        </button>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-4">
+            {currentPatternId && (
+              <button
+                onClick={() => navigate(`/patterns/${currentPatternId}`)}
+                className="flex items-center text-purple-600 hover:text-purple-700 min-h-[48px]"
+              >
+                <FiArrowLeft className="mr-2 h-5 w-5" />
+                <span className="text-base">Back to Pattern</span>
+              </button>
+            )}
+          </div>
+          <button
+            onClick={() => navigate('/patterns')}
+            className="flex items-center gap-2 px-4 py-2 bg-purple-100 text-purple-700 hover:bg-purple-200 rounded-lg transition min-h-[48px]"
+          >
+            <FiBook className="h-5 w-5" />
+            <span className="text-base font-medium">Pattern Library</span>
+          </button>
+        </div>
 
         <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">Knitting Pattern Builder</h1>
         <p className="text-gray-600 dark:text-gray-400">Create and design custom knitting patterns with standard stitch symbols</p>
