@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { body } from 'express-validator';
 import * as projectsController from '../controllers/projectsController';
+import * as gaugeAdjustmentController from '../controllers/gaugeAdjustmentController';
+import * as chartProgressController from '../controllers/chartProgressController';
 import { authenticate } from '../middleware/auth';
 import { validate, validateUUID, validatePagination, validateSearch } from '../middleware/validator';
 import { asyncHandler } from '../utils/errorHandler';
@@ -188,6 +190,139 @@ router.delete(
   ],
   validate,
   asyncHandler(projectsController.removeToolFromProject)
+);
+
+/**
+ * Gauge Adjustment Routes
+ */
+
+/**
+ * @route   POST /api/projects/:projectId/apply-gauge-adjustment
+ * @desc    Apply gauge adjustment to project
+ * @access  Private
+ */
+router.post(
+  '/:projectId/apply-gauge-adjustment',
+  [
+    validateUUID('projectId'),
+    body('pattern_gauge').isObject().withMessage('Pattern gauge is required'),
+    body('pattern_gauge.stitches').isNumeric(),
+    body('pattern_gauge.rows').isNumeric(),
+    body('pattern_gauge.measurement').optional().isNumeric(),
+    body('actual_gauge').isObject().withMessage('Actual gauge is required'),
+    body('actual_gauge.stitches').isNumeric(),
+    body('actual_gauge.rows').isNumeric(),
+    body('actual_gauge.measurement').optional().isNumeric(),
+    body('adjusted_instructions').isString().withMessage('Adjusted instructions required'),
+  ],
+  validate,
+  asyncHandler(gaugeAdjustmentController.applyAdjustment)
+);
+
+/**
+ * @route   GET /api/projects/:projectId/gauge-adjustments
+ * @desc    Get gauge adjustment history for project
+ * @access  Private
+ */
+router.get(
+  '/:projectId/gauge-adjustments',
+  validateUUID('projectId'),
+  asyncHandler(gaugeAdjustmentController.getAdjustmentHistory)
+);
+
+/**
+ * @route   DELETE /api/projects/:projectId/gauge-adjustment
+ * @desc    Clear gauge adjustment from project
+ * @access  Private
+ */
+router.delete(
+  '/:projectId/gauge-adjustment',
+  validateUUID('projectId'),
+  asyncHandler(gaugeAdjustmentController.clearAdjustment)
+);
+
+/**
+ * Chart Progress Routes
+ */
+
+/**
+ * @route   GET /api/projects/:projectId/charts/:chartId/progress
+ * @desc    Get chart progress for a project
+ * @access  Private
+ */
+router.get(
+  '/:projectId/charts/:chartId/progress',
+  [validateUUID('projectId'), validateUUID('chartId')],
+  validate,
+  asyncHandler(chartProgressController.getProgress)
+);
+
+/**
+ * @route   POST /api/projects/:projectId/charts/:chartId/progress
+ * @desc    Update chart progress
+ * @access  Private
+ */
+router.post(
+  '/:projectId/charts/:chartId/progress',
+  [
+    validateUUID('projectId'),
+    validateUUID('chartId'),
+    body('current_row').optional().isInt({ min: 0 }),
+    body('current_column').optional().isInt({ min: 0 }),
+    body('completed_cells').optional().isArray(),
+    body('completed_rows').optional().isArray(),
+    body('tracking_enabled').optional().isBoolean(),
+  ],
+  validate,
+  asyncHandler(chartProgressController.updateProgress)
+);
+
+/**
+ * @route   POST /api/projects/:projectId/charts/:chartId/mark-cell
+ * @desc    Mark a single cell as complete/incomplete
+ * @access  Private
+ */
+router.post(
+  '/:projectId/charts/:chartId/mark-cell',
+  [
+    validateUUID('projectId'),
+    validateUUID('chartId'),
+    body('row').isInt({ min: 0 }).withMessage('Row is required'),
+    body('column').isInt({ min: 0 }).withMessage('Column is required'),
+    body('completed').isBoolean().withMessage('Completed status is required'),
+  ],
+  validate,
+  asyncHandler(chartProgressController.markCell)
+);
+
+/**
+ * @route   POST /api/projects/:projectId/charts/:chartId/mark-row
+ * @desc    Mark an entire row as complete
+ * @access  Private
+ */
+router.post(
+  '/:projectId/charts/:chartId/mark-row',
+  [
+    validateUUID('projectId'),
+    validateUUID('chartId'),
+    body('row').isInt({ min: 0 }).withMessage('Row is required'),
+    body('completed').isBoolean().withMessage('Completed status is required'),
+    body('totalColumns').optional().isInt({ min: 1 }),
+  ],
+  validate,
+  asyncHandler(chartProgressController.markRow)
+);
+
+/**
+ * @route   DELETE /api/projects/:projectId/charts/:chartId/progress
+ * @desc    Clear all progress for a chart
+ * @access  Private
+ */
+router.delete(
+  '/:projectId/charts/:chartId/progress',
+  [validateUUID('projectId'), validateUUID('chartId')],
+  validate,
+  asyncHandler(chartProgressController.clearProgress)
 );
 
 export default router;
