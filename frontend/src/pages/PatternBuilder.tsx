@@ -1,67 +1,38 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { FiArrowLeft, FiDownload, FiFileText, FiSave, FiLoader } from 'react-icons/fi';
+import { FiArrowLeft, FiDownload, FiFileText, FiSave, FiLoader, FiGrid } from 'react-icons/fi';
 import { toast } from 'react-toastify';
 import axios from '../lib/axios';
 
-// Symbol library based on Craft Yarn Council standards
-interface SymbolData {
-  symbol: string;
-  name: string;
-  abbr: string;
-  desc: string;
-  fallback?: string; // ASCII fallback if symbol doesn't render
-}
+// Import comprehensive symbol library
+import {
+  KNITTING_SYMBOLS,
+  SymbolData,
+  getCategories,
+  searchSymbols,
+  DEFAULT_SYMBOL,
+  TOTAL_SYMBOL_COUNT,
+} from '../data/knitting-symbols-library';
 
-interface SymbolLibrary {
-  [category: string]: SymbolData[];
+interface GridCell {
+  symbol: SymbolData;
+  isOccupied?: boolean; // For multi-width cables
+  parentKey?: string;   // Reference to the parent cell for multi-width symbols
 }
-
-const symbolLibrary: SymbolLibrary = {
-  basic: [
-    { symbol: '□', name: 'Empty', abbr: '', desc: 'Empty stitch', fallback: '.' },
-    { symbol: '|', name: 'Knit', abbr: 'K', desc: 'K on RS, P on WS', fallback: 'K' },
-    { symbol: '−', name: 'Purl', abbr: 'P', desc: 'P on RS, K on WS', fallback: 'P' },
-    { symbol: '○', name: 'Yarn Over', abbr: 'YO', desc: 'Yarn over', fallback: 'O' },
-    { symbol: '×', name: 'No Stitch', abbr: '', desc: 'Placeholder - no stitch exists', fallback: 'X' }
-  ],
-  decreases: [
-    { symbol: '⟩', name: 'K2tog', abbr: 'K2tog', desc: 'K2tog on RS, P2tog on WS', fallback: '/' },
-    { symbol: '⟨', name: 'SSK', abbr: 'SSK', desc: 'SSK on RS, SSP on WS', fallback: '\\' },
-    { symbol: '⟨', name: 'P2tog', abbr: 'P2tog', desc: 'P2tog on RS, K2tog on WS', fallback: '<' },
-    { symbol: '⋀', name: 'K3tog', abbr: 'K3tog', desc: 'K3tog on RS, P3tog on WS', fallback: '^' },
-    { symbol: '⋏', name: 'SK2P', abbr: 'SK2P', desc: 'Centered double decrease', fallback: 'A' }
-  ],
-  increases: [
-    { symbol: '⋎', name: 'KFB', abbr: 'Kfb', desc: 'K1fb on RS, P1fb on WS', fallback: 'V' },
-    { symbol: '⊲', name: 'M1L', abbr: 'M1L', desc: 'Make 1 left', fallback: '<|' },
-    { symbol: '⊳', name: 'M1R', abbr: 'M1R', desc: 'Make 1 right', fallback: '|>' },
-    { symbol: '⊕', name: 'M1', abbr: 'M1', desc: 'Make 1 knitwise on RS', fallback: '+' }
-  ],
-  special: [
-    { symbol: '⊗', name: 'Bobble', abbr: 'BO', desc: 'Make bobble', fallback: 'B' },
-    { symbol: '⊙', name: 'K tbl', abbr: 'Ktbl', desc: 'K1 tbl on RS, P1 tbl on WS', fallback: 'Kt' },
-    { symbol: '⊘', name: 'P tbl', abbr: 'Ptbl', desc: 'P1 tbl on RS, K1 tbl on WS', fallback: 'Pt' },
-    { symbol: 'V', name: 'Slip', abbr: 'Sl', desc: 'Slip stitch', fallback: 'S' },
-    { symbol: '◐', name: 'Wrap', abbr: 'W&T', desc: 'Wrap and turn', fallback: 'W' }
-  ],
-  cables: [
-    { symbol: '⤨', name: '1/1 RC', abbr: '1/1RC', desc: 'Right cross 1 over 1', fallback: 'RC' },
-    { symbol: '⤧', name: '1/1 LC', abbr: '1/1LC', desc: 'Left cross 1 over 1', fallback: 'LC' },
-    { symbol: '⤪', name: '2/2 RC', abbr: '2/2RC', desc: 'Right cross 2 over 2', fallback: '2R' },
-    { symbol: '⤩', name: '2/2 LC', abbr: '2/2LC', desc: 'Left cross 2 over 2', fallback: '2L' }
-  ]
-};
 
 interface GridData {
-  [key: string]: SymbolData;
+  [key: string]: GridCell;
 }
 
 export default function PatternBuilder() {
   const { id: patternId } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
-  const [selectedSymbol, setSelectedSymbol] = useState<SymbolData>(symbolLibrary.basic[0]);
+  // Get all categories for tabs
+  const categories = getCategories();
+
+  const [selectedSymbol, setSelectedSymbol] = useState<SymbolData>(DEFAULT_SYMBOL);
+  const [selectedCategory, setSelectedCategory] = useState('basic');
   const [gridData, setGridData] = useState<GridData>({});
   const [rows, setRows] = useState(12);
   const [cols, setCols] = useState(16);
@@ -96,18 +67,21 @@ export default function PatternBuilder() {
         setRows(chart.rows || 12);
         setCols(chart.cols || 16);
 
-        // Convert chart cells to our gridData format
-        if (chart.cells && Array.isArray(chart.cells)) {
+        // Convert chart_data JSONB to our gridData format
+        if (chart.chart_data && Array.isArray(chart.chart_data)) {
           const newGridData: GridData = {};
-          chart.cells.forEach((cell: { row: number; col: number; symbol_id?: string }) => {
+          chart.chart_data.forEach((cell: { row: number; col: number; symbol: string; name?: string; abbr?: string }) => {
             const key = `${cell.row}-${cell.col}`;
-            // Try to find the symbol in our library
-            for (const category of Object.keys(symbolLibrary)) {
-              const found = symbolLibrary[category].find(s => s.symbol === cell.symbol_id || s.name === cell.symbol_id);
-              if (found) {
-                newGridData[key] = found;
-                break;
-              }
+            // Try to find the symbol in our library by symbol character or name
+            let foundSymbol: SymbolData | undefined;
+            for (const category of Object.keys(KNITTING_SYMBOLS)) {
+              foundSymbol = KNITTING_SYMBOLS[category].symbols.find(
+                s => s.symbol === cell.symbol || s.name === cell.name || s.abbr === cell.abbr
+              );
+              if (foundSymbol) break;
+            }
+            if (foundSymbol) {
+              newGridData[key] = { symbol: foundSymbol };
             }
           });
           setGridData(newGridData);
@@ -121,7 +95,49 @@ export default function PatternBuilder() {
 
   const placeSymbol = (row: number, col: number, symbolData: SymbolData = selectedSymbol) => {
     const key = `${row}-${col}`;
-    setGridData(prev => ({ ...prev, [key]: symbolData }));
+    const symbolWidth = symbolData.width || 1;
+
+    // Check if symbol fits in the row
+    if (col + symbolWidth > cols) {
+      toast.warning(`This ${symbolData.name} symbol needs ${symbolWidth} stitches but only ${cols - col} available`);
+      return;
+    }
+
+    // Check if any cells would be occupied by an existing multi-width symbol
+    const existingCell = gridData[key];
+    if (existingCell?.isOccupied && existingCell.parentKey) {
+      // Clear the parent symbol first
+      const parentKey = existingCell.parentKey;
+      const parentCell = gridData[parentKey];
+      if (parentCell) {
+        const parentWidth = parentCell.symbol.width || 1;
+        setGridData(prev => {
+          const newData = { ...prev };
+          for (let i = 0; i < parentWidth; i++) {
+            const [pRow, pCol] = parentKey.split('-').map(Number);
+            delete newData[`${pRow}-${pCol + i}`];
+          }
+          return newData;
+        });
+      }
+    }
+
+    setGridData(prev => {
+      const newData = { ...prev };
+
+      // Place the main symbol
+      newData[key] = { symbol: symbolData };
+
+      // For multi-width symbols, mark occupied cells
+      if (symbolWidth > 1) {
+        for (let i = 1; i < symbolWidth; i++) {
+          const occupiedKey = `${row}-${col + i}`;
+          newData[occupiedKey] = { symbol: symbolData, isOccupied: true, parentKey: key };
+        }
+      }
+
+      return newData;
+    });
   };
 
   const clearGrid = () => {
@@ -131,11 +147,27 @@ export default function PatternBuilder() {
   };
 
   const exportPattern = () => {
+    // Convert gridData to export format
+    const exportData = Object.entries(gridData)
+      .filter(([_, cell]) => !cell.isOccupied) // Only export non-occupied cells
+      .map(([key, cell]) => {
+        const [row, col] = key.split('-').map(Number);
+        return {
+          row,
+          col,
+          symbol: cell.symbol.symbol,
+          name: cell.symbol.name,
+          abbr: cell.symbol.abbr,
+          width: cell.symbol.width || 1,
+        };
+      });
+
     const pattern = {
       name: patternName,
       rows,
       columns: cols,
-      data: gridData,
+      totalSymbols: TOTAL_SYMBOL_COUNT,
+      data: exportData,
       created: new Date().toISOString()
     };
     const json = JSON.stringify(pattern, null, 2);
@@ -146,18 +178,26 @@ export default function PatternBuilder() {
     a.download = `${patternName.replace(/\s+/g, '-').toLowerCase()}-pattern.json`;
     a.click();
     URL.revokeObjectURL(url);
+    toast.success('Pattern exported successfully!');
   };
 
   const generateInstructions = () => {
     let instructions = `Pattern: ${patternName}\n\nCast on ${cols} stitches.\n\n`;
     for (let r = 0; r < rows; r++) {
       instructions += `Row ${r + 1}: `;
-      const rowInstructions = [];
-      for (let c = 0; c < cols; c++) {
+      const rowInstructions: string[] = [];
+      let c = 0;
+      while (c < cols) {
         const key = `${r}-${c}`;
-        const symbolData = gridData[key] || symbolLibrary.basic[0];
-        if (symbolData.abbr) {
-          rowInstructions.push(symbolData.abbr);
+        const cell = gridData[key];
+        if (cell && !cell.isOccupied) {
+          if (cell.symbol.abbr) {
+            rowInstructions.push(cell.symbol.abbr);
+          }
+          // Skip over multi-width symbol cells
+          c += cell.symbol.width || 1;
+        } else if (!cell || cell.isOccupied) {
+          c++;
         }
       }
       instructions += rowInstructions.join(', ') || 'Empty row';
@@ -200,17 +240,20 @@ export default function PatternBuilder() {
         }
       }
 
-      // Convert gridData to chartData format for backend
-      const chartData = Object.entries(gridData).map(([key, symbolData]) => {
-        const [row, col] = key.split('-').map(Number);
-        return {
-          row,
-          col,
-          symbol: symbolData.symbol,
-          name: symbolData.name,
-          abbr: symbolData.abbr,
-        };
-      });
+      // Convert gridData to chartData format for backend (exclude occupied cells)
+      const chartData = Object.entries(gridData)
+        .filter(([_, cell]) => !cell.isOccupied)
+        .map(([key, cell]) => {
+          const [row, col] = key.split('-').map(Number);
+          return {
+            row,
+            col,
+            symbol: cell.symbol.symbol,
+            name: cell.symbol.name,
+            abbr: cell.symbol.abbr,
+            width: cell.symbol.width || 1,
+          };
+        });
 
       // Save or update the chart
       if (chartId) {
@@ -270,28 +313,40 @@ export default function PatternBuilder() {
     }
   };
 
-  // Improved search - searches name, abbreviation, and description
-  const filteredSymbols = (category: string): SymbolData[] => {
-    const query = searchQuery.toLowerCase();
-    return symbolLibrary[category].filter(s =>
-      s.name.toLowerCase().includes(query) ||
-      s.abbr.toLowerCase().includes(query) ||
-      s.desc.toLowerCase().includes(query) ||
-      s.symbol.includes(searchQuery)
-    );
+  // Get symbols for the current category or search results
+  const getDisplaySymbols = (): SymbolData[] => {
+    if (searchQuery.trim()) {
+      return searchSymbols(searchQuery);
+    }
+    return KNITTING_SYMBOLS[selectedCategory]?.symbols || [];
+  };
+
+  // Handle category change
+  const handleCategoryChange = (categoryKey: string) => {
+    setSelectedCategory(categoryKey);
+    setSearchQuery('');
   };
 
   // Render a stitch symbol with fallback support
   const renderSymbol = (symbolData: SymbolData, size: 'lg' | 'xl' | '2xl' = '2xl') => {
     const sizeClass = size === 'lg' ? 'stitch-symbol-lg' : size === 'xl' ? 'stitch-symbol-xl' : 'stitch-symbol-2xl';
-    return (
-      <span
-        className={`stitch-symbol ${sizeClass} select-none text-gray-900 dark:text-gray-100`}
-        data-fallback={symbolData.fallback}
-        title={`${symbolData.name}${symbolData.abbr ? ` (${symbolData.abbr})` : ''}`}
-      >
-        {symbolData.symbol}
+    const widthBadge = symbolData.width && symbolData.width > 1 ? (
+      <span className="absolute -top-1 -right-1 bg-purple-600 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center">
+        {symbolData.width}
       </span>
+    ) : null;
+
+    return (
+      <div className="relative inline-flex items-center justify-center">
+        <span
+          className={`stitch-symbol ${sizeClass} select-none text-gray-900 dark:text-gray-100`}
+          data-fallback={symbolData.fallback}
+          title={`${symbolData.name}${symbolData.abbr ? ` (${symbolData.abbr})` : ''}${symbolData.width ? ` - ${symbolData.width} sts wide` : ''}`}
+        >
+          {symbolData.symbol}
+        </span>
+        {widthBadge}
+      </div>
     );
   };
 
@@ -314,50 +369,95 @@ export default function PatternBuilder() {
       <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr_300px] gap-4">
         {/* Symbol Palette */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md border border-gray-200 dark:border-gray-700 p-4">
-          <div className="flex items-center gap-2 mb-4">
-            <span className="text-xl">🧶</span>
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Symbol Palette</h2>
+          <div className="flex items-center justify-between gap-2 mb-3">
+            <div className="flex items-center gap-2">
+              <FiGrid className="text-purple-600 w-5 h-5" />
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Symbol Palette</h2>
+            </div>
+            <span className="text-xs text-gray-500 dark:text-gray-400">{TOTAL_SYMBOL_COUNT} symbols</span>
           </div>
 
+          {/* Search */}
           <input
             type="text"
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent mb-4"
-            placeholder="Search symbols..."
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent mb-3"
+            placeholder="Search all symbols..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
 
-          <div className="space-y-4">
-            {Object.keys(symbolLibrary).map(category => {
-              const symbols = filteredSymbols(category);
-              if (symbols.length === 0) return null;
-              return (
-                <div key={category}>
-                  <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
-                    {category}
-                  </div>
-                  <div className="grid grid-cols-4 gap-2">
-                    {symbols.map((symbolData, idx) => (
-                      <div
-                        key={idx}
-                        className={`aspect-square border rounded-lg flex items-center justify-center cursor-pointer transition-all hover:bg-gray-100 dark:hover:bg-gray-700 hover:border-purple-500 hover:scale-105 ${
-                          selectedSymbol === symbolData ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/30' : 'border-gray-200 dark:border-gray-600'
-                        }`}
-                        onClick={() => setSelectedSymbol(symbolData)}
-                        draggable
-                        onDragStart={(e) => e.dataTransfer.setData('symbol', JSON.stringify(symbolData))}
-                        title={`${symbolData.name}${symbolData.abbr ? ` (${symbolData.abbr})` : ''}: ${symbolData.desc}`}
-                      >
-                        {renderSymbol(symbolData, 'xl')}
-                      </div>
-                    ))}
-                  </div>
+          {/* Category Tabs */}
+          <div className="mb-3 -mx-1">
+            <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto p-1">
+              {categories.map(cat => (
+                <button
+                  key={cat.key}
+                  onClick={() => handleCategoryChange(cat.key)}
+                  className={`px-2 py-1 rounded text-xs font-medium whitespace-nowrap transition-colors ${
+                    selectedCategory === cat.key && !searchQuery
+                      ? 'bg-purple-600 text-white'
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-purple-50 dark:hover:bg-gray-600'
+                  }`}
+                  title={cat.description}
+                >
+                  {cat.name} ({cat.count})
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Symbols Grid */}
+          <div className="max-h-[400px] overflow-y-auto pr-1">
+            {searchQuery ? (
+              // Search results mode
+              <div>
+                <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                  {getDisplaySymbols().length} results for "{searchQuery}"
                 </div>
-              );
-            })}
-            {searchQuery && Object.keys(symbolLibrary).every(cat => filteredSymbols(cat).length === 0) && (
-              <div className="text-center py-4 text-gray-500 dark:text-gray-400">
-                No symbols found for "{searchQuery}"
+                <div className="grid grid-cols-4 gap-2">
+                  {getDisplaySymbols().map((symbolData) => (
+                    <div
+                      key={symbolData.id}
+                      className={`aspect-square border rounded-lg flex items-center justify-center cursor-pointer transition-all hover:bg-gray-100 dark:hover:bg-gray-700 hover:border-purple-500 hover:scale-105 ${
+                        selectedSymbol.id === symbolData.id ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/30' : 'border-gray-200 dark:border-gray-600'
+                      }`}
+                      onClick={() => setSelectedSymbol(symbolData)}
+                      draggable
+                      onDragStart={(e) => e.dataTransfer.setData('symbol', JSON.stringify(symbolData))}
+                      title={`${symbolData.name}${symbolData.abbr ? ` (${symbolData.abbr})` : ''}: ${symbolData.description}`}
+                    >
+                      {renderSymbol(symbolData, 'xl')}
+                    </div>
+                  ))}
+                </div>
+                {getDisplaySymbols().length === 0 && (
+                  <div className="text-center py-4 text-gray-500 dark:text-gray-400">
+                    No symbols found for "{searchQuery}"
+                  </div>
+                )}
+              </div>
+            ) : (
+              // Category mode
+              <div>
+                <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                  {KNITTING_SYMBOLS[selectedCategory]?.name}
+                </div>
+                <div className="grid grid-cols-4 gap-2">
+                  {getDisplaySymbols().map((symbolData) => (
+                    <div
+                      key={symbolData.id}
+                      className={`aspect-square border rounded-lg flex items-center justify-center cursor-pointer transition-all hover:bg-gray-100 dark:hover:bg-gray-700 hover:border-purple-500 hover:scale-105 ${
+                        selectedSymbol.id === symbolData.id ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/30' : 'border-gray-200 dark:border-gray-600'
+                      }`}
+                      onClick={() => setSelectedSymbol(symbolData)}
+                      draggable
+                      onDragStart={(e) => e.dataTransfer.setData('symbol', JSON.stringify(symbolData))}
+                      title={`${symbolData.name}${symbolData.abbr ? ` (${symbolData.abbr})` : ''}: ${symbolData.description}`}
+                    >
+                      {renderSymbol(symbolData, 'xl')}
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -414,24 +514,34 @@ export default function PatternBuilder() {
                 const c = index % cols;
                 const key = `${r}-${c}`;
                 const cellData = gridData[key];
+                const isOccupied = cellData?.isOccupied;
+                const symbolData = cellData?.symbol;
 
                 return (
                   <div
                     key={key}
                     className={`w-10 h-10 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 flex items-center justify-center cursor-pointer transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 ${
-                      cellData ? 'bg-purple-50 dark:bg-purple-900/30' : ''
-                    }`}
+                      cellData && !isOccupied ? 'bg-purple-50 dark:bg-purple-900/30' : ''
+                    } ${isOccupied ? 'bg-purple-100 dark:bg-purple-800/40 opacity-60' : ''}`}
                     onClick={() => placeSymbol(r, c)}
                     onDragOver={(e) => e.preventDefault()}
                     onDrop={(e) => {
                       e.preventDefault();
-                      const symbolData = JSON.parse(e.dataTransfer.getData('symbol'));
-                      placeSymbol(r, c, symbolData);
+                      const droppedSymbol = JSON.parse(e.dataTransfer.getData('symbol'));
+                      placeSymbol(r, c, droppedSymbol);
                     }}
-                    title={cellData ? `${cellData.name}${cellData.abbr ? ` (${cellData.abbr})` : ''}` : 'Empty cell'}
+                    title={isOccupied ? 'Part of multi-stitch symbol' : (symbolData ? `${symbolData.name}${symbolData.abbr ? ` (${symbolData.abbr})` : ''}` : 'Empty cell')}
                   >
-                    {cellData && (
-                      <span className="stitch-symbol stitch-symbol-xl pointer-events-none text-gray-900 dark:text-gray-100">{cellData.symbol}</span>
+                    {cellData && !isOccupied && symbolData && (
+                      <span
+                        className="stitch-symbol stitch-symbol-xl pointer-events-none text-gray-900 dark:text-gray-100"
+                        data-fallback={symbolData.fallback}
+                      >
+                        {symbolData.symbol}
+                      </span>
+                    )}
+                    {isOccupied && (
+                      <span className="text-purple-400 dark:text-purple-500 text-xs">...</span>
                     )}
                   </div>
                 );
@@ -475,7 +585,7 @@ export default function PatternBuilder() {
                         <span className="ml-1 text-xs font-normal text-purple-600 dark:text-purple-400">({selectedSymbol.abbr})</span>
                       )}
                     </div>
-                    <div className="text-xs text-gray-600 dark:text-gray-400">{selectedSymbol.desc}</div>
+                    <div className="text-xs text-gray-600 dark:text-gray-400">{selectedSymbol.description}</div>
                   </div>
                 </div>
               </div>
@@ -488,7 +598,7 @@ export default function PatternBuilder() {
               <div className="px-3 py-2 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg flex justify-between items-center">
                 <span className="text-sm text-gray-600 dark:text-gray-400">Total Stitches:</span>
                 <span className="text-lg font-bold text-purple-600 dark:text-purple-400">
-                  {Object.keys(gridData).filter(key => gridData[key].symbol !== '□').length}
+                  {Object.keys(gridData).filter(key => !gridData[key].isOccupied && gridData[key].symbol.symbol !== '□').length}
                 </span>
               </div>
             </div>
