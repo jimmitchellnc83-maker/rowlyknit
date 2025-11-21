@@ -130,8 +130,8 @@ export async function createChart(req: Request, res: Response) {
         is_in_the_round: isInTheRound || false,
         notes,
         sort_order: sortOrder,
-        // Store chart data directly as JSONB instead of using chart_cells table
-        chart_data: chartData && Array.isArray(chartData) ? JSON.stringify(chartData) : null,
+        // Store chart data directly as JSONB (Knex handles JSON conversion)
+        chart_data: chartData && Array.isArray(chartData) ? chartData : null,
         created_at: new Date(),
         updated_at: new Date(),
       })
@@ -215,9 +215,9 @@ export async function updateChart(req: Request, res: Response) {
     if (isInTheRound !== undefined) updateData.is_in_the_round = isInTheRound;
     if (notes !== undefined) updateData.notes = notes;
 
-    // Store chart data directly as JSONB instead of using chart_cells table
+    // Store chart data directly as JSONB (Knex handles JSON conversion)
     if (chartData !== undefined) {
-      updateData.chart_data = chartData && Array.isArray(chartData) ? JSON.stringify(chartData) : null;
+      updateData.chart_data = chartData && Array.isArray(chartData) ? chartData : null;
     }
 
     const [updated] = await trx('pattern_charts')

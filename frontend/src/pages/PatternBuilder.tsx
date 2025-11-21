@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { FiArrowLeft, FiDownload, FiFileText, FiSave, FiLoader, FiGrid } from 'react-icons/fi';
 import { toast } from 'react-toastify';
 import axios from '../lib/axios';
@@ -27,6 +27,8 @@ interface GridData {
 export default function PatternBuilder() {
   const { id: patternId } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const chartIdFromUrl = searchParams.get('chart');
 
   // Get all categories for tabs
   const categories = getCategories();
@@ -47,7 +49,53 @@ export default function PatternBuilder() {
     if (patternId) {
       loadExistingChart();
     }
-  }, [patternId]);
+  }, [patternId, chartIdFromUrl]);
+
+  // Helper to parse chart data (handles both array and string formats for backwards compatibility)
+  const parseChartData = (chartData: unknown): Array<{ row: number; col: number; symbol: string; name?: string; abbr?: string; width?: number }> => {
+    if (!chartData) return [];
+    if (Array.isArray(chartData)) return chartData;
+    // Handle double-encoded JSON (backwards compatibility)
+    if (typeof chartData === 'string') {
+      try {
+        return JSON.parse(chartData);
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  };
+
+  // Helper to convert chart data to grid data
+  const convertChartDataToGrid = (chartData: unknown) => {
+    const data = parseChartData(chartData);
+    if (data.length === 0) return;
+
+    const newGridData: GridData = {};
+    data.forEach((cell) => {
+      const key = `${cell.row}-${cell.col}`;
+      // Try to find the symbol in our library by symbol character or name
+      let foundSymbol: SymbolData | undefined;
+      for (const category of Object.keys(KNITTING_SYMBOLS)) {
+        foundSymbol = KNITTING_SYMBOLS[category].symbols.find(
+          s => s.symbol === cell.symbol || s.name === cell.name || s.abbr === cell.abbr
+        );
+        if (foundSymbol) break;
+      }
+      if (foundSymbol) {
+        newGridData[key] = { symbol: foundSymbol };
+        // Handle multi-width symbols
+        const width = cell.width || foundSymbol.width || 1;
+        if (width > 1) {
+          for (let i = 1; i < width; i++) {
+            const occupiedKey = `${cell.row}-${cell.col + i}`;
+            newGridData[occupiedKey] = { symbol: foundSymbol, isOccupied: true, parentKey: key };
+          }
+        }
+      }
+    });
+    setGridData(newGridData);
+  };
 
   const loadExistingChart = async () => {
     if (!patternId) return;
@@ -59,32 +107,27 @@ export default function PatternBuilder() {
         setPatternName(patternResponse.data.data.pattern.name || 'Untitled Pattern');
       }
 
-      // Then get any existing charts
-      const chartsResponse = await axios.get(`/api/patterns/${patternId}/charts`);
-      if (chartsResponse.data.success && chartsResponse.data.data.charts?.length > 0) {
-        const chart = chartsResponse.data.data.charts[0]; // Load the first chart
-        setChartId(chart.id);
-        setRows(chart.rows || 12);
-        setCols(chart.cols || 16);
-
-        // Convert chart_data JSONB to our gridData format
-        if (chart.chart_data && Array.isArray(chart.chart_data)) {
-          const newGridData: GridData = {};
-          chart.chart_data.forEach((cell: { row: number; col: number; symbol: string; name?: string; abbr?: string }) => {
-            const key = `${cell.row}-${cell.col}`;
-            // Try to find the symbol in our library by symbol character or name
-            let foundSymbol: SymbolData | undefined;
-            for (const category of Object.keys(KNITTING_SYMBOLS)) {
-              foundSymbol = KNITTING_SYMBOLS[category].symbols.find(
-                s => s.symbol === cell.symbol || s.name === cell.name || s.abbr === cell.abbr
-              );
-              if (foundSymbol) break;
-            }
-            if (foundSymbol) {
-              newGridData[key] = { symbol: foundSymbol };
-            }
-          });
-          setGridData(newGridData);
+      // If specific chart ID provided, load that chart
+      if (chartIdFromUrl) {
+        const chartResponse = await axios.get(`/api/patterns/${patternId}/charts/${chartIdFromUrl}`);
+        if (chartResponse.data.success && chartResponse.data.data.chart) {
+          const chart = chartResponse.data.data.chart;
+          setChartId(chart.id);
+          setPatternName(chart.title || patternName);
+          setRows(chart.rows || 12);
+          setCols(chart.cols || 16);
+          convertChartDataToGrid(chart.chart_data || chart.chartData);
+        }
+      } else {
+        // Otherwise get all charts and load the first one
+        const chartsResponse = await axios.get(`/api/patterns/${patternId}/charts`);
+        if (chartsResponse.data.success && chartsResponse.data.data.charts?.length > 0) {
+          const chart = chartsResponse.data.data.charts[0];
+          setChartId(chart.id);
+          setPatternName(chart.title || patternName);
+          setRows(chart.rows || 12);
+          setCols(chart.cols || 16);
+          convertChartDataToGrid(chart.chart_data);
         }
       }
     } catch (error) {

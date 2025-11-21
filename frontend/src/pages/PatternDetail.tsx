@@ -655,12 +655,20 @@ export default function PatternDetail() {
                       <div className="text-xs text-gray-500 line-clamp-2">{chart.notes}</div>
                     )}
                   </div>
-                  <button
-                    onClick={() => handleChartView(chart)}
-                    className="w-full px-3 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 text-sm font-medium"
-                  >
-                    View Chart
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleChartView(chart)}
+                      className="flex-1 px-3 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 text-sm font-medium"
+                    >
+                      View Chart
+                    </button>
+                    <button
+                      onClick={() => navigate(`/patterns/${id}/builder?chart=${chart.id}`)}
+                      className="flex-1 px-3 py-2 bg-green-100 text-green-700 rounded hover:bg-green-200 text-sm font-medium"
+                    >
+                      Edit in Builder
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
