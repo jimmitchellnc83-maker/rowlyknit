@@ -14,6 +14,9 @@ import axios from 'axios';
 import { toast } from 'react-toastify';
 import { useAuthStore } from '../stores/authStore';
 
+// Email validation regex
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 interface Stats {
   totalProjects: number;
   activeProjects: number;
@@ -96,6 +99,11 @@ export default function Profile() {
       return;
     }
 
+    if (!EMAIL_REGEX.test(profileForm.email)) {
+      toast.error('Please enter a valid email address');
+      return;
+    }
+
     setLoading(true);
     try {
       const response = await axios.put('/api/auth/profile', {
@@ -107,9 +115,10 @@ export default function Profile() {
       setUser(response.data.data.user);
       toast.success('Profile updated successfully!');
       setEditMode(false);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error updating profile:', error);
-      toast.error(error.response?.data?.message || 'Failed to update profile');
+      const axiosError = error as { response?: { data?: { message?: string } } };
+      toast.error(axiosError.response?.data?.message || 'Failed to update profile');
     } finally {
       setLoading(false);
     }
@@ -144,9 +153,10 @@ export default function Profile() {
         newPassword: '',
         confirmPassword: '',
       });
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error changing password:', error);
-      toast.error(error.response?.data?.message || 'Failed to change password');
+      const axiosError = error as { response?: { data?: { message?: string } } };
+      toast.error(axiosError.response?.data?.message || 'Failed to change password');
     } finally {
       setLoading(false);
     }

@@ -3,19 +3,39 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { toast } from 'react-toastify';
 
+// Email validation regex
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
   const navigate = useNavigate();
   const login = useAuthStore((state) => state.login);
+
+  const validateForm = (): boolean => {
+    const newErrors: { email?: string; password?: string } = {};
+
+    if (!email.trim()) {
+      newErrors.email = 'Email is required';
+    } else if (!EMAIL_REGEX.test(email)) {
+      newErrors.email = 'Please enter a valid email address';
+    }
+
+    if (!password) {
+      newErrors.password = 'Password is required';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
-    if (!email || !password) {
-      toast.error('Please fill in all fields');
+    if (!validateForm()) {
       return;
     }
 
@@ -25,9 +45,10 @@ export default function Login() {
       await login(email, password, rememberMe);
       toast.success('Login successful!');
       navigate('/dashboard');
-    } catch (error: any) {
+    } catch (error) {
       console.error('Login error:', error);
-      const message = error.response?.data?.message || 'Login failed. Please check your credentials.';
+      const axiosError = error as { response?: { data?: { message?: string } } };
+      const message = axiosError.response?.data?.message || 'Login failed. Please check your credentials.';
       toast.error(message);
     } finally {
       setIsLoading(false);
@@ -51,12 +72,18 @@ export default function Login() {
               id="email"
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
+              onChange={(e) => {
+                setEmail(e.target.value);
+                if (errors.email) setErrors({ ...errors, email: undefined });
+              }}
+              className={`w-full px-4 py-2 border ${errors.email ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'} bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition`}
               placeholder="you@example.com"
               disabled={isLoading}
               required
             />
+            {errors.email && (
+              <p className="mt-1 text-sm text-red-500">{errors.email}</p>
+            )}
           </div>
 
           <div>
@@ -67,12 +94,18 @@ export default function Login() {
               id="password"
               type="password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
+              onChange={(e) => {
+                setPassword(e.target.value);
+                if (errors.password) setErrors({ ...errors, password: undefined });
+              }}
+              className={`w-full px-4 py-2 border ${errors.password ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'} bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition`}
               placeholder="••••••••"
               disabled={isLoading}
               required
             />
+            {errors.password && (
+              <p className="mt-1 text-sm text-red-500">{errors.password}</p>
+            )}
           </div>
 
           <div className="flex items-center justify-between">
