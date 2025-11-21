@@ -4,14 +4,59 @@ import { NotFoundError, ValidationError } from '../utils/errorHandler';
 import { createAuditLog } from '../middleware/auditLog';
 
 /**
+ * Check if a marker is relevant for a specific row
+ */
+function isMarkerRelevantForRow(marker: any, row: number): boolean {
+  // Check row range
+  if (marker.start_row !== null && marker.end_row !== null) {
+    if (row < marker.start_row || row > marker.end_row) {
+      return false;
+    }
+  } else if (marker.start_row !== null && row < marker.start_row) {
+    return false;
+  } else if (marker.end_row !== null && row > marker.end_row) {
+    return false;
+  }
+
+  // Check repeating interval
+  if (marker.is_repeating && marker.repeat_interval) {
+    const offset = marker.repeat_offset || 0;
+    if ((row - offset) % marker.repeat_interval !== 0) {
+      return false;
+    }
+    if (marker.start_row !== null && row < marker.start_row) {
+      return false;
+    }
+  }
+
+  // Check trigger condition
+  const condition = marker.trigger_condition;
+  if (condition && Object.keys(condition).length > 0) {
+    switch (marker.trigger_type) {
+      case 'counter_value':
+        if (condition.operator === 'equals' && row !== condition.value) return false;
+        if (condition.operator === 'greater_than' && row <= condition.value) return false;
+        if (condition.operator === 'less_than' && row >= condition.value) return false;
+        if (condition.operator === 'multiple_of' && row % condition.value !== 0) return false;
+        break;
+
+      case 'row_interval':
+        if (condition.interval && row % condition.interval !== 0) return false;
+        break;
+    }
+  }
+
+  return true;
+}
+
+/**
  * Get all magic markers for a project
  */
 export async function getMagicMarkers(req: Request, res: Response) {
   const userId = (req as any).user.userId;
   const { id: projectId } = req.params;
-  const { counterId, isActive } = req.query;
+  const { counterId, isActive, category, priority, currentRow } = req.query;
 
-  // Verify project ownership
   const project = await db('projects')
     .where({ id: projectId, user_id: userId })
     .whereNull('deleted_at')
@@ -21,22 +66,91 @@ export async function getMagicMarkers(req: Request, res: Response) {
     throw new NotFoundError('Project not found');
   }
 
+  let query = db('magic_markers').where({ project_id: projectId });
+
+  if (counterId) query = query.where({ counter_id: counterId });
+  if (isActive !== undefined) query = query.where({ is_active: isActive === 'true' });
+  if (category) query = query.where({ category });
+  if (priority) query = query.where({ priority });
+
+  const magicMarkers = await query.orderBy([
+    { column: 'priority', order: 'desc' },
+    { column: 'created_at', order: 'desc' }
+  ]);
+
+  const parsedMarkers = magicMarkers.map(marker => {
+    const parsed = {
+      ...marker,
+      trigger_condition: typeof marker.trigger_condition === 'string'
+        ? JSON.parse(marker.trigger_condition)
+        : marker.trigger_condition,
+    };
+    if (currentRow) {
+      parsed.isRelevantNow = isMarkerRelevantForRow(parsed, parseInt(currentRow as string, 10));
+    }
+    return parsed;
+  });
+
+  res.json({ success: true, data: { magicMarkers: parsedMarkers } });
+}
+
+/**
+ * Get magic markers that are active for a specific row
+ */
+export async function getActiveMarkersForRow(req: Request, res: Response) {
+  const userId = (req as any).user.userId;
+  const { id: projectId } = req.params;
+  const { row, counterId } = req.query;
+
+  if (!row) throw new ValidationError('Row number is required');
+
+  const rowNum = parseInt(row as string, 10);
+
+  const project = await db('projects')
+    .where({ id: projectId, user_id: userId })
+    .whereNull('deleted_at')
+    .first();
+
+  if (!project) throw new NotFoundError('Project not found');
+
   let query = db('magic_markers')
-    .where({ project_id: projectId });
+    .where({ project_id: projectId, is_active: true })
+    .where('is_completed', false)
+    .where(function() {
+      this.whereNull('snoozed_until').orWhere('snoozed_until', '<', new Date());
+    });
 
-  if (counterId) {
-    query = query.where({ counter_id: counterId });
-  }
+  if (counterId) query = query.where({ counter_id: counterId });
 
-  if (isActive !== undefined) {
-    query = query.where({ is_active: isActive === 'true' });
-  }
+  const allMarkers = await query;
 
-  const magicMarkers = await query.orderBy('created_at', 'desc');
+  const relevantMarkers = allMarkers.filter(marker => {
+    const parsed = {
+      ...marker,
+      trigger_condition: typeof marker.trigger_condition === 'string'
+        ? JSON.parse(marker.trigger_condition)
+        : marker.trigger_condition,
+    };
+    return isMarkerRelevantForRow(parsed, rowNum);
+  });
+
+  const priorityOrder = { critical: 4, high: 3, normal: 2, low: 1 };
+  relevantMarkers.sort((a, b) =>
+    (priorityOrder[b.priority as keyof typeof priorityOrder] || 2) -
+    (priorityOrder[a.priority as keyof typeof priorityOrder] || 2)
+  );
 
   res.json({
     success: true,
-    data: { magicMarkers },
+    data: {
+      row: rowNum,
+      markers: relevantMarkers.map(m => ({
+        ...m,
+        trigger_condition: typeof m.trigger_condition === 'string'
+          ? JSON.parse(m.trigger_condition)
+          : m.trigger_condition,
+      })),
+    },
   });
 }
 
@@ -47,27 +161,29 @@ export async function getMagicMarker(req: Request, res: Response) {
   const userId = (req as any).user.userId;
   const { id: projectId, markerId } = req.params;
 
-  // Verify project ownership
   const project = await db('projects')
     .where({ id: projectId, user_id: userId })
     .whereNull('deleted_at')
     .first();
 
-  if (!project) {
-    throw new NotFoundError('Project not found');
-  }
+  if (!project) throw new NotFoundError('Project not found');
 
   const magicMarker = await db('magic_markers')
     .where({ id: markerId, project_id: projectId })
     .first();
 
-  if (!magicMarker) {
-    throw new NotFoundError('Magic marker not found');
-  }
+  if (!magicMarker) throw new NotFoundError('Magic marker not found');
 
   res.json({
     success: true,
-    data: { magicMarker },
+    data: {
+      magicMarker: {
+        ...magicMarker,
+        trigger_condition: typeof magicMarker.trigger_condition === 'string'
+          ? JSON.parse(magicMarker.trigger_condition)
+          : magicMarker.trigger_condition,
+      }
+    },
   });
 }
 
@@ -78,21 +194,16 @@ export async function createMagicMarker(req: Request, res: Response) {
   const userId = (req as any).user.userId;
   const { id: projectId } = req.params;
   const {
-    counterId,
-    name,
-    triggerType,
-    triggerCondition,
-    alertMessage,
-    alertType,
-    isActive = true,
+    counterId, name, triggerType, triggerCondition, alertMessage, alertType, isActive = true,
+    startRow, endRow, repeatInterval, repeatOffset, isRepeating, priority, displayStyle, color, category,
   } = req.body;
 
-  if (!name || !triggerType || !triggerCondition || !alertMessage) {
-    throw new ValidationError('Name, trigger type, trigger condition, and alert message are required');
+  if (!name || !alertMessage) {
+    throw new ValidationError('Name and alert message are required');
   }
 
-  const validTriggerTypes = ['counter_value', 'row_interval', 'stitch_count', 'time_based', 'custom'];
-  if (!validTriggerTypes.includes(triggerType)) {
+  const validTriggerTypes = ['counter_value', 'row_interval', 'row_range', 'stitch_count', 'time_based', 'custom', 'at_same_time'];
+  if (triggerType && !validTriggerTypes.includes(triggerType)) {
     throw new ValidationError(`Trigger type must be one of: ${validTriggerTypes.join(', ')}`);
   }
 
@@ -101,56 +212,41 @@ export async function createMagicMarker(req: Request, res: Response) {
     throw new ValidationError(`Alert type must be one of: ${validAlertTypes.join(', ')}`);
   }
 
-  // Validate trigger condition structure based on trigger type
-  if (typeof triggerCondition !== 'object' || triggerCondition === null) {
-    throw new ValidationError('Trigger condition must be an object');
+  const validPriorities = ['low', 'normal', 'high', 'critical'];
+  if (priority && !validPriorities.includes(priority)) {
+    throw new ValidationError(`Priority must be one of: ${validPriorities.join(', ')}`);
   }
 
-  switch (triggerType) {
-    case 'counter_value':
-      if (!triggerCondition.operator || !['equals', 'greater_than', 'less_than', 'multiple_of'].includes(triggerCondition.operator)) {
-        throw new ValidationError('Counter value trigger requires a valid operator (equals, greater_than, less_than, multiple_of)');
-      }
-      if (typeof triggerCondition.value !== 'number') {
-        throw new ValidationError('Counter value trigger requires a numeric value');
-      }
-      break;
-    case 'row_interval':
-      if (typeof triggerCondition.interval !== 'number' || triggerCondition.interval <= 0) {
-        throw new ValidationError('Row interval trigger requires a positive numeric interval');
-      }
-      break;
-    case 'stitch_count':
-      if (typeof triggerCondition.count !== 'number' || triggerCondition.count <= 0) {
-        throw new ValidationError('Stitch count trigger requires a positive numeric count');
-      }
-      break;
-    case 'time_based':
-      if (typeof triggerCondition.minutes !== 'number' || triggerCondition.minutes <= 0) {
-        throw new ValidationError('Time-based trigger requires a positive numeric minutes value');
-      }
-      break;
+  const validDisplayStyles = ['banner', 'popup', 'toast', 'inline'];
+  if (displayStyle && !validDisplayStyles.includes(displayStyle)) {
+    throw new ValidationError(`Display style must be one of: ${validDisplayStyles.join(', ')}`);
   }
 
-  // Verify project ownership
+  const validCategories = ['reminder', 'at_same_time', 'milestone', 'shaping', 'note'];
+  if (category && !validCategories.includes(category)) {
+    throw new ValidationError(`Category must be one of: ${validCategories.join(', ')}`);
+  }
+
+  if (startRow !== undefined && endRow !== undefined && startRow > endRow) {
+    throw new ValidationError('Start row must be less than or equal to end row');
+  }
+
+  if (isRepeating && (!repeatInterval || repeatInterval <= 0)) {
+    throw new ValidationError('Repeat interval must be a positive number when repeating is enabled');
+  }
+
   const project = await db('projects')
     .where({ id: projectId, user_id: userId })
     .whereNull('deleted_at')
     .first();
 
-  if (!project) {
-    throw new NotFoundError('Project not found');
-  }
+  if (!project) throw new NotFoundError('Project not found');
 
-  // Verify counter ownership if counterId is provided
   if (counterId) {
     const counter = await db('counters')
       .where({ id: counterId, project_id: projectId })
       .first();
-
-    if (!counter) {
-      throw new NotFoundError('Counter not found');
-    }
+    if (!counter) throw new NotFoundError('Counter not found');
   }
 
   const [magicMarker] = await db('magic_markers')
@@ -158,11 +254,20 @@ export async function createMagicMarker(req: Request, res: Response) {
       project_id: projectId,
       counter_id: counterId || null,
       name,
-      trigger_type: triggerType,
-      trigger_condition: JSON.stringify(triggerCondition),
+      trigger_type: triggerType || 'row_range',
+      trigger_condition: triggerCondition ? JSON.stringify(triggerCondition) : JSON.stringify({}),
       alert_message: alertMessage,
       alert_type: alertType || 'notification',
       is_active: isActive,
+      start_row: startRow ?? null,
+      end_row: endRow ?? null,
+      repeat_interval: repeatInterval ?? null,
+      repeat_offset: repeatOffset ?? 0,
+      is_repeating: isRepeating ?? false,
+      priority: priority || 'normal',
+      display_style: displayStyle || 'banner',
+      color: color || null,
+      category: category || 'reminder',
       created_at: new Date(),
       updated_at: new Date(),
     })
@@ -179,7 +284,14 @@ export async function createMagicMarker(req: Request, res: Response) {
   res.status(201).json({
     success: true,
     message: 'Magic marker created successfully',
-    data: { magicMarker },
+    data: {
+      magicMarker: {
+        ...magicMarker,
+        trigger_condition: typeof magicMarker.trigger_condition === 'string'
+          ? JSON.parse(magicMarker.trigger_condition)
+          : magicMarker.trigger_condition,
+      }
+    },
   });
 }
 
@@ -191,25 +303,21 @@ export async function updateMagicMarker(req: Request, res: Response) {
   const { id: projectId, markerId } = req.params;
   const updates = req.body;
 
-  // Verify project ownership
   const project = await db('projects')
     .where({ id: projectId, user_id: userId })
     .whereNull('deleted_at')
     .first();
 
-  if (!project) {
-    throw new NotFoundError('Project not found');
-  }
+  if (!project) throw new NotFoundError('Project not found');
 
   const magicMarker = await db('magic_markers')
     .where({ id: markerId, project_id: projectId })
     .first();
 
-  if (!magicMarker) {
-    throw new NotFoundError('Magic marker not found');
-  }
+  if (!magicMarker) throw new NotFoundError('Magic marker not found');
 
   const updateData: any = { updated_at: new Date() };
+
   if (updates.name !== undefined) updateData.name = updates.name;
   if (updates.triggerType !== undefined) updateData.trigger_type = updates.triggerType;
   if (updates.triggerCondition !== undefined) {
@@ -218,6 +326,15 @@ export async function updateMagicMarker(req: Request, res: Response) {
   if (updates.alertMessage !== undefined) updateData.alert_message = updates.alertMessage;
   if (updates.alertType !== undefined) updateData.alert_type = updates.alertType;
   if (updates.isActive !== undefined) updateData.is_active = updates.isActive;
+  if (updates.startRow !== undefined) updateData.start_row = updates.startRow;
+  if (updates.endRow !== undefined) updateData.end_row = updates.endRow;
+  if (updates.repeatInterval !== undefined) updateData.repeat_interval = updates.repeatInterval;
+  if (updates.repeatOffset !== undefined) updateData.repeat_offset = updates.repeatOffset;
+  if (updates.isRepeating !== undefined) updateData.is_repeating = updates.isRepeating;
+  if (updates.priority !== undefined) updateData.priority = updates.priority;
+  if (updates.displayStyle !== undefined) updateData.display_style = updates.displayStyle;
+  if (updates.color !== undefined) updateData.color = updates.color;
+  if (updates.category !== undefined) updateData.category = updates.category;
 
   const [updatedMagicMarker] = await db('magic_markers')
     .where({ id: markerId })
@@ -236,7 +353,116 @@ export async function updateMagicMarker(req: Request, res: Response) {
   res.json({
     success: true,
     message: 'Magic marker updated successfully',
-    data: { magicMarker: updatedMagicMarker },
+    data: {
+      magicMarker: {
+        ...updatedMagicMarker,
+        trigger_condition: typeof updatedMagicMarker.trigger_condition === 'string'
+          ? JSON.parse(updatedMagicMarker.trigger_condition)
+          : updatedMagicMarker.trigger_condition,
+      }
+    },
+  });
+}
+
+/**
+ * Snooze a magic marker
+ */
+export async function snoozeMagicMarker(req: Request, res: Response) {
+  const userId = (req as any).user.userId;
+  const { id: projectId, markerId } = req.params;
+  const { duration } = req.body;
+
+  if (!duration || duration <= 0) {
+    throw new ValidationError('Snooze duration must be a positive number of minutes');
+  }
+
+  const project = await db('projects')
+    .where({ id: projectId, user_id: userId })
+    .whereNull('deleted_at')
+    .first();
+
+  if (!project) throw new NotFoundError('Project not found');
+
+  const magicMarker = await db('magic_markers')
+    .where({ id: markerId, project_id: projectId })
+    .first();
+
+  if (!magicMarker) throw new NotFoundError('Magic marker not found');
+
+  const snoozedUntil = new Date(Date.now() + duration * 60 * 1000);
+
+  const [updatedMagicMarker] = await db('magic_markers')
+    .where({ id: markerId })
+    .update({
+      snoozed_until: snoozedUntil,
+      snooze_count: (magicMarker.snooze_count || 0) + 1,
+      updated_at: new Date(),
+    })
+    .returning('*');
+
+  res.json({
+    success: true,
+    message: `Magic marker snoozed for ${duration} minutes`,
+    data: {
+      magicMarker: {
+        ...updatedMagicMarker,
+        trigger_condition: typeof updatedMagicMarker.trigger_condition === 'string'
+          ? JSON.parse(updatedMagicMarker.trigger_condition)
+          : updatedMagicMarker.trigger_condition,
+      }
+    },
+  });
+}
+
+/**
+ * Mark a magic marker as completed
+ */
+export async function completeMagicMarker(req: Request, res: Response) {
+  const userId = (req as any).user.userId;
+  const { id: projectId, markerId } = req.params;
+
+  const project = await db('projects')
+    .where({ id: projectId, user_id: userId })
+    .whereNull('deleted_at')
+    .first();
+
+  if (!project) throw new NotFoundError('Project not found');
+
+  const magicMarker = await db('magic_markers')
+    .where({ id: markerId, project_id: projectId })
+    .first();
+
+  if (!magicMarker) throw new NotFoundError('Magic marker not found');
+
+  const [updatedMagicMarker] = await db('magic_markers')
+    .where({ id: markerId })
+    .update({
+      is_completed: true,
+      completed_at: new Date(),
+      updated_at: new Date(),
+    })
+    .returning('*');
+
+  await createAuditLog(req, {
+    userId,
+    action: 'magic_marker_completed',
+    entityType: 'magic_marker',
+    entityId: markerId,
+    oldValues: magicMarker,
+    newValues: updatedMagicMarker,
+  });
+
+  res.json({
+    success: true,
+    message: 'Magic marker marked as completed',
+    data: {
+      magicMarker: {
+        ...updatedMagicMarker,
+        trigger_condition: typeof updatedMagicMarker.trigger_condition === 'string'
+          ? JSON.parse(updatedMagicMarker.trigger_condition)
+          : updatedMagicMarker.trigger_condition,
+      }
+    },
   });
 }
 
@@ -247,23 +473,18 @@ export async function deleteMagicMarker(req: Request, res: Response) {
   const userId = (req as any).user.userId;
   const { id: projectId, markerId } = req.params;
 
-  // Verify project ownership
   const project = await db('projects')
     .where({ id: projectId, user_id: userId })
     .whereNull('deleted_at')
     .first();
 
-  if (!project) {
-    throw new NotFoundError('Project not found');
-  }
+  if (!project) throw new NotFoundError('Project not found');
 
   const magicMarker = await db('magic_markers')
     .where({ id: markerId, project_id: projectId })
     .first();
 
-  if (!magicMarker) {
-    throw new NotFoundError('Magic marker not found');
-  }
+  if (!magicMarker) throw new NotFoundError('Magic marker not found');
 
   await db('magic_markers').where({ id: markerId }).del();
 
@@ -275,10 +496,7 @@ export async function deleteMagicMarker(req: Request, res: Response) {
     oldValues: magicMarker,
   });
 
-  res.json({
-    success: true,
-    message: 'Magic marker deleted successfully',
-  });
+  res.json({ success: true, message: 'Magic marker deleted successfully' });
 }
 
 /**
@@ -288,23 +506,18 @@ export async function toggleMagicMarker(req: Request, res: Response) {
   const userId = (req as any).user.userId;
   const { id: projectId, markerId } = req.params;
 
-  // Verify project ownership
   const project = await db('projects')
     .where({ id: projectId, user_id: userId })
     .whereNull('deleted_at')
     .first();
 
-  if (!project) {
-    throw new NotFoundError('Project not found');
-  }
+  if (!project) throw new NotFoundError('Project not found');
 
   const magicMarker = await db('magic_markers')
     .where({ id: markerId, project_id: projectId })
     .first();
 
-  if (!magicMarker) {
-    throw new NotFoundError('Magic marker not found');
-  }
+  if (!magicMarker) throw new NotFoundError('Magic marker not found');
 
   const [updatedMagicMarker] = await db('magic_markers')
     .where({ id: markerId })
@@ -326,61 +539,103 @@ export async function toggleMagicMarker(req: Request, res: Response) {
   res.json({
     success: true,
     message: `Magic marker ${updatedMagicMarker.is_active ? 'activated' : 'deactivated'} successfully`,
-    data: { magicMarker: updatedMagicMarker },
+    data: {
+      magicMarker: {
+        ...updatedMagicMarker,
+        trigger_condition: typeof updatedMagicMarker.trigger_condition === 'string'
+          ? JSON.parse(updatedMagicMarker.trigger_condition)
+          : updatedMagicMarker.trigger_condition,
+      }
+    },
+  });
+}
+
+/**
+ * Record that a marker was triggered
+ */
+export async function recordTrigger(req: Request, res: Response) {
+  const userId = (req as any).user.userId;
+  const { id: projectId, markerId } = req.params;
+
+  const project = await db('projects')
+    .where({ id: projectId, user_id: userId })
+    .whereNull('deleted_at')
+    .first();
+
+  if (!project) throw new NotFoundError('Project not found');
+
+  const magicMarker = await db('magic_markers')
+    .where({ id: markerId, project_id: projectId })
+    .first();
+
+  if (!magicMarker) throw new NotFoundError('Magic marker not found');
+
+  const [updatedMagicMarker] = await db('magic_markers')
+    .where({ id: markerId })
+    .update({
+      last_triggered: new Date(),
+      trigger_count: (magicMarker.trigger_count || 0) + 1,
+      updated_at: new Date(),
+    })
+    .returning('*');
+
+  res.json({
+    success: true,
+    data: {
+      magicMarker: {
+        ...updatedMagicMarker,
+        trigger_condition: typeof updatedMagicMarker.trigger_condition === 'string'
+          ? JSON.parse(updatedMagicMarker.trigger_condition)
+          : updatedMagicMarker.trigger_condition,
+      }
+    },
   });
 }
 
 /**
  * Check and trigger magic markers based on counter values
- * This can be called internally when counters are updated
  */
 export async function checkMagicMarkers(projectId: string, counterId: string, counterValue: number) {
-  // Get all active magic markers for this counter
   const magicMarkers = await db('magic_markers')
     .where({
       project_id: projectId,
       counter_id: counterId,
       is_active: true,
+    })
+    .where(function() {
+      this.where('is_completed', false).orWhereNull('is_completed');
+    })
+    .where(function() {
+      this.whereNull('snoozed_until').orWhere('snoozed_until', '<', new Date());
     });
 
   const triggeredMarkers = [];
 
   for (const marker of magicMarkers) {
-    let shouldTrigger = false;
-    const condition = JSON.parse(marker.trigger_condition);
+    const parsed = {
+      ...marker,
+      trigger_condition: typeof marker.trigger_condition === 'string'
+        ? JSON.parse(marker.trigger_condition)
+        : marker.trigger_condition,
+    };
 
-    switch (marker.trigger_type) {
-      case 'counter_value':
-        if (condition.operator === 'equals' && counterValue === condition.value) {
-          shouldTrigger = true;
-        } else if (condition.operator === 'greater_than' && counterValue > condition.value) {
-          shouldTrigger = true;
-        } else if (condition.operator === 'less_than' && counterValue < condition.value) {
-          shouldTrigger = true;
-        } else if (condition.operator === 'multiple_of' && counterValue % condition.value === 0) {
-          shouldTrigger = true;
-        }
-        break;
+    if (isMarkerRelevantForRow(parsed, counterValue)) {
+      triggeredMarkers.push(parsed);
 
-      case 'row_interval':
-        if (counterValue % condition.interval === 0 && counterValue > 0) {
-          shouldTrigger = true;
-        }
-        break;
-
-      case 'stitch_count':
-        if (counterValue === condition.count) {
-          shouldTrigger = true;
-        }
-        break;
-
-      // Add more trigger type logic as needed
-    }
-
-    if (shouldTrigger) {
-      triggeredMarkers.push(marker);
+      await db('magic_markers')
+        .where({ id: marker.id })
+        .update({
+          last_triggered: new Date(),
+          trigger_count: (marker.trigger_count || 0) + 1,
+        });
     }
   }
+
+  const priorityOrder = { critical: 4, high: 3, normal: 2, low: 1 };
+  triggeredMarkers.sort((a, b) =>
+    (priorityOrder[b.priority as keyof typeof priorityOrder] || 2) -
+    (priorityOrder[a.priority as keyof typeof priorityOrder] || 2)
+  );
 
   return triggeredMarkers;
 }
