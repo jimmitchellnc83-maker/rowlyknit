@@ -1,5 +1,4 @@
-// @ts-nocheck
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { FiSave, FiX, FiPlus, FiMinus, FiGrid, FiEdit3, FiTrash2, FiRotateCcw, FiRotateCw } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';

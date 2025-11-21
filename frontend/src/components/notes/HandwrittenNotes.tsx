@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useRef, useState, useEffect } from 'react';
 import { FiEdit3, FiTrash, FiDownload, FiTrash2, FiRotateCcw, FiRotateCw, FiDroplet } from 'react-icons/fi';
 
@@ -36,9 +35,9 @@ const COLORS = [
 const LINE_WIDTHS = [2, 4, 6, 8, 12];
 
 export const HandwrittenNotes: React.FC<HandwrittenNotesProps> = ({
-  patternId,
-  projectId,
-  pageNumber,
+  patternId: _patternId,
+  projectId: _projectId,
+  pageNumber: _pageNumber,
   onSave,
   initialData,
 }) => {

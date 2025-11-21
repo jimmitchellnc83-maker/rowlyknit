@@ -1,6 +1,5 @@
-// @ts-nocheck
 import React, { useState } from 'react';
-import { FiFileText, FiPlus, FiTrash2, FiDownload } from 'react-icons/fi';
+import { FiFileText, FiTrash2, FiDownload } from 'react-icons/fi';
 import { formatDistanceToNow } from 'date-fns';
 
 type TemplateType = 'gauge_swatch' | 'fit_adjustment' | 'yarn_substitution' | 'finishing_techniques';
@@ -81,7 +80,7 @@ const TEMPLATE_INFO = {
 };
 
 export const StructuredMemoTemplates: React.FC<StructuredMemoTemplatesProps> = ({
-  projectId,
+  projectId: _projectId,
   memos,
   onSaveMemo,
   onDeleteMemo,

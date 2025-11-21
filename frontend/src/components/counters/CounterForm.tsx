@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useState } from 'react';
 import { FiX } from 'react-icons/fi';
 import type { Counter, IncrementPattern } from '../../types/counter.types';
@@ -38,7 +37,7 @@ export default function CounterForm({ counter, onSave, onCancel }: CounterFormPr
   const [maxValue, setMaxValue] = useState(counter?.max_value || '');
   const [displayColor, setDisplayColor] = useState(counter?.display_color || COUNTER_COLORS[0]);
   const [notes, setNotes] = useState(counter?.notes || '');
-  const [incrementPattern, setIncrementPattern] = useState(counter?.increment_pattern?.type || 'simple');
+  const [incrementPattern, setIncrementPattern] = useState<string>(counter?.increment_pattern?.type || 'simple');
   const [customIncrement, setCustomIncrement] = useState(counter?.increment_pattern?.increment || 1);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -46,35 +45,30 @@ export default function CounterForm({ counter, onSave, onCancel }: CounterFormPr
 
     let pattern: IncrementPattern | undefined;
 
-    switch (incrementPattern) {
-      case 'simple':
-        pattern = { type: 'simple' };
-        break;
-      case 'every_n': // garter pattern
-        pattern = {
-          type: 'every_n',
-          rule: 'every_n_rows',
-          n: 2,
-          increment: 1,
-          description: 'Garter stitch ridge counting'
-        };
-        break;
-      case 'every_n_cable':
-        pattern = {
-          type: 'every_n',
-          rule: 'every_n_rows',
-          n: 4,
-          increment: 1,
-          description: 'Cable pattern repeat'
-        };
-        break;
-      case 'custom':
-        pattern = {
-          type: 'custom_fixed',
-          increment: customIncrement,
-          description: `Custom: +${customIncrement} per action`
-        };
-        break;
+    if (incrementPattern === 'simple') {
+      pattern = { type: 'simple' };
+    } else if (incrementPattern === 'every_n_garter') {
+      pattern = {
+        type: 'every_n',
+        rule: 'every_n_rows',
+        n: 2,
+        increment: 1,
+        description: 'Garter stitch ridge counting'
+      };
+    } else if (incrementPattern === 'every_n_cable') {
+      pattern = {
+        type: 'every_n',
+        rule: 'every_n_rows',
+        n: 4,
+        increment: 1,
+        description: 'Cable pattern repeat'
+      };
+    } else if (incrementPattern === 'custom') {
+      pattern = {
+        type: 'custom_fixed',
+        increment: customIncrement,
+        description: `Custom: +${customIncrement} per action`
+      };
     }
 
     // Backend expects camelCase field names

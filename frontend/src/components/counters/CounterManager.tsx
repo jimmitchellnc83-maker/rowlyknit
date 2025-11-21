@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useState, useEffect } from 'react';
 import { FiPlus, FiLink, FiClock } from 'react-icons/fi';
 import axios from 'axios';
@@ -96,26 +95,6 @@ export default function CounterManager({ projectId }: CounterManagerProps) {
     } catch (error) {
       console.error('Error toggling visibility:', error);
       toast.error('Failed to update counter');
-    }
-  };
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const handleReorderCounters = async (_reorderedCounters: Counter[]) => {
-    try {
-      const updates = _reorderedCounters.map((counter, index) => ({
-        id: counter.id,
-        sort_order: index
-      }));
-
-      await axios.patch(`/api/projects/${projectId}/counters/reorder`, {
-        counters: updates
-      });
-
-      setCounters(_reorderedCounters);
-    } catch (error) {
-      console.error('Error reordering counters:', error);
-      toast.error('Failed to reorder counters');
-      fetchCounters(); // Revert on error
     }
   };
 

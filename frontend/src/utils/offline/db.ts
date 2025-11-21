@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
 
 interface RowlyOfflineDB extends DBSchema {
@@ -84,7 +83,7 @@ export const initDB = async (): Promise<IDBPDatabase<RowlyOfflineDB>> => {
     // @ts-ignore
 
   dbInstance = await openDB<RowlyOfflineDB>(DB_NAME, DB_VERSION, {
-    upgrade(db, oldVersion, newVersion, transaction) {
+    upgrade(db, _oldVersion, _newVersion, _transaction) {
       // Pattern files
       if (!db.objectStoreNames.contains('patterns')) {
         db.createObjectStore('patterns', { keyPath: 'id' });
@@ -206,10 +205,10 @@ export const getCounterFromCache = async (counterId: string) => {
 };
 
 export const getProjectCountersFromCache = async (projectId: string) => {
-      // @ts-ignore
   const db = await getDB();
+  // @ts-expect-error - index exists at runtime but not in schema type
   const index = db.transaction('counters').store.index('project_id');
-      // @ts-ignore
+  // @ts-expect-error - IDB allows string keys at runtime
   return index.getAll(projectId);
 };
 
@@ -235,10 +234,10 @@ export const getSyncQueue = async () => {
 };
 
 export const getUnsyncedItems = async () => {
-      // @ts-ignore
   const db = await getDB();
+  // @ts-expect-error - index exists at runtime but not in schema type
   const index = db.transaction('sync-queue').store.index('synced');
-      // @ts-ignore
+  // @ts-expect-error - IDB allows boolean keys at runtime
   return index.getAll(false);
 };
 
@@ -296,12 +295,12 @@ export const getSessionFromCache = async (sessionId: string) => {
 };
 
 export const getProjectSessionsFromCache = async (projectId: string) => {
-      // @ts-ignore
   const db = await getDB();
+  // @ts-expect-error - index exists at runtime but not in schema type
   const index = db.transaction('sessions').store.index('project_id');
-      // @ts-ignore
+  // @ts-expect-error - IDB allows string keys at runtime
   const sessions = await index.getAll(projectId);
-  return sessions.map((s) => s.data);
+  return sessions.map((s: { data: unknown }) => s.data);
 };
 
 // Note operations
@@ -322,10 +321,10 @@ export const getNoteFromCache = async (noteId: string) => {
 };
 
 export const getUnsyncedNotes = async () => {
-      // @ts-ignore
   const db = await getDB();
+  // @ts-expect-error - index exists at runtime but not in schema type
   const index = db.transaction('notes').store.index('synced');
-      // @ts-ignore
+  // @ts-expect-error - IDB allows boolean keys at runtime
   return index.getAll(false);
 };
 

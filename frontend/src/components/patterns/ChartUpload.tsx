@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useState, useRef } from 'react';
 import { FiUpload, FiX, FiFile, FiCheckCircle } from 'react-icons/fi';
 import { toast } from 'react-toastify';

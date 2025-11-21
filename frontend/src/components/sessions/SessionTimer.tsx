@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useState, useEffect, useRef } from 'react';
 import { FiClock, FiPlay, FiPause, FiSquare } from 'react-icons/fi';
 import { KnittingSession } from '../../types/counter.types';
@@ -13,19 +12,19 @@ interface SessionTimerProps {
 }
 
 export const SessionTimer: React.FC<SessionTimerProps> = ({
-  projectId,
+  projectId: _projectId,
   currentSession,
   onStartSession,
   onEndSession,
   onPauseSession,
-  getCurrentCounterValues,
+  getCurrentCounterValues: _getCurrentCounterValues,
 }) => {
   const [elapsedTime, setElapsedTime] = useState(0);
   const [isRunning, setIsRunning] = useState(false);
   const [showEndModal, setShowEndModal] = useState(false);
   const [endNotes, setEndNotes] = useState('');
   const [mood, setMood] = useState<'productive' | 'frustrated' | 'relaxed' | undefined>();
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Calculate elapsed time from current session
   useEffect(() => {

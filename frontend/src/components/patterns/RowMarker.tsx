@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useState, useEffect, useCallback } from 'react';
 import { FiMove, FiX, FiEye, FiEyeOff } from 'react-icons/fi';
 
@@ -15,7 +14,7 @@ const MARKER_COLORS = [
   { name: 'Purple', value: '#8B5CF6', opacity: 0.3 },
 ];
 
-export default function RowMarker({ pageNumber, onPositionChange }: RowMarkerProps) {
+export default function RowMarker({ pageNumber: _pageNumber, onPositionChange }: RowMarkerProps) {
   const [position, setPosition] = useState({ x: 50, y: 50 }); // Percentage based
   const [height, setHeight] = useState(3); // Percentage of viewport
   const [isDragging, setIsDragging] = useState(false);

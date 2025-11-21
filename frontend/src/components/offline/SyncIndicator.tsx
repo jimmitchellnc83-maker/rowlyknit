@@ -1,5 +1,4 @@
-// @ts-nocheck
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import { FiCloud, FiCloudOff, FiRefreshCw, FiAlertCircle, FiCheckCircle, FiX } from 'react-icons/fi';
 import { syncManager, SyncStatus } from '../../utils/offline/syncManager';
 

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useState, useRef, useEffect } from 'react';
 import { FiMic, FiSquare, FiPlay, FiPause, FiTrash2, FiDownload, FiEdit2, FiCheck, FiX } from 'react-icons/fi';
 import { formatDistanceToNow } from 'date-fns';
@@ -25,10 +24,10 @@ interface AudioNotesProps {
 }
 
 export const AudioNotes: React.FC<AudioNotesProps> = ({
-  projectId,
-  patternId,
+  projectId: _projectId,
+  patternId: _patternId,
   notes,
-  getCurrentCounterValues,
+  getCurrentCounterValues: _getCurrentCounterValues,
   onSaveNote,
   onDeleteNote,
   onUpdateTranscription,

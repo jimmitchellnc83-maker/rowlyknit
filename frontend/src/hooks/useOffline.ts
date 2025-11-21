@@ -1,14 +1,8 @@
-// @ts-nocheck
 import { useState, useEffect, useCallback } from 'react';
 import {
   cacheCounter,
-  cacheProject,
   cacheSession,
   cacheNote,
-  
-  
-  
-  
   addToSyncQueue,
   getCacheSize,
 } from '../utils/offline/db';
@@ -49,7 +43,7 @@ export const useOffline = () => {
       cacheGetter?: () => Promise<any>;
       cacheSetter?: (data: any) => Promise<void>;
     }): Promise<T> => {
-      const { endpoint, method = 'GET', data, cacheKey, cacheGetter, cacheSetter } = config;
+      const { endpoint, method = 'GET', data, cacheKey: _cacheKey, cacheGetter, cacheSetter } = config;
 
       // If online, make normal request
       if (isOnline) {
