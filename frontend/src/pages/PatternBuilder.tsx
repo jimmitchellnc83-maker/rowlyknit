@@ -9,6 +9,7 @@ interface SymbolData {
   name: string;
   abbr: string;
   desc: string;
+  fallback?: string; // ASCII fallback if symbol doesn't render
 }
 
 interface SymbolLibrary {
@@ -17,37 +18,37 @@ interface SymbolLibrary {
 
 const symbolLibrary: SymbolLibrary = {
   basic: [
-    { symbol: '□', name: 'Empty', abbr: '', desc: 'Empty stitch' },
-    { symbol: '|', name: 'Knit', abbr: 'K', desc: 'K on RS, P on WS' },
-    { symbol: '−', name: 'Purl', abbr: 'P', desc: 'P on RS, K on WS' },
-    { symbol: '○', name: 'Yarn Over', abbr: 'YO', desc: 'Yarn over' },
-    { symbol: '×', name: 'No Stitch', abbr: '', desc: 'Placeholder - no stitch exists' }
+    { symbol: '□', name: 'Empty', abbr: '', desc: 'Empty stitch', fallback: '.' },
+    { symbol: '|', name: 'Knit', abbr: 'K', desc: 'K on RS, P on WS', fallback: 'K' },
+    { symbol: '−', name: 'Purl', abbr: 'P', desc: 'P on RS, K on WS', fallback: 'P' },
+    { symbol: '○', name: 'Yarn Over', abbr: 'YO', desc: 'Yarn over', fallback: 'O' },
+    { symbol: '×', name: 'No Stitch', abbr: '', desc: 'Placeholder - no stitch exists', fallback: 'X' }
   ],
   decreases: [
-    { symbol: '⟩', name: 'K2tog', abbr: 'K2tog', desc: 'K2tog on RS, P2tog on WS' },
-    { symbol: '⟨', name: 'SSK', abbr: 'SSK', desc: 'SSK on RS, SSP on WS' },
-    { symbol: '⟨', name: 'P2tog', abbr: 'P2tog', desc: 'P2tog on RS, K2tog on WS' },
-    { symbol: '⋀', name: 'K3tog', abbr: 'K3tog', desc: 'K3tog on RS, P3tog on WS' },
-    { symbol: '⋏', name: 'SK2P', abbr: 'SK2P', desc: 'Centered double decrease' }
+    { symbol: '⟩', name: 'K2tog', abbr: 'K2tog', desc: 'K2tog on RS, P2tog on WS', fallback: '/' },
+    { symbol: '⟨', name: 'SSK', abbr: 'SSK', desc: 'SSK on RS, SSP on WS', fallback: '\\' },
+    { symbol: '⟨', name: 'P2tog', abbr: 'P2tog', desc: 'P2tog on RS, K2tog on WS', fallback: '<' },
+    { symbol: '⋀', name: 'K3tog', abbr: 'K3tog', desc: 'K3tog on RS, P3tog on WS', fallback: '^' },
+    { symbol: '⋏', name: 'SK2P', abbr: 'SK2P', desc: 'Centered double decrease', fallback: 'A' }
   ],
   increases: [
-    { symbol: '⋎', name: 'KFB', abbr: 'Kfb', desc: 'K1fb on RS, P1fb on WS' },
-    { symbol: '⊲', name: 'M1L', abbr: 'M1L', desc: 'Make 1 left' },
-    { symbol: '⊳', name: 'M1R', abbr: 'M1R', desc: 'Make 1 right' },
-    { symbol: '⊕', name: 'M1', abbr: 'M1', desc: 'Make 1 knitwise on RS' }
+    { symbol: '⋎', name: 'KFB', abbr: 'Kfb', desc: 'K1fb on RS, P1fb on WS', fallback: 'V' },
+    { symbol: '⊲', name: 'M1L', abbr: 'M1L', desc: 'Make 1 left', fallback: '<|' },
+    { symbol: '⊳', name: 'M1R', abbr: 'M1R', desc: 'Make 1 right', fallback: '|>' },
+    { symbol: '⊕', name: 'M1', abbr: 'M1', desc: 'Make 1 knitwise on RS', fallback: '+' }
   ],
   special: [
-    { symbol: '⊗', name: 'Bobble', abbr: 'BO', desc: 'Make bobble' },
-    { symbol: '⊙', name: 'K tbl', abbr: 'Ktbl', desc: 'K1 tbl on RS, P1 tbl on WS' },
-    { symbol: '⊘', name: 'P tbl', abbr: 'Ptbl', desc: 'P1 tbl on RS, K1 tbl on WS' },
-    { symbol: 'V', name: 'Slip', abbr: 'Sl', desc: 'Slip stitch' },
-    { symbol: '◐', name: 'Wrap', abbr: 'W&T', desc: 'Wrap and turn' }
+    { symbol: '⊗', name: 'Bobble', abbr: 'BO', desc: 'Make bobble', fallback: 'B' },
+    { symbol: '⊙', name: 'K tbl', abbr: 'Ktbl', desc: 'K1 tbl on RS, P1 tbl on WS', fallback: 'Kt' },
+    { symbol: '⊘', name: 'P tbl', abbr: 'Ptbl', desc: 'P1 tbl on RS, K1 tbl on WS', fallback: 'Pt' },
+    { symbol: 'V', name: 'Slip', abbr: 'Sl', desc: 'Slip stitch', fallback: 'S' },
+    { symbol: '◐', name: 'Wrap', abbr: 'W&T', desc: 'Wrap and turn', fallback: 'W' }
   ],
   cables: [
-    { symbol: '⤨', name: '1/1 RC', abbr: '1/1RC', desc: 'Right cross 1 over 1' },
-    { symbol: '⤧', name: '1/1 LC', abbr: '1/1LC', desc: 'Left cross 1 over 1' },
-    { symbol: '⤪', name: '2/2 RC', abbr: '2/2RC', desc: 'Right cross 2 over 2' },
-    { symbol: '⤩', name: '2/2 LC', abbr: '2/2LC', desc: 'Left cross 2 over 2' }
+    { symbol: '⤨', name: '1/1 RC', abbr: '1/1RC', desc: 'Right cross 1 over 1', fallback: 'RC' },
+    { symbol: '⤧', name: '1/1 LC', abbr: '1/1LC', desc: 'Left cross 1 over 1', fallback: 'LC' },
+    { symbol: '⤪', name: '2/2 RC', abbr: '2/2RC', desc: 'Right cross 2 over 2', fallback: '2R' },
+    { symbol: '⤩', name: '2/2 LC', abbr: '2/2LC', desc: 'Left cross 2 over 2', fallback: '2L' }
   ]
 };
 
@@ -134,9 +135,28 @@ export default function PatternBuilder() {
     toast.warning('Note: This is temporary storage. Use Export to save permanently.');
   };
 
+  // Improved search - searches name, abbreviation, and description
   const filteredSymbols = (category: string): SymbolData[] => {
+    const query = searchQuery.toLowerCase();
     return symbolLibrary[category].filter(s =>
-      s.name.toLowerCase().includes(searchQuery.toLowerCase())
+      s.name.toLowerCase().includes(query) ||
+      s.abbr.toLowerCase().includes(query) ||
+      s.desc.toLowerCase().includes(query) ||
+      s.symbol.includes(searchQuery)
+    );
+  };
+
+  // Render a stitch symbol with fallback support
+  const renderSymbol = (symbolData: SymbolData, size: 'lg' | 'xl' | '2xl' = '2xl') => {
+    const sizeClass = size === 'lg' ? 'stitch-symbol-lg' : size === 'xl' ? 'stitch-symbol-xl' : 'stitch-symbol-2xl';
+    return (
+      <span
+        className={`stitch-symbol ${sizeClass} select-none`}
+        data-fallback={symbolData.fallback}
+        title={`${symbolData.name}${symbolData.abbr ? ` (${symbolData.abbr})` : ''}`}
+      >
+        {symbolData.symbol}
+      </span>
     );
   };
 
@@ -188,9 +208,9 @@ export default function PatternBuilder() {
                       onClick={() => setSelectedSymbol(symbolData)}
                       draggable
                       onDragStart={(e) => e.dataTransfer.setData('symbol', JSON.stringify(symbolData))}
-                      title={symbolData.name}
+                      title={`${symbolData.name}${symbolData.abbr ? ` (${symbolData.abbr})` : ''}: ${symbolData.desc}`}
                     >
-                      <span className="text-2xl select-none">{symbolData.symbol}</span>
+                      {renderSymbol(symbolData, 'xl')}
                     </div>
                   ))}
                 </div>
@@ -264,10 +284,10 @@ export default function PatternBuilder() {
                       const symbolData = JSON.parse(e.dataTransfer.getData('symbol'));
                       placeSymbol(r, c, symbolData);
                     }}
-                    title={cellData?.name}
+                    title={cellData ? `${cellData.name}${cellData.abbr ? ` (${cellData.abbr})` : ''}` : 'Empty cell'}
                   >
                     {cellData && (
-                      <span className="text-2xl select-none pointer-events-none">{cellData.symbol}</span>
+                      <span className="stitch-symbol stitch-symbol-xl pointer-events-none">{cellData.symbol}</span>
                     )}
                   </div>
                 );
@@ -302,10 +322,15 @@ export default function PatternBuilder() {
                 Selected Symbol
               </label>
               <div className="px-3 py-2 bg-gray-100 border border-gray-200 rounded-lg">
-                <div className="flex items-center gap-2">
-                  <span className="text-2xl">{selectedSymbol.symbol}</span>
+                <div className="flex items-center gap-3">
+                  {renderSymbol(selectedSymbol, '2xl')}
                   <div className="flex-1">
-                    <div className="font-semibold text-sm">{selectedSymbol.name}</div>
+                    <div className="font-semibold text-sm">
+                      {selectedSymbol.name}
+                      {selectedSymbol.abbr && (
+                        <span className="ml-1 text-xs font-normal text-purple-600">({selectedSymbol.abbr})</span>
+                      )}
+                    </div>
                     <div className="text-xs text-gray-600">{selectedSymbol.desc}</div>
                   </div>
                 </div>
