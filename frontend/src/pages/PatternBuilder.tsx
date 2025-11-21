@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { FiArrowLeft, FiDownload, FiFileText, FiSave, FiLoader, FiGrid, FiBook } from 'react-icons/fi';
+import { FiArrowLeft, FiDownload, FiFileText, FiSave, FiLoader, FiGrid, FiBook, FiEdit3, FiXCircle } from 'react-icons/fi';
 import { toast } from 'react-toastify';
 import axios from '../lib/axios';
 
@@ -43,6 +43,7 @@ export default function PatternBuilder() {
   const [saving, setSaving] = useState(false);
   const [chartId, setChartId] = useState<string | null>(null);
   const [currentPatternId, setCurrentPatternId] = useState<string | null>(patternId || null);
+  const [eraserMode, setEraserMode] = useState(false);
 
   // Load existing chart data if editing an existing pattern
   useEffect(() => {
@@ -186,6 +187,46 @@ export default function PatternBuilder() {
   const clearGrid = () => {
     if (window.confirm('Clear entire pattern?')) {
       setGridData({});
+    }
+  };
+
+  const deleteSymbol = (row: number, col: number) => {
+    const key = `${row}-${col}`;
+    const cellData = gridData[key];
+
+    if (!cellData) return;
+
+    setGridData(prev => {
+      const newData = { ...prev };
+
+      // If this is an occupied cell (part of multi-width symbol), find and delete parent
+      if (cellData.isOccupied && cellData.parentKey) {
+        const parentKey = cellData.parentKey;
+        const parentCell = prev[parentKey];
+        if (parentCell) {
+          const parentWidth = parentCell.symbol.width || 1;
+          const [pRow, pCol] = parentKey.split('-').map(Number);
+          for (let i = 0; i < parentWidth; i++) {
+            delete newData[`${pRow}-${pCol + i}`];
+          }
+        }
+      } else {
+        // Delete the main symbol and any occupied cells it owns
+        const symbolWidth = cellData.symbol.width || 1;
+        for (let i = 0; i < symbolWidth; i++) {
+          delete newData[`${row}-${col + i}`];
+        }
+      }
+
+      return newData;
+    });
+  };
+
+  const handleCellClick = (row: number, col: number) => {
+    if (eraserMode) {
+      deleteSymbol(row, col);
+    } else {
+      placeSymbol(row, col);
     }
   };
 
@@ -549,13 +590,43 @@ export default function PatternBuilder() {
                 max="100"
               />
             </div>
+            <div className="flex items-center gap-1 border border-gray-300 dark:border-gray-600 rounded-lg p-1">
+              <button
+                onClick={() => setEraserMode(false)}
+                className={`px-3 py-1 rounded-lg transition text-sm flex items-center gap-1 ${
+                  !eraserMode
+                    ? 'bg-purple-600 text-white'
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
+                }`}
+                title="Draw mode - click to place symbols"
+              >
+                <FiEdit3 className="w-4 h-4" />
+                Draw
+              </button>
+              <button
+                onClick={() => setEraserMode(true)}
+                className={`px-3 py-1 rounded-lg transition text-sm flex items-center gap-1 ${
+                  eraserMode
+                    ? 'bg-red-600 text-white'
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
+                }`}
+                title="Eraser mode - click to delete symbols"
+              >
+                <FiXCircle className="w-4 h-4" />
+                Erase
+              </button>
+            </div>
             <button
               onClick={clearGrid}
               className="px-3 py-1 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-500 transition text-sm"
             >
-              Clear
+              Clear All
             </button>
           </div>
+
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+            Tip: Right-click any cell to delete its symbol
+          </p>
 
           <div className="overflow-auto max-h-[600px] border-2 border-gray-300 dark:border-gray-600 rounded-lg p-4 bg-gray-50 dark:bg-gray-900">
             <div
@@ -579,7 +650,8 @@ export default function PatternBuilder() {
                     className={`w-10 h-10 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 flex items-center justify-center cursor-pointer transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 ${
                       cellData && !isOccupied ? 'bg-purple-50 dark:bg-purple-900/30' : ''
                     } ${isOccupied ? 'bg-purple-100 dark:bg-purple-800/40 opacity-60' : ''}`}
-                    onClick={() => placeSymbol(r, c)}
+                    onClick={() => handleCellClick(r, c)}
+                    onContextMenu={(e) => { e.preventDefault(); deleteSymbol(r, c); }}
                     onDragOver={(e) => e.preventDefault()}
                     onDrop={(e) => {
                       e.preventDefault();
