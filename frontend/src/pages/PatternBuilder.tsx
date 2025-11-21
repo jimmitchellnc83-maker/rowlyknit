@@ -286,7 +286,7 @@ export default function PatternBuilder() {
     const sizeClass = size === 'lg' ? 'stitch-symbol-lg' : size === 'xl' ? 'stitch-symbol-xl' : 'stitch-symbol-2xl';
     return (
       <span
-        className={`stitch-symbol ${sizeClass} select-none`}
+        className={`stitch-symbol ${sizeClass} select-none text-gray-900 dark:text-gray-100`}
         data-fallback={symbolData.fallback}
         title={`${symbolData.name}${symbolData.abbr ? ` (${symbolData.abbr})` : ''}`}
       >
@@ -313,15 +313,15 @@ export default function PatternBuilder() {
 
       <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr_300px] gap-4">
         {/* Symbol Palette */}
-        <div className="bg-white rounded-lg shadow-md border border-gray-200 p-4">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md border border-gray-200 dark:border-gray-700 p-4">
           <div className="flex items-center gap-2 mb-4">
             <span className="text-xl">🧶</span>
-            <h2 className="text-lg font-semibold text-gray-900">Symbol Palette</h2>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Symbol Palette</h2>
           </div>
 
           <input
             type="text"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent mb-4"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent mb-4"
             placeholder="Search symbols..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -330,15 +330,15 @@ export default function PatternBuilder() {
           <div className="space-y-4">
             {Object.keys(symbolLibrary).map(category => (
               <div key={category}>
-                <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
                   {category}
                 </div>
                 <div className="grid grid-cols-4 gap-2">
                   {filteredSymbols(category).map((symbolData, idx) => (
                     <div
                       key={idx}
-                      className={`aspect-square border rounded-lg flex items-center justify-center cursor-pointer transition-all hover:bg-gray-100 hover:border-purple-500 hover:scale-105 ${
-                        selectedSymbol === symbolData ? 'border-purple-500 bg-purple-50' : 'border-gray-200'
+                      className={`aspect-square border rounded-lg flex items-center justify-center cursor-pointer transition-all hover:bg-gray-100 dark:hover:bg-gray-700 hover:border-purple-500 hover:scale-105 ${
+                        selectedSymbol === symbolData ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/30' : 'border-gray-200 dark:border-gray-600'
                       }`}
                       onClick={() => setSelectedSymbol(symbolData)}
                       draggable
@@ -355,46 +355,46 @@ export default function PatternBuilder() {
         </div>
 
         {/* Pattern Grid */}
-        <div className="bg-white rounded-lg shadow-md border border-gray-200 p-4">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md border border-gray-200 dark:border-gray-700 p-4">
           <div className="flex items-center gap-2 mb-4">
             <span className="text-xl">📋</span>
-            <h2 className="text-lg font-semibold text-gray-900">Pattern Chart</h2>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Pattern Chart</h2>
           </div>
 
           <div className="flex flex-wrap gap-3 mb-4">
             <div className="flex items-center gap-2">
-              <label className="text-sm font-medium text-gray-700">Rows:</label>
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Rows:</label>
               <input
                 type="number"
                 value={rows}
                 onChange={(e) => setRows(Math.max(1, parseInt(e.target.value) || 1))}
-                className="w-16 px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-purple-500"
+                className="w-16 px-2 py-1 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded focus:ring-2 focus:ring-purple-500"
                 min="1"
                 max="100"
               />
             </div>
             <div className="flex items-center gap-2">
-              <label className="text-sm font-medium text-gray-700">Stitches:</label>
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Stitches:</label>
               <input
                 type="number"
                 value={cols}
                 onChange={(e) => setCols(Math.max(1, parseInt(e.target.value) || 1))}
-                className="w-16 px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-purple-500"
+                className="w-16 px-2 py-1 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded focus:ring-2 focus:ring-purple-500"
                 min="1"
                 max="100"
               />
             </div>
             <button
               onClick={clearGrid}
-              className="px-3 py-1 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition text-sm"
+              className="px-3 py-1 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-500 transition text-sm"
             >
               Clear
             </button>
           </div>
 
-          <div className="overflow-auto max-h-[600px] border-2 border-gray-300 rounded-lg p-4">
+          <div className="overflow-auto max-h-[600px] border-2 border-gray-300 dark:border-gray-600 rounded-lg p-4 bg-gray-50 dark:bg-gray-900">
             <div
-              className="inline-grid gap-px bg-gray-300 border border-gray-300"
+              className="inline-grid gap-px bg-gray-300 dark:bg-gray-600 border border-gray-300 dark:border-gray-600"
               style={{
                 gridTemplateColumns: `repeat(${cols}, 40px)`,
                 gridTemplateRows: `repeat(${rows}, 40px)`
@@ -409,8 +409,8 @@ export default function PatternBuilder() {
                 return (
                   <div
                     key={key}
-                    className={`w-10 h-10 bg-white border border-gray-200 flex items-center justify-center cursor-pointer transition-colors hover:bg-gray-100 ${
-                      cellData ? 'bg-purple-50' : ''
+                    className={`w-10 h-10 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 flex items-center justify-center cursor-pointer transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 ${
+                      cellData ? 'bg-purple-50 dark:bg-purple-900/30' : ''
                     }`}
                     onClick={() => placeSymbol(r, c)}
                     onDragOver={(e) => e.preventDefault()}
@@ -422,7 +422,7 @@ export default function PatternBuilder() {
                     title={cellData ? `${cellData.name}${cellData.abbr ? ` (${cellData.abbr})` : ''}` : 'Empty cell'}
                   >
                     {cellData && (
-                      <span className="stitch-symbol stitch-symbol-xl pointer-events-none">{cellData.symbol}</span>
+                      <span className="stitch-symbol stitch-symbol-xl pointer-events-none text-gray-900 dark:text-gray-100">{cellData.symbol}</span>
                     )}
                   </div>
                 );
@@ -432,20 +432,20 @@ export default function PatternBuilder() {
         </div>
 
         {/* Properties Panel */}
-        <div className="bg-white rounded-lg shadow-md border border-gray-200 p-4">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md border border-gray-200 dark:border-gray-700 p-4">
           <div className="flex items-center gap-2 mb-4">
             <span className="text-xl">⚙️</span>
-            <h2 className="text-lg font-semibold text-gray-900">Pattern Info</h2>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Pattern Info</h2>
           </div>
 
           <div className="space-y-4">
             <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase mb-2">
+              <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">
                 Pattern Name
               </label>
               <input
                 type="text"
-                className="w-full px-3 py-2 bg-gray-100 border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500"
+                className="w-full px-3 py-2 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-purple-500"
                 placeholder="My Pattern"
                 value={patternName}
                 onChange={(e) => setPatternName(e.target.value)}
@@ -453,53 +453,53 @@ export default function PatternBuilder() {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase mb-2">
+              <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">
                 Selected Symbol
               </label>
-              <div className="px-3 py-2 bg-gray-100 border border-gray-200 rounded-lg">
+              <div className="px-3 py-2 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg">
                 <div className="flex items-center gap-3">
                   {renderSymbol(selectedSymbol, '2xl')}
                   <div className="flex-1">
-                    <div className="font-semibold text-sm">
+                    <div className="font-semibold text-sm text-gray-900 dark:text-gray-100">
                       {selectedSymbol.name}
                       {selectedSymbol.abbr && (
-                        <span className="ml-1 text-xs font-normal text-purple-600">({selectedSymbol.abbr})</span>
+                        <span className="ml-1 text-xs font-normal text-purple-600 dark:text-purple-400">({selectedSymbol.abbr})</span>
                       )}
                     </div>
-                    <div className="text-xs text-gray-600">{selectedSymbol.desc}</div>
+                    <div className="text-xs text-gray-600 dark:text-gray-400">{selectedSymbol.desc}</div>
                   </div>
                 </div>
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase mb-2">
+              <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">
                 Stitch Count
               </label>
-              <div className="px-3 py-2 bg-gray-100 border border-gray-200 rounded-lg flex justify-between items-center">
-                <span className="text-sm text-gray-600">Total Stitches:</span>
-                <span className="text-lg font-bold text-purple-600">
+              <div className="px-3 py-2 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg flex justify-between items-center">
+                <span className="text-sm text-gray-600 dark:text-gray-400">Total Stitches:</span>
+                <span className="text-lg font-bold text-purple-600 dark:text-purple-400">
                   {Object.keys(gridData).filter(key => gridData[key].symbol !== '□').length}
                 </span>
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase mb-2">
+              <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">
                 Pattern Stats
               </label>
               <div className="text-sm space-y-2">
                 <div className="flex justify-between py-1">
-                  <span className="text-gray-600">Rows:</span>
-                  <span className="font-medium">{rows}</span>
+                  <span className="text-gray-600 dark:text-gray-400">Rows:</span>
+                  <span className="font-medium text-gray-900 dark:text-gray-100">{rows}</span>
                 </div>
                 <div className="flex justify-between py-1">
-                  <span className="text-gray-600">Stitches per row:</span>
-                  <span className="font-medium">{cols}</span>
+                  <span className="text-gray-600 dark:text-gray-400">Stitches per row:</span>
+                  <span className="font-medium text-gray-900 dark:text-gray-100">{cols}</span>
                 </div>
                 <div className="flex justify-between py-1">
-                  <span className="text-gray-600">Total cells:</span>
-                  <span className="font-medium">{rows * cols}</span>
+                  <span className="text-gray-600 dark:text-gray-400">Total cells:</span>
+                  <span className="font-medium text-gray-900 dark:text-gray-100">{rows * cols}</span>
                 </div>
               </div>
             </div>
@@ -514,7 +514,7 @@ export default function PatternBuilder() {
               </button>
               <button
                 onClick={generateInstructions}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
+                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-500 transition"
               >
                 <FiFileText />
                 Generate Instructions
