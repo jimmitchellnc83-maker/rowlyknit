@@ -199,16 +199,17 @@ export async function login(req: Request, res: Response) {
 }
 
 /**
- * Refresh access token
+ * Refresh access token with token rotation
+ * Security: Old refresh token is invalidated after use to prevent token reuse attacks
  */
 export async function refreshToken(req: Request, res: Response) {
-  const { refreshToken: token } = req.body || req.cookies;
+  const token = req.body?.refreshToken || req.cookies?.refreshToken;
 
   if (!token) {
     throw new UnauthorizedError('Refresh token required');
   }
 
-  // Verify refresh token
+  // Verify refresh token signature and expiration
   const payload = verifyRefreshToken(token);
 
   // Check if session exists and is valid
@@ -235,25 +236,82 @@ export async function refreshToken(req: Request, res: Response) {
     throw new UnauthorizedError('User not found');
   }
 
+  // SECURITY: Invalidate old refresh token immediately (token rotation)
+  // This prevents token reuse attacks - each refresh token can only be used once
+  await db('sessions')
+    .where({ id: session.id })
+    .update({
+      is_revoked: true,
+      updated_at: new Date(),
+    });
+
   // Generate new access token
   const accessToken = generateAccessToken({
     userId: user.id,
     email: user.email,
   });
 
-  // Update cookie
+  // Generate new refresh token (rotation)
+  const newRefreshToken = generateRefreshToken({
+    userId: user.id,
+    sessionId: session.id,
+  });
+
+  // Calculate session expiry (preserve original expiry duration or use 7 days)
+  const originalDuration = session.expires_at.getTime() - session.created_at.getTime();
+  const sessionDays = Math.ceil(originalDuration / (24 * 60 * 60 * 1000));
+  const sessionExpires = new Date(Date.now() + sessionDays * 24 * 60 * 60 * 1000);
+
+  // Create new session with rotated refresh token
+  const [newSession] = await db('sessions')
+    .insert({
+      user_id: user.id,
+      refresh_token: newRefreshToken,
+      ip_address: req.ip,
+      user_agent: req.headers['user-agent'],
+      expires_at: sessionExpires,
+      created_at: new Date(),
+      updated_at: new Date(),
+    })
+    .returning('*');
+
+  // Set cookies with new tokens
   const isProduction = process.env.NODE_ENV === 'production';
-  res.cookie('accessToken', accessToken, {
+  const cookieOptions = {
     httpOnly: true,
     secure: isProduction,
-    sameSite: 'lax' as const, // Use 'lax' for cross-origin cookie support
+    sameSite: 'lax' as const,
+  };
+
+  res.cookie('accessToken', accessToken, {
+    ...cookieOptions,
     maxAge: 15 * 60 * 1000, // 15 minutes
+  });
+
+  res.cookie('refreshToken', newRefreshToken, {
+    ...cookieOptions,
+    maxAge: sessionDays * 24 * 60 * 60 * 1000,
+  });
+
+  // Log audit for token refresh
+  await createAuditLog(req, {
+    userId: user.id,
+    action: 'token_refreshed',
+    entityType: 'session',
+    entityId: newSession.id,
+    metadata: {
+      oldSessionId: session.id,
+      newSessionId: newSession.id,
+    },
   });
 
   res.json({
     success: true,
     message: 'Token refreshed successfully',
-    data: { accessToken },
+    data: {
+      accessToken,
+      refreshToken: newRefreshToken,
+    },
   });
 }
 
