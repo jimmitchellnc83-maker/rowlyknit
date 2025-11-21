@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { body, query } from 'express-validator';
 import * as magicMarkersController from '../controllers/magicMarkersController';
+import * as markerAnalyticsController from '../controllers/markerAnalyticsController';
 import { authenticate } from '../middleware/auth';
 import { validate, validateUUID } from '../middleware/validator';
 import { asyncHandler } from '../utils/errorHandler';
@@ -158,6 +159,57 @@ router.post(
   [validateUUID('id'), validateUUID('markerId')],
   validate,
   asyncHandler(magicMarkersController.recordTrigger)
+);
+
+/**
+ * Marker Analytics Routes
+ */
+
+/**
+ * @route   POST /api/markers/:markerId/event
+ * @desc    Record a marker event (triggered, snoozed, acknowledged, completed)
+ * @access  Private
+ */
+router.post(
+  '/markers/:markerId/event',
+  [
+    validateUUID('markerId'),
+    body('event_type').isIn(['triggered', 'snoozed', 'acknowledged', 'completed']),
+    body('at_row').optional().isInt({ min: 0 }),
+  ],
+  validate,
+  asyncHandler(markerAnalyticsController.recordMarkerEvent)
+);
+
+/**
+ * @route   PATCH /api/markers/:markerId/position
+ * @desc    Update marker position (for drag-and-drop)
+ * @access  Private
+ */
+router.patch(
+  '/markers/:markerId/position',
+  [
+    validateUUID('markerId'),
+    body('trigger_value').isInt({ min: 1 }),
+    body('end_value').optional().isInt({ min: 1 }),
+  ],
+  validate,
+  asyncHandler(markerAnalyticsController.updateMarkerPosition)
+);
+
+/**
+ * @route   PATCH /api/markers/:markerId/color
+ * @desc    Update marker color
+ * @access  Private
+ */
+router.patch(
+  '/markers/:markerId/color',
+  [
+    validateUUID('markerId'),
+    body('color').isIn(['blue', 'green', 'yellow', 'orange', 'red', 'purple', 'pink', 'gray']),
+  ],
+  validate,
+  asyncHandler(markerAnalyticsController.updateMarkerColor)
 );
 
 export default router;

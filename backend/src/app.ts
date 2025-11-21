@@ -43,6 +43,7 @@ import notesRoutes from './routes/notes';
 import magicMarkersRoutes from './routes/magic-markers';
 import patternBookmarksRoutes from './routes/patternBookmarks';
 import statsRoutes from './routes/stats';
+import chartsRoutes from './routes/charts';
 
 // Create Express app
 const app: Application = express();
@@ -155,6 +156,7 @@ app.use('/api/yarn', yarnRoutes);
 app.use('/api/recipients', recipientsRoutes);
 app.use('/api/tools', toolsRoutes);
 app.use('/api/uploads', uploadsRoutes);
+app.use('/api/charts', chartsRoutes);
 
 // API documentation
 app.get('/api', (req, res) => {

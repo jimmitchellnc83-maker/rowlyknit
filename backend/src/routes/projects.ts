@@ -3,6 +3,7 @@ import { body } from 'express-validator';
 import * as projectsController from '../controllers/projectsController';
 import * as gaugeAdjustmentController from '../controllers/gaugeAdjustmentController';
 import * as chartProgressController from '../controllers/chartProgressController';
+import * as markerAnalyticsController from '../controllers/markerAnalyticsController';
 import { authenticate } from '../middleware/auth';
 import { validate, validateUUID, validatePagination, validateSearch } from '../middleware/validator';
 import { asyncHandler } from '../utils/errorHandler';
@@ -369,6 +370,72 @@ router.post(
   [validateUUID('projectId'), validateUUID('chartId')],
   validate,
   asyncHandler(chartProgressController.toggleDirection)
+);
+
+/**
+ * Magic Markers Analytics Routes
+ */
+
+/**
+ * @route   POST /api/projects/:projectId/analyze-markers
+ * @desc    Analyze pattern and suggest markers
+ * @access  Private
+ */
+router.post(
+  '/:projectId/analyze-markers',
+  validateUUID('projectId'),
+  asyncHandler(markerAnalyticsController.analyzeMarkersForProject)
+);
+
+/**
+ * @route   POST /api/projects/:projectId/accept-marker-suggestion
+ * @desc    Accept an AI-suggested marker
+ * @access  Private
+ */
+router.post(
+  '/:projectId/accept-marker-suggestion',
+  [
+    validateUUID('projectId'),
+    body('suggestion').isObject().withMessage('Suggestion is required'),
+    body('suggestion.name').isString(),
+    body('suggestion.start_row').isInt({ min: 1 }),
+    body('suggestion.type').isIn(['counter_value', 'row_range', 'row_interval']),
+  ],
+  validate,
+  asyncHandler(markerAnalyticsController.acceptMarkerSuggestion)
+);
+
+/**
+ * @route   GET /api/projects/:projectId/marker-timeline
+ * @desc    Get marker timeline for visualization
+ * @access  Private
+ */
+router.get(
+  '/:projectId/marker-timeline',
+  validateUUID('projectId'),
+  asyncHandler(markerAnalyticsController.getMarkerTimeline)
+);
+
+/**
+ * @route   GET /api/projects/:projectId/marker-analytics
+ * @desc    Get marker analytics
+ * @access  Private
+ */
+router.get(
+  '/:projectId/marker-analytics',
+  validateUUID('projectId'),
+  asyncHandler(markerAnalyticsController.getMarkerAnalytics)
+);
+
+/**
+ * @route   GET /api/projects/:projectId/upcoming-markers
+ * @desc    Get upcoming markers within N rows
+ * @access  Private
+ */
+router.get(
+  '/:projectId/upcoming-markers',
+  validateUUID('projectId'),
+  asyncHandler(markerAnalyticsController.getUpcomingMarkers)
 );
 
 export default router;
