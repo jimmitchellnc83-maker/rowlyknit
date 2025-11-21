@@ -325,4 +325,50 @@ router.delete(
   asyncHandler(chartProgressController.clearProgress)
 );
 
+/**
+ * @route   POST /api/projects/:projectId/charts/:chartId/set-direction
+ * @desc    Set working direction for a chart
+ * @access  Private
+ */
+router.post(
+  '/:projectId/charts/:chartId/set-direction',
+  [
+    validateUUID('projectId'),
+    validateUUID('chartId'),
+    body('working_direction').isIn(['flat_knitting', 'in_the_round', 'flat_from_center']),
+  ],
+  validate,
+  asyncHandler(chartProgressController.setDirection)
+);
+
+/**
+ * @route   POST /api/projects/:projectId/charts/:chartId/advance-stitch
+ * @desc    Advance stitch in working direction
+ * @access  Private
+ */
+router.post(
+  '/:projectId/charts/:chartId/advance-stitch',
+  [
+    validateUUID('projectId'),
+    validateUUID('chartId'),
+    body('direction').isIn(['forward', 'backward']),
+    body('chart_width').optional().isInt({ min: 1 }),
+    body('chart_height').optional().isInt({ min: 1 }),
+  ],
+  validate,
+  asyncHandler(chartProgressController.advanceStitch)
+);
+
+/**
+ * @route   POST /api/projects/:projectId/charts/:chartId/toggle-direction
+ * @desc    Toggle direction for current row
+ * @access  Private
+ */
+router.post(
+  '/:projectId/charts/:chartId/toggle-direction',
+  [validateUUID('projectId'), validateUUID('chartId')],
+  validate,
+  asyncHandler(chartProgressController.toggleDirection)
+);
+
 export default router;

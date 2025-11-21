@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import db from '../config/database';
 import logger from '../config/logger';
+import chartDirectionService from '../services/chartDirectionService';
 
 interface CompletedCell {
   row: number;
@@ -394,6 +395,151 @@ export async function clearProgress(req: Request, res: Response): Promise<void> 
     res.status(500).json({
       success: false,
       error: 'Failed to clear progress',
+    });
+  }
+}
+
+/**
+ * Set working direction for a chart
+ * POST /api/projects/:projectId/charts/:chartId/set-direction
+ */
+export async function setDirection(req: Request, res: Response): Promise<void> {
+  const userId = req.user!.id;
+  const { projectId, chartId } = req.params;
+  const { working_direction } = req.body;
+
+  try {
+    const validDirections = ['flat_knitting', 'in_the_round', 'flat_from_center'];
+    if (!validDirections.includes(working_direction)) {
+      res.status(400).json({
+        success: false,
+        error: 'Invalid working direction',
+      });
+      return;
+    }
+
+    const progress = await chartDirectionService.setWorkingDirection(
+      projectId,
+      chartId,
+      userId,
+      working_direction
+    );
+
+    res.status(200).json({
+      success: true,
+      data: {
+        working_direction: progress.working_direction,
+        current_direction: progress.current_direction,
+        current_row: progress.current_row,
+        current_column: progress.current_column,
+      },
+    });
+  } catch (error) {
+    logger.error('Error setting direction', {
+      userId,
+      projectId,
+      chartId,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+
+    if (error instanceof Error && error.message === 'Project not found') {
+      res.status(404).json({ success: false, error: 'Project not found' });
+      return;
+    }
+
+    res.status(500).json({
+      success: false,
+      error: 'Failed to set direction',
+    });
+  }
+}
+
+/**
+ * Advance stitch in working direction
+ * POST /api/projects/:projectId/charts/:chartId/advance-stitch
+ */
+export async function advanceStitch(req: Request, res: Response): Promise<void> {
+  const userId = req.user!.id;
+  const { projectId, chartId } = req.params;
+  const { direction, chart_width, chart_height } = req.body;
+
+  try {
+    if (!['forward', 'backward'].includes(direction)) {
+      res.status(400).json({
+        success: false,
+        error: 'Direction must be "forward" or "backward"',
+      });
+      return;
+    }
+
+    const result = await chartDirectionService.advanceStitch(
+      projectId,
+      chartId,
+      userId,
+      direction,
+      chart_width || 20,
+      chart_height || 20
+    );
+
+    res.status(200).json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    logger.error('Error advancing stitch', {
+      userId,
+      projectId,
+      chartId,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+
+    if (error instanceof Error && error.message === 'Project not found') {
+      res.status(404).json({ success: false, error: 'Project not found' });
+      return;
+    }
+
+    res.status(500).json({
+      success: false,
+      error: 'Failed to advance stitch',
+    });
+  }
+}
+
+/**
+ * Toggle direction for current row
+ * POST /api/projects/:projectId/charts/:chartId/toggle-direction
+ */
+export async function toggleDirection(req: Request, res: Response): Promise<void> {
+  const userId = req.user!.id;
+  const { projectId, chartId } = req.params;
+
+  try {
+    const progress = await chartDirectionService.toggleDirection(projectId, chartId, userId);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        current_direction: progress.current_direction,
+        current_row: progress.current_row,
+        current_column: progress.current_column,
+      },
+    });
+  } catch (error) {
+    logger.error('Error toggling direction', {
+      userId,
+      projectId,
+      chartId,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+
+    if (error instanceof Error && error.message === 'Project not found') {
+      res.status(404).json({ success: false, error: 'Project not found' });
+      return;
+    }
+
+    res.status(500).json({
+      success: false,
+      error: 'Failed to toggle direction',
     });
   }
 }

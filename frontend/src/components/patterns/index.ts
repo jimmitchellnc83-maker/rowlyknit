@@ -8,3 +8,5 @@ export { default as PDFCollation } from './PDFCollation';
 export { default as ChartViewer } from './ChartViewer';
 export { default as SymbolDefinitionPopover } from './SymbolDefinitionPopover';
 export { default as InteractiveChartProgress } from './InteractiveChartProgress';
+export { default as DirectionalChart } from './DirectionalChart';
+export { default as ContinuousChartView } from './ContinuousChartView';
