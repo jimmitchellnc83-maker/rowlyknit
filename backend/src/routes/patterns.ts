@@ -82,7 +82,25 @@ router.post(
  */
 router.put(
   '/:id',
-  validateUUID('id'),
+  [
+    validateUUID('id'),
+    body('name').optional().trim().isLength({ max: 255 }),
+    body('description').optional().trim(),
+    body('designer').optional().trim().isLength({ max: 255 }),
+    body('source').optional().trim().isLength({ max: 255 }),
+    body('sourceUrl').optional().trim().isURL().withMessage('Source URL must be a valid URL'),
+    body('difficulty').optional().isIn(['beginner', 'easy', 'intermediate', 'advanced', 'expert']),
+    body('category').optional().trim().isLength({ max: 100 }),
+    body('yarnRequirements').optional().isObject(),
+    body('needleSizes').optional().isObject(),
+    body('gauge').optional().isObject(),
+    body('sizesAvailable').optional().isObject(),
+    body('estimatedYardage').optional().isNumeric(),
+    body('tags').optional().isArray(),
+    body('notes').optional().trim(),
+    body('isFavorite').optional().isBoolean(),
+  ],
+  validate,
   asyncHandler(patternsController.updatePattern)
 );
 

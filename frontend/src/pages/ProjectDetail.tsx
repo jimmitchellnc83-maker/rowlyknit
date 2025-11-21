@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   FiArrowLeft, FiEdit2, FiTrash2, FiCalendar, FiClock, FiCheck, FiImage,
@@ -94,23 +94,50 @@ export default function ProjectDetail() {
     recipientId: '',
   });
 
+  // Reference for tracking if component is mounted (prevents state updates on unmounted component)
+  const isMountedRef = useRef(true);
+
+  // Reference for tracking if a fetch is in progress (prevents duplicate requests)
+  const isFetchingRef = useRef(false);
+
   useEffect(() => {
-    fetchProject();
-    fetchPhotos();
-    fetchAvailableItems();
-    fetchAudioNotes();
-    fetchStructuredMemos();
+    isMountedRef.current = true;
+
+    const loadInitialData = async () => {
+      if (isFetchingRef.current) return;
+      isFetchingRef.current = true;
+
+      try {
+        // Load all data in parallel
+        await Promise.all([
+          fetchProject(),
+          fetchPhotos(),
+          fetchAvailableItems(),
+          fetchAudioNotes(),
+          fetchStructuredMemos(),
+        ]);
+      } catch (error) {
+        if (isMountedRef.current) {
+          console.error('Error loading project data:', error);
+        }
+      } finally {
+        isFetchingRef.current = false;
+      }
+    };
+
+    loadInitialData();
 
     if (id) {
       joinProject(id);
     }
 
     return () => {
+      isMountedRef.current = false;
       if (id) {
         leaveProject(id);
       }
     };
-  }, [id, joinProject, leaveProject]);
+  }, [id]);
 
   // Session and counter state for knitting mode integration
   const [currentSession, setCurrentSession] = useState<any>(null);

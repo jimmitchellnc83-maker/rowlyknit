@@ -31,14 +31,26 @@ interface PatternViewerProps {
   projectId?: string;
   onClose?: () => void;
   fullscreen?: boolean;
+  initialPage?: number;
+  initialZoom?: number;
 }
 
 const ZOOM_LEVELS = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
 
-export default function PatternViewer({ fileUrl, filename, patternId, projectId, onClose, fullscreen = true }: PatternViewerProps) {
+export default function PatternViewer({ fileUrl, filename, patternId, projectId, onClose, fullscreen = true, initialPage, initialZoom }: PatternViewerProps) {
   const [numPages, setNumPages] = useState<number>(0);
-  const [currentPage, setCurrentPage] = useState<number>(1);
-  const [zoomIndex, setZoomIndex] = useState<number>(2); // Start at 1.0
+  const [currentPage, setCurrentPage] = useState<number>(initialPage || 1);
+  const [zoomIndex, setZoomIndex] = useState<number>(() => {
+    // Find closest zoom level if initialZoom is provided
+    if (initialZoom) {
+      const closestIndex = ZOOM_LEVELS.reduce((prev, curr, idx) =>
+        Math.abs(curr - initialZoom) < Math.abs(ZOOM_LEVELS[prev] - initialZoom) ? idx : prev,
+        2
+      );
+      return closestIndex;
+    }
+    return 2; // Default to 1.0
+  });
   const [rotation, setRotation] = useState<number>(0);
   const [searchText, setSearchText] = useState<string>('');
   const [showSearch, setShowSearch] = useState<boolean>(false);
@@ -48,6 +60,24 @@ export default function PatternViewer({ fileUrl, filename, patternId, projectId,
   const [showHighlighter, setShowHighlighter] = useState<boolean>(false);
 
   const zoomLevel = ZOOM_LEVELS[zoomIndex];
+
+  // Navigate to page when initialPage changes (for bookmark jumping)
+  useEffect(() => {
+    if (initialPage && initialPage >= 1 && initialPage <= numPages) {
+      setCurrentPage(initialPage);
+    }
+  }, [initialPage, numPages]);
+
+  // Update zoom when initialZoom changes
+  useEffect(() => {
+    if (initialZoom) {
+      const closestIndex = ZOOM_LEVELS.reduce((prev, curr, idx) =>
+        Math.abs(curr - initialZoom) < Math.abs(ZOOM_LEVELS[prev] - initialZoom) ? idx : prev,
+        2
+      );
+      setZoomIndex(closestIndex);
+    }
+  }, [initialZoom]);
 
   function onDocumentLoadSuccess({ numPages }: { numPages: number }) {
     setNumPages(numPages);

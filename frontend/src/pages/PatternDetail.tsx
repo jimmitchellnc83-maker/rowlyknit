@@ -77,6 +77,10 @@ export default function PatternDetail() {
   const [showChartViewer, setShowChartViewer] = useState(false);
   const [editingChart, setEditingChart] = useState<any | null>(null);
 
+  // Bookmark jump state
+  const [targetPage, setTargetPage] = useState<number | undefined>(undefined);
+  const [targetZoom, setTargetZoom] = useState<number | undefined>(undefined);
+
   useEffect(() => {
     if (id) {
       fetchPattern();
@@ -528,9 +532,13 @@ export default function PatternDetail() {
             <BookmarkManager
               patternId={id!}
               onJumpToBookmark={(bookmark) => {
+                // Set the target page and zoom for the viewer
+                setTargetPage(bookmark.page_number);
+                if (bookmark.zoom_level) {
+                  setTargetZoom(bookmark.zoom_level);
+                }
                 toast.info(`Jumping to page ${bookmark.page_number}`);
                 setActiveTab('viewer');
-                // TODO: Jump to specific page in viewer
               }}
             />
           </div>
@@ -545,6 +553,8 @@ export default function PatternDetail() {
             filename={selectedPdfFile.original_filename}
             patternId={id}
             fullscreen={false}
+            initialPage={targetPage}
+            initialZoom={targetZoom}
           />
         </div>
       )}

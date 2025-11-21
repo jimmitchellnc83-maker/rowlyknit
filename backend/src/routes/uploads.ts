@@ -1,6 +1,8 @@
 import express from 'express';
 import * as uploadsController from '../controllers/uploadsController';
 import { authenticate } from '../middleware/auth';
+import { validate, validateUUID } from '../middleware/validator';
+import { asyncHandler } from '../utils/errorHandler';
 
 const router = express.Router();
 
@@ -10,57 +12,77 @@ router.use(authenticate);
 // Project photo routes
 router.post(
   '/projects/:projectId/photos',
+  validateUUID('projectId'),
+  validate,
   uploadsController.uploadImageMiddleware,
-  uploadsController.uploadProjectPhoto
+  asyncHandler(uploadsController.uploadProjectPhoto)
 );
 
 router.get(
   '/projects/:projectId/photos',
-  uploadsController.getProjectPhotos
+  validateUUID('projectId'),
+  validate,
+  asyncHandler(uploadsController.getProjectPhotos)
 );
 
 router.delete(
   '/projects/:projectId/photos/:photoId',
-  uploadsController.deleteProjectPhoto
+  [validateUUID('projectId'), validateUUID('photoId')],
+  validate,
+  asyncHandler(uploadsController.deleteProjectPhoto)
 );
 
 // Pattern file routes
 router.post(
   '/patterns/:patternId/files',
+  validateUUID('patternId'),
+  validate,
   uploadsController.uploadPatternFileMiddleware,
-  uploadsController.uploadPatternFile
+  asyncHandler(uploadsController.uploadPatternFile)
 );
 
 router.get(
   '/patterns/:patternId/files',
-  uploadsController.getPatternFiles
+  validateUUID('patternId'),
+  validate,
+  asyncHandler(uploadsController.getPatternFiles)
 );
 
 router.get(
   '/patterns/:patternId/files/:fileId/download',
-  uploadsController.downloadPatternFile
+  [validateUUID('patternId'), validateUUID('fileId')],
+  validate,
+  asyncHandler(uploadsController.downloadPatternFile)
 );
 
 router.delete(
   '/patterns/:patternId/files/:fileId',
-  uploadsController.deletePatternFile
+  [validateUUID('patternId'), validateUUID('fileId')],
+  validate,
+  asyncHandler(uploadsController.deletePatternFile)
 );
 
 // Yarn photo routes
 router.post(
   '/yarn/:yarnId/photos',
+  validateUUID('yarnId'),
+  validate,
   uploadsController.uploadImageMiddleware,
-  uploadsController.uploadYarnPhoto
+  asyncHandler(uploadsController.uploadYarnPhoto)
 );
 
 router.get(
   '/yarn/:yarnId/photos',
-  uploadsController.getYarnPhotos
+  validateUUID('yarnId'),
+  validate,
+  asyncHandler(uploadsController.getYarnPhotos)
 );
 
 router.delete(
   '/yarn/:yarnId/photos/:photoId',
-  uploadsController.deleteYarnPhoto
+  [validateUUID('yarnId'), validateUUID('photoId')],
+  validate,
+  asyncHandler(uploadsController.deleteYarnPhoto)
 );
 
 export default router;
