@@ -7,7 +7,7 @@
  */
 
 import sharp from 'sharp';
-import { db } from '../db';
+import db from '../config/database';
 
 export interface DetectedCell {
   symbol: string;

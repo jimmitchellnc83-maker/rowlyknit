@@ -5,7 +5,7 @@
 
 import crypto from 'crypto';
 import QRCode from 'qrcode';
-import { db } from '../db';
+import db from '../config/database';
 
 const APP_URL = process.env.APP_URL || 'http://localhost:3000';
 
