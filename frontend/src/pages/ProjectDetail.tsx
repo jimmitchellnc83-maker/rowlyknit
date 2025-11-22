@@ -16,6 +16,8 @@ import { AudioNotes } from '../components/notes/AudioNotes';
 import { HandwrittenNotes } from '../components/notes/HandwrittenNotes';
 import { StructuredMemoTemplates } from '../components/notes/StructuredMemoTemplates';
 import MagicMarkerManager from '../components/magic-markers/MagicMarkerManager';
+import { MarkerTimeline, PatternAnalysisPanel } from '../components/markers';
+import { GradientDesigner } from '../components/colorPlanning';
 import LoadingSpinner from '../components/LoadingSpinner';
 import PatternPreview from '../components/PatternPreview';
 
@@ -845,6 +847,29 @@ export default function ProjectDetail() {
               projectId={id!}
               counters={project?.counters || []}
             />
+          </div>
+
+          {/* Marker Timeline & Analytics */}
+          <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Marker Timeline</h2>
+            <MarkerTimeline projectId={id!} />
+          </div>
+
+          {/* Pattern Analysis Panel */}
+          {project?.patterns && project.patterns.length > 0 && (
+            <div className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Pattern Analysis</h2>
+              <PatternAnalysisPanel
+                patternId={project.patterns[0]?.id}
+                projectId={id!}
+              />
+            </div>
+          )}
+
+          {/* Gradient & Color Planning */}
+          <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Color Planning</h2>
+            <GradientDesigner projectId={id!} />
           </div>
 
           {/* Session Management */}

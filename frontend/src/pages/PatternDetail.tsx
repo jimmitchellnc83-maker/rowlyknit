@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { FiArrowLeft, FiEdit2, FiTrash2, FiFileText, FiGrid, FiTool } from 'react-icons/fi';
+import { FiArrowLeft, FiEdit2, FiTrash2, FiFileText, FiGrid, FiTool, FiDownload, FiUpload, FiShare2 } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import PatternFileUpload from '../components/PatternFileUpload';
 import BookmarkManager from '../components/patterns/BookmarkManager';
 import PatternViewer from '../components/patterns/PatternViewer';
+import { BlogImportModal, PatternExportModal } from '../components/patterns';
+import { ChartImageUpload, ChartShareDialog, ChartExportDialog } from '../components/charts';
 import LoadingSpinner from '../components/LoadingSpinner';
 
 interface Pattern {
@@ -46,6 +48,10 @@ export default function PatternDetail() {
   const [files, setFiles] = useState<PatternFile[]>([]);
   const [loading, setLoading] = useState(true);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [showChartUpload, setShowChartUpload] = useState(false);
+  const [showShareDialog, setShowShareDialog] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'viewer' | 'charts' | 'tools'>('overview');
   const [selectedPdfFile, setSelectedPdfFile] = useState<PatternFile | null>(null);
   const [formData, setFormData] = useState({
@@ -256,6 +262,20 @@ export default function PatternDetail() {
 
           <div className="flex gap-2 flex-wrap">
             <button
+              onClick={() => setShowExportModal(true)}
+              className="flex items-center justify-center px-4 py-3 md:py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition min-h-[48px] md:min-h-0 flex-1 sm:flex-none"
+            >
+              <FiDownload className="mr-2 h-5 w-5 md:h-4 md:w-4" />
+              <span className="text-base md:text-sm">Export PDF</span>
+            </button>
+            <button
+              onClick={() => setShowShareDialog(true)}
+              className="flex items-center justify-center px-4 py-3 md:py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition min-h-[48px] md:min-h-0 flex-1 sm:flex-none"
+            >
+              <FiShare2 className="mr-2 h-5 w-5 md:h-4 md:w-4" />
+              <span className="text-base md:text-sm">Share</span>
+            </button>
+            <button
               onClick={handleEditClick}
               className="flex items-center justify-center px-4 py-3 md:py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition min-h-[48px] md:min-h-0 flex-1 sm:flex-none"
             >
@@ -462,16 +482,24 @@ export default function PatternDetail() {
       {/* Charts Tab */}
       {activeTab === 'charts' && (
         <div className="bg-white rounded-lg shadow p-6">
-          <div className="text-center py-12">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-xl font-semibold text-gray-900">Pattern Charts</h2>
+            <button
+              onClick={() => setShowChartUpload(true)}
+              className="flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
+            >
+              <FiUpload className="mr-2 h-4 w-4" />
+              Upload Chart Image
+            </button>
+          </div>
+          <div className="text-center py-12 border-2 border-dashed border-gray-300 rounded-lg">
             <FiGrid className="mx-auto h-12 w-12 text-gray-400 mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">Chart Viewer</h3>
             <p className="text-gray-500 mb-4">
               Interactive knitting chart viewer with zoom and rotation
             </p>
             <p className="text-sm text-gray-400">
-              Charts will be displayed here when chart data is available.
-              <br />
-              Future enhancement: Add chart upload/creation functionality.
+              Upload a chart image to automatically detect symbols and create an interactive chart.
             </p>
           </div>
         </div>
@@ -660,6 +688,56 @@ export default function PatternDetail() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Export Modal */}
+      {pattern && (
+        <PatternExportModal
+          isOpen={showExportModal}
+          onClose={() => setShowExportModal(false)}
+          pattern={pattern}
+        />
+      )}
+
+      {/* Share Dialog */}
+      {pattern && showShareDialog && (
+        <ChartShareDialog
+          chartId={pattern.id}
+          chartName={pattern.name}
+          onClose={() => setShowShareDialog(false)}
+        />
+      )}
+
+      {/* Blog Import Modal */}
+      <BlogImportModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        onImportComplete={() => {
+          setShowImportModal(false);
+          fetchPattern();
+        }}
+      />
+
+      {/* Chart Upload Modal */}
+      {showChartUpload && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto p-6">
+            <h2 className="text-xl font-bold mb-4">Upload Chart Image</h2>
+            <ChartImageUpload
+              patternId={id!}
+              onChartDetected={(chartData) => {
+                toast.success('Chart detected successfully!');
+                setShowChartUpload(false);
+              }}
+            />
+            <button
+              onClick={() => setShowChartUpload(false)}
+              className="mt-4 px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300"
+            >
+              Close
+            </button>
           </div>
         </div>
       )}
