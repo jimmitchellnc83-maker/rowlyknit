@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { db } from '../db';
+import db from '../config/database';
 import {
   createChartShareLink,
   createPatternShareLink,
@@ -21,7 +21,7 @@ export const shareChart = async (req: Request, res: Response) => {
   try {
     const { chartId } = req.params;
     const { visibility, allow_copy, allow_download, expires_in_days, password } = req.body;
-    const userId = req.user?.id;
+    const userId = (req as any).user.userId;
 
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });
@@ -105,7 +105,7 @@ export const copySharedChart = async (req: Request, res: Response) => {
   try {
     const { token } = req.params;
     const { password } = req.body;
-    const userId = req.user?.id;
+    const userId = (req as any).user.userId;
 
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });
@@ -159,7 +159,7 @@ export const exportChartHandler = async (req: Request, res: Response) => {
   try {
     const { chartId } = req.params;
     const { format, options = {} } = req.body;
-    const userId = req.user?.id;
+    const userId = (req as any).user.userId;
 
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });
@@ -254,7 +254,7 @@ export const downloadSharedChart = async (req: Request, res: Response) => {
  */
 export const getShareStatistics = async (req: Request, res: Response) => {
   try {
-    const userId = req.user?.id;
+    const userId = (req as any).user.userId;
 
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });
@@ -275,7 +275,7 @@ export const getShareStatistics = async (req: Request, res: Response) => {
  */
 export const getMySharedItems = async (req: Request, res: Response) => {
   try {
-    const userId = req.user?.id;
+    const userId = (req as any).user.userId;
 
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });
@@ -297,7 +297,7 @@ export const getMySharedItems = async (req: Request, res: Response) => {
 export const revokeShare = async (req: Request, res: Response) => {
   try {
     const { type, token } = req.params;
-    const userId = req.user?.id;
+    const userId = (req as any).user.userId;
 
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });
@@ -326,7 +326,7 @@ export const revokeShare = async (req: Request, res: Response) => {
  */
 export const getExportHistory = async (req: Request, res: Response) => {
   try {
-    const userId = req.user?.id;
+    const userId = (req as any).user.userId;
     const { limit = 20, offset = 0 } = req.query;
 
     if (!userId) {

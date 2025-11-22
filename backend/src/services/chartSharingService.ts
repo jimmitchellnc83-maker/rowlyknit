@@ -5,7 +5,7 @@
 
 import crypto from 'crypto';
 import QRCode from 'qrcode';
-import { db } from '../db';
+import db from '../config/database';
 
 const APP_URL = process.env.APP_URL || 'http://localhost:3000';
 
@@ -233,10 +233,10 @@ export const getShareStats = async (
     .first();
 
   return {
-    total_shares: Number(chartStats?.count || 0) + Number(patternStats?.count || 0),
-    total_views: Number(chartStats?.views || 0) + Number(patternStats?.views || 0),
-    total_copies: Number(chartStats?.copies || 0),
-    total_downloads: Number(chartStats?.downloads || 0),
+    total_shares: Number((chartStats as any)?.count || 0) + Number((patternStats as any)?.count || 0),
+    total_views: Number((chartStats as any)?.views || 0) + Number((patternStats as any)?.views || 0),
+    total_copies: Number((chartStats as any)?.copies || 0),
+    total_downloads: Number((chartStats as any)?.downloads || 0),
   };
 };
 
