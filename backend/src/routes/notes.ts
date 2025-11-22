@@ -88,11 +88,19 @@ router.delete(
 
 /**
  * @route   GET /api/projects/:id/memos
+ * @route   GET /api/projects/:id/structured-memos (alias)
  * @desc    Get all structured memos for a project
  * @access  Private
  */
 router.get(
   '/projects/:id/memos',
+  validateUUID('id'),
+  asyncHandler(notesController.getStructuredMemos)
+);
+
+// Alias route for frontend compatibility
+router.get(
+  '/projects/:id/structured-memos',
   validateUUID('id'),
   asyncHandler(notesController.getStructuredMemos)
 );
@@ -111,11 +119,25 @@ router.get(
 
 /**
  * @route   POST /api/projects/:id/memos
+ * @route   POST /api/projects/:id/structured-memos (alias)
  * @desc    Create a structured memo
  * @access  Private
  */
 router.post(
   '/projects/:id/memos',
+  [
+    validateUUID('id'),
+    body('templateType').notEmpty().isIn(['gauge_swatch', 'fit_adjustment', 'yarn_substitution', 'finishing']),
+    body('data').notEmpty().isObject(),
+    body('title').optional().isString(),
+  ],
+  validate,
+  asyncHandler(notesController.createStructuredMemo)
+);
+
+// Alias route for frontend compatibility
+router.post(
+  '/projects/:id/structured-memos',
   [
     validateUUID('id'),
     body('templateType').notEmpty().isIn(['gauge_swatch', 'fit_adjustment', 'yarn_substitution', 'finishing']),
@@ -140,11 +162,20 @@ router.put(
 
 /**
  * @route   DELETE /api/projects/:id/memos/:memoId
+ * @route   DELETE /api/projects/:id/structured-memos/:memoId (alias)
  * @desc    Delete a structured memo
  * @access  Private
  */
 router.delete(
   '/projects/:id/memos/:memoId',
+  [validateUUID('id'), validateUUID('memoId')],
+  validate,
+  asyncHandler(notesController.deleteStructuredMemo)
+);
+
+// Alias route for frontend compatibility
+router.delete(
+  '/projects/:id/structured-memos/:memoId',
   [validateUUID('id'), validateUUID('memoId')],
   validate,
   asyncHandler(notesController.deleteStructuredMemo)

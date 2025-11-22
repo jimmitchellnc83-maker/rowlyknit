@@ -185,6 +185,44 @@ router.get(
 );
 
 /**
+ * @route   GET /api/patterns/:id/charts
+ * @desc    Get charts associated with a pattern
+ * @access  Private
+ */
+router.get(
+  '/:id/charts',
+  validateUUID('id'),
+  asyncHandler(async (req, res) => {
+    const userId = (req as any).user.userId;
+    const { id } = req.params;
+
+    // Import db here to avoid circular dependency
+    const db = require('../config/database').default;
+
+    // Verify pattern belongs to user
+    const pattern = await db('patterns')
+      .where({ id, user_id: userId })
+      .first();
+
+    if (!pattern) {
+      return res.status(404).json({ success: false, message: 'Pattern not found' });
+    }
+
+    // Get charts from detected_charts table if exists, otherwise return empty
+    try {
+      const charts = await db('detected_charts')
+        .where({ pattern_id: id })
+        .orderBy('created_at', 'desc');
+
+      res.json({ success: true, data: { charts } });
+    } catch {
+      // Table might not exist yet, return empty array
+      res.json({ success: true, data: { charts: [] } });
+    }
+  })
+);
+
+/**
  * @route   POST /api/patterns
  * @desc    Create new pattern
  * @access  Private
