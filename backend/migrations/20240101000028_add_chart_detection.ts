@@ -1,6 +1,28 @@
 import { Knex } from 'knex';
 
 export async function up(knex: Knex): Promise<void> {
+  // Create charts table if it doesn't exist
+  if (!(await knex.schema.hasTable('charts'))) {
+    await knex.schema.createTable('charts', (table) => {
+      table.uuid('id').primary().defaultTo(knex.raw('gen_random_uuid()'));
+      table.uuid('user_id').references('id').inTable('users').onDelete('CASCADE');
+      table.uuid('project_id').references('id').inTable('projects').onDelete('SET NULL').nullable();
+      table.string('name', 255).defaultTo('Untitled Chart');
+      table.jsonb('grid').defaultTo('[]'); // 2D array of symbols
+      table.integer('rows').defaultTo(0);
+      table.integer('columns').defaultTo(0);
+      table.jsonb('symbol_legend').defaultTo('{}');
+      table.text('description').nullable();
+      table.string('source', 50).defaultTo('manual'); // manual, image_import, shared_copy
+      table.string('source_image_url', 500).nullable();
+      table.timestamp('created_at').defaultTo(knex.fn.now());
+      table.timestamp('updated_at').defaultTo(knex.fn.now());
+
+      table.index('user_id', 'idx_charts_user');
+      table.index('project_id', 'idx_charts_project');
+    });
+  }
+
   // Create detected_charts table to store image detection results
   await knex.schema.createTable('detected_charts', (table) => {
     table.uuid('id').primary().defaultTo(knex.raw('gen_random_uuid()'));
@@ -68,4 +90,5 @@ export async function up(knex: Knex): Promise<void> {
 export async function down(knex: Knex): Promise<void> {
   await knex.schema.dropTableIfExists('chart_symbol_templates');
   await knex.schema.dropTableIfExists('detected_charts');
+  await knex.schema.dropTableIfExists('charts');
 }
