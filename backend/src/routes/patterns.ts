@@ -185,6 +185,23 @@ router.get(
 );
 
 /**
+ * @route   GET /api/patterns/:id/charts
+ * @desc    Get charts associated with a pattern
+ * @access  Private
+ * @note    Charts are currently linked to projects, not patterns directly.
+ *          This returns an empty array until pattern-chart relationship is implemented.
+ */
+router.get(
+  '/:id/charts',
+  validateUUID('id'),
+  asyncHandler(async (req, res) => {
+    // TODO: Add pattern_id to charts table and implement proper query
+    // For now, return empty array to prevent 404 errors
+    res.json({ charts: [] });
+  })
+);
+
+/**
  * @route   POST /api/patterns
  * @desc    Create new pattern
  * @access  Private
