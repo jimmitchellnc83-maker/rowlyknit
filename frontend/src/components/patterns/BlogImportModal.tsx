@@ -107,7 +107,6 @@ export const BlogImportModal: React.FC<BlogImportModalProps> = ({
       });
 
       if (response.data.success) {
-        setSavedPatternId(response.data.patternId);
         setStep('success');
         onPatternImported(response.data.patternId);
       } else {
@@ -133,7 +132,6 @@ export const BlogImportModal: React.FC<BlogImportModalProps> = ({
     setError(null);
     setExtractionResult(null);
     setEditedPatternData(null);
-    setSavedPatternId(null);
   };
 
   const handleClose = () => {

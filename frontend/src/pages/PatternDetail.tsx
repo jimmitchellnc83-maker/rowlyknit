@@ -7,7 +7,7 @@ import PatternFileUpload from '../components/PatternFileUpload';
 import BookmarkManager from '../components/patterns/BookmarkManager';
 import PatternViewer from '../components/patterns/PatternViewer';
 import { BlogImportModal, PatternExportModal } from '../components/patterns';
-import { ChartImageUpload, ChartShareDialog, ChartExportDialog } from '../components/charts';
+import { ChartImageUpload, ChartShareDialog } from '../components/charts';
 import LoadingSpinner from '../components/LoadingSpinner';
 
 interface Pattern {
@@ -702,8 +702,9 @@ export default function PatternDetail() {
       )}
 
       {/* Share Dialog */}
-      {pattern && showShareDialog && (
+      {pattern && (
         <ChartShareDialog
+          open={showShareDialog}
           chartId={pattern.id}
           chartName={pattern.name}
           onClose={() => setShowShareDialog(false)}
@@ -714,7 +715,7 @@ export default function PatternDetail() {
       <BlogImportModal
         isOpen={showImportModal}
         onClose={() => setShowImportModal(false)}
-        onImportComplete={() => {
+        onPatternImported={() => {
           setShowImportModal(false);
           fetchPattern();
         }}
@@ -726,18 +727,13 @@ export default function PatternDetail() {
           <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto p-6">
             <h2 className="text-xl font-bold mb-4">Upload Chart Image</h2>
             <ChartImageUpload
-              patternId={id!}
-              onChartDetected={(chartData) => {
+              projectId={id}
+              onChartCreated={() => {
                 toast.success('Chart detected successfully!');
                 setShowChartUpload(false);
               }}
+              onCancel={() => setShowChartUpload(false)}
             />
-            <button
-              onClick={() => setShowChartUpload(false)}
-              className="mt-4 px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300"
-            >
-              Close
-            </button>
           </div>
         </div>
       )}

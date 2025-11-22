@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+// @ts-ignore - react-window types
 import { FixedSizeList as List } from 'react-window';
-import type { ListChildComponentProps } from 'react-window';
 import { Card, Typography, Box, IconButton, Slider, Tooltip, Chip, Alert } from '@mui/material';
 import {
   ZoomIn,

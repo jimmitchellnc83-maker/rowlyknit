@@ -851,24 +851,26 @@ export default function ProjectDetail() {
           {/* Marker Timeline & Analytics */}
           <div className="bg-white rounded-lg shadow p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Marker Timeline</h2>
-            <MarkerTimeline projectId={id!} />
+            <MarkerTimeline
+              projectId={id!}
+              currentRow={project?.counters?.[0]?.current_count || 0}
+              totalRows={project?.counters?.[0]?.target_count || 100}
+            />
           </div>
 
           {/* Pattern Analysis Panel */}
-          {project?.patterns && project.patterns.length > 0 && (
-            <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Pattern Analysis</h2>
-              <PatternAnalysisPanel
-                patternId={project.patterns[0]?.id}
-                projectId={id!}
-              />
-            </div>
-          )}
+          <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Pattern Analysis</h2>
+            <PatternAnalysisPanel projectId={id!} />
+          </div>
 
           {/* Gradient & Color Planning */}
           <div className="bg-white rounded-lg shadow p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Color Planning</h2>
-            <GradientDesigner projectId={id!} />
+            <GradientDesigner
+              projectId={id!}
+              totalRows={project?.counters?.[0]?.target_count || 100}
+            />
           </div>
 
           {/* Session Management */}
