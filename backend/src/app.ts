@@ -159,6 +159,11 @@ app.use('/api/recipients', recipientsRoutes);
 app.use('/api/tools', toolsRoutes);
 app.use('/api/uploads', uploadsRoutes);
 app.use('/api/charts', chartsRoutes);
+// Legacy alias for /api/chart-symbols -> /api/charts/symbols
+app.get('/api/chart-symbols', (req, res, next) => {
+  req.url = '/symbols';
+  chartsRoutes(req, res, next);
+});
 app.use('/api', colorPlanningRoutes);
 app.use('/shared', sharedRoutes); // Public shared content routes
 
