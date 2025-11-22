@@ -7,7 +7,7 @@ export async function up(knex: Knex): Promise<void> {
     table.uuid('project_id').references('id').inTable('projects').onDelete('CASCADE');
     table.string('color_name', 100).notNullable();
     table.string('hex_code', 7).notNullable();
-    table.uuid('yarn_id').references('id').inTable('yarn_stash').onDelete('SET NULL').nullable();
+    table.uuid('yarn_id').references('id').inTable('yarn').onDelete('SET NULL').nullable();
     table.decimal('estimated_yardage', 10, 2).nullable();
     table.decimal('actual_yardage', 10, 2).nullable();
     table.integer('sort_order').defaultTo(0);
