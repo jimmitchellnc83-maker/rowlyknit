@@ -17,14 +17,12 @@ import {
   IconButton,
   Alert,
   Divider,
-  Chip,
   CircularProgress,
   Tooltip,
 } from '@mui/material';
 import {
   Share,
   ContentCopy,
-  QrCode,
   Download,
   Lock,
   Public,

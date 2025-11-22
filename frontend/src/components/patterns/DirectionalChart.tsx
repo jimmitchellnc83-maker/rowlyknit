@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
-import { FiArrowRight, FiArrowLeft, FiRotateCcw, FiCheck, FiLoader, FiChevronDown } from 'react-icons/fi';
+import { FiArrowRight, FiArrowLeft, FiLoader, FiChevronDown } from 'react-icons/fi';
 
 type WorkingDirection = 'flat_knitting' | 'in_the_round' | 'flat_from_center';
 type CurrentDirection = 'left_to_right' | 'right_to_left' | 'center_out';
@@ -225,15 +225,6 @@ export const DirectionalChart: React.FC<DirectionalChartProps> = ({
     if (currentDirection === 'left_to_right') return <FiArrowRight />;
     if (currentDirection === 'right_to_left') return <FiArrowLeft />;
     return <FiArrowRight />;
-  };
-
-  const getDirectionLabel = () => {
-    const labels: Record<WorkingDirection, string> = {
-      flat_knitting: 'Flat Knitting (alternating)',
-      in_the_round: 'In the Round (always right)',
-      flat_from_center: 'From Center Out',
-    };
-    return labels[workingDirection];
   };
 
   if (loading) {

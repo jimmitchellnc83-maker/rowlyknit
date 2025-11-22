@@ -6,8 +6,6 @@ import {
   Button,
   LinearProgress,
   Alert,
-  Grid,
-  IconButton,
   TextField,
   Chip,
   Tooltip,
@@ -24,9 +22,7 @@ import {
   CloudUpload,
   PhotoCamera,
   Image,
-  Check,
   Close,
-  Edit,
   Save,
   Refresh,
 } from '@mui/icons-material';
@@ -347,9 +343,9 @@ const ChartImageUpload: React.FC<ChartImageUploadProps> = ({
           </Box>
 
           {/* Side by side view */}
-          <Grid container spacing={2} sx={{ mb: 2 }}>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 2 }}>
             {/* Original image */}
-            <Grid item xs={12} md={6}>
+            <Box sx={{ flex: '1 1 300px', minWidth: 0 }}>
               <Typography variant="subtitle2" gutterBottom>
                 Original Image
               </Typography>
@@ -373,10 +369,10 @@ const ChartImageUpload: React.FC<ChartImageUploadProps> = ({
                   }}
                 />
               </Box>
-            </Grid>
+            </Box>
 
             {/* Detected chart */}
-            <Grid item xs={12} md={6}>
+            <Box sx={{ flex: '1 1 300px', minWidth: 0 }}>
               <Typography variant="subtitle2" gutterBottom>
                 Detected Chart (click cells to correct)
               </Typography>
@@ -431,8 +427,8 @@ const ChartImageUpload: React.FC<ChartImageUploadProps> = ({
                   ))}
                 </Box>
               </Box>
-            </Grid>
-          </Grid>
+            </Box>
+          </Box>
 
           {/* Legend */}
           <Box sx={{ mb: 2, display: 'flex', gap: 2, flexWrap: 'wrap' }}>

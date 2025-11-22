@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { FixedSizeList as List } from 'react-window';
+import type { ListChildComponentProps } from 'react-window';
 import { Card, Typography, Box, IconButton, Slider, Tooltip, Chip, Alert } from '@mui/material';
 import {
   ZoomIn,
@@ -85,7 +86,7 @@ const ContinuousChartView: React.FC<ContinuousChartViewProps> = ({
       isPageEnd: boolean;
     }> = [];
 
-    pages.forEach((page, pageIndex) => {
+    pages.forEach((page) => {
       page.rows.forEach((row, rowIndex) => {
         const globalRow = page.start_row + rowIndex;
         rows.push({

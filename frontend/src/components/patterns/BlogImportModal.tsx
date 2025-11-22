@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import axios from 'axios';
-import { FiLink, FiLoader, FiCheck, FiX, FiAlertCircle, FiEdit2, FiSave, FiArrowLeft } from 'react-icons/fi';
+import { FiLink, FiLoader, FiCheck, FiX, FiAlertCircle, FiSave, FiArrowLeft } from 'react-icons/fi';
 
 interface ExtractedContent {
   title: string;
@@ -57,7 +57,6 @@ export const BlogImportModal: React.FC<BlogImportModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [extractionResult, setExtractionResult] = useState<ExtractionResult | null>(null);
   const [editedPatternData, setEditedPatternData] = useState<ParsedPatternData | null>(null);
-  const [savedPatternId, setSavedPatternId] = useState<string | null>(null);
 
   const handleExtractUrl = useCallback(async () => {
     if (!url.trim()) {
@@ -159,7 +158,7 @@ export const BlogImportModal: React.FC<BlogImportModalProps> = ({
 
         {/* Progress Steps */}
         <div className="progress-steps">
-          <div className={`step ${step === 'url' ? 'active' : step !== 'url' ? 'completed' : ''}`}>
+          <div className={`step ${step === 'url' ? 'active' : 'completed'}`}>
             <span className="step-number">1</span>
             <span className="step-label">Enter URL</span>
           </div>
