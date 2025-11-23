@@ -149,7 +149,9 @@ export default defineConfig({
               id.includes('react-icons') ||
               id.includes('react-toastify') ||
               id.includes('react-pdf') ||
-              id.includes('@tanstack')
+              id.includes('@tanstack') ||
+              id.includes('zustand') ||
+              id.includes('socket.io-client')
             ) {
               return 'vendor-react';
             }

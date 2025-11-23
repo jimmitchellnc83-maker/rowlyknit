@@ -346,7 +346,7 @@ const ChartImageUpload: React.FC<ChartImageUploadProps> = ({
           {/* Side by side view */}
           <Grid container spacing={2} sx={{ mb: 2 }}>
             {/* Original image */}
-            <Grid item xs={12} md={6}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <Typography variant="subtitle2" gutterBottom>
                 Original Image
               </Typography>
@@ -373,7 +373,7 @@ const ChartImageUpload: React.FC<ChartImageUploadProps> = ({
             </Grid>
 
             {/* Detected chart */}
-            <Grid item xs={12} md={6}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <Typography variant="subtitle2" gutterBottom>
                 Detected Chart (click cells to correct)
               </Typography>

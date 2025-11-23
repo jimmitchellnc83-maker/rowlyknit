@@ -41,7 +41,15 @@ export const useThemeStore = create<ThemeState>()(
 
 // Helper function to apply theme to document
 function applyTheme(theme: Theme) {
-  const root = window.document.documentElement;
+  // Guard against SSR or early module execution before DOM is ready
+  if (typeof window === 'undefined' || typeof document === 'undefined') {
+    return;
+  }
+
+  const root = document.documentElement;
+  if (!root) {
+    return;
+  }
 
   if (theme === 'dark') {
     root.classList.add('dark');
@@ -50,6 +58,17 @@ function applyTheme(theme: Theme) {
   }
 }
 
-// Initialize theme on load
-const { theme } = useThemeStore.getState();
-applyTheme(theme);
+// Initialize theme on load - only if DOM is ready
+if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+  // Use requestAnimationFrame to ensure DOM is ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+      const { theme } = useThemeStore.getState();
+      applyTheme(theme);
+    });
+  } else {
+    // DOM is already ready
+    const { theme } = useThemeStore.getState();
+    applyTheme(theme);
+  }
+}
