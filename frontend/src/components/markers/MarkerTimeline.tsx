@@ -337,7 +337,7 @@ const MarkerTimeline: React.FC<MarkerTimelineProps> = ({
                     transform: 'translate(-50%, -50%) scale(1.2)',
                   },
                 }}
-                onClick={(e) => handleMarkerClick(e, firstMarker)}
+                onClick={(e: React.MouseEvent<HTMLElement>) => handleMarkerClick(e, firstMarker)}
                 onMouseDown={() => handleDragStart(firstMarker.id)}
               >
                 {isGrouped && (

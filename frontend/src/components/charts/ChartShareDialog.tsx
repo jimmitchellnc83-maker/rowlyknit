@@ -17,14 +17,13 @@ import {
   IconButton,
   Alert,
   Divider,
-  Chip,
   CircularProgress,
   Tooltip,
+  SelectChangeEvent,
 } from '@mui/material';
 import {
   Share,
   ContentCopy,
-  QrCode,
   Download,
   Lock,
   Public,
@@ -226,7 +225,7 @@ const ChartShareDialog: React.FC<ChartShareDialogProps> = ({
                 <Select
                   value={visibility}
                   label="Visibility"
-                  onChange={(e) => setVisibility(e.target.value as any)}
+                  onChange={(e: SelectChangeEvent) => setVisibility(e.target.value as 'public' | 'private')}
                 >
                   <MenuItem value="public">
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -253,7 +252,7 @@ const ChartShareDialog: React.FC<ChartShareDialogProps> = ({
                 control={
                   <Switch
                     checked={allowDownload}
-                    onChange={(e) => setAllowDownload(e.target.checked)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAllowDownload(e.target.checked)}
                   />
                 }
                 label="Allow download"
@@ -262,7 +261,7 @@ const ChartShareDialog: React.FC<ChartShareDialogProps> = ({
                 control={
                   <Switch
                     checked={allowCopy}
-                    onChange={(e) => setAllowCopy(e.target.checked)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAllowCopy(e.target.checked)}
                   />
                 }
                 label="Allow copy to account"
@@ -278,7 +277,7 @@ const ChartShareDialog: React.FC<ChartShareDialogProps> = ({
                 <Select
                   value={expiresInDays}
                   displayEmpty
-                  onChange={(e) => setExpiresInDays(e.target.value as number | '')}
+                  onChange={(e: SelectChangeEvent<number | ''>) => setExpiresInDays(e.target.value as number | '')}
                 >
                   <MenuItem value="">Never expires</MenuItem>
                   <MenuItem value={1}>1 day</MenuItem>
@@ -296,7 +295,7 @@ const ChartShareDialog: React.FC<ChartShareDialogProps> = ({
                 control={
                   <Switch
                     checked={usePassword}
-                    onChange={(e) => setUsePassword(e.target.checked)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setUsePassword(e.target.checked)}
                   />
                 }
                 label="Password protect"
@@ -305,7 +304,7 @@ const ChartShareDialog: React.FC<ChartShareDialogProps> = ({
                 <TextField
                   type="password"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
                   placeholder="Enter password"
                   fullWidth
                   size="small"

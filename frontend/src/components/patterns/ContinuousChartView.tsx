@@ -85,7 +85,7 @@ const ContinuousChartView: React.FC<ContinuousChartViewProps> = ({
       isPageEnd: boolean;
     }> = [];
 
-    pages.forEach((page, pageIndex) => {
+    pages.forEach((page) => {
       page.rows.forEach((row, rowIndex) => {
         const globalRow = page.start_row + rowIndex;
         rows.push({
@@ -363,7 +363,7 @@ const ContinuousChartView: React.FC<ContinuousChartViewProps> = ({
             min={MIN_CELL_SIZE}
             max={MAX_CELL_SIZE}
             step={2}
-            onChange={(_, value) => setCellSize(value as number)}
+            onChange={(_: Event, value: number | number[]) => setCellSize(value as number)}
             sx={{ width: 100 }}
           />
           <Tooltip title="Zoom In">

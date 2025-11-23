@@ -167,7 +167,7 @@ function ActivityGraph({ data, loading }: ActivityGraphProps) {
               fontSize={12}
               tickLine={false}
               axisLine={false}
-              tickFormatter={(value) => value.toLocaleString()}
+              tickFormatter={(value: number) => value.toLocaleString()}
             />
             <Tooltip
               labelFormatter={formatTooltipDate}
