@@ -1,0 +1,11 @@
+{
+  "name": "Rowly - Knitting Project Manager",
+  "short_name": "Rowly",
+  "description": "Track your knitting projects, patterns, and yarn stash",
+  "theme_color": "#8b5cf6",
+  "background_color": "#ffffff",
+  "display": "standalone",
+  "scope": "/",
+  "start_url": "/",
+  "icons": []
+}
