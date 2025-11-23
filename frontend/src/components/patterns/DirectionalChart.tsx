@@ -227,16 +227,6 @@ export const DirectionalChart: React.FC<DirectionalChartProps> = ({
     return <FiArrowRight />;
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const _getDirectionLabel = () => {
-    const labels: Record<WorkingDirection, string> = {
-      flat_knitting: 'Flat Knitting (alternating)',
-      in_the_round: 'In the Round (always right)',
-      flat_from_center: 'From Center Out',
-    };
-    return labels[workingDirection];
-  };
-
   if (loading) {
     return (
       <div className="chart-loading">

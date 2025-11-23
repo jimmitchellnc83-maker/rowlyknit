@@ -160,7 +160,7 @@ export const BlogImportModal: React.FC<BlogImportModalProps> = ({
 
         {/* Progress Steps */}
         <div className="progress-steps">
-          <div className={`step ${step === 'url' ? 'active' : step !== 'url' ? 'completed' : ''}`}>
+          <div className={`step ${step === 'url' ? 'active' : 'completed'}`}>
             <span className="step-number">1</span>
             <span className="step-label">Enter URL</span>
           </div>
