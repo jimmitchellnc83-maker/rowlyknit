@@ -49,7 +49,7 @@ export const InteractiveChartProgress: React.FC<InteractiveChartProgressProps> =
   rows,
   cols,
   title,
-  isInTheRound = false,
+  isInTheRound: _isInTheRound = false,
   readOnly = false,
 }) => {
   const [progress, setProgress] = useState<ChartProgress>({

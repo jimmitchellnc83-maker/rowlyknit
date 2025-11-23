@@ -8,7 +8,6 @@ import axios from 'axios';
 import { toast } from 'react-toastify';
 import PhotoGallery from '../components/PhotoGallery';
 import FileUpload from '../components/FileUpload';
-import CounterManager from '../components/counters/CounterManager';
 import CounterHierarchy from '../components/counters/CounterHierarchy';
 import { SessionManager, SessionTimer, SessionHistory } from '../components/sessions';
 import { useWebSocket } from '../contexts/WebSocketContext';

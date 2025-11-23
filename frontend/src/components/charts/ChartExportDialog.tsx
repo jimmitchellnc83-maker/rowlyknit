@@ -19,6 +19,7 @@ import {
   RadioGroup,
   Radio,
   FormLabel,
+  SelectChangeEvent,
 } from '@mui/material';
 import {
   Download,
@@ -166,7 +167,7 @@ const ChartExportDialog: React.FC<ChartExportDialogProps> = ({
             <FormLabel component="legend">Export Format</FormLabel>
             <RadioGroup
               value={format}
-              onChange={(e) => setFormat(e.target.value as ExportFormat)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormat(e.target.value as ExportFormat)}
             >
               {(Object.keys(formatInfo) as ExportFormat[]).map((f) => (
                 <FormControlLabel
@@ -202,7 +203,7 @@ const ChartExportDialog: React.FC<ChartExportDialogProps> = ({
                     <Select
                       value={pageSize}
                       label="Page Size"
-                      onChange={(e) => setPageSize(e.target.value as any)}
+                      onChange={(e: SelectChangeEvent) => setPageSize(e.target.value as 'letter' | 'a4' | 'legal')}
                     >
                       <MenuItem value="letter">Letter (8.5" x 11")</MenuItem>
                       <MenuItem value="a4">A4</MenuItem>
@@ -218,7 +219,7 @@ const ChartExportDialog: React.FC<ChartExportDialogProps> = ({
                     <Select
                       value={orientation}
                       label="Orientation"
-                      onChange={(e) => setOrientation(e.target.value as any)}
+                      onChange={(e: SelectChangeEvent) => setOrientation(e.target.value as 'portrait' | 'landscape')}
                     >
                       <MenuItem value="portrait">Portrait</MenuItem>
                       <MenuItem value="landscape">Landscape</MenuItem>
@@ -235,7 +236,7 @@ const ChartExportDialog: React.FC<ChartExportDialogProps> = ({
                 <Select
                   value={cellSize}
                   label="Cell Size"
-                  onChange={(e) => setCellSize(e.target.value as any)}
+                  onChange={(e: SelectChangeEvent) => setCellSize(e.target.value as 'small' | 'medium' | 'large')}
                 >
                   <MenuItem value="small">Small</MenuItem>
                   <MenuItem value="medium">Medium</MenuItem>
@@ -250,7 +251,7 @@ const ChartExportDialog: React.FC<ChartExportDialogProps> = ({
                 control={
                   <Switch
                     checked={includeLegend}
-                    onChange={(e) => setIncludeLegend(e.target.checked)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setIncludeLegend(e.target.checked)}
                   />
                 }
                 label="Include legend"
@@ -259,7 +260,7 @@ const ChartExportDialog: React.FC<ChartExportDialogProps> = ({
                 control={
                   <Switch
                     checked={includeRowNumbers}
-                    onChange={(e) => setIncludeRowNumbers(e.target.checked)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setIncludeRowNumbers(e.target.checked)}
                   />
                 }
                 label="Include row numbers"
@@ -269,7 +270,7 @@ const ChartExportDialog: React.FC<ChartExportDialogProps> = ({
                   control={
                     <Switch
                       checked={includeNotes}
-                      onChange={(e) => setIncludeNotes(e.target.checked)}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setIncludeNotes(e.target.checked)}
                     />
                   }
                   label="Include notes"

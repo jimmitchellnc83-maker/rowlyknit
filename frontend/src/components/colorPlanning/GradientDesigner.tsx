@@ -9,12 +9,12 @@ import {
   Select,
   MenuItem,
   FormControl,
-  InputLabel,
   Slider,
   Tooltip,
   Chip,
   Alert,
   CircularProgress,
+  SelectChangeEvent,
 } from '@mui/material';
 import {
   Add,
@@ -159,15 +159,6 @@ const GradientDesigner: React.FC<GradientDesignerProps> = ({
     return '#' + Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0');
   };
 
-  const getTextColor = (bgColor: string): string => {
-    const hex = bgColor.replace('#', '');
-    const r = parseInt(hex.substring(0, 2), 16);
-    const g = parseInt(hex.substring(2, 4), 16);
-    const b = parseInt(hex.substring(4, 6), 16);
-    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-    return luminance > 0.5 ? '#000000' : '#ffffff';
-  };
-
   return (
     <Card sx={{ p: 3 }}>
       {/* Header */}
@@ -224,7 +215,7 @@ const GradientDesigner: React.FC<GradientDesignerProps> = ({
             <input
               type="color"
               value={color.hex}
-              onChange={(e) => updateColor(color.id, { hex: e.target.value })}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateColor(color.id, { hex: e.target.value })}
               style={{
                 width: 50,
                 height: 36,
@@ -238,7 +229,7 @@ const GradientDesigner: React.FC<GradientDesignerProps> = ({
             {/* Color name */}
             <TextField
               value={color.name}
-              onChange={(e) => updateColor(color.id, { name: e.target.value })}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateColor(color.id, { name: e.target.value })}
               size="small"
               placeholder="Color name"
               sx={{ flex: 1 }}
@@ -247,7 +238,7 @@ const GradientDesigner: React.FC<GradientDesignerProps> = ({
             {/* Hex input */}
             <TextField
               value={color.hex}
-              onChange={(e) => {
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                 const hex = e.target.value;
                 if (/^#[0-9A-Fa-f]{0,6}$/.test(hex)) {
                   updateColor(color.id, { hex });
@@ -288,7 +279,7 @@ const GradientDesigner: React.FC<GradientDesignerProps> = ({
       <FormControl fullWidth size="small" sx={{ mb: 2 }}>
         <Select
           value={transitionStyle}
-          onChange={(e) => setTransitionStyle(e.target.value as any)}
+          onChange={(e: SelectChangeEvent) => setTransitionStyle(e.target.value as 'linear' | 'smooth' | 'striped')}
         >
           <MenuItem value="linear">Linear (even splits)</MenuItem>
           <MenuItem value="smooth">Smooth (gradual fade)</MenuItem>
@@ -304,7 +295,7 @@ const GradientDesigner: React.FC<GradientDesignerProps> = ({
           </Typography>
           <Slider
             value={stripeWidth}
-            onChange={(_, value) => setStripeWidth(value as number)}
+            onChange={(_: Event, value: number | number[]) => setStripeWidth(value as number)}
             min={1}
             max={20}
             valueLabelDisplay="auto"
