@@ -198,8 +198,10 @@ async function getActivityGraphData(
     .whereNull('p.deleted_at')
     .where('ch.created_at', '>=', filterDate)
     .whereRaw('ch.new_value > ch.old_value')
-    .select(db.raw('DATE(ch.created_at) as date'))
-    .sum(db.raw('ch.new_value - ch.old_value as rows'))
+    .select(
+      db.raw('DATE(ch.created_at) as date'),
+      db.raw('sum(ch.new_value - ch.old_value) as rows')
+    )
     .groupBy(db.raw('DATE(ch.created_at)'))
     .orderBy('date', 'asc');
 
@@ -229,8 +231,8 @@ async function getRecentProjectsStats(userId: string): Promise<StatsResponse['re
         .join('counters as c', 'c.id', 'ch.counter_id')
         .where('c.project_id', project.id)
         .whereRaw('ch.new_value > ch.old_value')
-        .sum(db.raw('ch.new_value - ch.old_value as rows'))
-        .first();
+        .select(db.raw('sum(ch.new_value - ch.old_value) as rows'))
+        .first() as { rows?: number } | undefined;
 
       // Get time spent
       const timeResult = await db('knitting_sessions')
