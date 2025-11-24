@@ -14,7 +14,7 @@ BLUE='\033[0;34m'
 NC='\033[0m'
 
 APP_DIR="/home/user/rowlyknit"
-BRANCH="claude/build-rowly-production-app-011CV32EASvp9cQ2Z8eA8mTy"
+BRANCH="claude/investigate-sti-017gPERiqsqmDQFjEoRtQG5R"
 
 print_header() {
     echo -e "\n${BLUE}============================================${NC}"
