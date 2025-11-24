@@ -43,6 +43,9 @@ import notesRoutes from './routes/notes';
 import magicMarkersRoutes from './routes/magic-markers';
 import patternBookmarksRoutes from './routes/patternBookmarks';
 import chartsRoutes from './routes/charts';
+import statsRoutes from './routes/stats';
+import colorPlanningRoutes from './routes/color-planning';
+import sharedRoutes from './routes/shared';
 
 // Create Express app
 const app: Application = express();
@@ -162,12 +165,16 @@ app.use('/api', magicMarkersRoutes);
 app.use('/api', patternEnhancementsRoutes);
 app.use('/api', patternBookmarksRoutes);
 app.use('/api', chartsRoutes);
+app.use('/api/stats', statsRoutes);
 app.use('/api/projects', projectsRoutes);
 app.use('/api/patterns', patternsRoutes);
 app.use('/api/yarn', yarnRoutes);
 app.use('/api/recipients', recipientsRoutes);
 app.use('/api/tools', toolsRoutes);
 app.use('/api/uploads', uploadsRoutes);
+app.use('/api/charts', chartsRoutes);
+app.use('/api', colorPlanningRoutes);
+app.use('/shared', sharedRoutes);
 
 // API documentation
 app.get('/api', (req, res) => {

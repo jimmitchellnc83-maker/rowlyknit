@@ -50,6 +50,7 @@ RUN npm install --omit=dev && \
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/migrations ./migrations
 COPY --from=builder /app/knexfile.js ./knexfile.js
+COPY knexfile.docker.js ./knexfile.docker.js
 
 # Create necessary directories
 RUN mkdir -p /app/uploads /backups /var/log/rowly && \
