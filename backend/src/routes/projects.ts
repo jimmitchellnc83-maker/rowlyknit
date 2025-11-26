@@ -14,6 +14,13 @@ const router = Router();
 router.use(authenticate);
 
 /**
+ * @route   GET /api/projects/types
+ * @desc    Get allowed project types
+ * @access  Private
+ */
+router.get('/types', asyncHandler(projectsController.getProjectTypes));
+
+/**
  * @route   GET /api/projects
  * @desc    Get all projects for current user
  * @access  Private
