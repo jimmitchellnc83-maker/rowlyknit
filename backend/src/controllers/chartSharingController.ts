@@ -132,6 +132,7 @@ export const copySharedChart = async (req: Request, res: Response) => {
         symbol_legend: result.chart.symbol_legend,
         description: result.chart.description,
         source: 'shared_copy',
+        pattern_id: result.chart.pattern_id || null,
       })
       .returning('*');
 

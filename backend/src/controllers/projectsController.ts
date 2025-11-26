@@ -4,6 +4,37 @@ import { NotFoundError, ForbiddenError, ValidationError } from '../utils/errorHa
 import { createAuditLog } from '../middleware/auditLog';
 import { ALLOWED_FIELDS, sanitizeSearchQuery } from '../utils/inputSanitizer';
 
+export const ALLOWED_PROJECT_TYPES = [
+  'sweater',
+  'cardigan',
+  'hat',
+  'scarf',
+  'cowl',
+  'shawl',
+  'shawlette',
+  'socks',
+  'mittens',
+  'blanket',
+  'baby',
+  'toy',
+  'bag',
+  'home',
+  'dishcloth',
+  'other',
+];
+
+/**
+ * Return allowed project types for UI/API consumers
+ */
+export async function getProjectTypes(req: Request, res: Response) {
+  res.json({
+    success: true,
+    data: {
+      projectTypes: ALLOWED_PROJECT_TYPES,
+    },
+  });
+}
+
 /**
  * Get all projects for current user
  */
@@ -118,12 +149,16 @@ export async function createProject(req: Request, res: Response) {
     throw new ValidationError('Project name is required');
   }
 
+  if (projectType && !ALLOWED_PROJECT_TYPES.includes(projectType)) {
+    throw new ValidationError(`Project type must be one of: ${ALLOWED_PROJECT_TYPES.join(', ')}`);
+  }
+
   const [project] = await db('projects')
     .insert({
       user_id: userId,
       name,
       description,
-      project_type: projectType,
+      project_type: projectType || ALLOWED_PROJECT_TYPES[0],
       start_date: startDate,
       target_completion_date: targetCompletionDate,
       notes,
@@ -172,7 +207,7 @@ export async function updateProject(req: Request, res: Response) {
     projectType,
     startDate,
     targetCompletionDate,
-    completedDate,
+    completedDate: completedAt,
     status,
     notes,
     metadata,
@@ -185,11 +220,22 @@ export async function updateProject(req: Request, res: Response) {
 
   if (name !== undefined) updateData.name = name;
   if (description !== undefined) updateData.description = description;
-  if (projectType !== undefined) updateData.project_type = projectType;
+  if (projectType !== undefined) {
+    if (!ALLOWED_PROJECT_TYPES.includes(projectType)) {
+      throw new ValidationError(`Project type must be one of: ${ALLOWED_PROJECT_TYPES.join(', ')}`);
+    }
+    updateData.project_type = projectType;
+  }
   if (startDate !== undefined) updateData.start_date = startDate;
   if (targetCompletionDate !== undefined) updateData.target_completion_date = targetCompletionDate;
-  if (completedDate !== undefined) updateData.completed_date = completedDate;
-  if (status !== undefined) updateData.status = status;
+  if (completedAt !== undefined) updateData.completed_at = completedAt || null;
+  if (status !== undefined) {
+    updateData.status = status;
+
+    if (status === 'completed' && updateData.completed_at === undefined) {
+      updateData.completed_at = new Date();
+    }
+  }
   if (notes !== undefined) updateData.notes = notes;
   if (metadata !== undefined) updateData.metadata = JSON.stringify(metadata);
   if (tags !== undefined) updateData.tags = JSON.stringify(tags);

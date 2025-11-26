@@ -99,7 +99,7 @@ export default function ProjectDetail() {
     fetchPhotos();
     fetchAvailableItems();
     fetchAudioNotes();
-    // fetchStructuredMemos(); // Temporarily disabled - feature not yet implemented
+    fetchStructuredMemos();
 
     if (id) {
       joinProject(id);
@@ -418,6 +418,7 @@ export default function ProjectDetail() {
       setAudioNotes(response.data.data.audioNotes || []);
     } catch (error: any) {
       console.error('Error fetching audio notes:', error);
+      toast.error('Failed to load audio notes');
     }
   };
 
@@ -427,6 +428,7 @@ export default function ProjectDetail() {
       setStructuredMemos(response.data.data.memos || []);
     } catch (error: any) {
       console.error('Error fetching structured memos:', error);
+      toast.error('Failed to load structured memos');
     }
   };
 

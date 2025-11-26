@@ -79,13 +79,20 @@ export function attachCsrfToken(req: Request, res: Response, next: NextFunction)
   if (!token) {
     token = generateCsrfToken();
 
+    const isProduction = process.env.NODE_ENV === 'production';
+    const sameSite = (process.env.COOKIE_SAMESITE as 'lax' | 'none' | 'strict' | undefined)
+      || (isProduction ? 'none' : 'lax');
+    const cookieDomain = process.env.COOKIE_DOMAIN;
+
     // Set as signed HTTP-only cookie
     res.cookie(CSRF_COOKIE_NAME, token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      secure: isProduction || sameSite === 'none',
+      sameSite,
       maxAge: 3600000, // 1 hour
       signed: true,
+      ...(cookieDomain ? { domain: cookieDomain } : {}),
+      path: '/',
     });
   }
 

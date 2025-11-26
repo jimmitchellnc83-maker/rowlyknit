@@ -16,21 +16,69 @@ interface Project {
   created_at: string;
 }
 
+interface ProjectTypeOption {
+  value: string;
+  label: string;
+}
+
+const DEFAULT_PROJECT_TYPES: ProjectTypeOption[] = [
+  { value: 'sweater', label: 'Sweater/Pullover' },
+  { value: 'cardigan', label: 'Cardigan' },
+  { value: 'hat', label: 'Hat/Beanie' },
+  { value: 'scarf', label: 'Scarf' },
+  { value: 'cowl', label: 'Cowl/Neckwarmer' },
+  { value: 'shawl', label: 'Shawl/Wrap' },
+  { value: 'shawlette', label: 'Shawlette' },
+  { value: 'socks', label: 'Socks' },
+  { value: 'mittens', label: 'Mittens/Gloves' },
+  { value: 'blanket', label: 'Blanket/Afghan' },
+  { value: 'baby', label: 'Baby/Kids' },
+  { value: 'toy', label: 'Toy/Amigurumi' },
+  { value: 'bag', label: 'Bag/Tote' },
+  { value: 'home', label: 'Home/Decor' },
+  { value: 'dishcloth', label: 'Dishcloth/Washcloth' },
+  { value: 'other', label: 'Other/Custom' },
+];
+
+const PROJECT_LABELS = DEFAULT_PROJECT_TYPES.reduce<Record<string, string>>((acc, option) => {
+  acc[option.value] = option.label;
+  return acc;
+}, {});
+
+const formatProjectTypeLabel = (value: string) => {
+  if (PROJECT_LABELS[value]) return PROJECT_LABELS[value];
+  return value
+    .split(/[-_]/)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+};
+
 export default function Projects() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
+  const [projectTypes, setProjectTypes] = useState<ProjectTypeOption[]>(DEFAULT_PROJECT_TYPES);
+  const [loadingTypes, setLoadingTypes] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    projectType: 'sweater',
+    projectType: DEFAULT_PROJECT_TYPES[0].value,
     startDate: new Date().toISOString().split('T')[0],
     targetCompletionDate: '',
   });
 
   useEffect(() => {
     fetchProjects();
+    fetchProjectTypes();
   }, []);
+
+  useEffect(() => {
+    if (!projectTypes.length) return;
+    const currentTypeExists = projectTypes.some((type) => type.value === formData.projectType);
+    if (!currentTypeExists) {
+      setFormData((prev) => ({ ...prev, projectType: projectTypes[0].value }));
+    }
+  }, [projectTypes, formData.projectType]);
 
   const fetchProjects = async () => {
     try {
@@ -44,6 +92,29 @@ export default function Projects() {
     }
   };
 
+  const fetchProjectTypes = async () => {
+    try {
+      setLoadingTypes(true);
+      const response = await axios.get('/api/projects/types');
+      const types: string[] =
+        response.data?.data?.projectTypes || response.data?.projectTypes || [];
+
+      if (types.length) {
+        const options = types.map((value) => ({
+          value,
+          label: formatProjectTypeLabel(value),
+        }));
+        setProjectTypes(options);
+      }
+    } catch (error: any) {
+      console.error('Error fetching project types:', error);
+      toast.error('Using default project types (failed to load latest types)');
+      setProjectTypes(DEFAULT_PROJECT_TYPES);
+    } finally {
+      setLoadingTypes(false);
+    }
+  };
+
   const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -54,7 +125,7 @@ export default function Projects() {
       setFormData({
         name: '',
         description: '',
-        projectType: 'sweater',
+        projectType: projectTypes[0]?.value || DEFAULT_PROJECT_TYPES[0].value,
         startDate: new Date().toISOString().split('T')[0],
         targetCompletionDate: '',
       });
@@ -248,16 +319,14 @@ export default function Projects() {
                 <select
                   value={formData.projectType}
                   onChange={(e) => setFormData({ ...formData, projectType: e.target.value })}
+                  disabled={loadingTypes}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                 >
-                  <option value="sweater">Sweater</option>
-                  <option value="scarf">Scarf</option>
-                  <option value="hat">Hat</option>
-                  <option value="blanket">Blanket</option>
-                  <option value="socks">Socks</option>
-                  <option value="shawl">Shawl</option>
-                  <option value="toy">Toy/Amigurumi</option>
-                  <option value="other">Other</option>
+                  {projectTypes.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
                 </select>
               </div>
 

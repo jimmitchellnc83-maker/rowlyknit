@@ -19,6 +19,7 @@ export default function RowCounter({ counter, onUpdate }: RowCounterProps) {
   const [count, setCount] = useState(counter.current_count);
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef<any>(null);
+  const isListeningRef = useRef(false);
   const { isConnected, emitCounterIncrement, emitCounterDecrement, emitCounterReset, onCounterUpdate, offCounterUpdate } = useWebSocket();
 
   useEffect(() => {
@@ -156,6 +157,7 @@ export default function RowCounter({ counter, onUpdate }: RowCounterProps) {
           // Stop listening on serious errors
           if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
             setIsListening(false);
+            isListeningRef.current = false;
           }
         }
       };
@@ -165,14 +167,14 @@ export default function RowCounter({ counter, onUpdate }: RowCounterProps) {
       };
 
       recognitionRef.current.onend = () => {
-        console.log('[Voice] Recognition ended, isListening:', isListening);
+        console.log('[Voice] Recognition ended, isListening:', isListeningRef.current);
 
         // Auto-restart if still supposed to be listening
-        if (isListening) {
+        if (isListeningRef.current) {
           try {
             // Small delay before restart to prevent rapid cycling
             setTimeout(() => {
-              if (isListening && recognitionRef.current) {
+              if (isListeningRef.current && recognitionRef.current) {
                 recognitionRef.current.start();
                 console.log('[Voice] Recognition restarted');
               }
@@ -180,13 +182,14 @@ export default function RowCounter({ counter, onUpdate }: RowCounterProps) {
           } catch (e) {
             console.error('[Voice] Error restarting recognition:', e);
             setIsListening(false);
+            isListeningRef.current = false;
           }
         }
       };
     }
 
     return () => {
-      if (recognitionRef.current && isListening) {
+      if (recognitionRef.current) {
         try {
           recognitionRef.current.stop();
           console.log('[Voice] Recognition stopped (cleanup)');
@@ -194,8 +197,9 @@ export default function RowCounter({ counter, onUpdate }: RowCounterProps) {
           console.error('[Voice] Error stopping recognition:', e);
         }
       }
+      isListeningRef.current = false;
     };
-  }, [isListening]);
+  }, []);
 
   const toggleVoiceControl = () => {
     if (!recognitionRef.current) {
@@ -203,14 +207,16 @@ export default function RowCounter({ counter, onUpdate }: RowCounterProps) {
       return;
     }
 
-    if (isListening) {
+    if (isListeningRef.current) {
       recognitionRef.current.stop();
       setIsListening(false);
+      isListeningRef.current = false;
       toast.info('Voice control stopped');
     } else {
       try {
         recognitionRef.current.start();
         setIsListening(true);
+        isListeningRef.current = true;
         toast.success('Voice control activated! Say "next", "back", or "reset"');
       } catch (e) {
         console.error('Error starting recognition:', e);

@@ -157,11 +157,16 @@ export async function login(req: Request, res: Response) {
 
   // Set cookies
   const isProduction = process.env.NODE_ENV === 'production';
+  const sameSite = (process.env.COOKIE_SAMESITE as 'lax' | 'none' | 'strict' | undefined)
+    || (isProduction ? 'none' : 'lax');
+  const cookieDomain = process.env.COOKIE_DOMAIN;
   const cookieOptions = {
     httpOnly: true,
-    secure: isProduction,
-    sameSite: 'lax' as const, // Use 'lax' for cross-origin cookie support
-  };
+    secure: isProduction || sameSite === 'none',
+    sameSite,
+    ...(cookieDomain ? { domain: cookieDomain } : {}),
+    path: '/',
+  } as const;
 
   res.cookie('accessToken', accessToken, {
     ...cookieOptions,
@@ -241,13 +246,19 @@ export async function refreshToken(req: Request, res: Response) {
     email: user.email,
   });
 
-  // Update cookie
+  // Update cookie with same policy used during login
   const isProduction = process.env.NODE_ENV === 'production';
+  const sameSite = (process.env.COOKIE_SAMESITE as 'lax' | 'none' | 'strict' | undefined)
+    || (isProduction ? 'none' : 'lax');
+  const cookieDomain = process.env.COOKIE_DOMAIN;
+
   res.cookie('accessToken', accessToken, {
     httpOnly: true,
-    secure: isProduction,
-    sameSite: 'lax' as const, // Use 'lax' for cross-origin cookie support
+    secure: isProduction || sameSite === 'none',
+    sameSite,
     maxAge: 15 * 60 * 1000, // 15 minutes
+    ...(cookieDomain ? { domain: cookieDomain } : {}),
+    path: '/',
   });
 
   res.json({
@@ -271,9 +282,21 @@ export async function logout(req: Request, res: Response) {
       .update({ is_revoked: true, updated_at: new Date() });
   }
 
-  // Clear cookies
-  res.clearCookie('accessToken');
-  res.clearCookie('refreshToken');
+  // Clear cookies using the same domain/path/sameSite settings to ensure removal
+  const isProduction = process.env.NODE_ENV === 'production';
+  const sameSite = (process.env.COOKIE_SAMESITE as 'lax' | 'none' | 'strict' | undefined)
+    || (isProduction ? 'none' : 'lax');
+  const cookieDomain = process.env.COOKIE_DOMAIN;
+  const clearOptions = {
+    httpOnly: true,
+    secure: isProduction || sameSite === 'none',
+    sameSite,
+    ...(cookieDomain ? { domain: cookieDomain } : {}),
+    path: '/',
+  } as const;
+
+  res.clearCookie('accessToken', clearOptions);
+  res.clearCookie('refreshToken', clearOptions);
 
   // Log audit
   if (userId) {
