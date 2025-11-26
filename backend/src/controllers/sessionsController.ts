@@ -184,18 +184,42 @@ export async function endSession(req: Request, res: Response) {
   // Get current counter values to calculate progress
   const counters = await db('counters')
     .where({ project_id: projectId })
-    .select('id', 'name', 'current_value');
+    .select('id', 'name', 'type', 'current_value');
 
-  const counterValues = session.starting_counter_values || {};
+  const counterValues =
+    typeof session.starting_counter_values === 'string'
+      ? JSON.parse(session.starting_counter_values)
+      : session.starting_counter_values || {};
+
   let rowsCompleted = 0;
+  const progressDetails: Array<{
+    counterId: string;
+    counterName: string;
+    start: number;
+    end: number;
+    delta: number;
+  }> = [];
 
   counters.forEach((c) => {
-    if (counterValues[c.id]) {
-      counterValues[c.id].end_value = c.current_value;
-      const progress = c.current_value - counterValues[c.id].start_value;
-      if (c.name.toLowerCase().includes('row')) {
-        rowsCompleted += progress;
-      }
+    const existing = counterValues[c.id] || { start_value: c.current_value, end_value: c.current_value };
+    const delta = c.current_value - existing.start_value;
+
+    counterValues[c.id] = {
+      name: existing.name || c.name,
+      start_value: existing.start_value,
+      end_value: c.current_value,
+    };
+
+    progressDetails.push({
+      counterId: c.id,
+      counterName: c.name,
+      start: existing.start_value,
+      end: c.current_value,
+      delta,
+    });
+
+    if (c.type === 'rows' || c.name.toLowerCase().includes('row')) {
+      rowsCompleted += delta;
     }
   });
 
@@ -223,7 +247,7 @@ export async function endSession(req: Request, res: Response) {
   res.json({
     success: true,
     message: 'Session ended successfully',
-    data: { session: updatedSession },
+    data: { session: updatedSession, progressDetails },
   });
 }
 

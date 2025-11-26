@@ -12,9 +12,16 @@ import axios, { AxiosError, AxiosRequestConfig } from 'axios';
  */
 
 // Configure axios defaults globally
-axios.defaults.baseURL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const inferredBaseUrl =
+  import.meta.env.VITE_API_URL ||
+  (typeof window !== 'undefined' ? window.location.origin : undefined) ||
+  'http://localhost:5000';
+
+axios.defaults.baseURL = inferredBaseUrl;
 axios.defaults.timeout = 30000; // 30 seconds
 axios.defaults.withCredentials = true; // Enable cookies for session/CSRF
+axios.defaults.xsrfCookieName = '_csrf';
+axios.defaults.xsrfHeaderName = 'x-csrf-token';
 axios.defaults.headers.common['Content-Type'] = 'application/json';
 
 // CSRF token cache

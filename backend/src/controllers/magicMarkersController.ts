@@ -198,11 +198,28 @@ export async function createMagicMarker(req: Request, res: Response) {
     startRow, endRow, repeatInterval, repeatOffset, isRepeating, priority, displayStyle, color, category,
   } = req.body;
 
+  const parsedStartRow = startRow !== undefined ? Number(startRow) : undefined;
+  const parsedEndRow = endRow !== undefined ? Number(endRow) : undefined;
+  const parsedRepeatInterval = repeatInterval !== undefined ? Number(repeatInterval) : undefined;
+  const parsedRepeatOffset = repeatOffset !== undefined ? Number(repeatOffset) : undefined;
+
+  if ((startRow !== undefined && Number.isNaN(parsedStartRow)) || (endRow !== undefined && Number.isNaN(parsedEndRow))) {
+    throw new ValidationError('Start and end rows must be numeric');
+  }
+
   if (!name || !alertMessage) {
     throw new ValidationError('Name and alert message are required');
   }
 
-  const validTriggerTypes = ['counter_value', 'row_interval', 'row_range', 'stitch_count', 'time_based', 'custom', 'at_same_time'];
+  const validTriggerTypes = [
+    'counter_value',
+    'row_interval',
+    'row_range',
+    'stitch_count',
+    'time_based',
+    'custom',
+    'at_same_time'
+  ];
   if (triggerType && !validTriggerTypes.includes(triggerType)) {
     throw new ValidationError(`Trigger type must be one of: ${validTriggerTypes.join(', ')}`);
   }
@@ -227,12 +244,49 @@ export async function createMagicMarker(req: Request, res: Response) {
     throw new ValidationError(`Category must be one of: ${validCategories.join(', ')}`);
   }
 
-  if (startRow !== undefined && endRow !== undefined && startRow > endRow) {
+  // Guard rails for trigger conditions so malformed payloads don't silently fail
+  let normalizedCondition: any = {};
+  if (triggerCondition) {
+    try {
+      normalizedCondition = typeof triggerCondition === 'string'
+        ? JSON.parse(triggerCondition)
+        : triggerCondition;
+    } catch (error) {
+      throw new ValidationError('Trigger condition must be valid JSON');
+    }
+  }
+
+  if (triggerType === 'counter_value') {
+    const allowedOperators = ['equals', 'greater_than', 'less_than', 'multiple_of'];
+    if (!normalizedCondition.operator || !allowedOperators.includes(normalizedCondition.operator)) {
+      throw new ValidationError(`Counter trigger requires operator: ${allowedOperators.join(', ')}`);
+    }
+
+    const numericValue = Number(normalizedCondition.value);
+    if (normalizedCondition.value === undefined || Number.isNaN(numericValue)) {
+      throw new ValidationError('Counter trigger requires a numeric value');
+    }
+    normalizedCondition.value = numericValue;
+  }
+
+  if (triggerType === 'row_interval') {
+    const intervalValue = Number(normalizedCondition.interval);
+    if (!intervalValue || intervalValue <= 0) {
+      throw new ValidationError('Row interval trigger requires a positive interval');
+    }
+    normalizedCondition.interval = intervalValue;
+  }
+
+  if (parsedStartRow !== undefined && parsedEndRow !== undefined && parsedStartRow > parsedEndRow) {
     throw new ValidationError('Start row must be less than or equal to end row');
   }
 
-  if (isRepeating && (!repeatInterval || repeatInterval <= 0)) {
+  if (isRepeating && (!parsedRepeatInterval || parsedRepeatInterval <= 0)) {
     throw new ValidationError('Repeat interval must be a positive number when repeating is enabled');
+  }
+
+  if (parsedRepeatOffset !== undefined && Number.isNaN(parsedRepeatOffset)) {
+    throw new ValidationError('Repeat offset must be numeric');
   }
 
   const project = await db('projects')
@@ -255,14 +309,14 @@ export async function createMagicMarker(req: Request, res: Response) {
       counter_id: counterId || null,
       name,
       trigger_type: triggerType || 'row_range',
-      trigger_condition: triggerCondition ? JSON.stringify(triggerCondition) : JSON.stringify({}),
+      trigger_condition: JSON.stringify(normalizedCondition),
       alert_message: alertMessage,
       alert_type: alertType || 'notification',
       is_active: isActive,
-      start_row: startRow ?? null,
-      end_row: endRow ?? null,
-      repeat_interval: repeatInterval ?? null,
-      repeat_offset: repeatOffset ?? 0,
+      start_row: parsedStartRow ?? null,
+      end_row: parsedEndRow ?? null,
+      repeat_interval: parsedRepeatInterval ?? null,
+      repeat_offset: parsedRepeatOffset ?? 0,
       is_repeating: isRepeating ?? false,
       priority: priority || 'normal',
       display_style: displayStyle || 'banner',
@@ -320,21 +374,118 @@ export async function updateMagicMarker(req: Request, res: Response) {
 
   if (updates.name !== undefined) updateData.name = updates.name;
   if (updates.triggerType !== undefined) updateData.trigger_type = updates.triggerType;
+
+  // Normalize and validate trigger condition updates to prevent malformed data
   if (updates.triggerCondition !== undefined) {
-    updateData.trigger_condition = JSON.stringify(updates.triggerCondition);
+    let normalizedCondition: any = {};
+    if (updates.triggerCondition) {
+      try {
+        normalizedCondition = typeof updates.triggerCondition === 'string'
+          ? JSON.parse(updates.triggerCondition)
+          : updates.triggerCondition;
+      } catch (error) {
+        throw new ValidationError('Trigger condition must be valid JSON');
+      }
+    }
+
+    if (updateData.trigger_type === 'counter_value' || updates.triggerType === 'counter_value') {
+      const allowedOperators = ['equals', 'greater_than', 'less_than', 'multiple_of'];
+      if (!normalizedCondition.operator || !allowedOperators.includes(normalizedCondition.operator)) {
+        throw new ValidationError(`Counter trigger requires operator: ${allowedOperators.join(', ')}`);
+      }
+
+      const numericValue = Number(normalizedCondition.value);
+      if (normalizedCondition.value === undefined || Number.isNaN(numericValue)) {
+        throw new ValidationError('Counter trigger requires a numeric value');
+      }
+      normalizedCondition.value = numericValue;
+    }
+
+    if (updateData.trigger_type === 'row_interval' || updates.triggerType === 'row_interval') {
+      const intervalValue = Number(normalizedCondition.interval);
+      if (!intervalValue || intervalValue <= 0) {
+        throw new ValidationError('Row interval trigger requires a positive interval');
+      }
+      normalizedCondition.interval = intervalValue;
+    }
+
+    updateData.trigger_condition = JSON.stringify(normalizedCondition);
   }
+
   if (updates.alertMessage !== undefined) updateData.alert_message = updates.alertMessage;
   if (updates.alertType !== undefined) updateData.alert_type = updates.alertType;
   if (updates.isActive !== undefined) updateData.is_active = updates.isActive;
-  if (updates.startRow !== undefined) updateData.start_row = updates.startRow;
-  if (updates.endRow !== undefined) updateData.end_row = updates.endRow;
-  if (updates.repeatInterval !== undefined) updateData.repeat_interval = updates.repeatInterval;
-  if (updates.repeatOffset !== undefined) updateData.repeat_offset = updates.repeatOffset;
+
+  const parsedStartRow =
+    updates.startRow !== undefined ? Number(updates.startRow) : magicMarker.start_row;
+  const parsedEndRow = updates.endRow !== undefined ? Number(updates.endRow) : magicMarker.end_row;
+
+  if (updates.startRow !== undefined) {
+    if (Number.isNaN(parsedStartRow)) throw new ValidationError('Start row must be numeric');
+    updateData.start_row = parsedStartRow;
+  }
+  if (updates.endRow !== undefined) {
+    if (Number.isNaN(parsedEndRow)) throw new ValidationError('End row must be numeric');
+    updateData.end_row = parsedEndRow;
+  }
+
+  if (
+    (updates.startRow !== undefined || updates.endRow !== undefined) &&
+    parsedStartRow !== null &&
+    parsedEndRow !== null &&
+    parsedStartRow > parsedEndRow
+  ) {
+    throw new ValidationError('Start row must be less than or equal to end row');
+  }
+
+  const parsedRepeatInterval =
+    updates.repeatInterval !== undefined
+      ? Number(updates.repeatInterval)
+      : magicMarker.repeat_interval;
+  const parsedRepeatOffset =
+    updates.repeatOffset !== undefined ? Number(updates.repeatOffset) : magicMarker.repeat_offset;
+
+  if (updates.repeatInterval !== undefined) {
+    if (!parsedRepeatInterval || parsedRepeatInterval <= 0) {
+      throw new ValidationError('Repeat interval must be a positive number when repeating is enabled');
+    }
+    updateData.repeat_interval = parsedRepeatInterval;
+  }
+
+  if (updates.repeatOffset !== undefined) {
+    if (Number.isNaN(parsedRepeatOffset)) {
+      throw new ValidationError('Repeat offset must be numeric');
+    }
+    updateData.repeat_offset = parsedRepeatOffset;
+  }
+
   if (updates.isRepeating !== undefined) updateData.is_repeating = updates.isRepeating;
-  if (updates.priority !== undefined) updateData.priority = updates.priority;
-  if (updates.displayStyle !== undefined) updateData.display_style = updates.displayStyle;
+
+  const validPriorities = ['low', 'normal', 'high', 'critical'];
+  if (updates.priority !== undefined) {
+    if (!validPriorities.includes(updates.priority)) {
+      throw new ValidationError(`Priority must be one of: ${validPriorities.join(', ')}`);
+    }
+    updateData.priority = updates.priority;
+  }
+
+  const validDisplayStyles = ['banner', 'popup', 'toast', 'inline'];
+  if (updates.displayStyle !== undefined) {
+    if (!validDisplayStyles.includes(updates.displayStyle)) {
+      throw new ValidationError(`Display style must be one of: ${validDisplayStyles.join(', ')}`);
+    }
+    updateData.display_style = updates.displayStyle;
+  }
+
   if (updates.color !== undefined) updateData.color = updates.color;
-  if (updates.category !== undefined) updateData.category = updates.category;
+
+  const validCategories = ['reminder', 'at_same_time', 'milestone', 'shaping', 'note'];
+  if (updates.category !== undefined) {
+    if (!validCategories.includes(updates.category)) {
+      throw new ValidationError(`Category must be one of: ${validCategories.join(', ')}`);
+    }
+    updateData.category = updates.category;
+  }
 
   const [updatedMagicMarker] = await db('magic_markers')
     .where({ id: markerId })

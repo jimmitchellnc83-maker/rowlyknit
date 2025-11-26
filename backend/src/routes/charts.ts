@@ -90,6 +90,7 @@ router.post(
   [
     body('detection_id').isUUID().withMessage('Detection ID is required'),
     body('project_id').optional().isUUID(),
+    body('pattern_id').optional().isUUID(),
     body('chart_name').optional().isString().isLength({ max: 255 }),
   ],
   validate,
