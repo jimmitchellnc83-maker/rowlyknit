@@ -31,6 +31,7 @@ export const detectFromImage = async (req: Request, res: Response) => {
 
     const imageBuffer = req.file.buffer;
     const originalFilename = req.file.originalname;
+    const contentType = req.file.mimetype;
     const { project_id } = req.body;
 
     // Create detection record
@@ -57,7 +58,7 @@ export const detectFromImage = async (req: Request, res: Response) => {
 
     try {
       // Run detection
-      const detectionResult = await detectChartFromImage(imageBuffer);
+      const detectionResult = await detectChartFromImage(imageBuffer, contentType);
 
       // Update record with results
       await db('detected_charts')
@@ -233,7 +234,7 @@ export const applyDetectionCorrections = async (req: Request, res: Response) => 
  */
 export const saveDetectedChart = async (req: Request, res: Response) => {
   try {
-    const { detection_id, project_id, chart_name } = req.body;
+    const { detection_id, project_id, pattern_id, chart_name } = req.body;
     const userId = req.user?.userId;
 
     if (!userId) {
@@ -260,6 +261,18 @@ export const saveDetectedChart = async (req: Request, res: Response) => {
       }
     }
 
+    // Verify pattern ownership if provided
+    if (pattern_id) {
+      const pattern = await db('patterns')
+        .where({ id: pattern_id, user_id: userId })
+        .whereNull('deleted_at')
+        .first();
+
+      if (!pattern) {
+        return res.status(404).json({ error: 'Pattern not found' });
+      }
+    }
+
     // Create chart from detection
     const grid = typeof detection.grid === 'string'
       ? JSON.parse(detection.grid)
@@ -269,6 +282,7 @@ export const saveDetectedChart = async (req: Request, res: Response) => {
     const [chart] = await db('charts')
       .insert({
         project_id: project_id || null,
+        pattern_id: pattern_id || null,
         user_id: userId,
         name: chart_name || detection.name || 'Imported Chart',
         grid: JSON.stringify(grid),
@@ -309,7 +323,10 @@ export const getSymbols = async (req: Request, res: Response) => {
 
     const symbols = await getSymbolLibrary(userId);
 
-    return res.json({ symbols });
+    return res.json({
+      success: true,
+      data: symbols,
+    });
   } catch (error) {
     console.error('Error getting symbols:', error);
     return res.status(500).json({ error: 'Failed to get symbols' });

@@ -114,6 +114,45 @@ export async function getPattern(req: Request, res: Response) {
 }
 
 /**
+ * Get charts associated with a pattern (direct link or via related projects)
+ */
+export async function getPatternCharts(req: Request, res: Response) {
+  const userId = (req as any).user.userId;
+  const { id: patternId } = req.params;
+
+  const pattern = await db('patterns')
+    .where({ id: patternId, user_id: userId })
+    .whereNull('deleted_at')
+    .first();
+
+  if (!pattern) {
+    throw new NotFoundError('Pattern not found');
+  }
+
+  const relatedProjects = await db('project_patterns')
+    .where({ pattern_id: patternId })
+    .pluck('project_id');
+
+  const charts = await db('charts as c')
+    .leftJoin('projects as p', 'c.project_id', 'p.id')
+    .where('c.user_id', userId)
+    .andWhere((builder) => {
+      builder.where('c.pattern_id', patternId);
+
+      if (relatedProjects.length > 0) {
+        builder.orWhereIn('c.project_id', relatedProjects);
+      }
+    })
+    .select('c.*', db.raw('p.name as project_name'))
+    .orderBy('c.updated_at', 'desc');
+
+  res.json({
+    success: true,
+    data: { charts },
+  });
+}
+
+/**
  * Create new pattern
  */
 export async function createPattern(req: Request, res: Response) {

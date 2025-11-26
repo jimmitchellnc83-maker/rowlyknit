@@ -194,11 +194,7 @@ router.get(
 router.get(
   '/:id/charts',
   validateUUID('id'),
-  asyncHandler(async (req, res) => {
-    // TODO: Add pattern_id to charts table and implement proper query
-    // For now, return empty array to prevent 404 errors
-    res.json({ charts: [] });
-  })
+  asyncHandler(patternsController.getPatternCharts)
 );
 
 /**

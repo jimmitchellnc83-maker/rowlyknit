@@ -48,15 +48,26 @@ const KNOWN_SYMBOLS = [
 /**
  * Preprocess image for better detection
  */
-export async function preprocessImage(imageBuffer: Buffer): Promise<{
+export async function preprocessImage(
+  imageBuffer: Buffer,
+  contentType?: string
+): Promise<{
   processed: Buffer;
   metadata: sharp.Metadata;
 }> {
-  // Get original metadata
-  const metadata = await sharp(imageBuffer).metadata();
+  // Some users upload PDFs instead of images; render first page at a high density
+  const isPdf =
+    contentType === 'application/pdf' || imageBuffer.subarray(0, 4).toString() === '%PDF';
+
+  let pipeline = isPdf
+    ? sharp(imageBuffer, { density: 300 }).png()
+    : sharp(imageBuffer);
+
+  // Get original metadata after normalizing format
+  const metadata = await pipeline.metadata();
 
   // Preprocess: grayscale, normalize contrast, sharpen
-  const processed = await sharp(imageBuffer)
+  const processed = await pipeline
     .grayscale()
     .normalize() // Enhance contrast
     .sharpen() // Improve edge detection
@@ -311,10 +322,11 @@ function hasXPattern(pixels: Uint8Array, width: number, height: number): boolean
  * Main detection function - process entire image
  */
 export async function detectChartFromImage(
-  imageBuffer: Buffer
+  imageBuffer: Buffer,
+  contentType?: string
 ): Promise<DetectedChart> {
   // Preprocess image
-  const { processed, metadata } = await preprocessImage(imageBuffer);
+  const { processed, metadata } = await preprocessImage(imageBuffer, contentType);
 
   // Detect grid
   const grid = await detectGrid(processed);
@@ -412,10 +424,10 @@ export function isValidSymbol(symbol: string): boolean {
  * Get symbol library from database
  */
 export async function getSymbolLibrary(userId?: string): Promise<
-  Array<{ symbol: string; name: string; category: string }>
+  Array<{ symbol: string; name: string; category: string; description: string | null }>
 > {
   const query = db('chart_symbol_templates')
-    .select('symbol', 'name', 'category')
+    .select('symbol', 'name', 'category', 'description')
     .where('is_system', true);
 
   if (userId) {

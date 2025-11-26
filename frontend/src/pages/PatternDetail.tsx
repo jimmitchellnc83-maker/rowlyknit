@@ -7,6 +7,7 @@ import PatternFileUpload from '../components/PatternFileUpload';
 import BookmarkManager from '../components/patterns/BookmarkManager';
 import PatternViewer from '../components/patterns/PatternViewer';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { ChartImageUpload } from '../components/charts';
 
 interface Pattern {
   id: string;
@@ -39,12 +40,24 @@ interface PatternFile {
   created_at: string;
 }
 
+interface PatternChart {
+  id: string;
+  name: string;
+  project_id?: string | null;
+  project_name?: string | null;
+  rows?: number;
+  columns?: number;
+  updated_at?: string;
+}
+
 export default function PatternDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [pattern, setPattern] = useState<Pattern | null>(null);
   const [files, setFiles] = useState<PatternFile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [charts, setCharts] = useState<PatternChart[]>([]);
+  const [chartsLoading, setChartsLoading] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'viewer' | 'charts' | 'tools'>('overview');
   const [selectedPdfFile, setSelectedPdfFile] = useState<PatternFile | null>(null);
@@ -65,6 +78,7 @@ export default function PatternDetail() {
     if (id) {
       fetchPattern();
       fetchPatternFiles();
+      fetchPatternCharts();
     }
   }, [id]);
 
@@ -95,6 +109,21 @@ export default function PatternDetail() {
       const response = await axios.get(`/api/uploads/patterns/${id}/files`);
       setFiles(response.data.data.files || []);
     } catch {
+    }
+  };
+
+  const fetchPatternCharts = async () => {
+    if (!id) return;
+
+    setChartsLoading(true);
+    try {
+      const response = await axios.get(`/api/patterns/${id}/charts`);
+      setCharts(response.data.data.charts || []);
+    } catch (error) {
+      console.error(error);
+      toast.error('Failed to load charts for this pattern');
+    } finally {
+      setChartsLoading(false);
     }
   };
 
@@ -194,6 +223,11 @@ export default function PatternDetail() {
     } catch {
       toast.error('Failed to delete file');
     }
+  };
+
+  const handleChartCreated = (chart: PatternChart) => {
+    setCharts((prev) => [chart, ...prev]);
+    toast.success('Chart saved for this pattern');
   };
 
   const getDifficultyColor = (difficulty: string) => {
@@ -461,18 +495,58 @@ export default function PatternDetail() {
 
       {/* Charts Tab */}
       {activeTab === 'charts' && (
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="text-center py-12">
-            <FiGrid className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Chart Viewer</h3>
-            <p className="text-gray-500 mb-4">
-              Interactive knitting chart viewer with zoom and rotation
-            </p>
-            <p className="text-sm text-gray-400">
-              Charts will be displayed here when chart data is available.
-              <br />
-              Future enhancement: Add chart upload/creation functionality.
-            </p>
+        <div className="bg-white rounded-lg shadow p-6 space-y-6">
+          <div className="grid md:grid-cols-2 gap-6 items-start">
+            <div className="border border-gray-200 rounded-lg">
+              <ChartImageUpload
+                patternId={id}
+                onChartCreated={handleChartCreated}
+              />
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Charts linked to this pattern</h3>
+                  <p className="text-sm text-gray-500">Imports and saved charts will appear here.</p>
+                </div>
+                <FiGrid className="text-gray-400" />
+              </div>
+
+              {chartsLoading ? (
+                <div className="flex justify-center py-6">
+                  <LoadingSpinner />
+                </div>
+              ) : charts.length === 0 ? (
+                <div className="border border-dashed border-gray-200 rounded-lg p-6 text-center text-gray-500">
+                  No charts have been linked to this pattern yet.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {charts.map((chart) => (
+                    <div
+                      key={chart.id}
+                      className="border border-gray-200 rounded-lg p-4 flex items-center justify-between"
+                    >
+                      <div>
+                        <p className="font-medium text-gray-900">{chart.name || 'Untitled chart'}</p>
+                        <p className="text-sm text-gray-500">
+                          {chart.rows || 0} rows · {chart.columns || 0} columns
+                          {chart.project_name && (
+                            <span className="ml-2 text-gray-400">· Project: {chart.project_name}</span>
+                          )}
+                        </p>
+                        {chart.updated_at && (
+                          <p className="text-xs text-gray-400 mt-1">
+                            Updated {new Date(chart.updated_at).toLocaleDateString()}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

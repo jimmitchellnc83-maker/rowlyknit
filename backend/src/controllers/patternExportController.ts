@@ -2,6 +2,8 @@ import { Request, Response } from 'express';
 import patternExportService from '../services/patternExportService';
 import db from '../config/database';
 import logger from '../config/logger';
+import fs from 'fs';
+import path from 'path';
 
 /**
  * Export pattern to PDF with yarn requirements
@@ -42,14 +44,35 @@ export async function exportPattern(req: Request, res: Response): Promise<void> 
       return;
     }
 
-    res.status(200).json({
-      success: true,
-      data: {
-        fileUrl: result.fileUrl,
-        filePath: result.filePath,
-        fileSize: result.fileSize,
-      },
-    });
+    const uploadsRoot = process.env.UPLOAD_DIR || path.join(__dirname, '..', '..', 'uploads');
+    const exportPath = result.filePath?.startsWith('/')
+      ? result.filePath
+      : path.join(uploadsRoot, result.filePath || '');
+
+    if (!exportPath || !fs.existsSync(exportPath)) {
+      res.status(500).json({
+        success: false,
+        error: 'Export generated but file was not found on disk',
+      });
+      return;
+    }
+
+    // Return PDF directly unless caller explicitly requests JSON metadata
+    if (req.query.response === 'json') {
+      res.status(200).json({
+        success: true,
+        data: {
+          fileUrl: result.fileUrl,
+          filePath: result.filePath,
+          fileSize: result.fileSize,
+        },
+      });
+      return;
+    }
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=${path.basename(exportPath)}`);
+    res.sendFile(exportPath);
   } catch (error) {
     logger.error('Error in exportPattern controller', {
       userId,

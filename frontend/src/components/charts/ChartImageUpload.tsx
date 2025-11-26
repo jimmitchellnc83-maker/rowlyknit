@@ -1,4 +1,5 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
+import axios from 'axios';
 import {
   Box,
   Card,
@@ -37,6 +38,7 @@ interface DetectedChart {
 
 interface ChartImageUploadProps {
   projectId?: string;
+  patternId?: string;
   onChartCreated?: (chart: any) => void;
   onCancel?: () => void;
 }
@@ -48,8 +50,15 @@ interface CorrectionDialogState {
   currentSymbol: string;
 }
 
+interface SymbolOption {
+  value: string;
+  label: string;
+  category?: string;
+  description?: string | null;
+}
+
 // Common knitting symbols for correction dropdown
-const SYMBOL_OPTIONS = [
+const DEFAULT_SYMBOL_OPTIONS: SymbolOption[] = [
   { value: 'k', label: 'Knit (k)' },
   { value: 'p', label: 'Purl (p)' },
   { value: 'yo', label: 'Yarn Over (yo)' },
@@ -66,6 +75,7 @@ const SYMBOL_OPTIONS = [
 
 const ChartImageUpload: React.FC<ChartImageUploadProps> = ({
   projectId,
+  patternId,
   onChartCreated,
   onCancel,
 }) => {
@@ -85,8 +95,74 @@ const ChartImageUpload: React.FC<ChartImageUploadProps> = ({
     currentSymbol: '',
   });
   const [saving, setSaving] = useState(false);
+  const [symbolOptions, setSymbolOptions] = useState<SymbolOption[]>(DEFAULT_SYMBOL_OPTIONS);
+  const [loadingSymbols, setLoadingSymbols] = useState(false);
+  const [symbolLoadError, setSymbolLoadError] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadSymbols = async () => {
+      setLoadingSymbols(true);
+      try {
+        const response = await axios.get('/api/charts/symbols');
+        const apiSymbols = response.data?.data || response.data?.symbols || [];
+
+        if (Array.isArray(apiSymbols) && isMounted) {
+          const mergedMap = new Map<string, SymbolOption>();
+
+          apiSymbols.forEach((sym: any) => {
+            if (sym?.symbol) {
+              mergedMap.set(sym.symbol, {
+                value: sym.symbol,
+                label: `${sym.name || sym.symbol} (${sym.symbol})`,
+                category: sym.category,
+                description: sym.description ?? null,
+              });
+            }
+          });
+
+          DEFAULT_SYMBOL_OPTIONS.forEach((opt) => {
+            if (!mergedMap.has(opt.value)) {
+              mergedMap.set(opt.value, opt);
+            }
+          });
+
+          setSymbolOptions(Array.from(mergedMap.values()));
+          setSymbolLoadError(null);
+        }
+      } catch (err) {
+        if (isMounted) {
+          setSymbolLoadError('Showing default symbols — unable to load full library.');
+          setSymbolOptions(DEFAULT_SYMBOL_OPTIONS);
+        }
+      } finally {
+        if (isMounted) {
+          setLoadingSymbols(false);
+        }
+      }
+    };
+
+    loadSymbols();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const isAllowedChartFile = useCallback((file: File) => {
+    if (!file) return false;
+    const normalizedType = file.type?.toLowerCase();
+
+    if (normalizedType?.startsWith('image/')) return true;
+    if (normalizedType === 'application/pdf') return true;
+
+    // Some browsers may not populate type for dragged files; fall back to extension
+    const extension = file.name.toLowerCase().split('.').pop();
+    return extension === 'pdf';
+  }, []);
 
   const handleFileUpload = useCallback(async (file: File) => {
     if (!file) return;
@@ -129,11 +205,16 @@ const ChartImageUpload: React.FC<ChartImageUploadProps> = ({
     (e: React.DragEvent<HTMLDivElement>) => {
       e.preventDefault();
       const file = e.dataTransfer.files[0];
-      if (file && file.type.startsWith('image/')) {
-        handleFileUpload(file);
+      if (!file) return;
+
+      if (!isAllowedChartFile(file)) {
+        setError('Please upload an image or PDF chart file.');
+        return;
       }
+
+      handleFileUpload(file);
     },
-    [handleFileUpload]
+    [handleFileUpload, isAllowedChartFile]
   );
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
@@ -142,15 +223,31 @@ const ChartImageUpload: React.FC<ChartImageUploadProps> = ({
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      handleFileUpload(file);
+    if (!file) return;
+
+    if (!isAllowedChartFile(file)) {
+      setError('Please upload an image or PDF chart file.');
+      return;
     }
+
+    handleFileUpload(file);
   };
 
   const handleCellClick = (row: number, col: number) => {
     if (!detected) return;
 
     const currentSymbol = detected.grid[row]?.[col] || 'k';
+
+    if (!symbolOptions.some((opt) => opt.value === currentSymbol)) {
+      setSymbolOptions((prev) => [
+        ...prev,
+        {
+          value: currentSymbol,
+          label: `${currentSymbol} (detected)`,
+        },
+      ]);
+    }
+
     setCorrectionDialog({
       open: true,
       row,
@@ -212,6 +309,7 @@ const ChartImageUpload: React.FC<ChartImageUploadProps> = ({
         body: JSON.stringify({
           detection_id: detectionId,
           project_id: projectId,
+          pattern_id: patternId,
           chart_name: chartName,
         }),
       });
@@ -306,7 +404,7 @@ const ChartImageUpload: React.FC<ChartImageUploadProps> = ({
             <Box>
               <CloudUpload sx={{ fontSize: 48, color: 'primary.main', mb: 2 }} />
               <Typography variant="body1" gutterBottom>
-                Drag and drop a chart image here
+                Drag and drop a chart image or PDF here
               </Typography>
               <Typography variant="body2" color="text.secondary" gutterBottom>
                 or click to browse
@@ -315,6 +413,7 @@ const ChartImageUpload: React.FC<ChartImageUploadProps> = ({
                 <Chip icon={<Image />} label="PNG" size="small" />
                 <Chip icon={<Image />} label="JPG" size="small" />
                 <Chip icon={<PhotoCamera />} label="Photo" size="small" />
+                <Chip icon={<CloudUpload />} label="PDF" size="small" />
               </Box>
             </Box>
           )}
@@ -513,16 +612,30 @@ const ChartImageUpload: React.FC<ChartImageUploadProps> = ({
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             Current: <strong>{correctionDialog.currentSymbol}</strong>
           </Typography>
+          {symbolLoadError && (
+            <Alert severity="warning" sx={{ mb: 2 }}>
+              {symbolLoadError}
+            </Alert>
+          )}
           <FormControl fullWidth>
             <InputLabel>Select correct symbol</InputLabel>
             <Select
               label="Select correct symbol"
-              defaultValue={correctionDialog.currentSymbol}
+              value={correctionDialog.currentSymbol}
               onChange={(e) => handleCorrectionSubmit(e.target.value as string)}
+              disabled={loadingSymbols}
             >
-              {SYMBOL_OPTIONS.map((option) => (
+              {symbolOptions.map((option) => (
                 <MenuItem key={option.value} value={option.value}>
-                  {option.label}
+                  <Box display="flex" flexDirection="column">
+                    <Typography variant="body1">{option.label}</Typography>
+                    {option.category && (
+                      <Typography variant="caption" color="text.secondary">
+                        {option.category}
+                        {option.description ? ` • ${option.description}` : ''}
+                      </Typography>
+                    )}
+                  </Box>
                 </MenuItem>
               ))}
             </Select>
