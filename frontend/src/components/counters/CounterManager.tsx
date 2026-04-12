@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useState, useEffect } from 'react';
 import { FiPlus, FiLink, FiClock } from 'react-icons/fi';
 import axios from 'axios';
@@ -99,7 +98,8 @@ export default function CounterManager({ projectId }: CounterManagerProps) {
     }
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  // Used by drag-and-drop reordering (not yet wired to UI)
+  // @ts-ignore: kept for upcoming drag-and-drop feature
   const handleReorderCounters = async (_reorderedCounters: Counter[]) => {
     try {
       const updates = _reorderedCounters.map((counter, index) => ({

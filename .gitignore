@@ -1,2 +1,49 @@
+# Dependencies
 node_modules/
+
+# Environment files
 .env
+.env.local
+.env.*.local
+
+# Build outputs
+dist/
+build/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Coverage
+coverage/
+.nyc_output/
+
+# Uploads (user content)
+backend/uploads/*
+!backend/uploads/.gitkeep
+!backend/uploads/projects/.gitkeep
+!backend/uploads/patterns/.gitkeep
+!backend/uploads/yarn/.gitkeep
+
+# SSL certificates
+deployment/ssl/
+
+# Backups
+backups/
+
+# Docker volumes
+postgres_data/
+redis_data/

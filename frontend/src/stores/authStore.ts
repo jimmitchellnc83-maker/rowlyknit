@@ -117,18 +117,22 @@ export const useAuthStore = create<AuthState>()(
   )
 );
 
-// Initialize auth on app load - TEMPORARILY DISABLED FOR DEBUGGING
-// This was causing blank page issues
-// Only run checkAuth in browser environment after hydration
-// if (typeof window !== 'undefined') {
-//   // Delay checkAuth to avoid blocking initial render
-//   // Only run if we have a token in storage
-//   setTimeout(() => {
-//     const state = useAuthStore.getState();
-//     if (state.accessToken) {
-//       state.checkAuth().catch((error) => {
-//         console.error('checkAuth failed on initialization:', error);
-//       });
-//     }
-//   }, 500); // Delay to ensure React is fully mounted
-// }
+// Initialize auth on app load
+// Validates stored token against the server after hydration
+if (typeof window !== 'undefined') {
+  // Use requestIdleCallback (or setTimeout fallback) to avoid blocking initial render
+  const init = () => {
+    const state = useAuthStore.getState();
+    if (state.accessToken) {
+      state.checkAuth().catch((error) => {
+        console.error('checkAuth failed on initialization:', error);
+      });
+    }
+  };
+
+  if ('requestIdleCallback' in window) {
+    (window as any).requestIdleCallback(init);
+  } else {
+    setTimeout(init, 100);
+  }
+}

@@ -1,14 +1,14 @@
 import { Request, Response } from 'express';
 import db from '../config/database';
-import { NotFoundError, ForbiddenError, ValidationError } from '../utils/errorHandler';
+import { NotFoundError, ValidationError } from '../utils/errorHandler';
 import { createAuditLog } from '../middleware/auditLog';
-import { ALLOWED_FIELDS, sanitizeSearchQuery } from '../utils/inputSanitizer';
+import { sanitizeSearchQuery } from '../utils/inputSanitizer';
 
 /**
  * Get all projects for current user
  */
 export async function getProjects(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { status, search, page = 1, limit = 20 } = req.query;
 
   let query = db('projects')
@@ -53,7 +53,7 @@ export async function getProjects(req: Request, res: Response) {
  * Get single project by ID
  */
 export async function getProject(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { id } = req.params;
 
   const project = await db('projects')
@@ -102,7 +102,7 @@ export async function getProject(req: Request, res: Response) {
  * Create new project
  */
 export async function createProject(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const {
     name,
     description,
@@ -153,7 +153,7 @@ export async function createProject(req: Request, res: Response) {
  * Update project
  */
 export async function updateProject(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { id } = req.params;
 
   const project = await db('projects')
@@ -219,7 +219,7 @@ export async function updateProject(req: Request, res: Response) {
  * Delete project (soft delete)
  */
 export async function deleteProject(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { id } = req.params;
 
   const project = await db('projects')
@@ -256,7 +256,7 @@ export async function deleteProject(req: Request, res: Response) {
  * Get project statistics
  */
 export async function getProjectStats(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
 
   const stats = await db('projects')
     .where({ user_id: userId })
@@ -279,7 +279,7 @@ export async function getProjectStats(req: Request, res: Response) {
  * Add yarn to project with automatic stash deduction
  */
 export async function addYarnToProject(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { id: projectId } = req.params;
   const { yarnId, yardsUsed = 0, skeinsUsed = 0 } = req.body;
 
@@ -374,7 +374,7 @@ export async function addYarnToProject(req: Request, res: Response) {
  * Update yarn usage in project with automatic stash adjustment
  */
 export async function updateProjectYarn(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { id: projectId, yarnId } = req.params;
   const { yardsUsed, skeinsUsed } = req.body;
 
@@ -473,7 +473,7 @@ export async function updateProjectYarn(req: Request, res: Response) {
  * Remove yarn from project with stash restoration
  */
 export async function removeYarnFromProject(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { id: projectId, yarnId } = req.params;
 
   // Verify project exists and belongs to user
@@ -530,7 +530,7 @@ export async function removeYarnFromProject(req: Request, res: Response) {
  * Add pattern to project
  */
 export async function addPatternToProject(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { id: projectId } = req.params;
   const { patternId, modifications } = req.body;
 
@@ -587,7 +587,7 @@ export async function addPatternToProject(req: Request, res: Response) {
  * Remove pattern from project
  */
 export async function removePatternFromProject(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { id: projectId, patternId } = req.params;
 
   // Verify project exists and belongs to user
@@ -626,7 +626,7 @@ export async function removePatternFromProject(req: Request, res: Response) {
  * Add tool to project
  */
 export async function addToolToProject(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { id: projectId } = req.params;
   const { toolId } = req.body;
 
@@ -682,7 +682,7 @@ export async function addToolToProject(req: Request, res: Response) {
  * Remove tool from project
  */
 export async function removeToolFromProject(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { id: projectId, toolId } = req.params;
 
   // Verify project exists and belongs to user

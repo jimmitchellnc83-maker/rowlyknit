@@ -2,10 +2,10 @@ import { Request, Response } from 'express';
 import db from '../config/database';
 import { NotFoundError, ValidationError } from '../utils/errorHandler';
 import { createAuditLog } from '../middleware/auditLog';
-import { ALLOWED_FIELDS, sanitizeSearchQuery } from '../utils/inputSanitizer';
+import { sanitizeSearchQuery } from '../utils/inputSanitizer';
 
 export async function getYarn(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { weight, brand, search, page = 1, limit = 20 } = req.query;
 
   let query = db('yarn')
@@ -52,7 +52,7 @@ export async function getYarn(req: Request, res: Response) {
 }
 
 export async function getYarnById(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { id } = req.params;
 
   const yarn = await db('yarn')
@@ -71,7 +71,7 @@ export async function getYarnById(req: Request, res: Response) {
 }
 
 export async function createYarn(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const {
     brand,
     line,
@@ -138,7 +138,7 @@ export async function createYarn(req: Request, res: Response) {
 }
 
 export async function updateYarn(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { id } = req.params;
 
   const yarn = await db('yarn')
@@ -150,21 +150,26 @@ export async function updateYarn(req: Request, res: Response) {
     throw new NotFoundError('Yarn not found');
   }
 
-  // Whitelist allowed fields to prevent mass assignment
+  // Whitelist allowed fields -- use same camelCase names as createYarn
   const {
     brand,
+    line,
     name,
-    weight,
-    fiber,
-    colorName,
+    color,
     colorCode,
-    yardage,
-    gramsPerSkein,
+    weight,
+    fiberContent,
+    yardsTotal,
+    gramsTotal,
+    skeinsTotal,
+    pricePerSkein,
     purchaseDate,
     purchaseLocation,
-    purchasePrice,
-    quantity,
+    dyeLot,
     notes,
+    tags,
+    lowStockThreshold,
+    lowStockAlert,
   } = req.body;
 
   const updateData: any = {
@@ -172,27 +177,36 @@ export async function updateYarn(req: Request, res: Response) {
   };
 
   if (brand !== undefined) updateData.brand = brand;
+  if (line !== undefined) updateData.line = line;
   if (name !== undefined) updateData.name = name;
-  if (weight !== undefined) updateData.weight = weight;
-  if (fiber !== undefined) updateData.fiber_content = fiber;
-  if (colorName !== undefined) updateData.color = colorName;
+  if (color !== undefined) updateData.color = color;
   if (colorCode !== undefined) updateData.color_code = colorCode;
-  if (yardage !== undefined) {
-    updateData.yards_total = yardage;
-    updateData.yards_remaining = yardage;
+  if (weight !== undefined) updateData.weight = weight;
+  if (fiberContent !== undefined) updateData.fiber_content = fiberContent;
+  if (yardsTotal !== undefined) {
+    // Adjust remaining by the same delta so usage tracking is preserved
+    const delta = Number(yardsTotal) - (yarn.yards_total || 0);
+    updateData.yards_total = yardsTotal;
+    updateData.yards_remaining = Math.max(0, (yarn.yards_remaining || 0) + delta);
   }
-  if (gramsPerSkein !== undefined) {
-    updateData.grams_total = gramsPerSkein;
-    updateData.grams_remaining = gramsPerSkein;
+  if (gramsTotal !== undefined) {
+    const delta = Number(gramsTotal) - (yarn.grams_total || 0);
+    updateData.grams_total = gramsTotal;
+    updateData.grams_remaining = Math.max(0, (yarn.grams_remaining || 0) + delta);
   }
+  if (skeinsTotal !== undefined) {
+    const delta = Number(skeinsTotal) - (yarn.skeins_total || 0);
+    updateData.skeins_total = skeinsTotal;
+    updateData.skeins_remaining = Math.max(0, (yarn.skeins_remaining || 0) + delta);
+  }
+  if (pricePerSkein !== undefined) updateData.price_per_skein = pricePerSkein;
   if (purchaseDate !== undefined) updateData.purchase_date = purchaseDate;
   if (purchaseLocation !== undefined) updateData.purchase_location = purchaseLocation;
-  if (purchasePrice !== undefined) updateData.price_per_skein = purchasePrice;
-  if (quantity !== undefined) {
-    updateData.skeins_total = quantity;
-    updateData.skeins_remaining = quantity;
-  }
+  if (dyeLot !== undefined) updateData.dye_lot = dyeLot;
   if (notes !== undefined) updateData.notes = notes;
+  if (tags !== undefined) updateData.tags = typeof tags === 'string' ? tags : JSON.stringify(tags);
+  if (lowStockThreshold !== undefined) updateData.low_stock_threshold = lowStockThreshold;
+  if (lowStockAlert !== undefined) updateData.low_stock_alert = lowStockAlert;
 
   const [updatedYarn] = await db('yarn')
     .where({ id })
@@ -216,7 +230,7 @@ export async function updateYarn(req: Request, res: Response) {
 }
 
 export async function deleteYarn(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { id } = req.params;
 
   const yarn = await db('yarn')
@@ -250,7 +264,7 @@ export async function deleteYarn(req: Request, res: Response) {
 }
 
 export async function getYarnStats(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
 
   const stats = await db('yarn')
     .where({ user_id: userId })

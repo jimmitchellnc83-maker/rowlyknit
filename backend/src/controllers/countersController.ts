@@ -3,12 +3,13 @@ import db from '../config/database';
 import { NotFoundError, ValidationError } from '../utils/errorHandler';
 import { createAuditLog } from '../middleware/auditLog';
 import { getIO } from '../config/socket';
+import logger from '../config/logger';
 
 /**
  * Get all counters for a project
  */
 export async function getCounters(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { id: projectId } = req.params;
 
   // Verify project ownership
@@ -36,7 +37,7 @@ export async function getCounters(req: Request, res: Response) {
  * Get single counter by ID
  */
 export async function getCounter(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { id: projectId, counterId } = req.params;
 
   // Verify project ownership
@@ -67,7 +68,7 @@ export async function getCounter(req: Request, res: Response) {
  * Create a new counter
  */
 export async function createCounter(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { id: projectId } = req.params;
   const {
     name,
@@ -157,7 +158,7 @@ export async function createCounter(req: Request, res: Response) {
  * Update a counter (including value changes)
  */
 export async function updateCounter(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { id: projectId, counterId } = req.params;
   const updates = req.body;
 
@@ -179,29 +180,46 @@ export async function updateCounter(req: Request, res: Response) {
     throw new NotFoundError('Counter not found');
   }
 
+  // Accept both camelCase (from frontend) and snake_case field names
+  const resolve = (camel: string, snake: string) =>
+    updates[camel] !== undefined ? updates[camel] : updates[snake];
+
+  const currentValueInput = resolve('currentValue', 'current_value');
   const oldValue = counter.current_value;
-  const newValue = updates.current_value !== undefined ? updates.current_value : oldValue;
+  const newValue = currentValueInput !== undefined ? currentValueInput : oldValue;
 
   // Prepare update data
   const updateData: any = {
     updated_at: new Date(),
   };
 
-  // Update allowed fields
-  if (updates.name !== undefined) updateData.name = updates.name;
-  if (updates.type !== undefined) updateData.type = updates.type;
-  if (updates.current_value !== undefined) updateData.current_value = updates.current_value;
-  if (updates.target_value !== undefined) updateData.target_value = updates.target_value;
-  if (updates.increment_by !== undefined) updateData.increment_by = updates.increment_by;
-  if (updates.min_value !== undefined) updateData.min_value = updates.min_value;
-  if (updates.max_value !== undefined) updateData.max_value = updates.max_value;
-  if (updates.display_color !== undefined) updateData.display_color = updates.display_color;
-  if (updates.is_visible !== undefined) updateData.is_visible = updates.is_visible;
-  if (updates.increment_pattern !== undefined) {
-    updateData.increment_pattern = updates.increment_pattern ? JSON.stringify(updates.increment_pattern) : null;
+  // Update allowed fields -- accept camelCase or snake_case
+  const nameVal = updates.name;
+  const typeVal = updates.type;
+  const targetValue = resolve('targetValue', 'target_value');
+  const incrementBy = resolve('incrementBy', 'increment_by');
+  const minValue = resolve('minValue', 'min_value');
+  const maxValue = resolve('maxValue', 'max_value');
+  const displayColor = resolve('displayColor', 'display_color');
+  const isVisible = resolve('isVisible', 'is_visible');
+  const incrementPattern = resolve('incrementPattern', 'increment_pattern');
+  const sortOrder = resolve('sortOrder', 'sort_order');
+  const notesVal = updates.notes;
+
+  if (nameVal !== undefined) updateData.name = nameVal;
+  if (typeVal !== undefined) updateData.type = typeVal;
+  if (currentValueInput !== undefined) updateData.current_value = currentValueInput;
+  if (targetValue !== undefined) updateData.target_value = targetValue;
+  if (incrementBy !== undefined) updateData.increment_by = incrementBy;
+  if (minValue !== undefined) updateData.min_value = minValue;
+  if (maxValue !== undefined) updateData.max_value = maxValue;
+  if (displayColor !== undefined) updateData.display_color = displayColor;
+  if (isVisible !== undefined) updateData.is_visible = isVisible;
+  if (incrementPattern !== undefined) {
+    updateData.increment_pattern = incrementPattern ? JSON.stringify(incrementPattern) : null;
   }
-  if (updates.sort_order !== undefined) updateData.sort_order = updates.sort_order;
-  if (updates.notes !== undefined) updateData.notes = updates.notes;
+  if (sortOrder !== undefined) updateData.sort_order = sortOrder;
+  if (notesVal !== undefined) updateData.notes = notesVal;
 
   const [updatedCounter] = await db('counters')
     .where({ id: counterId })
@@ -243,7 +261,7 @@ export async function updateCounter(req: Request, res: Response) {
  * Delete a counter
  */
 export async function deleteCounter(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { id: projectId, counterId } = req.params;
 
   // Verify project ownership
@@ -285,7 +303,7 @@ export async function deleteCounter(req: Request, res: Response) {
  * Reorder counters
  */
 export async function reorderCounters(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { id: projectId } = req.params;
   const { counters } = req.body;
 
@@ -325,7 +343,7 @@ export async function reorderCounters(req: Request, res: Response) {
  * Get counter history
  */
 export async function getCounterHistory(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { id: projectId, counterId } = req.params;
   const { limit = 50, offset = 0 } = req.query;
 
@@ -374,7 +392,7 @@ export async function getCounterHistory(req: Request, res: Response) {
  * Undo counter to a specific history point
  */
 export async function undoCounterToPoint(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { id: projectId, counterId, historyId } = req.params;
 
   // Verify project ownership
@@ -457,7 +475,7 @@ async function checkAndExecuteCounterLinks(
       is_active: true,
     });
 
-  console.log(`[Counter Links] Checking ${links.length} link(s) for counter ${counterId} (value: ${newValue})`);
+  logger.debug(`[Counter Links] Checking ${links.length} link(s) for counter ${counterId} (value: ${newValue})`);
 
   for (const link of links) {
     let shouldTrigger = false;
@@ -469,7 +487,7 @@ async function checkAndExecuteCounterLinks(
         try {
           condition = JSON.parse(condition);
         } catch (e) {
-          console.error(`[Counter Links] Failed to parse trigger_condition for link ${link.id}:`, e);
+          logger.error(`[Counter Links] Failed to parse trigger_condition for link ${link.id}:`, e);
           continue;
         }
       }
@@ -477,7 +495,7 @@ async function checkAndExecuteCounterLinks(
       if (typeof condition === 'object' && condition !== null) {
         const { type, value } = condition as any;
 
-        console.log(`[Counter Links] Link ${link.id}: Checking condition ${type} ${value} against ${newValue}`);
+        logger.debug(`[Counter Links] Link ${link.id}: Checking condition ${type} ${value} against ${newValue}`);
 
         switch (type) {
           case 'equals':
@@ -498,7 +516,7 @@ async function checkAndExecuteCounterLinks(
             break;
         }
 
-        console.log(`[Counter Links] Link ${link.id}: Trigger = ${shouldTrigger}`);
+        logger.debug(`[Counter Links] Link ${link.id}: Trigger = ${shouldTrigger}`);
       }
 
       if (shouldTrigger) {
@@ -508,7 +526,7 @@ async function checkAndExecuteCounterLinks(
           .first();
 
         if (!targetCounter) {
-          console.warn(`[Counter Links] Target counter ${link.target_counter_id} not found for link ${link.id}`);
+          logger.warn(`[Counter Links] Target counter ${link.target_counter_id} not found for link ${link.id}`);
           continue;
         }
 
@@ -521,7 +539,7 @@ async function checkAndExecuteCounterLinks(
           try {
             action = JSON.parse(action);
           } catch (e) {
-            console.error(`[Counter Links] Failed to parse action for link ${link.id}:`, e);
+            logger.error(`[Counter Links] Failed to parse action for link ${link.id}:`, e);
             continue;
           }
         }
@@ -529,7 +547,7 @@ async function checkAndExecuteCounterLinks(
         if (typeof action === 'object' && action !== null) {
           const { type, value } = action as any;
 
-          console.log(`[Counter Links] Executing action ${type} ${value !== undefined ? value : ''} on counter ${link.target_counter_id}`);
+          logger.debug(`[Counter Links] Executing action ${type} ${value !== undefined ? value : ''} on counter ${link.target_counter_id}`);
 
           switch (type) {
             case 'increment':
@@ -549,15 +567,15 @@ async function checkAndExecuteCounterLinks(
 
         // Apply min/max constraints
         if (targetCounter.min_value !== null && targetNewValue < targetCounter.min_value) {
-          console.log(`[Counter Links] Clamping to min_value: ${targetCounter.min_value}`);
+          logger.debug(`[Counter Links] Clamping to min_value: ${targetCounter.min_value}`);
           targetNewValue = targetCounter.min_value;
         }
         if (targetCounter.max_value !== null && targetNewValue > targetCounter.max_value) {
-          console.log(`[Counter Links] Clamping to max_value: ${targetCounter.max_value}`);
+          logger.debug(`[Counter Links] Clamping to max_value: ${targetCounter.max_value}`);
           targetNewValue = targetCounter.max_value;
         }
 
-        console.log(`[Counter Links] Updating counter ${link.target_counter_id}: ${targetOldValue} → ${targetNewValue}`);
+        logger.debug(`[Counter Links] Updating counter ${link.target_counter_id}: ${targetOldValue} -> ${targetNewValue}`);
 
         // Update target counter
         await db('counters')
@@ -596,16 +614,16 @@ async function checkAndExecuteCounterLinks(
             currentValue: targetNewValue,
             linkedFrom: counterId,
           });
-          console.log(`[Counter Links] WebSocket event emitted for counter ${link.target_counter_id}`);
+          logger.debug(`[Counter Links] WebSocket event emitted for counter ${link.target_counter_id}`);
         } catch (socketError) {
           // Don't fail the whole operation if WebSocket fails
-          console.error(`[Counter Links] Failed to emit WebSocket event:`, socketError);
+          logger.error(`[Counter Links] Failed to emit WebSocket event:`, socketError);
         }
 
-        console.log(`[Counter Links] Successfully updated linked counter ${link.target_counter_id}`);
+        logger.debug(`[Counter Links] Successfully updated linked counter ${link.target_counter_id}`);
       }
     } catch (error) {
-      console.error(`[Counter Links] Error processing link ${link.id}:`, error);
+      logger.error(`[Counter Links] Error processing link ${link.id}:`, error);
       // Continue processing other links even if one fails
     }
   }

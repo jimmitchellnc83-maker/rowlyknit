@@ -11,7 +11,8 @@ services:
       POSTGRES_INITDB_ARGS: "--encoding=UTF8"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./backend/migrations:/docker-entrypoint-initdb.d
+      # Note: migrations are run by the backend via Knex, not by PostgreSQL init
+      # - ./backend/migrations:/docker-entrypoint-initdb.d
     ports:
       - "127.0.0.1:5432:5432"  # Bind to localhost only - not publicly accessible
     networks:
@@ -60,8 +61,8 @@ services:
       - ./backups:/backups
       - /var/log/rowly:/var/log/rowly
     ports:
-      - "5000:5000"
-      - "9090:9090"  # Prometheus metrics
+      - "127.0.0.1:5000:5000"  # Bind to localhost - nginx proxies public access
+      - "127.0.0.1:9090:9090"  # Prometheus metrics - localhost only
     depends_on:
       postgres:
         condition: service_healthy
@@ -81,7 +82,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        VITE_API_URL: ${VITE_API_URL:-https://rowlyknit.com}
+        VITE_API_URL: ${VITE_API_URL:-https://api.rowlyknit.com}
     container_name: rowly_frontend
     restart: unless-stopped
     ports:

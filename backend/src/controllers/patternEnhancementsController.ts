@@ -11,7 +11,7 @@ import { createAuditLog } from '../middleware/auditLog';
  * Get all sections for a pattern
  */
 export async function getPatternSections(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { patternId } = req.params;
 
   // Verify pattern ownership
@@ -37,7 +37,7 @@ export async function getPatternSections(req: Request, res: Response) {
  * Create a pattern section
  */
 export async function createPatternSection(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { patternId } = req.params;
   const { name, pageNumber, yPosition, sortOrder } = req.body;
 
@@ -84,7 +84,7 @@ export async function createPatternSection(req: Request, res: Response) {
  * Update a pattern section
  */
 export async function updatePatternSection(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { patternId, sectionId } = req.params;
   const updates = req.body;
 
@@ -136,7 +136,7 @@ export async function updatePatternSection(req: Request, res: Response) {
  * Delete a pattern section
  */
 export async function deletePatternSection(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { patternId, sectionId } = req.params;
 
   // Verify pattern ownership
@@ -180,7 +180,7 @@ export async function deletePatternSection(req: Request, res: Response) {
  * Get all bookmarks for a pattern/project
  */
 export async function getPatternBookmarks(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { patternId } = req.params;
   const { projectId } = req.query;
 
@@ -212,7 +212,7 @@ export async function getPatternBookmarks(req: Request, res: Response) {
  * Create a pattern bookmark
  */
 export async function createPatternBookmark(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { patternId } = req.params;
   const { projectId, name, pageNumber, yPosition, zoomLevel, color } = req.body;
 
@@ -274,7 +274,7 @@ export async function createPatternBookmark(req: Request, res: Response) {
  * Update a pattern bookmark
  */
 export async function updatePatternBookmark(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { patternId, bookmarkId } = req.params;
   const updates = req.body;
 
@@ -327,7 +327,7 @@ export async function updatePatternBookmark(req: Request, res: Response) {
  * Delete a pattern bookmark
  */
 export async function deletePatternBookmark(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { patternId, bookmarkId } = req.params;
 
   // Verify pattern ownership
@@ -371,7 +371,7 @@ export async function deletePatternBookmark(req: Request, res: Response) {
  * Get all highlights for a pattern/project
  */
 export async function getPatternHighlights(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { patternId } = req.params;
   const { projectId, pageNumber } = req.query;
 
@@ -407,7 +407,7 @@ export async function getPatternHighlights(req: Request, res: Response) {
  * Create a pattern highlight
  */
 export async function createPatternHighlight(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { patternId } = req.params;
   const { projectId, pageNumber, coordinates, color, opacity } = req.body;
 
@@ -467,7 +467,7 @@ export async function createPatternHighlight(req: Request, res: Response) {
  * Update a pattern highlight
  */
 export async function updatePatternHighlight(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { patternId, highlightId } = req.params;
   const updates = req.body;
 
@@ -518,7 +518,7 @@ export async function updatePatternHighlight(req: Request, res: Response) {
  * Delete a pattern highlight
  */
 export async function deletePatternHighlight(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { patternId, highlightId } = req.params;
 
   // Verify pattern ownership
@@ -562,7 +562,7 @@ export async function deletePatternHighlight(req: Request, res: Response) {
  * Get all annotations for a pattern/project
  */
 export async function getPatternAnnotations(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { patternId } = req.params;
   const { projectId, pageNumber } = req.query;
 
@@ -598,7 +598,7 @@ export async function getPatternAnnotations(req: Request, res: Response) {
  * Create a pattern annotation
  */
 export async function createPatternAnnotation(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { patternId } = req.params;
   const { projectId, pageNumber, annotationType, data, imageUrl } = req.body;
 
@@ -659,7 +659,7 @@ export async function createPatternAnnotation(req: Request, res: Response) {
  * Update a pattern annotation
  */
 export async function updatePatternAnnotation(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { patternId, annotationId } = req.params;
   const updates = req.body;
 
@@ -709,7 +709,7 @@ export async function updatePatternAnnotation(req: Request, res: Response) {
  * Delete a pattern annotation
  */
 export async function deletePatternAnnotation(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { patternId, annotationId } = req.params;
 
   // Verify pattern ownership

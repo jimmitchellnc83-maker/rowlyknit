@@ -15,6 +15,9 @@ import type { Knex } from 'knex';
 export const config = { transaction: false };
 
 export async function up(knex: Knex): Promise<void> {
+  // Enable pg_trgm extension for trigram text search BEFORE creating trgm indexes
+  await knex.raw('CREATE EXTENSION IF NOT EXISTS pg_trgm;');
+
   // Users table indexes
   await knex.raw(`
     CREATE INDEX CONCURRENTLY IF NOT EXISTS users_deleted_at_idx
@@ -182,8 +185,6 @@ export async function up(knex: Knex): Promise<void> {
     WHERE is_used = false;
   `);
 
-  // Enable pg_trgm extension for trigram text search if not already enabled
-  await knex.raw('CREATE EXTENSION IF NOT EXISTS pg_trgm;');
 }
 
 export async function down(knex: Knex): Promise<void> {

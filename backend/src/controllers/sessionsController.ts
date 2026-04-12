@@ -1,13 +1,13 @@
 import { Request, Response } from 'express';
 import db from '../config/database';
-import { NotFoundError, ForbiddenError, ValidationError } from '../utils/errorHandler';
+import { NotFoundError, ValidationError } from '../utils/errorHandler';
 import { createAuditLog } from '../middleware/auditLog';
 
 /**
  * Get all sessions for a project
  */
 export async function getSessions(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { id: projectId } = req.params;
   const { page = 1, limit = 20, sortBy = 'start_time', sortOrder = 'desc' } = req.query;
 
@@ -50,7 +50,7 @@ export async function getSessions(req: Request, res: Response) {
  * Get single session by ID
  */
 export async function getSession(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { id: projectId, sessionId } = req.params;
 
   // Verify project ownership
@@ -81,7 +81,7 @@ export async function getSession(req: Request, res: Response) {
  * Start a new session
  */
 export async function startSession(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { id: projectId } = req.params;
   const { mood, location, notes } = req.body;
 
@@ -151,7 +151,7 @@ export async function startSession(req: Request, res: Response) {
  * End a session
  */
 export async function endSession(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { id: projectId, sessionId } = req.params;
   const { notes, mood } = req.body;
 
@@ -231,7 +231,7 @@ export async function endSession(req: Request, res: Response) {
  * Update a session
  */
 export async function updateSession(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { id: projectId, sessionId } = req.params;
   const updates = req.body;
 
@@ -283,7 +283,7 @@ export async function updateSession(req: Request, res: Response) {
  * Delete a session
  */
 export async function deleteSession(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { id: projectId, sessionId } = req.params;
 
   // Verify project ownership
@@ -324,7 +324,7 @@ export async function deleteSession(req: Request, res: Response) {
  * Get session statistics for a project
  */
 export async function getSessionStats(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { id: projectId } = req.params;
 
   // Verify project ownership
@@ -358,7 +358,7 @@ export async function getSessionStats(req: Request, res: Response) {
  * Get active session for a project
  */
 export async function getActiveSession(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { id: projectId } = req.params;
 
   // Verify project ownership
@@ -397,7 +397,7 @@ export async function getActiveSession(req: Request, res: Response) {
  * Get all milestones for a project
  */
 export async function getMilestones(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { id: projectId } = req.params;
 
   // Verify project ownership
@@ -424,7 +424,7 @@ export async function getMilestones(req: Request, res: Response) {
  * Create a milestone
  */
 export async function createMilestone(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { id: projectId } = req.params;
   const { name, targetRows, notes } = req.body;
 
@@ -472,7 +472,7 @@ export async function createMilestone(req: Request, res: Response) {
  * Update a milestone
  */
 export async function updateMilestone(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { id: projectId, milestoneId } = req.params;
   const updates = req.body;
 
@@ -527,7 +527,7 @@ export async function updateMilestone(req: Request, res: Response) {
  * Delete a milestone
  */
 export async function deleteMilestone(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { id: projectId, milestoneId } = req.params;
 
   // Verify project ownership
