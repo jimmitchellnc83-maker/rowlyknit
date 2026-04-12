@@ -43,13 +43,22 @@ const SYMBOL_SEEDS: SymbolSeed[] = [
 ];
 
 export async function up(knex: Knex): Promise<void> {
-  await knex('chart_symbol_templates')
-    .insert(SYMBOL_SEEDS.map((symbol) => ({
-      ...symbol,
-      is_system: true,
-    })))
-    .onConflict('symbol')
-    .merge(['name', 'category', 'description', 'is_system']);
+  // The unique constraint is on (symbol, user_id). System templates have user_id = null.
+  // Use raw upsert since Knex .onConflict() doesn't handle null columns in composite keys well.
+  for (const seed of SYMBOL_SEEDS) {
+    const existing = await knex('chart_symbol_templates')
+      .where({ symbol: seed.symbol })
+      .whereNull('user_id')
+      .first();
+
+    if (existing) {
+      await knex('chart_symbol_templates')
+        .where({ id: existing.id })
+        .update({ name: seed.name, category: seed.category, description: seed.description, is_system: true });
+    } else {
+      await knex('chart_symbol_templates').insert({ ...seed, is_system: true });
+    }
+  }
 }
 
 export async function down(knex: Knex): Promise<void> {
