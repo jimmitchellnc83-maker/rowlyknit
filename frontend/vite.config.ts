@@ -130,38 +130,45 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: (id) => {
-          // Separate vendor chunks for better caching
+          // Simplified chunking to avoid circular dependency issues
+          // CRITICAL: Don't use a catch-all 'vendor-other' as it causes initialization errors
+          // with React-dependent packages like @mui, recharts, react-window
           if (id.includes('node_modules')) {
-            // React core libraries + dependencies that need React
-            // CRITICAL: Keep React, React-DOM, React-Router, and use-sync-external-store together
-            // to prevent "React is undefined" errors in dependencies
+            // React core + ALL packages that depend on React must be in the same chunk
+            // This prevents "Cannot access 'X' before initialization" errors
             if (
               id.includes('react') ||
               id.includes('react-dom') ||
               id.includes('react-router') ||
               id.includes('use-sync-external-store') ||
-              id.includes('scheduler')
+              id.includes('scheduler') ||
+              id.includes('@mui') ||
+              id.includes('@emotion') ||
+              id.includes('recharts') ||
+              id.includes('react-window') ||
+              id.includes('react-icons') ||
+              id.includes('react-toastify') ||
+              id.includes('react-pdf') ||
+              id.includes('@tanstack')
             ) {
               return 'vendor-react';
             }
-            // PDF.js is large, split it separately
-            if (id.includes('pdfjs-dist') || id.includes('react-pdf')) {
-              return 'vendor-pdf';
-            }
-            // UI libraries
-            if (id.includes('react-icons') || id.includes('react-toastify')) {
-              return 'vendor-ui';
-            }
-            // Query and state management (but NOT use-sync-external-store)
-            if (id.includes('@tanstack') || id.includes('zustand')) {
-              return 'vendor-state';
-            }
-            // Utility libraries
-            if (id.includes('date-fns') || id.includes('lodash') || id.includes('validator')) {
+            // Pure utility libraries with no React dependency
+            if (
+              id.includes('date-fns') ||
+              id.includes('lodash') ||
+              id.includes('validator') ||
+              id.includes('axios') ||
+              id.includes('uuid')
+            ) {
               return 'vendor-utils';
             }
-            // Everything else from node_modules
-            return 'vendor-other';
+            // PDF.js core (not react-pdf which needs React)
+            if (id.includes('pdfjs-dist')) {
+              return 'vendor-pdf';
+            }
+            // Let Vite handle all other packages automatically
+            // Do NOT use a catch-all chunk as it causes module ordering issues
           }
         },
       },

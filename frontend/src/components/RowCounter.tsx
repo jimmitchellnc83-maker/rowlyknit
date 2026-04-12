@@ -22,7 +22,7 @@ export default function RowCounter({ counter, onUpdate }: RowCounterProps) {
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const recognitionRef = useRef<any>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
-  const isListeningRef = useRef(isListening);
+  const isListeningRef = useRef(false);
   const { isConnected, emitCounterIncrement, emitCounterDecrement, emitCounterReset, onCounterUpdate, offCounterUpdate } = useWebSocket();
 
   // Keep ref in sync so voice callbacks always see latest value
@@ -161,6 +161,7 @@ export default function RowCounter({ counter, onUpdate }: RowCounterProps) {
         toast.error(`Voice error: ${event.error}`, { autoClose: 2000 });
         if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
           setIsListening(false);
+          isListeningRef.current = false;
         }
       }
     };
@@ -174,6 +175,7 @@ export default function RowCounter({ counter, onUpdate }: RowCounterProps) {
               recognitionRef.current.start();
             } catch {
               setIsListening(false);
+              isListeningRef.current = false;
             }
           }
         }, 100);
@@ -181,7 +183,12 @@ export default function RowCounter({ counter, onUpdate }: RowCounterProps) {
     };
 
     return () => {
-      try { recognition.stop(); } catch { /* ignore */ }
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch { /* ignore */ }
+      }
+      isListeningRef.current = false;
     };
   }, []); // Created once -- handlers accessed via refs
 
@@ -202,12 +209,21 @@ export default function RowCounter({ counter, onUpdate }: RowCounterProps) {
       return;
     }
 
-    if (isListening) {
+    if (isListeningRef.current) {
+      recognitionRef.current.stop();
       setIsListening(false);
+      isListeningRef.current = false;
       toast.info('Voice control stopped');
     } else {
-      setIsListening(true);
-      toast.success('Voice control activated! Say "next", "back", or "reset"');
+      try {
+        recognitionRef.current.start();
+        setIsListening(true);
+        isListeningRef.current = true;
+        toast.success('Voice control activated! Say "next", "back", or "reset"');
+      } catch (e) {
+        console.error('Error starting recognition:', e);
+        toast.error('Failed to start voice control');
+      }
     }
   };
 

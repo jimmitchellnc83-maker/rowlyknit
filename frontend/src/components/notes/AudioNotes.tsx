@@ -7,6 +7,7 @@ interface AudioNote {
   id: string;
   project_id: string;
   pattern_id?: string;
+  pattern_name?: string | null;
   audio_url: string;
   transcription?: string;
   duration_seconds: number;
@@ -311,20 +312,25 @@ export const AudioNotes: React.FC<AudioNotesProps> = ({
           </div>
         ) : (
           notes.map((note) => (
-            <div
-              key={note.id}
-              className="border border-gray-200 dark:border-gray-700 rounded-lg p-4"
-            >
-              {/* Note Header */}
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <div className="text-sm font-medium text-gray-900 dark:text-white">
-                    {formatDistanceToNow(new Date(note.created_at), { addSuffix: true })}
+              <div
+                key={note.id}
+                className="border border-gray-200 dark:border-gray-700 rounded-lg p-4"
+              >
+                {/* Note Header */}
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <div className="text-sm font-medium text-gray-900 dark:text-white">
+                      {formatDistanceToNow(new Date(note.created_at), { addSuffix: true })}
+                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                      Duration: {formatDuration(note.duration_seconds)}
+                    </div>
+                    {note.pattern_name && (
+                      <div className="mt-1 inline-flex items-center rounded-full bg-purple-50 dark:bg-purple-900/30 px-2 py-0.5 text-[11px] font-medium text-purple-700 dark:text-purple-200">
+                        Linked pattern: {note.pattern_name}
+                      </div>
+                    )}
                   </div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">
-                    Duration: {formatDuration(note.duration_seconds)}
-                  </div>
-                </div>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => playAudio(note)}

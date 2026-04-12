@@ -5,9 +5,7 @@ import { createAuditLog } from '../middleware/auditLog';
 import logger from '../config/logger';
 import fs from 'fs';
 import path from 'path';
-import { promisify } from 'util';
-
-const writeFileAsync = promisify(fs.writeFile);
+import transcriptionService from '../services/transcriptionService';
 
 /**
  * Audio Notes
@@ -31,14 +29,16 @@ export async function getAudioNotes(req: Request, res: Response) {
     throw new NotFoundError('Project not found');
   }
 
-  let query = db('audio_notes')
-    .where({ project_id: projectId });
+  let query = db('audio_notes as an')
+    .leftJoin('patterns as p', 'an.pattern_id', 'p.id')
+    .where({ 'an.project_id': projectId })
+    .select('an.*', db.raw('p.name as pattern_name'));
 
   if (patternId) {
-    query = query.where({ pattern_id: patternId });
+    query = query.where({ 'an.pattern_id': patternId });
   }
 
-  const audioNotes = await query.orderBy('created_at', 'desc');
+  const audioNotes = await query.orderBy('an.created_at', 'desc');
 
   res.json({
     success: true,
@@ -63,8 +63,10 @@ export async function getAudioNote(req: Request, res: Response) {
     throw new NotFoundError('Project not found');
   }
 
-  const audioNote = await db('audio_notes')
-    .where({ id: noteId, project_id: projectId })
+  const audioNote = await db('audio_notes as an')
+    .leftJoin('patterns as p', 'an.pattern_id', 'p.id')
+    .where({ 'an.id': noteId, 'an.project_id': projectId })
+    .select('an.*', db.raw('p.name as pattern_name'))
     .first();
 
   if (!audioNote) {
@@ -109,6 +111,7 @@ export async function createAudioNote(req: Request, res: Response) {
   }
 
   // Verify pattern ownership if patternId is provided
+  let patternName: string | null = null;
   if (patternId) {
     const pattern = await db('patterns')
       .where({ id: patternId, user_id: userId })
@@ -117,30 +120,62 @@ export async function createAudioNote(req: Request, res: Response) {
     if (!pattern) {
       throw new NotFoundError('Pattern not found');
     }
+
+    patternName = pattern.name;
   }
 
-  // Generate unique filename
+  // Generate unique filename and ensure upload directory exists
   const timestamp = Date.now();
   const ext = path.extname(file.originalname) || '.webm';
   const filename = `audio-${projectId}-${timestamp}${ext}`;
-  const filepath = path.join('uploads/audio', filename);
+  const uploadRoot = process.env.UPLOAD_DIR || path.join(__dirname, '..', '..', 'uploads');
+  const audioDir = path.join(uploadRoot, 'audio');
+  await fs.promises.mkdir(audioDir, { recursive: true });
+
+  const filepath = path.join(audioDir, filename);
 
   // Save audio file
-  await writeFileAsync(filepath, file.buffer);
+  await fs.promises.writeFile(filepath, file.buffer);
 
   // Create audioUrl (relative path for serving)
   const audioUrl = `/uploads/audio/${filename}`;
+
+  // Auto-transcribe when no transcription was provided
+  let finalTranscription = transcription || null;
+  if (!finalTranscription) {
+    const normalizedContentType =
+      file.mimetype ||
+      (ext === '.mp3'
+        ? 'audio/mpeg'
+        : ext === '.m4a'
+          ? 'audio/mp4'
+          : ext === '.wav'
+            ? 'audio/wav'
+            : 'audio/webm');
+    finalTranscription = await transcriptionService.transcribeFromFile(
+      filepath,
+      normalizedContentType
+    );
+  }
+
+  if (!finalTranscription) {
+    finalTranscription = 'Transcription pending review';
+  }
 
   const [audioNote] = await db('audio_notes')
     .insert({
       project_id: projectId,
       pattern_id: patternId || null,
       audio_url: audioUrl,
-      transcription: transcription || null,
+      transcription: finalTranscription,
       duration_seconds: durationSeconds || 0,
       created_at: new Date(),
     })
     .returning('*');
+
+  const responseNote = patternName
+    ? { ...audioNote, pattern_name: patternName }
+    : audioNote;
 
   await createAuditLog(req, {
     userId,
@@ -153,7 +188,7 @@ export async function createAudioNote(req: Request, res: Response) {
   res.status(201).json({
     success: true,
     message: 'Audio note created successfully',
-    data: { audioNote },
+    data: { audioNote: responseNote },
   });
 }
 
@@ -186,10 +221,43 @@ export async function updateAudioNote(req: Request, res: Response) {
   const updateData: any = {};
   if (updates.transcription !== undefined) updateData.transcription = updates.transcription;
 
+  // Allow updating or clearing pattern linkage with ownership validation
+  let patternName: string | null = null;
+  if (updates.patternId !== undefined) {
+    if (!updates.patternId) {
+      updateData.pattern_id = null;
+    } else {
+      const pattern = await db('patterns')
+        .where({ id: updates.patternId, user_id: userId })
+        .first();
+
+      if (!pattern) {
+        throw new NotFoundError('Pattern not found');
+      }
+
+      updateData.pattern_id = updates.patternId;
+      patternName = pattern.name;
+    }
+  }
+
+  // If no pattern update was requested, preserve the current linkage for the response
+  const fallbackPatternId =
+    updateData.pattern_id !== undefined ? updateData.pattern_id : audioNote.pattern_id;
+  if (patternName === null && fallbackPatternId) {
+    const pattern = await db('patterns')
+      .where({ id: fallbackPatternId, user_id: userId })
+      .first();
+    patternName = pattern?.name || null;
+  }
+
   const [updatedAudioNote] = await db('audio_notes')
     .where({ id: noteId })
     .update(updateData)
     .returning('*');
+
+  const responseNote = patternName
+    ? { ...updatedAudioNote, pattern_name: patternName }
+    : updatedAudioNote;
 
   await createAuditLog(req, {
     userId,
@@ -203,7 +271,7 @@ export async function updateAudioNote(req: Request, res: Response) {
   res.json({
     success: true,
     message: 'Audio note updated successfully',
-    data: { audioNote: updatedAudioNote },
+    data: { audioNote: responseNote },
   });
 }
 
@@ -480,14 +548,16 @@ export async function getTextNotes(req: Request, res: Response) {
     throw new NotFoundError('Project not found');
   }
 
-  let query = db('text_notes')
-    .where({ project_id: projectId });
+  let query = db('text_notes as tn')
+    .leftJoin('patterns as p', 'tn.pattern_id', 'p.id')
+    .where({ 'tn.project_id': projectId })
+    .select('tn.*', db.raw('p.name as pattern_name'));
 
   if (patternId) {
     query = query.where({ pattern_id: patternId });
   }
 
-  const textNotes = await query.orderBy('is_pinned', 'desc').orderBy('created_at', 'desc');
+  const textNotes = await query.orderBy('tn.is_pinned', 'desc').orderBy('tn.created_at', 'desc');
 
   res.json({
     success: true,
@@ -512,8 +582,10 @@ export async function getTextNote(req: Request, res: Response) {
     throw new NotFoundError('Project not found');
   }
 
-  const textNote = await db('text_notes')
-    .where({ id: noteId, project_id: projectId })
+  const textNote = await db('text_notes as tn')
+    .leftJoin('patterns as p', 'tn.pattern_id', 'p.id')
+    .where({ 'tn.id': noteId, 'tn.project_id': projectId })
+    .select('tn.*', db.raw('p.name as pattern_name'))
     .first();
 
   if (!textNote) {
@@ -549,6 +621,7 @@ export async function createTextNote(req: Request, res: Response) {
   }
 
   // Verify pattern ownership if patternId is provided
+  let patternName: string | null = null;
   if (patternId) {
     const pattern = await db('patterns')
       .where({ id: patternId, user_id: userId })
@@ -557,6 +630,8 @@ export async function createTextNote(req: Request, res: Response) {
     if (!pattern) {
       throw new NotFoundError('Pattern not found');
     }
+
+    patternName = pattern.name;
   }
 
   const [textNote] = await db('text_notes')
@@ -572,6 +647,10 @@ export async function createTextNote(req: Request, res: Response) {
     })
     .returning('*');
 
+  const responseNote = patternName
+    ? { ...textNote, pattern_name: patternName }
+    : textNote;
+
   await createAuditLog(req, {
     userId,
     action: 'text_note_created',
@@ -583,7 +662,7 @@ export async function createTextNote(req: Request, res: Response) {
   res.status(201).json({
     success: true,
     message: 'Text note created successfully',
-    data: { textNote },
+    data: { textNote: responseNote },
   });
 }
 
@@ -619,10 +698,38 @@ export async function updateTextNote(req: Request, res: Response) {
   if (updates.tags !== undefined) updateData.tags = updates.tags;
   if (updates.isPinned !== undefined) updateData.is_pinned = updates.isPinned;
 
+  let patternName: string | null = null;
+  if (updates.patternId !== undefined) {
+    if (!updates.patternId) {
+      updateData.pattern_id = null;
+    } else {
+      const pattern = await db('patterns')
+        .where({ id: updates.patternId, user_id: userId })
+        .first();
+
+      if (!pattern) {
+        throw new NotFoundError('Pattern not found');
+      }
+
+      updateData.pattern_id = updates.patternId;
+      patternName = pattern.name;
+    }
+  } else if (textNote.pattern_id) {
+    // Keep existing linked pattern name for response
+    const pattern = await db('patterns')
+      .where({ id: textNote.pattern_id, user_id: userId })
+      .first();
+    patternName = pattern?.name || null;
+  }
+
   const [updatedTextNote] = await db('text_notes')
     .where({ id: noteId })
     .update(updateData)
     .returning('*');
+
+  const responseNote = patternName
+    ? { ...updatedTextNote, pattern_name: patternName }
+    : updatedTextNote;
 
   await createAuditLog(req, {
     userId,
@@ -636,7 +743,7 @@ export async function updateTextNote(req: Request, res: Response) {
   res.json({
     success: true,
     message: 'Text note updated successfully',
-    data: { textNote: updatedTextNote },
+    data: { textNote: responseNote },
   });
 }
 

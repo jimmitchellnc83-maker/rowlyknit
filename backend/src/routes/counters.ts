@@ -27,6 +27,17 @@ router.get(
 );
 
 /**
+ * @route   GET /api/projects/:id/counters/hierarchy
+ * @desc    Get counters in hierarchical structure
+ * @access  Private
+ */
+router.get(
+  '/projects/:id/counters/hierarchy',
+  validateUUID('id'),
+  asyncHandler(countersController.getCounterHierarchy)
+);
+
+/**
  * @route   GET /api/projects/:id/counters/:counterId
  * @desc    Get single counter by ID
  * @access  Private
@@ -59,9 +70,28 @@ router.post(
     body('incrementPattern').optional().isObject(),
     body('sortOrder').optional().isNumeric(),
     body('notes').optional().isString(),
+    body('parentCounterId').optional().isUUID(),
+    body('autoReset').optional().isBoolean(),
   ],
   validate,
   asyncHandler(countersController.createCounter)
+);
+
+/**
+ * @route   POST /api/projects/:id/counters/:counterId/increment
+ * @desc    Increment counter with all linked children (for linked mode)
+ * @access  Private
+ */
+router.post(
+  '/projects/:id/counters/:counterId/increment',
+  [
+    validateUUID('id'),
+    validateUUID('counterId'),
+    body('amount').optional().isNumeric(),
+    body('mode').optional().isIn(['linked', 'independent']),
+  ],
+  validate,
+  asyncHandler(countersController.incrementWithChildren)
 );
 
 /**

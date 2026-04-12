@@ -17,6 +17,7 @@ import YarnStash from './pages/YarnStash';
 import Tools from './pages/Tools';
 import Recipients from './pages/Recipients';
 import Profile from './pages/Profile';
+import Stats from './pages/Stats';
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
 import ForgotPassword from './pages/auth/ForgotPassword';
@@ -90,6 +91,7 @@ function App() {
         <Route path="/tools" element={<Tools />} />
         <Route path="/recipients" element={<Recipients />} />
         <Route path="/profile" element={<Profile />} />
+        <Route path="/stats" element={<Stats />} />
       </Route>
 
       {/* 404 */}
