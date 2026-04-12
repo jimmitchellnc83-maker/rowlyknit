@@ -17,7 +17,7 @@ const writeFileAsync = promisify(fs.writeFile);
  * Get all audio notes for a project
  */
 export async function getAudioNotes(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { id: projectId } = req.params;
   const { patternId } = req.query;
 
@@ -50,7 +50,7 @@ export async function getAudioNotes(req: Request, res: Response) {
  * Get single audio note by ID
  */
 export async function getAudioNote(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { id: projectId, noteId } = req.params;
 
   // Verify project ownership
@@ -81,7 +81,7 @@ export async function getAudioNote(req: Request, res: Response) {
  * Create an audio note
  */
 export async function createAudioNote(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { id: projectId } = req.params;
 
   // Debug logging
@@ -161,7 +161,7 @@ export async function createAudioNote(req: Request, res: Response) {
  * Update an audio note
  */
 export async function updateAudioNote(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { id: projectId, noteId } = req.params;
   const updates = req.body;
 
@@ -211,7 +211,7 @@ export async function updateAudioNote(req: Request, res: Response) {
  * Delete an audio note
  */
 export async function deleteAudioNote(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { id: projectId, noteId } = req.params;
 
   // Verify project ownership
@@ -256,7 +256,7 @@ export async function deleteAudioNote(req: Request, res: Response) {
  * Get all structured memos for a project
  */
 export async function getStructuredMemos(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { id: projectId } = req.params;
   const { templateType } = req.query;
 
@@ -289,7 +289,7 @@ export async function getStructuredMemos(req: Request, res: Response) {
  * Get single structured memo by ID
  */
 export async function getStructuredMemo(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { id: projectId, memoId } = req.params;
 
   // Verify project ownership
@@ -320,7 +320,7 @@ export async function getStructuredMemo(req: Request, res: Response) {
  * Create a structured memo
  */
 export async function createStructuredMemo(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { id: projectId } = req.params;
   const { templateType, data } = req.body;
 
@@ -371,7 +371,7 @@ export async function createStructuredMemo(req: Request, res: Response) {
  * Update a structured memo
  */
 export async function updateStructuredMemo(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { id: projectId, memoId } = req.params;
   const updates = req.body;
 
@@ -421,7 +421,7 @@ export async function updateStructuredMemo(req: Request, res: Response) {
  * Delete a structured memo
  */
 export async function deleteStructuredMemo(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { id: projectId, memoId } = req.params;
 
   // Verify project ownership
@@ -466,7 +466,7 @@ export async function deleteStructuredMemo(req: Request, res: Response) {
  * Get all text notes for a project
  */
 export async function getTextNotes(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { id: projectId } = req.params;
   const { patternId } = req.query;
 
@@ -499,7 +499,7 @@ export async function getTextNotes(req: Request, res: Response) {
  * Get single text note by ID
  */
 export async function getTextNote(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { id: projectId, noteId } = req.params;
 
   // Verify project ownership
@@ -530,7 +530,7 @@ export async function getTextNote(req: Request, res: Response) {
  * Create a text note
  */
 export async function createTextNote(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { id: projectId } = req.params;
   const { title, content, patternId, tags, isPinned } = req.body;
 
@@ -591,7 +591,7 @@ export async function createTextNote(req: Request, res: Response) {
  * Update a text note
  */
 export async function updateTextNote(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { id: projectId, noteId } = req.params;
   const updates = req.body;
 
@@ -644,7 +644,7 @@ export async function updateTextNote(req: Request, res: Response) {
  * Delete a text note
  */
 export async function deleteTextNote(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { id: projectId, noteId } = req.params;
 
   // Verify project ownership

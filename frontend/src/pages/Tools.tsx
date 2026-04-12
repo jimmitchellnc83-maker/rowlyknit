@@ -1,7 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { FiPlus, FiTrash2, FiTool, FiEdit2 } from 'react-icons/fi';
-import axios from 'axios';
 import { toast } from 'react-toastify';
+import { useEscapeKey } from '../hooks/useEscapeKey';
+import ConfirmModal from '../components/ConfirmModal';
+import { useTools as useToolsQuery, useCreateTool, useUpdateTool, useDeleteTool } from '../hooks/useApi';
 
 interface Tool {
   id: string;
@@ -14,11 +16,14 @@ interface Tool {
 }
 
 export default function Tools() {
-  const [tools, setTools] = useState<Tool[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: tools = [], isLoading: loading } = useToolsQuery() as { data: Tool[] | undefined; isLoading: boolean };
+  const createTool = useCreateTool();
+  const updateToolMutation = useUpdateTool();
+  const deleteToolMutation = useDeleteTool();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingTool, setEditingTool] = useState<Tool | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     type: 'needle',
@@ -28,41 +33,33 @@ export default function Tools() {
     quantity: '1',
   });
 
-  useEffect(() => {
-    fetchTools();
+  const closeAllModals = useCallback(() => {
+    setShowCreateModal(false);
+    setShowEditModal(false);
+    setEditingTool(null);
   }, []);
 
-  const fetchTools = async () => {
-    try {
-      const response = await axios.get('/api/tools');
-      setTools(response.data.data.tools);
-    } catch (error: any) {
-      console.error('Error fetching tools:', error);
-      toast.error('Failed to load tools');
-    } finally {
-      setLoading(false);
-    }
-  };
+  useEscapeKey(closeAllModals, showCreateModal || showEditModal);
 
   const handleCreateTool = async (e: React.FormEvent) => {
     e.preventDefault();
-    try {
-      await axios.post('/api/tools', formData);
-      toast.success('Tool added successfully!');
-      setShowCreateModal(false);
-      setFormData({
-        name: '',
-        type: 'needle',
-        size: '',
-        material: '',
-        brand: '',
-        quantity: '1',
-      });
-      fetchTools();
-    } catch (error: any) {
-      console.error('Error creating tool:', error);
-      toast.error(error.response?.data?.message || 'Failed to add tool');
-    }
+    createTool.mutate(formData, {
+      onSuccess: () => {
+        toast.success('Tool added successfully!');
+        setShowCreateModal(false);
+        setFormData({
+          name: '',
+          type: 'needle',
+          size: '',
+          material: '',
+          brand: '',
+          quantity: '1',
+        });
+      },
+      onError: (error: any) => {
+        toast.error(error.response?.data?.message || 'Failed to add tool');
+      },
+    });
   };
 
   const handleEditClick = (tool: Tool) => {
@@ -82,38 +79,38 @@ export default function Tools() {
     e.preventDefault();
     if (!editingTool) return;
 
-    try {
-      await axios.put(`/api/tools/${editingTool.id}`, formData);
-      toast.success('Tool updated successfully!');
-      setShowEditModal(false);
-      setEditingTool(null);
-      setFormData({
-        name: '',
-        type: 'needle',
-        size: '',
-        material: '',
-        brand: '',
-        quantity: '1',
-      });
-      fetchTools();
-    } catch (error: any) {
-      console.error('Error updating tool:', error);
-      toast.error(error.response?.data?.message || 'Failed to update tool');
-    }
+    updateToolMutation.mutate({ id: editingTool.id, formData }, {
+      onSuccess: () => {
+        toast.success('Tool updated successfully!');
+        setShowEditModal(false);
+        setEditingTool(null);
+        setFormData({
+          name: '',
+          type: 'needle',
+          size: '',
+          material: '',
+          brand: '',
+          quantity: '1',
+        });
+      },
+      onError: (error: any) => {
+        toast.error(error.response?.data?.message || 'Failed to update tool');
+      },
+    });
   };
 
-  const handleDeleteTool = async (id: string, name: string) => {
-    if (!confirm(`Are you sure you want to delete "${name}"?`)) {
-      return;
-    }
-    try {
-      await axios.delete(`/api/tools/${id}`);
-      toast.success('Tool deleted successfully');
-      fetchTools();
-    } catch (error: any) {
-      console.error('Error deleting tool:', error);
-      toast.error('Failed to delete tool');
-    }
+  const handleDeleteTool = async (id: string, _name: string) => {
+    deleteToolMutation.mutate(id, {
+      onSuccess: () => {
+        toast.success('Tool deleted successfully');
+      },
+      onError: () => {
+        toast.error('Failed to delete tool');
+      },
+      onSettled: () => {
+        setDeleteTarget(null);
+      },
+    });
   };
 
   const getTypeColor = (type: string) => {
@@ -214,7 +211,7 @@ export default function Tools() {
                   Edit
                 </button>
                 <button
-                  onClick={() => handleDeleteTool(tool.id, tool.name)}
+                  onClick={() => setDeleteTarget({ id: tool.id, name: tool.name })}
                   className="flex-1 px-3 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition flex items-center justify-center text-sm"
                 >
                   <FiTrash2 className="mr-2 h-4 w-4" />
@@ -457,6 +454,16 @@ export default function Tools() {
             </form>
           </div>
         </div>
+      )}
+
+      {deleteTarget && (
+        <ConfirmModal
+          title="Delete Tool"
+          message={`Are you sure you want to delete "${deleteTarget.name}"? This action cannot be undone.`}
+          confirmLabel="Delete"
+          onConfirm={() => handleDeleteTool(deleteTarget.id, deleteTarget.name)}
+          onCancel={() => setDeleteTarget(null)}
+        />
       )}
     </div>
   );

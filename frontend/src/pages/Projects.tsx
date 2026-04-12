@@ -1,25 +1,17 @@
-import { useState, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { FiPlus, FiTrash2, FiCalendar, FiClock } from 'react-icons/fi';
-import axios from 'axios';
 import { toast } from 'react-toastify';
-
-interface Project {
-  id: string;
-  name: string;
-  description: string;
-  project_type: string;
-  status: string;
-  start_date: string;
-  target_completion_date: string;
-  completion_date: string;
-  created_at: string;
-}
+import { useEscapeKey } from '../hooks/useEscapeKey';
+import ConfirmModal from '../components/ConfirmModal';
+import { useProjects, useCreateProject, useDeleteProject } from '../hooks/useApi';
 
 export default function Projects() {
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: projects = [], isLoading: loading } = useProjects() as { data: any[]; isLoading: boolean };
+  const createProject = useCreateProject();
+  const deleteProject = useDeleteProject();
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -28,56 +20,40 @@ export default function Projects() {
     targetCompletionDate: '',
   });
 
-  useEffect(() => {
-    fetchProjects();
-  }, []);
-
-  const fetchProjects = async () => {
-    try {
-      const response = await axios.get('/api/projects');
-      setProjects(response.data.data.projects);
-    } catch (error: any) {
-      console.error('Error fetching projects:', error);
-      toast.error('Failed to load projects');
-    } finally {
-      setLoading(false);
-    }
-  };
+  useEscapeKey(useCallback(() => setShowCreateModal(false), []), showCreateModal);
 
   const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    try {
-      await axios.post('/api/projects', formData);
-      toast.success('Project created successfully!');
-      setShowCreateModal(false);
-      setFormData({
-        name: '',
-        description: '',
-        projectType: 'sweater',
-        startDate: new Date().toISOString().split('T')[0],
-        targetCompletionDate: '',
-      });
-      fetchProjects();
-    } catch (error: any) {
-      console.error('Error creating project:', error);
-      toast.error(error.response?.data?.message || 'Failed to create project');
-    }
+    createProject.mutate(formData, {
+      onSuccess: () => {
+        toast.success('Project created successfully!');
+        setShowCreateModal(false);
+        setFormData({
+          name: '',
+          description: '',
+          projectType: 'sweater',
+          startDate: new Date().toISOString().split('T')[0],
+          targetCompletionDate: '',
+        });
+      },
+      onError: (error: any) => {
+        toast.error(error.response?.data?.message || 'Failed to create project');
+      },
+    });
   };
 
-  const handleDeleteProject = async (id: string, name: string) => {
-    if (!confirm(`Are you sure you want to delete "${name}"?`)) {
-      return;
-    }
-
-    try {
-      await axios.delete(`/api/projects/${id}`);
-      toast.success('Project deleted successfully');
-      fetchProjects();
-    } catch (error: any) {
-      console.error('Error deleting project:', error);
-      toast.error('Failed to delete project');
-    }
+  const handleDeleteProject = async (id: string) => {
+    deleteProject.mutate(id, {
+      onSuccess: () => {
+        toast.success('Project deleted successfully');
+      },
+      onError: () => {
+        toast.error('Failed to delete project');
+      },
+      onSettled: () => {
+        setDeleteTarget(null);
+      },
+    });
   };
 
   const getStatusColor = (status: string) => {
@@ -193,7 +169,7 @@ export default function Projects() {
                   View Details
                 </Link>
                 <button
-                  onClick={() => handleDeleteProject(project.id, project.name)}
+                  onClick={() => setDeleteTarget({ id: project.id, name: project.name })}
                   className="px-3 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition"
                   title="Delete project"
                 >
@@ -307,6 +283,17 @@ export default function Projects() {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteTarget && (
+        <ConfirmModal
+          title="Delete Project"
+          message={`Are you sure you want to delete "${deleteTarget.name}"? This action cannot be undone.`}
+          confirmLabel="Delete"
+          onConfirm={() => handleDeleteProject(deleteTarget.id)}
+          onCancel={() => setDeleteTarget(null)}
+        />
       )}
     </div>
   );

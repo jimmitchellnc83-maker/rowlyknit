@@ -45,7 +45,6 @@ import patternBookmarksRoutes from './routes/patternBookmarks';
 
 // Create Express app
 const app: Application = express();
-const PORT = process.env.PORT || 5000;
 
 // Trust proxy (for rate limiting behind nginx)
 app.set('trust proxy', 1);

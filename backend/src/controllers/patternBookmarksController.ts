@@ -6,7 +6,7 @@ import { NotFoundError, ValidationError } from '../utils/errorHandler';
  * Get all bookmarks for a pattern (optionally filtered by project)
  */
 export async function getBookmarks(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { patternId } = req.params;
   const { projectId } = req.query;
 
@@ -41,7 +41,7 @@ export async function getBookmarks(req: Request, res: Response) {
  * Get single bookmark by ID
  */
 export async function getBookmark(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { patternId, bookmarkId } = req.params;
 
   // Verify pattern ownership
@@ -72,7 +72,7 @@ export async function getBookmark(req: Request, res: Response) {
  * Create a new bookmark
  */
 export async function createBookmark(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { patternId } = req.params;
   const {
     name,
@@ -147,7 +147,7 @@ export async function createBookmark(req: Request, res: Response) {
  * Update a bookmark
  */
 export async function updateBookmark(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { patternId, bookmarkId } = req.params;
   const updates = req.body;
 
@@ -197,7 +197,7 @@ export async function updateBookmark(req: Request, res: Response) {
  * Delete a bookmark
  */
 export async function deleteBookmark(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { patternId, bookmarkId } = req.params;
 
   // Verify pattern ownership
@@ -230,7 +230,7 @@ export async function deleteBookmark(req: Request, res: Response) {
  * Reorder bookmarks
  */
 export async function reorderBookmarks(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { patternId } = req.params;
   const { bookmarks } = req.body;
 

@@ -1,7 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { FiPlus, FiTrash2, FiUsers, FiEdit2 } from 'react-icons/fi';
-import axios from 'axios';
 import { toast } from 'react-toastify';
+import { useEscapeKey } from '../hooks/useEscapeKey';
+import ConfirmModal from '../components/ConfirmModal';
+import { useRecipients, useCreateRecipient, useUpdateRecipient, useDeleteRecipient } from '../hooks/useApi';
 
 interface Recipient {
   id: string;
@@ -13,11 +15,14 @@ interface Recipient {
 }
 
 export default function Recipients() {
-  const [recipients, setRecipients] = useState<Recipient[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: recipients = [], isLoading: loading } = useRecipients() as { data: Recipient[] | undefined; isLoading: boolean };
+  const createRecipient = useCreateRecipient();
+  const updateRecipientMutation = useUpdateRecipient();
+  const deleteRecipientMutation = useDeleteRecipient();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingRecipient, setEditingRecipient] = useState<Recipient | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -26,40 +31,31 @@ export default function Recipients() {
     notes: '',
   });
 
-  useEffect(() => {
-    fetchRecipients();
+  const closeAllModals = useCallback(() => {
+    setShowCreateModal(false);
+    setShowEditModal(false);
+    setEditingRecipient(null);
   }, []);
-
-  const fetchRecipients = async () => {
-    try {
-      const response = await axios.get('/api/recipients');
-      setRecipients(response.data.data.recipients);
-    } catch (error: any) {
-      console.error('Error fetching recipients:', error);
-      toast.error('Failed to load recipients');
-    } finally {
-      setLoading(false);
-    }
-  };
+  useEscapeKey(closeAllModals, showCreateModal || showEditModal);
 
   const handleCreateRecipient = async (e: React.FormEvent) => {
     e.preventDefault();
-    try {
-      await axios.post('/api/recipients', formData);
-      toast.success('Recipient added successfully!');
-      setShowCreateModal(false);
-      setFormData({
-        firstName: '',
-        lastName: '',
-        relationship: '',
-        clothingSize: '',
-        notes: '',
-      });
-      fetchRecipients();
-    } catch (error: any) {
-      console.error('Error creating recipient:', error);
-      toast.error(error.response?.data?.message || 'Failed to add recipient');
-    }
+    createRecipient.mutate(formData, {
+      onSuccess: () => {
+        toast.success('Recipient added successfully!');
+        setShowCreateModal(false);
+        setFormData({
+          firstName: '',
+          lastName: '',
+          relationship: '',
+          clothingSize: '',
+          notes: '',
+        });
+      },
+      onError: (error: any) => {
+        toast.error(error.response?.data?.message || 'Failed to add recipient');
+      },
+    });
   };
 
   const handleEditClick = (recipient: Recipient) => {
@@ -78,37 +74,37 @@ export default function Recipients() {
     e.preventDefault();
     if (!editingRecipient) return;
 
-    try {
-      await axios.put(`/api/recipients/${editingRecipient.id}`, formData);
-      toast.success('Recipient updated successfully!');
-      setShowEditModal(false);
-      setEditingRecipient(null);
-      setFormData({
-        firstName: '',
-        lastName: '',
-        relationship: '',
-        clothingSize: '',
-        notes: '',
-      });
-      fetchRecipients();
-    } catch (error: any) {
-      console.error('Error updating recipient:', error);
-      toast.error(error.response?.data?.message || 'Failed to update recipient');
-    }
+    updateRecipientMutation.mutate({ id: editingRecipient.id, formData }, {
+      onSuccess: () => {
+        toast.success('Recipient updated successfully!');
+        setShowEditModal(false);
+        setEditingRecipient(null);
+        setFormData({
+          firstName: '',
+          lastName: '',
+          relationship: '',
+          clothingSize: '',
+          notes: '',
+        });
+      },
+      onError: (error: any) => {
+        toast.error(error.response?.data?.message || 'Failed to update recipient');
+      },
+    });
   };
 
-  const handleDeleteRecipient = async (id: string, name: string) => {
-    if (!confirm(`Are you sure you want to delete "${name}"?`)) {
-      return;
-    }
-    try {
-      await axios.delete(`/api/recipients/${id}`);
-      toast.success('Recipient deleted successfully');
-      fetchRecipients();
-    } catch (error: any) {
-      console.error('Error deleting recipient:', error);
-      toast.error('Failed to delete recipient');
-    }
+  const handleDeleteRecipient = async (id: string, _name: string) => {
+    deleteRecipientMutation.mutate(id, {
+      onSuccess: () => {
+        toast.success('Recipient deleted successfully');
+      },
+      onError: () => {
+        toast.error('Failed to delete recipient');
+      },
+      onSettled: () => {
+        setDeleteTarget(null);
+      },
+    });
   };
 
   if (loading) {
@@ -183,10 +179,7 @@ export default function Recipients() {
                 </button>
                 <button
                   onClick={() =>
-                    handleDeleteRecipient(
-                      recipient.id,
-                      `${recipient.first_name} ${recipient.last_name}`
-                    )
+                    setDeleteTarget({ id: recipient.id, name: `${recipient.first_name} ${recipient.last_name}` })
                   }
                   className="flex-1 px-3 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition flex items-center justify-center text-sm"
                 >
@@ -397,6 +390,16 @@ export default function Recipients() {
             </form>
           </div>
         </div>
+      )}
+
+      {deleteTarget && (
+        <ConfirmModal
+          title="Delete Recipient"
+          message={`Are you sure you want to delete "${deleteTarget.name}"? This action cannot be undone.`}
+          confirmLabel="Delete"
+          onConfirm={() => handleDeleteRecipient(deleteTarget.id, deleteTarget.name)}
+          onCancel={() => setDeleteTarget(null)}
+        />
       )}
     </div>
   );

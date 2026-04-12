@@ -1,9 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FiPlus, FiTrash2, FiBook, FiEdit2 } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { PDFCollation } from '../components/patterns';
+import ConfirmModal from '../components/ConfirmModal';
+import { useEscapeKey } from '../hooks/useEscapeKey';
+import { usePatterns, useCreatePattern, useUpdatePattern, useDeletePattern } from '../hooks/useApi';
 
 interface Pattern {
   id: string;
@@ -17,14 +20,17 @@ interface Pattern {
 
 export default function Patterns() {
   const navigate = useNavigate();
-  const [patterns, setPatterns] = useState<Pattern[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: patterns = [], isLoading: loading } = usePatterns() as { data: Pattern[] | undefined; isLoading: boolean };
+  const createPattern = useCreatePattern();
+  const updatePattern = useUpdatePattern();
+  const deletePatternMutation = useDeletePattern();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showCollationModal, setShowCollationModal] = useState(false);
   const [editingPattern, setEditingPattern] = useState<Pattern | null>(null);
   const [patternFiles, setPatternFiles] = useState<File[]>([]);
   const [uploadingFiles, setUploadingFiles] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -33,76 +39,66 @@ export default function Patterns() {
     category: 'sweater',
   });
 
-  useEffect(() => {
-    fetchPatterns();
+  const closeAllModals = useCallback(() => {
+    setShowCreateModal(false);
+    setShowEditModal(false);
+    setShowCollationModal(false);
+    setEditingPattern(null);
   }, []);
-
-  const fetchPatterns = async () => {
-    try {
-      const response = await axios.get('/api/patterns');
-      setPatterns(response.data.data.patterns);
-    } catch (error: any) {
-      console.error('Error fetching patterns:', error);
-      toast.error('Failed to load patterns');
-    } finally {
-      setLoading(false);
-    }
-  };
+  useEscapeKey(closeAllModals, showCreateModal || showEditModal || showCollationModal);
 
   const handleCreatePattern = async (e: React.FormEvent) => {
     e.preventDefault();
 
     setUploadingFiles(true);
 
-    try {
-      // Step 1: Create the pattern
-      const createResponse = await axios.post('/api/patterns', formData);
-      const newPattern = createResponse.data.data.pattern;
-      toast.success('Pattern created!');
+    createPattern.mutate(formData, {
+      onSuccess: async (newPattern) => {
+        toast.success('Pattern created!');
 
-      // Step 2: Upload PDF files if any
-      if (patternFiles.length > 0) {
-        let uploadedCount = 0;
-        for (const file of patternFiles) {
-          try {
-            const fileFormData = new FormData();
-            fileFormData.append('file', file);
+        // Upload PDF files if any
+        if (patternFiles.length > 0) {
+          let uploadedCount = 0;
+          for (const file of patternFiles) {
+            try {
+              const fileFormData = new FormData();
+              fileFormData.append('file', file);
 
-            await axios.post(`/api/uploads/patterns/${newPattern.id}/files`, fileFormData, {
-              headers: {
-                'Content-Type': 'multipart/form-data',
-              },
-            });
-            uploadedCount++;
-          } catch (error) {
-            console.error(`Failed to upload ${file.name}:`, error);
+              await axios.post(`/api/uploads/patterns/${newPattern.id}/files`, fileFormData, {
+                headers: {
+                  'Content-Type': 'multipart/form-data',
+                },
+              });
+              uploadedCount++;
+            } catch (error) {
+              console.error(`Failed to upload ${file.name}:`, error);
+            }
+          }
+
+          if (uploadedCount === patternFiles.length) {
+            toast.success(`Pattern created with ${uploadedCount} PDF${uploadedCount > 1 ? 's' : ''}!`);
+          } else {
+            toast.warning(`Pattern created but only ${uploadedCount}/${patternFiles.length} files uploaded`);
           }
         }
 
-        if (uploadedCount === patternFiles.length) {
-          toast.success(`Pattern created with ${uploadedCount} PDF${uploadedCount > 1 ? 's' : ''}!`);
-        } else {
-          toast.warning(`Pattern created but only ${uploadedCount}/${patternFiles.length} files uploaded`);
-        }
-      }
-
-      // Reset and close
-      setShowCreateModal(false);
-      setFormData({
-        name: '',
-        description: '',
-        designer: '',
-        difficulty: 'intermediate',
-        category: 'sweater',
-      });
-      setPatternFiles([]);
-      fetchPatterns();
-    } catch (error: any) {
-      console.error('Error creating pattern:', error);
-      toast.error(error.response?.data?.message || 'Failed to create pattern');
-    } finally {
-      setUploadingFiles(false);
-    }
+        // Reset and close
+        setShowCreateModal(false);
+        setFormData({
+          name: '',
+          description: '',
+          designer: '',
+          difficulty: 'intermediate',
+          category: 'sweater',
+        });
+        setPatternFiles([]);
+        setUploadingFiles(false);
+      },
+      onError: (error: any) => {
+        toast.error(error.response?.data?.message || 'Failed to create pattern');
+        setUploadingFiles(false);
+      },
+    });
   };
 
   const handleEditClick = (pattern: Pattern) => {
@@ -121,37 +117,37 @@ export default function Patterns() {
     e.preventDefault();
     if (!editingPattern) return;
 
-    try {
-      await axios.put(`/api/patterns/${editingPattern.id}`, formData);
-      toast.success('Pattern updated successfully!');
-      setShowEditModal(false);
-      setEditingPattern(null);
-      setFormData({
-        name: '',
-        description: '',
-        designer: '',
-        difficulty: 'intermediate',
-        category: 'sweater',
-      });
-      fetchPatterns();
-    } catch (error: any) {
-      console.error('Error updating pattern:', error);
-      toast.error(error.response?.data?.message || 'Failed to update pattern');
-    }
+    updatePattern.mutate({ id: editingPattern.id, formData }, {
+      onSuccess: () => {
+        toast.success('Pattern updated successfully!');
+        setShowEditModal(false);
+        setEditingPattern(null);
+        setFormData({
+          name: '',
+          description: '',
+          designer: '',
+          difficulty: 'intermediate',
+          category: 'sweater',
+        });
+      },
+      onError: (error: any) => {
+        toast.error(error.response?.data?.message || 'Failed to update pattern');
+      },
+    });
   };
 
-  const handleDeletePattern = async (id: string, name: string) => {
-    if (!confirm(`Are you sure you want to delete "${name}"?`)) {
-      return;
-    }
-    try {
-      await axios.delete(`/api/patterns/${id}`);
-      toast.success('Pattern deleted successfully');
-      fetchPatterns();
-    } catch (error: any) {
-      console.error('Error deleting pattern:', error);
-      toast.error('Failed to delete pattern');
-    }
+  const handleDeletePattern = async (id: string, _name: string) => {
+    deletePatternMutation.mutate(id, {
+      onSuccess: () => {
+        toast.success('Pattern deleted successfully');
+      },
+      onError: () => {
+        toast.error('Failed to delete pattern');
+      },
+      onSettled: () => {
+        setDeleteTarget(null);
+      },
+    });
   };
 
   const getDifficultyColor = (difficulty: string) => {
@@ -274,7 +270,7 @@ export default function Patterns() {
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleDeletePattern(pattern.id, pattern.name);
+                      setDeleteTarget({ id: pattern.id, name: pattern.name });
                     }}
                     className="flex-1 px-3 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition flex items-center justify-center text-sm"
                   >
@@ -570,6 +566,16 @@ export default function Patterns() {
             </div>
           </div>
         </div>
+      )}
+
+      {deleteTarget && (
+        <ConfirmModal
+          title="Delete Pattern"
+          message={`Are you sure you want to delete "${deleteTarget.name}"? This action cannot be undone.`}
+          confirmLabel="Delete"
+          onConfirm={() => handleDeletePattern(deleteTarget.id, deleteTarget.name)}
+          onCancel={() => setDeleteTarget(null)}
+        />
       )}
     </div>
   );

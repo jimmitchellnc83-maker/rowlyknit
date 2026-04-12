@@ -31,8 +31,9 @@ export function sanitizeSearchQuery(query: string): string {
   }
 
   // Remove potentially dangerous characters
-  // Keep alphanumeric, spaces, hyphens, underscores
-  return query.replace(/[^\w\s\-]/g, '').trim().slice(0, 200);
+  // Keep alphanumeric, spaces, hyphens, underscores, dots, slashes, apostrophes, hash
+  // (knitters search for needle sizes like "US 10/6mm", colors like "#5", yarn names with apostrophes)
+  return query.replace(/[^\w\s\-\.\/\#\']/g, '').trim().slice(0, 200);
 }
 
 /**
@@ -98,18 +99,23 @@ export const ALLOWED_FIELDS = {
   ],
   yarn: [
     'brand',
+    'line',
     'name',
-    'weight',
-    'fiber',
-    'colorName',
+    'color',
     'colorCode',
-    'yardage',
-    'gramsPerSkein',
+    'weight',
+    'fiberContent',
+    'yardsTotal',
+    'gramsTotal',
+    'skeinsTotal',
+    'pricePerSkein',
     'purchaseDate',
     'purchaseLocation',
-    'purchasePrice',
-    'quantity',
+    'dyeLot',
     'notes',
+    'tags',
+    'lowStockThreshold',
+    'lowStockAlert',
   ],
   tool: [
     'name',
