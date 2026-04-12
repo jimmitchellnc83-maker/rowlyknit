@@ -118,7 +118,7 @@ async function getCurrentStreak(userId: string): Promise<number> {
   yesterday.setDate(yesterday.getDate() - 1);
 
   // Convert session dates to Date objects for comparison
-  const sessionDates = sessions.map(s => {
+  const sessionDates = sessions.map((s: any) => {
     const d = new Date(s.session_date);
     d.setHours(0, 0, 0, 0);
     return d.getTime();
@@ -205,7 +205,7 @@ async function getActivityGraphData(
     .groupBy(db.raw('DATE(ch.created_at)'))
     .orderBy('date', 'asc');
 
-  return result.map(r => ({
+  return result.map((r: any) => ({
     date: r.date instanceof Date ? r.date.toISOString().split('T')[0] : String(r.date),
     rows: Number(r.rows) || 0
   }));

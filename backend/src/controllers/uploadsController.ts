@@ -106,7 +106,7 @@ ensureUploadDirs();
 // Upload project photo
 export const uploadProjectPhoto = async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user.userId;
+    const userId = req.user!.userId;
     const { projectId } = req.params;
 
     // Verify project exists and belongs to user
@@ -186,7 +186,7 @@ export const uploadProjectPhoto = async (req: Request, res: Response) => {
 // Get project photos
 export const getProjectPhotos = async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user.userId;
+    const userId = req.user!.userId;
     const { projectId } = req.params;
 
     // Verify project exists and belongs to user
@@ -223,7 +223,7 @@ export const getProjectPhotos = async (req: Request, res: Response) => {
 // Delete project photo
 export const deleteProjectPhoto = async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user.userId;
+    const userId = req.user!.userId;
     const { projectId, photoId } = req.params;
 
     // Verify project exists and belongs to user
@@ -309,7 +309,7 @@ const getFileType = (mimetype: string, filename?: string): string => {
 // Upload pattern file
 export const uploadPatternFile = async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user.userId;
+    const userId = req.user!.userId;
     const { patternId } = req.params;
 
     // Verify pattern exists and belongs to user
@@ -376,7 +376,7 @@ export const uploadPatternFile = async (req: Request, res: Response) => {
 // Get pattern files
 export const getPatternFiles = async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user.userId;
+    const userId = req.user!.userId;
     const { patternId } = req.params;
 
     // Verify pattern exists and belongs to user
@@ -414,7 +414,7 @@ export const getPatternFiles = async (req: Request, res: Response) => {
 // Delete pattern file
 export const deletePatternFile = async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user.userId;
+    const userId = req.user!.userId;
     const { patternId, fileId } = req.params;
 
     // Verify pattern exists and belongs to user
@@ -475,7 +475,7 @@ export const deletePatternFile = async (req: Request, res: Response) => {
 // Download pattern file
 export const downloadPatternFile = async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user.userId;
+    const userId = req.user!.userId;
     const { patternId, fileId } = req.params;
 
     // Verify pattern exists and belongs to user
@@ -549,7 +549,7 @@ export const downloadPatternFile = async (req: Request, res: Response) => {
 // Upload yarn photo
 export const uploadYarnPhoto = async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user.userId;
+    const userId = req.user!.userId;
     const { yarnId } = req.params;
 
     // Verify yarn exists and belongs to user
@@ -630,7 +630,7 @@ export const uploadYarnPhoto = async (req: Request, res: Response) => {
 // Get yarn photos
 export const getYarnPhotos = async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user.userId;
+    const userId = req.user!.userId;
     const { yarnId } = req.params;
 
     // Verify yarn exists and belongs to user
@@ -668,7 +668,7 @@ export const getYarnPhotos = async (req: Request, res: Response) => {
 // Delete yarn photo
 export const deleteYarnPhoto = async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user.userId;
+    const userId = req.user!.userId;
     const { yarnId, photoId } = req.params;
 
     // Verify yarn exists and belongs to user

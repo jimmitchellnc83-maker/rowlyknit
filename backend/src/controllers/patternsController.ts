@@ -7,7 +7,7 @@ import { PDFDocument, rgb } from 'pdf-lib';
 import axios from 'axios';
 import fs from 'fs';
 import path from 'path';
-import { pickFields, ALLOWED_FIELDS, sanitizeSearchQuery } from '../utils/inputSanitizer';
+import { sanitizeSearchQuery } from '../utils/inputSanitizer';
 
 /**
  * Serialize pattern JSONB fields to strings for frontend compatibility
@@ -27,7 +27,7 @@ function serializePattern(pattern: any) {
  * Get all patterns for current user
  */
 export async function getPatterns(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { category, difficulty, search, page = 1, limit = 20 } = req.query;
 
   let query = db('patterns')
@@ -80,7 +80,7 @@ export async function getPatterns(req: Request, res: Response) {
  * Get single pattern by ID
  */
 export async function getPattern(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { id } = req.params;
 
   const pattern = await db('patterns')
@@ -156,7 +156,7 @@ export async function getPatternCharts(req: Request, res: Response) {
  * Create new pattern
  */
 export async function createPattern(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const {
     name,
     description,
@@ -219,7 +219,7 @@ export async function createPattern(req: Request, res: Response) {
  * Update pattern
  */
 export async function updatePattern(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { id } = req.params;
 
   const pattern = await db('patterns')
@@ -295,7 +295,7 @@ export async function updatePattern(req: Request, res: Response) {
  * Delete pattern (soft delete)
  */
 export async function deletePattern(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { id } = req.params;
 
   const pattern = await db('patterns')
@@ -332,7 +332,7 @@ export async function deletePattern(req: Request, res: Response) {
  * Get pattern statistics
  */
 export async function getPatternStats(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
 
   const stats = await db('patterns')
     .where({ user_id: userId })
@@ -356,7 +356,7 @@ export async function getPatternStats(req: Request, res: Response) {
  * Collate multiple patterns into a single PDF
  */
 export async function collatePatterns(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { patternIds, addDividers = false, dividerText = 'Pattern' } = req.body;
 
   if (!patternIds || !Array.isArray(patternIds) || patternIds.length === 0) {

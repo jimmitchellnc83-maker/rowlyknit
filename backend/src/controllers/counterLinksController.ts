@@ -7,7 +7,7 @@ import { createAuditLog } from '../middleware/auditLog';
  * Get all links for a counter
  */
 export async function getCounterLinks(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { id: projectId, counterId } = req.params;
 
   // Verify project ownership
@@ -60,7 +60,7 @@ export async function getCounterLinks(req: Request, res: Response) {
  * Get all links for a project
  */
 export async function getProjectLinks(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { id: projectId } = req.params;
 
   // Verify project ownership
@@ -118,7 +118,7 @@ export async function getProjectLinks(req: Request, res: Response) {
  * Create a counter link
  */
 export async function createCounterLink(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { id: projectId } = req.params;
   const {
     sourceCounterId,
@@ -198,7 +198,7 @@ export async function createCounterLink(req: Request, res: Response) {
  * Update a counter link
  */
 export async function updateCounterLink(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { id: projectId, linkId } = req.params;
   const updates = req.body;
 
@@ -267,7 +267,7 @@ export async function updateCounterLink(req: Request, res: Response) {
  * Delete a counter link
  */
 export async function deleteCounterLink(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { id: projectId, linkId } = req.params;
 
   // Verify project ownership
@@ -319,7 +319,7 @@ export async function deleteCounterLink(req: Request, res: Response) {
  * Toggle link active status
  */
 export async function toggleCounterLink(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { id: projectId, linkId } = req.params;
 
   // Verify project ownership

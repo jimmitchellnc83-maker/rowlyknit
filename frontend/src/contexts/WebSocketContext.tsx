@@ -114,13 +114,14 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   }, []);
 
+  // Use socket state (not just ref) as dependency so callbacks rebind after reconnect
   const onCounterUpdate = useCallback((callback: (data: any) => void) => {
     if (socketRef.current) {
       socketRef.current.on('counter:updated', callback);
       socketRef.current.on('counter:incremented', callback);
       socketRef.current.on('counter:decremented', callback);
     }
-  }, []);
+  }, [socket]);
 
   const offCounterUpdate = useCallback((callback: (data: any) => void) => {
     if (socketRef.current) {
@@ -128,7 +129,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       socketRef.current.off('counter:incremented', callback);
       socketRef.current.off('counter:decremented', callback);
     }
-  }, []);
+  }, [socket]);
 
   const value: WebSocketContextType = {
     socket,

@@ -53,7 +53,7 @@ function isMarkerRelevantForRow(marker: any, row: number): boolean {
  * Get all magic markers for a project
  */
 export async function getMagicMarkers(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { id: projectId } = req.params;
   const { counterId, isActive, category, priority, currentRow } = req.query;
 
@@ -158,7 +158,7 @@ export async function getActiveMarkersForRow(req: Request, res: Response) {
  * Get single magic marker by ID
  */
 export async function getMagicMarker(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { id: projectId, markerId } = req.params;
 
   const project = await db('projects')
@@ -191,7 +191,7 @@ export async function getMagicMarker(req: Request, res: Response) {
  * Create a magic marker
  */
 export async function createMagicMarker(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { id: projectId } = req.params;
   const {
     counterId, name, triggerType, triggerCondition, alertMessage, alertType, isActive = true,
@@ -353,7 +353,7 @@ export async function createMagicMarker(req: Request, res: Response) {
  * Update a magic marker
  */
 export async function updateMagicMarker(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { id: projectId, markerId } = req.params;
   const updates = req.body;
 
@@ -621,7 +621,7 @@ export async function completeMagicMarker(req: Request, res: Response) {
  * Delete a magic marker
  */
 export async function deleteMagicMarker(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { id: projectId, markerId } = req.params;
 
   const project = await db('projects')
@@ -654,7 +654,7 @@ export async function deleteMagicMarker(req: Request, res: Response) {
  * Toggle magic marker active status
  */
 export async function toggleMagicMarker(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { id: projectId, markerId } = req.params;
 
   const project = await db('projects')

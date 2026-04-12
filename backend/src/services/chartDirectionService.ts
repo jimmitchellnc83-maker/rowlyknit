@@ -1,5 +1,5 @@
 import db from '../config/database';
-import logger from '../config/logger';
+
 
 export type WorkingDirection = 'flat_knitting' | 'in_the_round' | 'flat_from_center';
 export type CurrentDirection = 'left_to_right' | 'right_to_left' | 'center_out';
@@ -103,7 +103,7 @@ class ChartDirectionService {
 
       case 'center_out':
         const center = Math.floor(chartWidth / 2);
-        const distanceFromCenter = Math.abs(currentCol - center);
+        void Math.abs(currentCol - center); // distanceFromCenter reserved for future use
 
         if (currentCol >= center && currentCol < chartWidth - 1) {
           // Right half: move right

@@ -12,8 +12,9 @@
     "moduleResolution": "node",
     "allowJs": true,
     "noEmit": false,
-    "strict": false,
-    "noUnusedLocals": false,
+    "strict": true,
+    "strictNullChecks": true,
+    "noUnusedLocals": true,
     "noUnusedParameters": false
   },
   "include": ["src/**/*", "knexfile.ts", "migrations/**/*", "seeds/**/*"],

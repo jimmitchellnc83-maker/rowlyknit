@@ -64,6 +64,38 @@ router.post('/logout', authenticate, asyncHandler(authController.logout));
 router.get('/profile', authenticate, asyncHandler(authController.getProfile));
 
 /**
+ * @route   PUT /api/auth/profile
+ * @desc    Update user profile
+ * @access  Private
+ */
+router.put(
+  '/profile',
+  authenticate,
+  [
+    body('firstName').optional().trim(),
+    body('lastName').optional().trim(),
+  ],
+  validate,
+  asyncHandler(authController.updateProfile)
+);
+
+/**
+ * @route   PUT /api/auth/password
+ * @desc    Change user password
+ * @access  Private
+ */
+router.put(
+  '/password',
+  authenticate,
+  [
+    body('currentPassword').notEmpty(),
+    body('newPassword').isLength({ min: 8 }),
+  ],
+  validate,
+  asyncHandler(authController.changePassword)
+);
+
+/**
  * @route   GET /api/auth/verify-email
  * @desc    Verify email address
  * @access  Public

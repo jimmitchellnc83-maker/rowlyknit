@@ -40,7 +40,7 @@ const TIER_LIMITS = {
  * Get user tier from request (can be extended to check database)
  */
 function getUserTier(req: Request): UserTier {
-  const user = (req as any).user;
+  const user = req.user as any;
   if (!user) return UserTier.FREE;
 
   // Check if user is admin (can be extended with database lookup)
@@ -72,12 +72,12 @@ function createDynamicLimiter(window: 'perMinute' | 'perHour' | 'perDay') {
       const limit = TIER_LIMITS[tier][window];
 
       // Log when user approaches limit
-      const userId = (req as any).user?.userId || req.ip;
+      const userId = req.user?.userId || req.ip;
       logger.debug(`Rate limit check for ${userId}: tier=${tier}, limit=${limit}, window=${window}`);
 
       return limit;
     },
-    message: (req) => {
+    message: (req: any) => {
       const tier = getUserTier(req);
       const limit = TIER_LIMITS[tier][window];
 
@@ -93,7 +93,7 @@ function createDynamicLimiter(window: 'perMinute' | 'perHour' | 'perDay') {
     legacyHeaders: false,
     keyGenerator: (req) => {
       // Try to get user ID from req.user (if auth middleware already ran)
-      let userId = (req as any).user?.userId;
+      let userId = req.user?.userId;
 
       // If not available, try to extract from JWT token in Authorization header
       if (!userId) {
@@ -121,7 +121,7 @@ function createDynamicLimiter(window: 'perMinute' | 'perHour' | 'perDay') {
     },
     handler: (req, res) => {
       const tier = getUserTier(req);
-      const userId = (req as any).user?.userId || req.ip;
+      const userId = req.user?.userId || req.ip;
 
       logger.warn('Rate limit exceeded', {
         userId,
@@ -186,7 +186,7 @@ export const uploadLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: (req) => {
-    return (req as any).user?.userId || req.ip || 'unknown';
+    return req.user?.userId || req.ip || 'unknown';
   },
 });
 
@@ -226,7 +226,7 @@ export const apiLimiterDaily = createDynamicLimiter('perDay');
  */
 export async function getRateLimitStatus(req: Request) {
   const tier = getUserTier(req);
-  const userId = (req as any).user?.userId;
+  const userId = req.user?.userId;
   const limits = TIER_LIMITS[tier];
 
   if (!userId) {

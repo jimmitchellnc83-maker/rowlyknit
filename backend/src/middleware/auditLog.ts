@@ -21,7 +21,7 @@ export async function createAuditLog(
 ): Promise<void> {
   try {
     await db('audit_logs').insert({
-      user_id: data.userId || (req as any).user?.userId || null,
+      user_id: data.userId || req.user?.userId || null,
       action: data.action,
       entity_type: data.entityType,
       entity_id: data.entityId || null,
@@ -63,8 +63,8 @@ export function auditMiddleware(
       // UUID regex pattern
       const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-      // Only set entityId if it's a valid UUID, otherwise null
-      let entityId = null;
+      // Only set entityId if it's a valid UUID, otherwise undefined
+      let entityId: string | undefined;
       for (const part of pathParts) {
         if (uuidRegex.test(part)) {
           entityId = part;

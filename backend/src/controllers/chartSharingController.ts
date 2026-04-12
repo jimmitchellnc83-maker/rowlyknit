@@ -2,7 +2,6 @@ import { Request, Response } from 'express';
 import db from '../config/database';
 import {
   createChartShareLink,
-  createPatternShareLink,
   getSharedChart,
   trackChartView,
   trackChartCopy,

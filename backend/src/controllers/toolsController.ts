@@ -2,10 +2,10 @@ import { Request, Response } from 'express';
 import db from '../config/database';
 import { NotFoundError, ValidationError } from '../utils/errorHandler';
 import { createAuditLog } from '../middleware/auditLog';
-import { ALLOWED_FIELDS, sanitizeSearchQuery } from '../utils/inputSanitizer';
+import { sanitizeSearchQuery } from '../utils/inputSanitizer';
 
 export async function getTools(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { type, search, page = 1, limit = 20 } = req.query;
 
   let query = db('tools')
@@ -47,7 +47,7 @@ export async function getTools(req: Request, res: Response) {
 }
 
 export async function getTool(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { id } = req.params;
 
   const tool = await db('tools')
@@ -66,7 +66,7 @@ export async function getTool(req: Request, res: Response) {
 }
 
 export async function createTool(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const {
     type,
     name,
@@ -120,7 +120,7 @@ export async function createTool(req: Request, res: Response) {
 }
 
 export async function updateTool(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { id } = req.params;
 
   const tool = await db('tools')
@@ -181,7 +181,7 @@ export async function updateTool(req: Request, res: Response) {
 }
 
 export async function deleteTool(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { id } = req.params;
 
   const tool = await db('tools')
@@ -215,7 +215,7 @@ export async function deleteTool(req: Request, res: Response) {
 }
 
 export async function getToolStats(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
 
   const stats = await db('tools')
     .where({ user_id: userId })
