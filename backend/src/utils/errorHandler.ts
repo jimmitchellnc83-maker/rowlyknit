@@ -85,7 +85,7 @@ export function errorHandler(
     path: req.path,
     method: req.method,
     ip: req.ip,
-    userId: (req as any).user?.userId,
+    userId: req.user?.userId,
   });
 
   // Send error response

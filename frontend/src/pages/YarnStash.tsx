@@ -1,7 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { FiPlus, FiTrash2, FiPackage, FiEdit2 } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
+import { useEscapeKey } from '../hooks/useEscapeKey';
+import ConfirmModal from '../components/ConfirmModal';
+import { useYarn, useCreateYarn, useUpdateYarn, useDeleteYarn } from '../hooks/useApi';
 
 interface Yarn {
   id: string;
@@ -28,13 +31,17 @@ interface YarnPhoto {
 }
 
 export default function YarnStash() {
-  const [yarn, setYarn] = useState<Yarn[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: yarn = [], isLoading: loading } = useYarn() as { data: Yarn[] | undefined; isLoading: boolean };
+  const createYarn = useCreateYarn();
+  const updateYarnMutation = useUpdateYarn();
+  const deleteYarnMutation = useDeleteYarn();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingYarn, setEditingYarn] = useState<Yarn | null>(null);
   const [yarnPhotos, setYarnPhotos] = useState<YarnPhoto[]>([]);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [photoDeleteTarget, setPhotoDeleteTarget] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     brand: '',
     name: '',
@@ -47,44 +54,35 @@ export default function YarnStash() {
     lowStockAlert: false,
   });
 
-  useEffect(() => {
-    fetchYarn();
+  const closeAllModals = useCallback(() => {
+    setShowCreateModal(false);
+    setShowEditModal(false);
+    setEditingYarn(null);
   }, []);
-
-  const fetchYarn = async () => {
-    try {
-      const response = await axios.get('/api/yarn');
-      setYarn(response.data.data.yarn);
-    } catch (error: any) {
-      console.error('Error fetching yarn:', error);
-      toast.error('Failed to load yarn');
-    } finally {
-      setLoading(false);
-    }
-  };
+  useEscapeKey(closeAllModals, showCreateModal || showEditModal);
 
   const handleCreateYarn = async (e: React.FormEvent) => {
     e.preventDefault();
-    try {
-      await axios.post('/api/yarn', formData);
-      toast.success('Yarn added successfully!');
-      setShowCreateModal(false);
-      setFormData({
-        brand: '',
-        name: '',
-        color: '',
-        weight: 'worsted',
-        fiberContent: '',
-        yardsTotal: '',
-        skeinsTotal: '1',
-        lowStockThreshold: '',
-        lowStockAlert: false,
-      });
-      fetchYarn();
-    } catch (error: any) {
-      console.error('Error creating yarn:', error);
-      toast.error(error.response?.data?.message || 'Failed to add yarn');
-    }
+    createYarn.mutate(formData, {
+      onSuccess: () => {
+        toast.success('Yarn added successfully!');
+        setShowCreateModal(false);
+        setFormData({
+          brand: '',
+          name: '',
+          color: '',
+          weight: 'worsted',
+          fiberContent: '',
+          yardsTotal: '',
+          skeinsTotal: '1',
+          lowStockThreshold: '',
+          lowStockAlert: false,
+        });
+      },
+      onError: (error: any) => {
+        toast.error(error.response?.data?.message || 'Failed to add yarn');
+      },
+    });
   };
 
   const handleEditClick = async (y: Yarn) => {
@@ -144,7 +142,6 @@ export default function YarnStash() {
 
   const handlePhotoDelete = async (photoId: string) => {
     if (!editingYarn) return;
-    if (!confirm('Are you sure you want to delete this photo?')) return;
 
     try {
       await axios.delete(`/api/uploads/yarn/${editingYarn.id}/photos/${photoId}`);
@@ -153,6 +150,8 @@ export default function YarnStash() {
     } catch (error: any) {
       console.error('Error deleting photo:', error);
       toast.error('Failed to delete photo');
+    } finally {
+      setPhotoDeleteTarget(null);
     }
   };
 
@@ -160,41 +159,41 @@ export default function YarnStash() {
     e.preventDefault();
     if (!editingYarn) return;
 
-    try {
-      await axios.put(`/api/yarn/${editingYarn.id}`, formData);
-      toast.success('Yarn updated successfully!');
-      setShowEditModal(false);
-      setEditingYarn(null);
-      setFormData({
-        brand: '',
-        name: '',
-        color: '',
-        weight: 'worsted',
-        fiberContent: '',
-        yardsTotal: '',
-        skeinsTotal: '1',
-        lowStockThreshold: '',
-        lowStockAlert: false,
-      });
-      fetchYarn();
-    } catch (error: any) {
-      console.error('Error updating yarn:', error);
-      toast.error(error.response?.data?.message || 'Failed to update yarn');
-    }
+    updateYarnMutation.mutate({ id: editingYarn.id, formData }, {
+      onSuccess: () => {
+        toast.success('Yarn updated successfully!');
+        setShowEditModal(false);
+        setEditingYarn(null);
+        setFormData({
+          brand: '',
+          name: '',
+          color: '',
+          weight: 'worsted',
+          fiberContent: '',
+          yardsTotal: '',
+          skeinsTotal: '1',
+          lowStockThreshold: '',
+          lowStockAlert: false,
+        });
+      },
+      onError: (error: any) => {
+        toast.error(error.response?.data?.message || 'Failed to update yarn');
+      },
+    });
   };
 
-  const handleDeleteYarn = async (id: string, name: string) => {
-    if (!confirm(`Are you sure you want to delete "${name}"?`)) {
-      return;
-    }
-    try {
-      await axios.delete(`/api/yarn/${id}`);
-      toast.success('Yarn deleted successfully');
-      fetchYarn();
-    } catch (error: any) {
-      console.error('Error deleting yarn:', error);
-      toast.error('Failed to delete yarn');
-    }
+  const handleDeleteYarn = async (id: string, _name: string) => {
+    deleteYarnMutation.mutate(id, {
+      onSuccess: () => {
+        toast.success('Yarn deleted successfully');
+      },
+      onError: () => {
+        toast.error('Failed to delete yarn');
+      },
+      onSettled: () => {
+        setDeleteTarget(null);
+      },
+    });
   };
 
   const getWeightColor = (weight: string) => {
@@ -301,7 +300,7 @@ export default function YarnStash() {
                   Edit
                 </button>
                 <button
-                  onClick={() => handleDeleteYarn(y.id, y.name)}
+                  onClick={() => setDeleteTarget({ id: y.id, name: y.name })}
                   className="flex-1 px-3 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition flex items-center justify-center text-sm"
                 >
                   <FiTrash2 className="mr-2 h-4 w-4" />
@@ -592,7 +591,7 @@ export default function YarnStash() {
                         />
                         <button
                           type="button"
-                          onClick={() => handlePhotoDelete(photo.id)}
+                          onClick={() => setPhotoDeleteTarget(photo.id)}
                           className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
                           title="Delete photo"
                         >
@@ -675,6 +674,26 @@ export default function YarnStash() {
             </form>
           </div>
         </div>
+      )}
+
+      {deleteTarget && (
+        <ConfirmModal
+          title="Delete Yarn"
+          message={`Are you sure you want to delete "${deleteTarget.name}"? This action cannot be undone.`}
+          confirmLabel="Delete"
+          onConfirm={() => handleDeleteYarn(deleteTarget.id, deleteTarget.name)}
+          onCancel={() => setDeleteTarget(null)}
+        />
+      )}
+
+      {photoDeleteTarget && (
+        <ConfirmModal
+          title="Delete Photo"
+          message="Are you sure you want to delete this photo?"
+          confirmLabel="Delete"
+          onConfirm={() => handlePhotoDelete(photoDeleteTarget)}
+          onCancel={() => setPhotoDeleteTarget(null)}
+        />
       )}
     </div>
   );

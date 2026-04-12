@@ -1,107 +1,27 @@
-import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { FiFolder, FiBook, FiPackage, FiUsers, FiPlus, FiAlertCircle } from 'react-icons/fi';
 import { useAuthStore } from '../stores/authStore';
-import axios from 'axios';
+import { useDashboardStats } from '../hooks/useApi';
+
+const iconMap: { [key: string]: React.ComponentType<{ className?: string }> } = {
+  FiFolder,
+  FiBook,
+  FiPackage,
+  FiUsers,
+};
 
 export default function Dashboard() {
   const { user } = useAuthStore();
-  const [stats, setStats] = useState([
-    {
-      name: 'Active Projects',
-      value: '0',
-      icon: FiFolder,
-      href: '/projects',
-      color: 'bg-purple-500',
-    },
-    {
-      name: 'Patterns',
-      value: '0',
-      icon: FiBook,
-      href: '/patterns',
-      color: 'bg-blue-500',
-    },
-    {
-      name: 'Yarn Skeins',
-      value: '0',
-      icon: FiPackage,
-      href: '/yarn',
-      color: 'bg-green-500',
-    },
-    {
-      name: 'Recipients',
-      value: '0',
-      icon: FiUsers,
-      href: '/recipients',
-      color: 'bg-orange-500',
-    },
-  ]);
-  const [loading, setLoading] = useState(true);
-  const [recentProjects, setRecentProjects] = useState<any[]>([]);
-  const [lowStockYarn, setLowStockYarn] = useState<any[]>([]);
+  const { data: dashboardData, isLoading: loading } = useDashboardStats();
 
-  useEffect(() => {
-    fetchDashboardData();
-  }, []);
-
-  const fetchDashboardData = async () => {
-    try {
-      const [projectsRes, patternsRes, yarnRes, recipientsRes, recentProjectsRes, allYarnRes] = await Promise.all([
-        axios.get('/api/projects/stats'),
-        axios.get('/api/patterns/stats'),
-        axios.get('/api/yarn/stats'),
-        axios.get('/api/recipients/stats'),
-        axios.get('/api/projects?limit=5'),
-        axios.get('/api/yarn'),
-      ]);
-
-      setStats([
-        {
-          name: 'Active Projects',
-          value: String(projectsRes.data.data.stats.active_count || 0),
-          icon: FiFolder,
-          href: '/projects',
-          color: 'bg-purple-500',
-        },
-        {
-          name: 'Patterns',
-          value: String(patternsRes.data.data.stats.total_count || 0),
-          icon: FiBook,
-          href: '/patterns',
-          color: 'bg-blue-500',
-        },
-        {
-          name: 'Yarn Skeins',
-          value: String(yarnRes.data.data.stats.total_skeins || 0),
-          icon: FiPackage,
-          href: '/yarn',
-          color: 'bg-green-500',
-        },
-        {
-          name: 'Recipients',
-          value: String(recipientsRes.data.data.stats.total_count || 0),
-          icon: FiUsers,
-          href: '/recipients',
-          color: 'bg-orange-500',
-        },
-      ]);
-
-      setRecentProjects(recentProjectsRes.data.data.projects || []);
-
-      // Filter yarn items with low stock alerts
-      const allYarn = allYarnRes.data.data.yarn || [];
-      const lowStock = allYarn.filter((y: any) => {
-        if (!y.low_stock_alert || !y.low_stock_threshold) return false;
-        const currentQuantity = y.quantity_remaining || y.skeins || 0;
-        return currentQuantity <= y.low_stock_threshold;
-      });
-      setLowStockYarn(lowStock);
-    } catch (error) {
-      console.error('Error fetching dashboard data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const stats = dashboardData?.stats ?? [
+    { name: 'Active Projects', value: '0', iconName: 'FiFolder', href: '/projects', color: 'bg-purple-500' },
+    { name: 'Patterns', value: '0', iconName: 'FiBook', href: '/patterns', color: 'bg-blue-500' },
+    { name: 'Yarn Skeins', value: '0', iconName: 'FiPackage', href: '/yarn', color: 'bg-green-500' },
+    { name: 'Recipients', value: '0', iconName: 'FiUsers', href: '/recipients', color: 'bg-orange-500' },
+  ];
+  const recentProjects = dashboardData?.recentProjects ?? [];
+  const lowStockYarn = dashboardData?.lowStockYarn ?? [];
 
   const quickActions = [
     {
@@ -147,7 +67,7 @@ export default function Dashboard() {
           </div>
         ) : (
           stats.map((stat) => {
-            const Icon = stat.icon;
+            const Icon = iconMap[stat.iconName] || FiFolder;
             return (
               <Link
                 key={stat.name}
@@ -214,7 +134,7 @@ export default function Dashboard() {
 
             <div className="space-y-3">
               {lowStockYarn.map((yarn) => {
-                const currentQty = yarn.quantity_remaining || yarn.skeins || 0;
+                const currentQty = yarn.yards_remaining || 0;
                 const threshold = yarn.low_stock_threshold || 0;
                 const percentRemaining = threshold > 0 ? (currentQty / threshold) * 100 : 0;
 
@@ -230,7 +150,7 @@ export default function Dashboard() {
                           {yarn.brand} {yarn.name}
                         </h3>
                         <span className="text-sm font-medium text-orange-600">
-                          {currentQty} / {threshold} {yarn.unit}
+                          {currentQty} / {threshold} yards
                         </span>
                       </div>
 

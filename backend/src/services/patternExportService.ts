@@ -1,4 +1,4 @@
-import { PDFDocument, StandardFonts, rgb, PDFPage, PDFFont } from 'pdf-lib';
+import { PDFDocument, StandardFonts, rgb, PDFFont } from 'pdf-lib';
 import db from '../config/database';
 import logger from '../config/logger';
 import fs from 'fs';

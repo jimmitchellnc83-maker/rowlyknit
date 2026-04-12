@@ -50,7 +50,7 @@ export default function MainLayout() {
     { name: 'Recipients', href: '/recipients', icon: FiUsers, shortName: 'Recipients' },
   ];
 
-  const mainNavigation = navigation.slice(0, 5); // First 5 for mobile bottom nav
+  const mainNavigation = navigation; // Show all nav items on mobile
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200 pb-20 md:pb-0">

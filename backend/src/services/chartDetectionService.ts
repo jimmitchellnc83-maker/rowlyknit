@@ -95,7 +95,8 @@ export async function detectGrid(
     // In production: Use OpenCV for line detection
 
     // Analyze image for grid patterns using edge detection
-    const edgeBuffer = await sharp(imageBuffer)
+    // Edge detection (result reserved for future CV integration)
+    void await sharp(imageBuffer)
       .grayscale()
       .convolve({
         width: 3,
@@ -326,7 +327,7 @@ export async function detectChartFromImage(
   contentType?: string
 ): Promise<DetectedChart> {
   // Preprocess image
-  const { processed, metadata } = await preprocessImage(imageBuffer, contentType);
+  const { processed, metadata: _metadata } = await preprocessImage(imageBuffer, contentType);
 
   // Detect grid
   const grid = await detectGrid(processed);

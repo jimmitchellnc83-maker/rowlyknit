@@ -120,27 +120,16 @@ export async function login(req: Request, res: Response) {
     throw new UnauthorizedError('Invalid email or password');
   }
 
-  // Generate tokens
-  const accessToken = generateAccessToken({
-    userId: user.id,
-    email: user.email,
-  });
-
-  // Create session
-  const refreshToken = generateRefreshToken({
-    userId: user.id,
-    sessionId: '',
-  });
-
   // Set session expiry based on "Remember Me"
   // Remember Me: 30 days, Regular: 7 days
   const sessionDays = rememberMe ? 30 : 7;
   const sessionExpires = new Date(Date.now() + sessionDays * 24 * 60 * 60 * 1000);
 
-  const [_session] = await db('sessions')
+  // Create session first to get the real session ID
+  const [session] = await db('sessions')
     .insert({
       user_id: user.id,
-      refresh_token: refreshToken,
+      refresh_token: '', // placeholder, updated below
       ip_address: req.ip,
       user_agent: req.headers['user-agent'],
       expires_at: sessionExpires,
@@ -148,6 +137,22 @@ export async function login(req: Request, res: Response) {
       updated_at: new Date(),
     })
     .returning('*');
+
+  // Generate tokens with the real session ID
+  const accessToken = generateAccessToken({
+    userId: user.id,
+    email: user.email,
+  });
+
+  const refreshToken = generateRefreshToken({
+    userId: user.id,
+    sessionId: session.id,
+  });
+
+  // Update session with the actual refresh token
+  await db('sessions')
+    .where({ id: session.id })
+    .update({ refresh_token: refreshToken });
 
   // Update last login
   await db('users').where({ id: user.id }).update({
@@ -207,7 +212,7 @@ export async function login(req: Request, res: Response) {
  * Refresh access token
  */
 export async function refreshToken(req: Request, res: Response) {
-  const { refreshToken: token } = req.body || req.cookies;
+  const token = req.body?.refreshToken || req.cookies?.refreshToken;
 
   if (!token) {
     throw new UnauthorizedError('Refresh token required');
@@ -272,7 +277,7 @@ export async function refreshToken(req: Request, res: Response) {
  * Logout user
  */
 export async function logout(req: Request, res: Response) {
-  const userId = (req as any).user?.userId;
+  const userId = req.user?.userId;
   const { refreshToken } = req.cookies;
 
   if (refreshToken) {
@@ -318,7 +323,7 @@ export async function logout(req: Request, res: Response) {
  * Get current user profile
  */
 export async function getProfile(req: Request, res: Response) {
-  const userId = (req as any).user?.userId;
+  const userId = req.user!.userId;
 
   const user = await db('users')
     .where({ id: userId })
@@ -355,6 +360,110 @@ export async function getProfile(req: Request, res: Response) {
         createdAt: user.created_at,
       },
     },
+  });
+}
+
+/**
+ * Update user profile
+ */
+export async function updateProfile(req: Request, res: Response) {
+  const userId = req.user!.userId;
+
+  const { firstName, lastName } = req.body;
+
+  const user = await db('users')
+    .where({ id: userId })
+    .whereNull('deleted_at')
+    .first();
+
+  if (!user) {
+    throw new NotFoundError('User not found');
+  }
+
+  const updateData: any = { updated_at: new Date() };
+  if (firstName !== undefined) updateData.first_name = firstName;
+  if (lastName !== undefined) updateData.last_name = lastName;
+
+  const [updatedUser] = await db('users')
+    .where({ id: userId })
+    .update(updateData)
+    .returning(['id', 'email', 'first_name', 'last_name', 'email_verified', 'preferences', 'created_at']);
+
+  await createAuditLog(req, {
+    userId,
+    action: 'profile_updated',
+    entityType: 'user',
+    entityId: userId,
+  });
+
+  res.json({
+    success: true,
+    message: 'Profile updated successfully',
+    data: {
+      user: {
+        id: updatedUser.id,
+        email: updatedUser.email,
+        firstName: updatedUser.first_name,
+        lastName: updatedUser.last_name,
+        emailVerified: updatedUser.email_verified,
+        preferences: updatedUser.preferences,
+        createdAt: updatedUser.created_at,
+      },
+    },
+  });
+}
+
+/**
+ * Change password
+ */
+export async function changePassword(req: Request, res: Response) {
+  const userId = req.user!.userId;
+  const { currentPassword, newPassword } = req.body;
+
+  if (!currentPassword || !newPassword) {
+    throw new ValidationError('Current password and new password are required');
+  }
+
+  const user = await db('users')
+    .where({ id: userId })
+    .whereNull('deleted_at')
+    .first();
+
+  if (!user) {
+    throw new NotFoundError('User not found');
+  }
+
+  // Verify current password
+  const isValid = await comparePassword(currentPassword, user.password_hash);
+  if (!isValid) {
+    throw new UnauthorizedError('Current password is incorrect');
+  }
+
+  // Validate new password strength
+  const passwordValidation = validatePasswordStrength(newPassword);
+  if (!passwordValidation.valid) {
+    throw new ValidationError('New password does not meet requirements', passwordValidation.errors);
+  }
+
+  // Hash and save
+  const passwordHash = await hashPassword(newPassword);
+  await db('users')
+    .where({ id: userId })
+    .update({
+      password_hash: passwordHash,
+      updated_at: new Date(),
+    });
+
+  await createAuditLog(req, {
+    userId,
+    action: 'password_changed',
+    entityType: 'user',
+    entityId: userId,
+  });
+
+  res.json({
+    success: true,
+    message: 'Password changed successfully',
   });
 }
 
