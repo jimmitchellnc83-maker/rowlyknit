@@ -6,6 +6,8 @@ import type { Counter, IncrementPattern } from '../../types/counter.types';
 interface CounterFormProps {
   projectId: string;
   counter?: Counter | null;
+  parentCounterId?: string | null;
+  existingCounters?: Counter[];
   onSave: (data: Partial<Counter>) => void;
   onCancel: () => void;
 }
@@ -28,7 +30,7 @@ const INCREMENT_PATTERNS: { value: string; label: string; description: string }[
   { value: 'custom', label: 'Custom Pattern', description: 'Define your own increment pattern' },
 ];
 
-export default function CounterForm({ counter, onSave, onCancel }: CounterFormProps) {
+export default function CounterForm({ counter, parentCounterId, existingCounters, onSave, onCancel }: CounterFormProps) {
   const [name, setName] = useState(counter?.name || '');
   const [type, setType] = useState(counter?.type || 'rows');
   const [currentValue, setCurrentValue] = useState(counter?.current_value || 0);
@@ -40,6 +42,18 @@ export default function CounterForm({ counter, onSave, onCancel }: CounterFormPr
   const [notes, setNotes] = useState(counter?.notes || '');
   const [incrementPattern, setIncrementPattern] = useState(counter?.increment_pattern?.type || 'simple');
   const [customIncrement, setCustomIncrement] = useState(counter?.increment_pattern?.increment || 1);
+  const [autoReset, setAutoReset] = useState(counter?.auto_reset || false);
+  const [selectedParentId, setSelectedParentId] = useState(parentCounterId || counter?.parent_counter_id || '');
+
+  // Get parent counter name for display
+  const parentCounter = selectedParentId && existingCounters
+    ? existingCounters.find(c => c.id === selectedParentId)
+    : null;
+
+  // Get available parent counters (exclude self and own children)
+  const availableParents = existingCounters?.filter(c =>
+    c.id !== counter?.id && !c.parent_counter_id
+  ) || [];
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -89,6 +103,8 @@ export default function CounterForm({ counter, onSave, onCancel }: CounterFormPr
       displayColor: displayColor,
       notes,
       incrementPattern: pattern,
+      parentCounterId: selectedParentId || null,
+      autoReset: autoReset,
     };
 
     onSave(data);
@@ -274,6 +290,54 @@ export default function CounterForm({ counter, onSave, onCancel }: CounterFormPr
               placeholder="Add any notes or reminders for this counter..."
             />
           </div>
+
+          {/* Link to Parent Counter */}
+          {availableParents.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Link to Parent Counter (optional)
+              </label>
+              <select
+                value={selectedParentId}
+                onChange={(e) => setSelectedParentId(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent text-gray-900"
+              >
+                <option value="">None (Primary Counter)</option>
+                {availableParents.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+              {selectedParentId && (
+                <p className="text-sm text-gray-500 mt-1">
+                  This counter will update when "{parentCounter?.name}" is incremented in Linked Mode.
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Auto-Reset Toggle */}
+          {selectedParentId && (
+            <div className="flex items-start gap-3 p-4 bg-blue-50 rounded-lg">
+              <input
+                type="checkbox"
+                id="autoReset"
+                checked={autoReset}
+                onChange={(e) => setAutoReset(e.target.checked)}
+                className="mt-1 h-4 w-4 text-purple-600 rounded focus:ring-purple-500"
+              />
+              <label htmlFor="autoReset" className="flex-1">
+                <span className="block text-sm font-medium text-gray-900">
+                  Auto-reset when target reached
+                </span>
+                <span className="block text-sm text-gray-500">
+                  When this counter reaches its target value, it will automatically reset to the minimum value.
+                  Great for tracking pattern repeats!
+                </span>
+              </label>
+            </div>
+          )}
 
           {/* Action Buttons */}
           <div className="flex gap-3 pt-4 border-t border-gray-200">

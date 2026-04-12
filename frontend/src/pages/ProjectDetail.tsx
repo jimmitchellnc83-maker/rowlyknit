@@ -8,7 +8,7 @@ import axios from 'axios';
 import { toast } from 'react-toastify';
 import PhotoGallery from '../components/PhotoGallery';
 import FileUpload from '../components/FileUpload';
-import CounterManager from '../components/counters/CounterManager';
+import CounterHierarchy from '../components/counters/CounterHierarchy';
 import { SessionManager, SessionTimer, SessionHistory } from '../components/sessions';
 import { useWebSocket } from '../contexts/WebSocketContext';
 import { AudioNotes } from '../components/notes/AudioNotes';
@@ -99,7 +99,7 @@ export default function ProjectDetail() {
     fetchPhotos();
     fetchAvailableItems();
     fetchAudioNotes();
-    // fetchStructuredMemos(); // Temporarily disabled - feature not yet implemented
+    fetchStructuredMemos();
 
     if (id) {
       joinProject(id);
@@ -418,6 +418,7 @@ export default function ProjectDetail() {
       setAudioNotes(response.data.data.audioNotes || []);
     } catch (error: any) {
       console.error('Error fetching audio notes:', error);
+      toast.error('Failed to load audio notes');
     }
   };
 
@@ -427,6 +428,7 @@ export default function ProjectDetail() {
       setStructuredMemos(response.data.data.memos || []);
     } catch (error: any) {
       console.error('Error fetching structured memos:', error);
+      toast.error('Failed to load structured memos');
     }
   };
 
@@ -728,9 +730,8 @@ export default function ProjectDetail() {
             )}
 
             {/* Counters - Large Display */}
-            <div className="bg-white rounded-lg shadow-lg p-4 md:p-6">
-              <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-4 md:mb-6">Active Counters</h2>
-              <CounterManager projectId={id!} />
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 md:p-6">
+              <CounterHierarchy projectId={id!} />
             </div>
           </div>
 
@@ -835,9 +836,8 @@ export default function ProjectDetail() {
           </div>
 
           {/* Counters */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Counters</h2>
-            <CounterManager projectId={id!} />
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <CounterHierarchy projectId={id!} />
           </div>
 
           {/* Magic Markers */}

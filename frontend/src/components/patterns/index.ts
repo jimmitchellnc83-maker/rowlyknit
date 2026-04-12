@@ -1,6 +1,12 @@
 export { default as BookmarkManager } from './BookmarkManager';
+export { default as BlogImportModal } from './BlogImportModal';
+export { default as PatternExportModal } from './PatternExportModal';
 export { default as PatternHighlighter } from './PatternHighlighter';
 export { default as PatternViewer } from './PatternViewer';
 export { default as RowMarker } from './RowMarker';
 export { default as PDFCollation } from './PDFCollation';
 export { default as ChartViewer } from './ChartViewer';
+export { default as SymbolDefinitionPopover } from './SymbolDefinitionPopover';
+export { default as InteractiveChartProgress } from './InteractiveChartProgress';
+export { default as DirectionalChart } from './DirectionalChart';
+export { default as ContinuousChartView } from './ContinuousChartView';
