@@ -35,6 +35,37 @@ export async function getProjectTypes(req: Request, res: Response) {
   });
 }
 
+export const ALLOWED_PROJECT_TYPES = [
+  'sweater',
+  'cardigan',
+  'hat',
+  'scarf',
+  'cowl',
+  'shawl',
+  'shawlette',
+  'socks',
+  'mittens',
+  'blanket',
+  'baby',
+  'toy',
+  'bag',
+  'home',
+  'dishcloth',
+  'other',
+];
+
+/**
+ * Return allowed project types for UI/API consumers
+ */
+export async function getProjectTypes(req: Request, res: Response) {
+  res.json({
+    success: true,
+    data: {
+      projectTypes: ALLOWED_PROJECT_TYPES,
+    },
+  });
+}
+
 /**
  * Get all projects for current user
  */

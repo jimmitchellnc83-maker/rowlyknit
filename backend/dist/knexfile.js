@@ -1,0 +1,79 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+const dotenv_1 = __importDefault(require("dotenv"));
+const path_1 = __importDefault(require("path"));
+dotenv_1.default.config();
+const config = {
+    development: {
+        client: 'postgresql',
+        connection: {
+            host: process.env.DB_HOST || 'localhost',
+            port: parseInt(process.env.DB_PORT || '5432'),
+            database: process.env.DB_NAME || 'rowly_dev',
+            user: process.env.DB_USER || 'postgres',
+            password: process.env.DB_PASSWORD || 'postgres',
+        },
+        pool: {
+            min: parseInt(process.env.DB_POOL_MIN || '2'),
+            max: parseInt(process.env.DB_POOL_MAX || '10'),
+        },
+        migrations: {
+            directory: path_1.default.join(__dirname, 'migrations'),
+            tableName: 'knex_migrations',
+            extension: 'ts',
+        },
+        seeds: {
+            directory: path_1.default.join(__dirname, 'seeds'),
+            extension: 'ts',
+        },
+    },
+    staging: {
+        client: 'postgresql',
+        connection: {
+            host: process.env.DB_HOST,
+            port: parseInt(process.env.DB_PORT || '5432'),
+            database: process.env.DB_NAME,
+            user: process.env.DB_USER,
+            password: process.env.DB_PASSWORD,
+            ssl: { rejectUnauthorized: false },
+        },
+        pool: {
+            min: parseInt(process.env.DB_POOL_MIN || '2'),
+            max: parseInt(process.env.DB_POOL_MAX || '10'),
+        },
+        migrations: {
+            directory: path_1.default.join(__dirname, 'migrations'),
+            tableName: 'knex_migrations',
+            extension: 'ts',
+        },
+        seeds: {
+            directory: path_1.default.join(__dirname, 'seeds'),
+            extension: 'ts',
+        },
+    },
+    production: {
+        client: 'postgresql',
+        connection: {
+            host: process.env.DB_HOST,
+            port: parseInt(process.env.DB_PORT || '5432'),
+            database: process.env.DB_NAME,
+            user: process.env.DB_USER,
+            password: process.env.DB_PASSWORD,
+        },
+        pool: {
+            min: parseInt(process.env.DB_POOL_MIN || '2'),
+            max: parseInt(process.env.DB_POOL_MAX || '10'),
+        },
+        migrations: {
+            directory: '/app/dist/migrations',
+            tableName: 'knex_migrations',
+        },
+        seeds: {
+            directory: '/app/dist/seeds',
+        },
+    },
+};
+exports.default = config;
