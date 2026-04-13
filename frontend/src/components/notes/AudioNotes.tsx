@@ -3,6 +3,35 @@ import React, { useState, useRef, useEffect } from 'react';
 import { FiMic, FiSquare, FiPlay, FiPause, FiTrash2, FiDownload, FiEdit2, FiCheck, FiX } from 'react-icons/fi';
 import { formatDistanceToNow } from 'date-fns';
 
+/**
+ * Resolve a potentially-relative audio URL to an absolute URL.
+ * In development the Vite proxy forwards /uploads to the backend,
+ * so a bare relative path like "/uploads/audio/foo.webm" works.
+ * In production the frontend and API may share the same origin.
+ * If VITE_API_URL is set and the audio_url is relative, we prepend
+ * the API origin so the browser can reach the backend file server.
+ */
+function resolveAudioUrl(audioUrl: string): string {
+  // Already absolute – nothing to do
+  if (audioUrl.startsWith('http://') || audioUrl.startsWith('https://') || audioUrl.startsWith('blob:')) {
+    return audioUrl;
+  }
+
+  // In dev mode the Vite proxy handles /uploads, so relative paths work
+  if (import.meta.env.DEV) {
+    return audioUrl;
+  }
+
+  // In production, prepend the API base URL when it differs from the current origin
+  const apiBase = import.meta.env.VITE_API_URL;
+  if (apiBase && !apiBase.startsWith(window.location.origin)) {
+    // Strip trailing slash from base before concatenating
+    return `${apiBase.replace(/\/+$/, '')}${audioUrl}`;
+  }
+
+  return audioUrl;
+}
+
 interface AudioNote {
   id: string;
   project_id: string;
@@ -205,8 +234,13 @@ export const AudioNotes: React.FC<AudioNotesProps> = ({
     // Get or create audio element for this note
     let audio = audioElementsRef.current.get(note.id);
     if (!audio) {
-      audio = new Audio(note.audio_url);
+      const fullUrl = resolveAudioUrl(note.audio_url);
+      audio = new Audio(fullUrl);
       audio.onended = () => setPlayingNoteId(null);
+      audio.onerror = (e) => {
+        console.error('Audio playback error for note', note.id, '- URL:', fullUrl, e);
+        setPlayingNoteId(null);
+      };
       audioElementsRef.current.set(note.id, audio);
     }
 
@@ -214,8 +248,11 @@ export const AudioNotes: React.FC<AudioNotesProps> = ({
       audio.pause();
       setPlayingNoteId(null);
     } else {
-      audio.play();
       setPlayingNoteId(note.id);
+      audio.play().catch((err) => {
+        console.error('Failed to play audio note:', err);
+        setPlayingNoteId(null);
+      });
     }
   };
 
@@ -348,7 +385,7 @@ export const AudioNotes: React.FC<AudioNotesProps> = ({
                     )}
                   </button>
                   <a
-                    href={note.audio_url}
+                    href={resolveAudioUrl(note.audio_url)}
                     download={`audio-note-${note.id}.webm`}
                     className="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
                     title="Download"

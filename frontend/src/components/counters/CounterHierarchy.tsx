@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { FiPlus, FiMinus, FiLink, FiRefreshCw, FiChevronRight, FiChevronDown } from 'react-icons/fi';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { FiPlus, FiMinus, FiLink, FiRefreshCw, FiChevronRight, FiChevronDown, FiMic, FiMicOff } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import type { Counter, IncrementMode, CounterUpdateResult } from '../../types/counter.types';
@@ -30,6 +30,82 @@ function HierarchicalCounterCard({
   loading
 }: HierarchicalCounterCardProps) {
   const [expanded, setExpanded] = useState(true);
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef<any>(null);
+  const isListeningRef = useRef(false);
+  const onIncrementRef = useRef(onIncrement);
+
+  // Keep refs current
+  useEffect(() => { onIncrementRef.current = onIncrement; }, [onIncrement]);
+  useEffect(() => { isListeningRef.current = isListening; }, [isListening]);
+
+  // Voice control setup
+  useEffect(() => {
+    if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) return;
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+    recognitionRef.current = recognition;
+    recognition.continuous = true;
+    recognition.interimResults = false;
+    recognition.lang = 'en-US';
+
+    recognition.onresult = (event: any) => {
+      const last = event.results.length - 1;
+      const command = event.results[last][0].transcript.toLowerCase().trim();
+      if (command.includes('next') || command.includes('plus') || command.includes('add')) {
+        onIncrementRef.current(counter.id, counter.increment_by || 1);
+        toast.success('Row added!', { autoClose: 800 });
+      } else if (command.includes('back') || command.includes('minus') || command.includes('undo')) {
+        onIncrementRef.current(counter.id, -1);
+        toast.info('Row removed!', { autoClose: 800 });
+      }
+    };
+
+    recognition.onerror = (event: any) => {
+      if (event.error !== 'no-speech' && event.error !== 'aborted') {
+        toast.error(`Voice error: ${event.error}`, { autoClose: 2000 });
+        if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+          setIsListening(false);
+          isListeningRef.current = false;
+        }
+      }
+    };
+
+    recognition.onend = () => {
+      if (isListeningRef.current) {
+        setTimeout(() => {
+          if (isListeningRef.current && recognitionRef.current) {
+            try { recognitionRef.current.start(); } catch { setIsListening(false); }
+          }
+        }, 100);
+      }
+    };
+
+    return () => { try { recognition.stop(); } catch { /* ignore */ } };
+  }, [counter.id, counter.increment_by]);
+
+  const toggleVoice = useCallback(() => {
+    if (!recognitionRef.current) {
+      toast.error('Voice control not supported');
+      return;
+    }
+    if (isListeningRef.current) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+      isListeningRef.current = false;
+      toast.info('Voice control stopped');
+    } else {
+      try {
+        recognitionRef.current.start();
+        setIsListening(true);
+        isListeningRef.current = true;
+        toast.success('Say "next", "back", or "undo"');
+      } catch {
+        toast.error('Failed to start voice control');
+      }
+    }
+  }, []);
+
   const percentage = counter.target_value
     ? Math.round((counter.current_value / counter.target_value) * 100)
     : null;
@@ -75,6 +151,19 @@ function HierarchicalCounterCard({
               <span className="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded">
                 {counter.children!.length} linked
               </span>
+            )}
+            {showButtons && (
+              <button
+                onClick={toggleVoice}
+                className={`p-1.5 rounded-lg transition ${
+                  isListening
+                    ? 'bg-red-100 text-red-600 animate-pulse'
+                    : 'text-gray-400 hover:text-purple-600 hover:bg-gray-100 dark:hover:bg-gray-700'
+                }`}
+                title={isListening ? 'Stop voice control' : 'Start voice control'}
+              >
+                {isListening ? <FiMic className="h-4 w-4" /> : <FiMicOff className="h-4 w-4" />}
+              </button>
             )}
             <button
               onClick={() => onEdit(counter)}

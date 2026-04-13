@@ -17,7 +17,7 @@ interface Pattern {
   difficulty: string;
   category: string;
   yarn_requirements?: string;
-  needle_size?: string;
+  needle_sizes?: string;
   gauge?: string;
   sizes_available?: string;
   notes?: string;
@@ -68,7 +68,7 @@ export default function PatternDetail() {
     difficulty: 'intermediate',
     category: 'sweater',
     yarnRequirements: '',
-    needleSize: '',
+    needleSizes: '',
     gauge: '',
     sizesAvailable: '',
     notes: '',
@@ -136,7 +136,7 @@ export default function PatternDetail() {
       difficulty: pattern.difficulty || 'intermediate',
       category: pattern.category || 'sweater',
       yarnRequirements: pattern.yarn_requirements || '',
-      needleSize: pattern.needle_size || '',
+      needleSizes: pattern.needle_sizes || '',
       gauge: pattern.gauge || '',
       sizesAvailable: pattern.sizes_available || '',
       notes: pattern.notes || '',
@@ -392,10 +392,10 @@ export default function PatternDetail() {
               </div>
             )}
 
-            {pattern.needle_size && (
+            {pattern.needle_sizes && (
               <div>
                 <h3 className="text-sm font-medium text-gray-700">Needle Size</h3>
-                <p className="text-gray-900">{pattern.needle_size}</p>
+                <p className="text-gray-900">{pattern.needle_sizes}</p>
               </div>
             )}
 
@@ -656,8 +656,8 @@ export default function PatternDetail() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">Needle Size</label>
                   <input
                     type="text"
-                    value={formData.needleSize}
-                    onChange={(e) => setFormData({ ...formData, needleSize: e.target.value })}
+                    value={formData.needleSizes}
+                    onChange={(e) => setFormData({ ...formData, needleSizes: e.target.value })}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                     placeholder="e.g., US 7, 4.5mm"
                   />
