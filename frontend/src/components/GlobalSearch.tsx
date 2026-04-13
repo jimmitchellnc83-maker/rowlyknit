@@ -88,7 +88,7 @@ export default function GlobalSearch() {
           type: 'pattern',
           title: p.name,
           subtitle: p.designer || p.pattern_type,
-          url: '/patterns',
+          url: `/patterns/${p.id}`,
         });
       });
 
