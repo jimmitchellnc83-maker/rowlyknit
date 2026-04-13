@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { FiAlertCircle, FiPlus, FiTrash2, FiToggleLeft, FiToggleRight, FiClock, FiCheck, FiRepeat, FiBell, FiFlag } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
+import HelpTooltip from '../HelpTooltip';
 
 interface MagicMarker {
   id: string;
@@ -438,6 +439,7 @@ export default function MagicMarkerManager({ projectId, counters, currentRow }: 
           <div className="flex items-center gap-2">
             <FiAlertCircle className="h-5 w-5 text-purple-600" />
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Magic Markers</h2>
+            <HelpTooltip text="Set reminders that alert you at specific row counts, like 'decrease at row 20' or 'switch colors every 8 rows'." />
             <span className="text-sm text-gray-500 dark:text-gray-400">({markers.length})</span>
           </div>
 

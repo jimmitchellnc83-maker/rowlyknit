@@ -18,6 +18,7 @@ import { toast } from 'react-toastify';
 import BookmarkManager from './BookmarkManager';
 import RowMarker from './RowMarker';
 import PatternHighlighter from './PatternHighlighter';
+import HelpTooltip from '../HelpTooltip';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 
@@ -281,6 +282,8 @@ export default function PatternViewer({ fileUrl, filename, patternId, projectId,
               <FiEdit3 className="h-5 w-5" />
             </button>
           )}
+
+          <HelpTooltip text="Use the row marker to track your current row. Use the highlighter to mark sections of the pattern." />
 
           <button
             onClick={toggleFullscreen}
