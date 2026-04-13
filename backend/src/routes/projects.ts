@@ -100,8 +100,8 @@ router.post(
   [
     validateUUID('id'),
     body('yarnId').notEmpty().isUUID(),
-    body('yardsUsed').optional().isNumeric(),
-    body('skeinsUsed').optional().isNumeric(),
+    body('yardsUsed').optional({ values: 'falsy' }).isNumeric(),
+    body('skeinsUsed').optional({ values: 'falsy' }).isNumeric(),
   ],
   validate,
   asyncHandler(projectsController.addYarnToProject)
@@ -117,8 +117,8 @@ router.put(
   [
     validateUUID('id'),
     validateUUID('yarnId'),
-    body('yardsUsed').optional().isNumeric(),
-    body('skeinsUsed').optional().isNumeric(),
+    body('yardsUsed').optional({ values: 'falsy' }).isNumeric(),
+    body('skeinsUsed').optional({ values: 'falsy' }).isNumeric(),
   ],
   validate,
   asyncHandler(projectsController.updateProjectYarn)
@@ -216,11 +216,11 @@ router.post(
     body('pattern_gauge').isObject().withMessage('Pattern gauge is required'),
     body('pattern_gauge.stitches').isNumeric(),
     body('pattern_gauge.rows').isNumeric(),
-    body('pattern_gauge.measurement').optional().isNumeric(),
+    body('pattern_gauge.measurement').optional({ values: 'falsy' }).isNumeric(),
     body('actual_gauge').isObject().withMessage('Actual gauge is required'),
     body('actual_gauge.stitches').isNumeric(),
     body('actual_gauge.rows').isNumeric(),
-    body('actual_gauge.measurement').optional().isNumeric(),
+    body('actual_gauge.measurement').optional({ values: 'falsy' }).isNumeric(),
     body('adjusted_instructions').isString().withMessage('Adjusted instructions required'),
   ],
   validate,
@@ -275,11 +275,11 @@ router.post(
   [
     validateUUID('projectId'),
     validateUUID('chartId'),
-    body('current_row').optional().isInt({ min: 0 }),
-    body('current_column').optional().isInt({ min: 0 }),
+    body('current_row').optional({ values: 'falsy' }).isInt({ min: 0 }),
+    body('current_column').optional({ values: 'falsy' }).isInt({ min: 0 }),
     body('completed_cells').optional().isArray(),
     body('completed_rows').optional().isArray(),
-    body('tracking_enabled').optional().isBoolean(),
+    body('tracking_enabled').optional({ values: 'falsy' }).isBoolean(),
   ],
   validate,
   asyncHandler(chartProgressController.updateProgress)
@@ -315,7 +315,7 @@ router.post(
     validateUUID('chartId'),
     body('row').isInt({ min: 0 }).withMessage('Row is required'),
     body('completed').isBoolean().withMessage('Completed status is required'),
-    body('totalColumns').optional().isInt({ min: 1 }),
+    body('totalColumns').optional({ values: 'falsy' }).isInt({ min: 1 }),
   ],
   validate,
   asyncHandler(chartProgressController.markRow)
@@ -360,8 +360,8 @@ router.post(
     validateUUID('projectId'),
     validateUUID('chartId'),
     body('direction').isIn(['forward', 'backward']),
-    body('chart_width').optional().isInt({ min: 1 }),
-    body('chart_height').optional().isInt({ min: 1 }),
+    body('chart_width').optional({ values: 'falsy' }).isInt({ min: 1 }),
+    body('chart_height').optional({ values: 'falsy' }).isInt({ min: 1 }),
   ],
   validate,
   asyncHandler(chartProgressController.advanceStitch)
