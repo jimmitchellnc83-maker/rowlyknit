@@ -260,7 +260,7 @@ async function getRecentProjectsStats(userId: string): Promise<StatsResponse['re
  * Get user knitting statistics
  */
 export async function getStats(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const period = (req.query.period as string) || 'week';
 
   const filterDate = getFilterDate(period);
@@ -312,7 +312,7 @@ export async function getStats(req: Request, res: Response) {
  * Get a quick summary of key stats (for dashboard widgets)
  */
 export async function getStatsSummary(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
 
   try {
     const [
