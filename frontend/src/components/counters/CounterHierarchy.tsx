@@ -39,7 +39,30 @@ function HierarchicalCounterCard({
   useEffect(() => { onIncrementRef.current = onIncrement; }, [onIncrement]);
   useEffect(() => { isListeningRef.current = isListening; }, [isListening]);
 
-  // Voice control setup
+  // Store counter info in refs so voice handler always sees latest values
+  const counterIdRef = useRef(counter.id);
+  const incrementByRef = useRef(counter.increment_by || 1);
+  useEffect(() => { counterIdRef.current = counter.id; }, [counter.id]);
+  useEffect(() => { incrementByRef.current = counter.increment_by || 1; }, [counter.increment_by]);
+
+  // Parse a number from voice command, e.g. "add 3" -> 3, "plus five" -> 5
+  const parseAmount = useCallback((command: string, defaultAmount: number): number => {
+    const wordNumbers: Record<string, number> = {
+      one: 1, two: 2, three: 3, four: 4, five: 5,
+      six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
+      eleven: 11, twelve: 12, fifteen: 15, twenty: 20,
+    };
+    // Check for digit in command: "add 3", "plus 5"
+    const digitMatch = command.match(/\b(\d+)\b/);
+    if (digitMatch) return parseInt(digitMatch[1], 10);
+    // Check for word numbers: "add three", "minus two"
+    for (const [word, num] of Object.entries(wordNumbers)) {
+      if (command.includes(word)) return num;
+    }
+    return defaultAmount;
+  }, []);
+
+  // Voice control setup -- created once, uses refs for all mutable values
   useEffect(() => {
     if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) return;
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -48,23 +71,28 @@ function HierarchicalCounterCard({
     recognition.continuous = true;
     recognition.interimResults = false;
     recognition.lang = 'en-US';
+    recognition.maxAlternatives = 1;
 
     recognition.onresult = (event: any) => {
       const last = event.results.length - 1;
       const command = event.results[last][0].transcript.toLowerCase().trim();
+
       if (command.includes('next') || command.includes('plus') || command.includes('add')) {
-        onIncrementRef.current(counter.id, counter.increment_by || 1);
-        toast.success('Row added!', { autoClose: 800 });
-      } else if (command.includes('back') || command.includes('minus') || command.includes('undo')) {
-        onIncrementRef.current(counter.id, -1);
-        toast.info('Row removed!', { autoClose: 800 });
+        const amount = parseAmount(command, incrementByRef.current);
+        onIncrementRef.current(counterIdRef.current, amount);
+        toast.success(`+${amount} row${amount > 1 ? 's' : ''}`, { autoClose: 800 });
+      } else if (command.includes('back') || command.includes('minus') || command.includes('undo') || command.includes('subtract') || command.includes('remove')) {
+        const amount = parseAmount(command, 1);
+        onIncrementRef.current(counterIdRef.current, -amount);
+        toast.info(`-${amount} row${amount > 1 ? 's' : ''}`, { autoClose: 800 });
       }
     };
 
     recognition.onerror = (event: any) => {
       if (event.error !== 'no-speech' && event.error !== 'aborted') {
-        toast.error(`Voice error: ${event.error}`, { autoClose: 2000 });
+        // Don't show toast for transient errors -- just restart
         if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+          toast.error('Microphone access denied', { autoClose: 2000 });
           setIsListening(false);
           isListeningRef.current = false;
         }
@@ -72,17 +100,34 @@ function HierarchicalCounterCard({
     };
 
     recognition.onend = () => {
+      // Always restart if we're supposed to be listening
       if (isListeningRef.current) {
+        // Longer delay to avoid rapid cycling that causes the browser to throttle
         setTimeout(() => {
           if (isListeningRef.current && recognitionRef.current) {
-            try { recognitionRef.current.start(); } catch { setIsListening(false); }
+            try {
+              recognitionRef.current.start();
+            } catch (e: any) {
+              // "already started" is fine -- ignore it
+              if (!e?.message?.includes('already started')) {
+                console.error('Voice restart failed:', e);
+                // Don't give up -- try again after a longer delay
+                setTimeout(() => {
+                  if (isListeningRef.current && recognitionRef.current) {
+                    try { recognitionRef.current.start(); } catch { /* give up */ }
+                  }
+                }, 1000);
+              }
+            }
           }
-        }, 100);
+        }, 300);
       }
     };
 
-    return () => { try { recognition.stop(); } catch { /* ignore */ } };
-  }, [counter.id, counter.increment_by]);
+    return () => {
+      try { recognition.stop(); } catch { /* ignore */ }
+    };
+  }, [parseAmount]); // parseAmount is stable (useCallback with no deps)
 
   const toggleVoice = useCallback(() => {
     if (!recognitionRef.current) {
@@ -99,7 +144,7 @@ function HierarchicalCounterCard({
         recognitionRef.current.start();
         setIsListening(true);
         isListeningRef.current = true;
-        toast.success('Say "next", "back", or "undo"');
+        toast.success('Say "next", "add 3", "back 2", etc.');
       } catch {
         toast.error('Failed to start voice control');
       }
