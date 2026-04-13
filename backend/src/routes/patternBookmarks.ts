@@ -49,7 +49,7 @@ router.post(
     body('zoomLevel').optional().isFloat({ min: 0.1, max: 5.0 }),
     body('notes').optional().isString(),
     body('color').optional().matches(/^#[0-9A-Fa-f]{6}$/),
-    body('projectId').optional().isUUID(),
+    body('projectId').optional({ values: 'null' }).isUUID(),
     body('sortOrder').optional().isInt({ min: 0 }),
   ],
   validate,

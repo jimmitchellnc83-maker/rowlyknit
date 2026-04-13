@@ -48,7 +48,7 @@ router.post(
   uploadAudioMiddleware,
   [
     validateUUID('id'),
-    body('patternId').optional().isUUID(),
+    body('patternId').optional({ values: 'null' }).isUUID(),
     body('transcription').optional().isString(),
     body('durationSeconds').optional().isNumeric(),
     body('title').optional().isString(),
@@ -96,6 +96,11 @@ router.get(
   validateUUID('id'),
   asyncHandler(notesController.getStructuredMemos)
 );
+router.get(
+  '/projects/:id/structured-memos',
+  validateUUID('id'),
+  asyncHandler(notesController.getStructuredMemos)
+);
 
 /**
  * @route   GET /api/projects/:id/memos/:memoId
@@ -125,6 +130,17 @@ router.post(
   validate,
   asyncHandler(notesController.createStructuredMemo)
 );
+router.post(
+  '/projects/:id/structured-memos',
+  [
+    validateUUID('id'),
+    body('templateType').notEmpty().isIn(['gauge_swatch', 'fit_adjustment', 'yarn_substitution', 'finishing']),
+    body('data').notEmpty().isObject(),
+    body('title').optional().isString(),
+  ],
+  validate,
+  asyncHandler(notesController.createStructuredMemo)
+);
 
 /**
  * @route   PUT /api/projects/:id/memos/:memoId
@@ -145,6 +161,12 @@ router.put(
  */
 router.delete(
   '/projects/:id/memos/:memoId',
+  [validateUUID('id'), validateUUID('memoId')],
+  validate,
+  asyncHandler(notesController.deleteStructuredMemo)
+);
+router.delete(
+  '/projects/:id/structured-memos/:memoId',
   [validateUUID('id'), validateUUID('memoId')],
   validate,
   asyncHandler(notesController.deleteStructuredMemo)
@@ -188,7 +210,7 @@ router.post(
     validateUUID('id'),
     body('content').notEmpty().isString(),
     body('title').optional().isString(),
-    body('patternId').optional().isUUID(),
+    body('patternId').optional({ values: 'null' }).isUUID(),
     body('tags').optional().isArray(),
     body('isPinned').optional().isBoolean(),
   ],
