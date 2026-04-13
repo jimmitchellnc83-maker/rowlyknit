@@ -17,6 +17,7 @@ import { StructuredMemoTemplates } from '../components/notes/StructuredMemoTempl
 import MagicMarkerManager from '../components/magic-markers/MagicMarkerManager';
 import LoadingSpinner from '../components/LoadingSpinner';
 import PatternPreview from '../components/PatternPreview';
+import HelpTooltip from '../components/HelpTooltip';
 
 interface Project {
   id: string;
@@ -698,6 +699,7 @@ export default function ProjectDetail() {
               {knittingMode ? <FiEyeOff className="mr-2 h-5 w-5 md:h-4 md:w-4" /> : <FiEye className="mr-2 h-5 w-5 md:h-4 md:w-4" />}
               <span className="text-base md:text-sm">{knittingMode ? 'Exit Knitting Mode' : 'Knitting Mode'}</span>
             </button>
+            <HelpTooltip text="A focused view with just your pattern, counters, and timer. Great for active knitting sessions." />
             <button
               onClick={() => setShowEditModal(true)}
               className="px-4 py-3 md:py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition flex items-center min-h-[48px] md:min-h-0"
@@ -1123,7 +1125,7 @@ export default function ProjectDetail() {
           {project.yarn && project.yarn.length > 0 ? (
             <div className="bg-white rounded-lg shadow p-6">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-gray-900">Yarn Usage</h2>
+                <h2 className="text-lg font-semibold text-gray-900">Yarn Usage <HelpTooltip text="Track which yarn from your stash you're using in this project and how much." /></h2>
                 <button
                   onClick={() => setShowAddYarnModal(true)}
                   className="text-purple-600 hover:text-purple-700"
@@ -1204,7 +1206,7 @@ export default function ProjectDetail() {
           ) : (
             <div className="bg-white rounded-lg shadow p-6">
               <div className="flex items-center justify-between mb-3">
-                <h2 className="text-lg font-semibold text-gray-900">Yarn Usage</h2>
+                <h2 className="text-lg font-semibold text-gray-900">Yarn Usage <HelpTooltip text="Track which yarn from your stash you're using in this project and how much." /></h2>
                 <button
                   onClick={() => setShowAddYarnModal(true)}
                   className="text-purple-600 hover:text-purple-700"
