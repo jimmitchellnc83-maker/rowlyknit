@@ -143,7 +143,7 @@ router.post(
   [
     validateUUID('id'),
     body('name').trim().notEmpty().isLength({ max: 255 }),
-    body('targetRows').optional().isNumeric(),
+    body('targetRows').optional({ values: 'falsy' }).isNumeric(),
     body('notes').optional().isString(),
   ],
   validate,

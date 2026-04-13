@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { FiArrowLeft, FiEdit2, FiTrash2, FiFileText, FiGrid, FiTool } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
+import { PDFCollation } from '../components/patterns';
 import PatternFileUpload from '../components/PatternFileUpload';
 import BookmarkManager from '../components/patterns/BookmarkManager';
 import PatternViewer from '../components/patterns/PatternViewer';
@@ -59,6 +60,13 @@ export default function PatternDetail() {
   const [charts, setCharts] = useState<PatternChart[]>([]);
   const [chartsLoading, setChartsLoading] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showSectionsModal, setShowSectionsModal] = useState(false);
+  const [showAnnotationsModal, setShowAnnotationsModal] = useState(false);
+  const [showCollationModal, setShowCollationModal] = useState(false);
+  const [sections, setSections] = useState<any[]>([]);
+  const [annotations, setAnnotations] = useState<any[]>([]);
+  const [newSectionName, setNewSectionName] = useState('');
+  const [newAnnotationText, setNewAnnotationText] = useState('');
   const [activeTab, setActiveTab] = useState<'overview' | 'viewer' | 'charts' | 'tools'>('overview');
   const [selectedPdfFile, setSelectedPdfFile] = useState<PatternFile | null>(null);
   const [formData, setFormData] = useState({
@@ -561,7 +569,16 @@ export default function PatternDetail() {
               <p className="text-sm text-gray-600 mb-3">
                 Organize your pattern into sections for easier navigation
               </p>
-              <button className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">
+              <button
+                onClick={async () => {
+                  try {
+                    const res = await axios.get(`/api/patterns/${id}/sections`);
+                    setSections(res.data.data.sections || []);
+                    setShowSectionsModal(true);
+                  } catch { toast.error('Failed to load sections'); }
+                }}
+                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+              >
                 Manage Sections
               </button>
             </div>
@@ -570,7 +587,16 @@ export default function PatternDetail() {
               <p className="text-sm text-gray-600 mb-3">
                 Add notes and annotations directly to your pattern
               </p>
-              <button className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">
+              <button
+                onClick={async () => {
+                  try {
+                    const res = await axios.get(`/api/patterns/${id}/annotations`);
+                    setAnnotations(res.data.data.annotations || []);
+                    setShowAnnotationsModal(true);
+                  } catch { toast.error('Failed to load annotations'); }
+                }}
+                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+              >
                 Add Annotations
               </button>
             </div>
@@ -579,7 +605,10 @@ export default function PatternDetail() {
               <p className="text-sm text-gray-600 mb-3">
                 Combine multiple PDFs into a single pattern document
               </p>
-              <button className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">
+              <button
+                onClick={() => setShowCollationModal(true)}
+                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+              >
                 Collate PDFs
               </button>
             </div>
@@ -734,6 +763,134 @@ export default function PatternDetail() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* Sections Modal */}
+      {showSectionsModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[80vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200 flex justify-between items-center">
+              <h2 className="text-xl font-bold">Pattern Sections</h2>
+              <button onClick={() => setShowSectionsModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+            </div>
+            <div className="p-6">
+              <div className="flex gap-2 mb-4">
+                <input
+                  type="text"
+                  value={newSectionName}
+                  onChange={(e) => setNewSectionName(e.target.value)}
+                  placeholder="Section name (e.g., Body, Sleeves)"
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                />
+                <button
+                  onClick={async () => {
+                    if (!newSectionName.trim()) return;
+                    try {
+                      await axios.post(`/api/patterns/${id}/sections`, { name: newSectionName, sortOrder: sections.length });
+                      const res = await axios.get(`/api/patterns/${id}/sections`);
+                      setSections(res.data.data.sections || []);
+                      setNewSectionName('');
+                      toast.success('Section added');
+                    } catch { toast.error('Failed to add section'); }
+                  }}
+                  className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+                >Add</button>
+              </div>
+              {sections.length === 0 ? (
+                <p className="text-gray-500 text-center py-4">No sections yet</p>
+              ) : (
+                <ul className="space-y-2">
+                  {sections.map((s: any) => (
+                    <li key={s.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <span className="font-medium">{s.name}</span>
+                      <button
+                        onClick={async () => {
+                          try {
+                            await axios.delete(`/api/patterns/${id}/sections/${s.id}`);
+                            setSections(sections.filter((x: any) => x.id !== s.id));
+                            toast.success('Section deleted');
+                          } catch { toast.error('Failed to delete'); }
+                        }}
+                        className="text-red-500 hover:text-red-700 text-sm"
+                      >Delete</button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Annotations Modal */}
+      {showAnnotationsModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[80vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200 flex justify-between items-center">
+              <h2 className="text-xl font-bold">Pattern Annotations</h2>
+              <button onClick={() => setShowAnnotationsModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+            </div>
+            <div className="p-6">
+              <div className="flex gap-2 mb-4">
+                <textarea
+                  value={newAnnotationText}
+                  onChange={(e) => setNewAnnotationText(e.target.value)}
+                  placeholder="Add a note about this pattern..."
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                  rows={2}
+                />
+                <button
+                  onClick={async () => {
+                    if (!newAnnotationText.trim()) return;
+                    try {
+                      await axios.post(`/api/patterns/${id}/annotations`, { data: { content: newAnnotationText }, annotationType: 'note' });
+                      const res = await axios.get(`/api/patterns/${id}/annotations`);
+                      setAnnotations(res.data.data.annotations || []);
+                      setNewAnnotationText('');
+                      toast.success('Annotation added');
+                    } catch { toast.error('Failed to add annotation'); }
+                  }}
+                  className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 self-end"
+                >Add</button>
+              </div>
+              {annotations.length === 0 ? (
+                <p className="text-gray-500 text-center py-4">No annotations yet</p>
+              ) : (
+                <ul className="space-y-2">
+                  {annotations.map((a: any) => (
+                    <li key={a.id} className="flex items-start justify-between p-3 bg-gray-50 rounded-lg">
+                      <p className="text-sm text-gray-700 flex-1">{a.data?.content || a.content || JSON.stringify(a.data)}</p>
+                      <button
+                        onClick={async () => {
+                          try {
+                            await axios.delete(`/api/patterns/${id}/annotations/${a.id}`);
+                            setAnnotations(annotations.filter((x: any) => x.id !== a.id));
+                            toast.success('Annotation deleted');
+                          } catch { toast.error('Failed to delete'); }
+                        }}
+                        className="text-red-500 hover:text-red-700 text-sm ml-2"
+                      >Delete</button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Collation Modal */}
+      {showCollationModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200 flex justify-between items-center">
+              <h2 className="text-xl font-bold">Collate Pattern PDFs</h2>
+              <button onClick={() => setShowCollationModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+            </div>
+            <div className="p-6">
+              <PDFCollation />
+            </div>
           </div>
         </div>
       )}

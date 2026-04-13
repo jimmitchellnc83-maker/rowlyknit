@@ -114,8 +114,8 @@ router.get(
   [
     query('status').optional().isIn(['pending', 'processing', 'completed', 'failed']),
     query('project_id').optional({ values: 'null' }).isUUID(),
-    query('limit').optional().isInt({ min: 1, max: 100 }),
-    query('offset').optional().isInt({ min: 0 }),
+    query('limit').optional({ values: 'falsy' }).isInt({ min: 1, max: 100 }),
+    query('offset').optional({ values: 'falsy' }).isInt({ min: 0 }),
   ],
   validate,
   asyncHandler(chartDetectionController.getDetectionHistory)
@@ -146,9 +146,9 @@ router.post(
   [
     validateUUID('chartId'),
     body('visibility').optional().isIn(['public', 'private']),
-    body('allow_copy').optional().isBoolean(),
-    body('allow_download').optional().isBoolean(),
-    body('expires_in_days').optional().isInt({ min: 1, max: 365 }),
+    body('allow_copy').optional({ values: 'falsy' }).isBoolean(),
+    body('allow_download').optional({ values: 'falsy' }).isBoolean(),
+    body('expires_in_days').optional({ values: 'falsy' }).isInt({ min: 1, max: 365 }),
     body('password').optional().isString().isLength({ min: 4, max: 50 }),
   ],
   validate,

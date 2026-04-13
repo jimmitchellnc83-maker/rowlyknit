@@ -50,7 +50,7 @@ router.post(
     validateUUID('id'),
     body('patternId').optional({ values: 'null' }).isUUID(),
     body('transcription').optional().isString(),
-    body('durationSeconds').optional().isNumeric(),
+    body('durationSeconds').optional({ values: 'falsy' }).isNumeric(),
     body('title').optional().isString(),
     body('tags').optional().isArray(),
   ],
@@ -212,7 +212,7 @@ router.post(
     body('title').optional().isString(),
     body('patternId').optional({ values: 'null' }).isUUID(),
     body('tags').optional().isArray(),
-    body('isPinned').optional().isBoolean(),
+    body('isPinned').optional({ values: 'falsy' }).isBoolean(),
   ],
   validate,
   asyncHandler(notesController.createTextNote)
@@ -258,7 +258,7 @@ router.post(
   [
     validateUUID('id'),
     body('patternId').optional({ values: 'null' }).isUUID(),
-    body('pageNumber').optional().isNumeric(),
+    body('pageNumber').optional({ values: 'falsy' }).isNumeric(),
     body('notes').optional().isString(),
   ],
   validate,
