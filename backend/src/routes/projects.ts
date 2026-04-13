@@ -61,8 +61,8 @@ router.post(
     body('name').trim().notEmpty().isLength({ max: 255 }),
     body('description').optional().trim(),
     body('projectType').optional().trim(),
-    body('startDate').optional().isISO8601(),
-    body('targetCompletionDate').optional().isISO8601(),
+    body('startDate').optional({ values: 'falsy' }).isISO8601(),
+    body('targetCompletionDate').optional({ values: 'falsy' }).isISO8601(),
   ],
   validate,
   asyncHandler(projectsController.createProject)

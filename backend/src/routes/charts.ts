@@ -46,7 +46,7 @@ router.use(authenticate);
 router.post(
   '/detect-from-image',
   upload.single('image'),
-  [body('project_id').optional().isUUID()],
+  [body('project_id').optional({ values: 'null' }).isUUID()],
   validate,
   asyncHandler(chartDetectionController.detectFromImage)
 );
@@ -89,8 +89,8 @@ router.post(
   '/save-detected',
   [
     body('detection_id').isUUID().withMessage('Detection ID is required'),
-    body('project_id').optional().isUUID(),
-    body('pattern_id').optional().isUUID(),
+    body('project_id').optional({ values: 'null' }).isUUID(),
+    body('pattern_id').optional({ values: 'null' }).isUUID(),
     body('chart_name').optional().isString().isLength({ max: 255 }),
   ],
   validate,
@@ -113,7 +113,7 @@ router.get(
   '/detections',
   [
     query('status').optional().isIn(['pending', 'processing', 'completed', 'failed']),
-    query('project_id').optional().isUUID(),
+    query('project_id').optional({ values: 'null' }).isUUID(),
     query('limit').optional().isInt({ min: 1, max: 100 }),
     query('offset').optional().isInt({ min: 0 }),
   ],

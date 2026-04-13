@@ -98,7 +98,7 @@ router.post(
   '/patterns/:patternId/bookmarks',
   [
     validateUUID('patternId'),
-    body('projectId').optional().isUUID(),
+    body('projectId').optional({ values: 'null' }).isUUID(),
     body('name').trim().notEmpty().isLength({ max: 255 }).escape(),
     body('pageNumber').notEmpty().isInt({ min: 1 }),
     body('yPosition').optional().isFloat(),
@@ -119,7 +119,7 @@ router.put(
   [
     validateUUID('patternId'),
     validateUUID('bookmarkId'),
-    body('projectId').optional().isUUID(),
+    body('projectId').optional({ values: 'null' }).isUUID(),
     body('name').optional().trim().isLength({ max: 255 }).escape(),
     body('pageNumber').optional().isInt({ min: 1 }),
     body('yPosition').optional().isFloat(),
@@ -166,7 +166,7 @@ router.post(
   '/patterns/:patternId/highlights',
   [
     validateUUID('patternId'),
-    body('projectId').optional().isUUID(),
+    body('projectId').optional({ values: 'null' }).isUUID(),
     body('pageNumber').notEmpty().isInt({ min: 1 }),
     body('coordinates').notEmpty().isObject(),
     body('coordinates.x').isFloat(),
@@ -190,7 +190,7 @@ router.put(
   [
     validateUUID('patternId'),
     validateUUID('highlightId'),
-    body('projectId').optional().isUUID(),
+    body('projectId').optional({ values: 'null' }).isUUID(),
     body('pageNumber').optional().isInt({ min: 1 }),
     body('coordinates').optional().isObject(),
     body('coordinates.x').optional().isFloat(),
@@ -240,7 +240,7 @@ router.post(
   '/patterns/:patternId/annotations',
   [
     validateUUID('patternId'),
-    body('projectId').optional().isUUID(),
+    body('projectId').optional({ values: 'null' }).isUUID(),
     body('pageNumber').notEmpty().isInt({ min: 1 }),
     body('annotationType').notEmpty().isIn(['text', 'drawing', 'handwriting', 'image']),
     body('data').optional().isObject(),
@@ -260,7 +260,7 @@ router.put(
   [
     validateUUID('patternId'),
     validateUUID('annotationId'),
-    body('projectId').optional().isUUID(),
+    body('projectId').optional({ values: 'null' }).isUUID(),
     body('pageNumber').optional().isInt({ min: 1 }),
     body('annotationType').optional().isIn(['text', 'drawing', 'handwriting', 'image']),
     body('data').optional().isObject(),
