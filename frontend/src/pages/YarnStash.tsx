@@ -5,6 +5,7 @@ import { toast } from 'react-toastify';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import ConfirmModal from '../components/ConfirmModal';
 import { useYarn, useCreateYarn, useUpdateYarn, useDeleteYarn } from '../hooks/useApi';
+import HelpTooltip from '../components/HelpTooltip';
 
 interface Yarn {
   id: string;
@@ -610,7 +611,7 @@ export default function YarnStash() {
               </div>
 
               <div className="border-t border-gray-200 pt-4">
-                <h3 className="text-sm font-medium text-gray-900 mb-3">Low Stock Alerts</h3>
+                <h3 className="text-sm font-medium text-gray-900 mb-3">Low Stock Alerts <HelpTooltip text="Get notified on your dashboard when your remaining yards drop below this threshold." /></h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">

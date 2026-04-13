@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { FiX } from 'react-icons/fi';
 import type { Counter, IncrementPattern } from '../../types/counter.types';
+import HelpTooltip from '../HelpTooltip';
 
 interface CounterFormProps {
   projectId: string;
@@ -174,7 +175,7 @@ export default function CounterForm({ counter, parentCounterId, existingCounters
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Target Value (optional)
+                Target Value (optional) <HelpTooltip text="The goal count for this counter. A progress bar shows your progress toward this target." />
               </label>
               <input
                 type="number"
@@ -217,7 +218,7 @@ export default function CounterForm({ counter, parentCounterId, existingCounters
           {/* Increment Pattern */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Increment Pattern
+              Increment Pattern <HelpTooltip text="Controls how the counter counts. Simple adds 1 each time. Garter counts ridges (every 2 rows). Cable counts repeats (every 4 rows)." />
             </label>
             <div className="space-y-2">
               {INCREMENT_PATTERNS.map((pattern) => (
@@ -329,7 +330,7 @@ export default function CounterForm({ counter, parentCounterId, existingCounters
               />
               <label htmlFor="autoReset" className="flex-1">
                 <span className="block text-sm font-medium text-gray-900">
-                  Auto-reset when target reached
+                  Auto-reset when target reached <HelpTooltip text="When this counter reaches its target, it automatically resets to zero. Great for tracking repeating pattern sections." />
                 </span>
                 <span className="block text-sm text-gray-500">
                   When this counter reaches its target value, it will automatically reset to the minimum value.

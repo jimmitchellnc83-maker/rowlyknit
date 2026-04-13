@@ -4,6 +4,7 @@ import { SessionHistory } from './SessionHistory';
 import { ProjectTimer } from './ProjectTimer';
 import { KnittingSession, ProjectMilestone } from '../../types/counter.types';
 import axios from 'axios';
+import HelpTooltip from '../HelpTooltip';
 
 interface SessionManagerProps {
   projectId: string;
@@ -191,7 +192,7 @@ export const SessionManager: React.FC<SessionManagerProps> = ({
                 : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
             }`}
           >
-            Session Timer
+            Session Timer <HelpTooltip text="Track how long you knit. Start a session when you begin, end it when you stop. View your history and stats." />
           </button>
           <button
             onClick={() => setActiveTab('progress')}

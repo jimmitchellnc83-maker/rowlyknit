@@ -4,6 +4,7 @@ import axios from 'axios';
 import { toast } from 'react-toastify';
 import type { Counter, IncrementMode, CounterUpdateResult } from '../../types/counter.types';
 import CounterForm from './CounterForm';
+import HelpTooltip from '../HelpTooltip';
 
 interface CounterHierarchyProps {
   projectId: string;
@@ -472,6 +473,7 @@ export default function CounterHierarchy({ projectId, onCounterChange }: Counter
               Independent
             </button>
           </div>
+          <HelpTooltip text="Linked Mode: Incrementing a parent counter updates all linked children. Independent Mode: Each counter increments separately." />
           <button
             onClick={() => {
               setEditingCounter(null);

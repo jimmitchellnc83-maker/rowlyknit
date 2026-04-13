@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { FiFileText, FiPlus, FiTrash2, FiDownload } from 'react-icons/fi';
 import { formatDistanceToNow } from 'date-fns';
+import HelpTooltip from '../HelpTooltip';
 
 type TemplateType = 'gauge_swatch' | 'fit_adjustment' | 'yarn_substitution' | 'finishing_techniques';
 
@@ -569,6 +570,7 @@ export const StructuredMemoTemplates: React.FC<StructuredMemoTemplatesProps> = (
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
           <FiFileText className="w-5 h-5" />
           Structured Memos
+          <HelpTooltip text="Save structured notes about gauge swatches, fit adjustments, yarn substitutions, and finishing techniques." />
         </h3>
       </div>
 
