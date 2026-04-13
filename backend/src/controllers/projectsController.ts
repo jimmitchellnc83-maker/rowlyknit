@@ -159,8 +159,8 @@ export async function createProject(req: Request, res: Response) {
       name,
       description,
       project_type: projectType || ALLOWED_PROJECT_TYPES[0],
-      start_date: startDate,
-      target_completion_date: targetCompletionDate,
+      start_date: startDate || null,
+      target_completion_date: targetCompletionDate || null,
       notes,
       metadata: metadata ? JSON.stringify(metadata) : '{}',
       tags: tags ? JSON.stringify(tags) : '[]',
@@ -226,8 +226,8 @@ export async function updateProject(req: Request, res: Response) {
     }
     updateData.project_type = projectType;
   }
-  if (startDate !== undefined) updateData.start_date = startDate;
-  if (targetCompletionDate !== undefined) updateData.target_completion_date = targetCompletionDate;
+  if (startDate !== undefined) updateData.start_date = startDate || null;
+  if (targetCompletionDate !== undefined) updateData.target_completion_date = targetCompletionDate || null;
   if (completedAt !== undefined) updateData.completed_at = completedAt || null;
   if (status !== undefined) {
     updateData.status = status;
