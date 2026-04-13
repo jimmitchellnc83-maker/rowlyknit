@@ -45,7 +45,7 @@ router.post(
     body('colors.*.name').optional().isString(),
     body('colors.*.hex').isString().matches(/^#[0-9A-Fa-f]{6}$/),
     body('transition_style').isIn(['linear', 'smooth', 'striped']),
-    body('stripe_width').optional().isInt({ min: 1, max: 100 }),
+    body('stripe_width').optional({ values: 'falsy' }).isInt({ min: 1, max: 100 }),
   ],
   validate,
   asyncHandler(colorPlanningController.designGradient)
@@ -63,7 +63,7 @@ router.post(
     body('name').optional().isString().isLength({ max: 100 }),
     body('transition_type').optional().isIn(['gradient', 'stripe', 'fair_isle', 'intarsia']),
     body('color_sequence').isArray(),
-    body('total_rows').optional().isInt({ min: 1 }),
+    body('total_rows').optional({ values: 'falsy' }).isInt({ min: 1 }),
   ],
   validate,
   asyncHandler(colorPlanningController.saveColorTransition)
@@ -89,8 +89,8 @@ router.post(
   '/projects/:projectId/extract-colors-from-image',
   upload.single('image'),
   [
-    body('num_colors').optional().isInt({ min: 2, max: 10 }),
-    body('save_palette').optional().isBoolean(),
+    body('num_colors').optional({ values: 'falsy' }).isInt({ min: 2, max: 10 }),
+    body('save_palette').optional({ values: 'falsy' }).isBoolean(),
     body('palette_name').optional().isString().isLength({ max: 100 }),
   ],
   validate,
@@ -120,7 +120,7 @@ router.post(
     body('color_name').isString().isLength({ min: 1, max: 100 }),
     body('hex_code').isString().matches(/^#[0-9A-Fa-f]{6}$/),
     body('yarn_id').optional({ values: 'null' }).isUUID(),
-    body('estimated_yardage').optional().isNumeric(),
+    body('estimated_yardage').optional({ values: 'falsy' }).isNumeric(),
   ],
   validate,
   asyncHandler(colorPlanningController.addProjectColor)
@@ -147,7 +147,7 @@ router.post(
   [
     body('base_color').isString().matches(/^#[0-9A-Fa-f]{6}$/),
     body('scheme').isIn(['analogous', 'complementary', 'triadic', 'monochromatic', 'split_complementary']),
-    body('save').optional().isBoolean(),
+    body('save').optional({ values: 'falsy' }).isBoolean(),
     body('name').optional().isString().isLength({ max: 100 }),
   ],
   validate,

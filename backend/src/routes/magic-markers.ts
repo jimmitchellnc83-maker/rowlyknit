@@ -69,13 +69,13 @@ router.post(
     body('triggerCondition').optional().isObject(),
     body('alertMessage').notEmpty().isString(),
     body('alertType').optional().isIn(['notification', 'sound', 'vibration', 'visual']),
-    body('isActive').optional().isBoolean(),
+    body('isActive').optional({ values: 'falsy' }).isBoolean(),
     // New enhanced fields
-    body('startRow').optional().isNumeric(),
-    body('endRow').optional().isNumeric(),
-    body('repeatInterval').optional().isNumeric(),
-    body('repeatOffset').optional().isNumeric(),
-    body('isRepeating').optional().isBoolean(),
+    body('startRow').optional({ values: 'falsy' }).isNumeric(),
+    body('endRow').optional({ values: 'falsy' }).isNumeric(),
+    body('repeatInterval').optional({ values: 'falsy' }).isNumeric(),
+    body('repeatOffset').optional({ values: 'falsy' }).isNumeric(),
+    body('isRepeating').optional({ values: 'falsy' }).isBoolean(),
     body('priority').optional().isIn(['low', 'normal', 'high', 'critical']),
     body('displayStyle').optional().isIn(['banner', 'popup', 'toast', 'inline']),
     body('color').optional().isString(),
@@ -175,7 +175,7 @@ router.post(
   [
     validateUUID('markerId'),
     body('event_type').isIn(['triggered', 'snoozed', 'acknowledged', 'completed']),
-    body('at_row').optional().isInt({ min: 0 }),
+    body('at_row').optional({ values: 'falsy' }).isInt({ min: 0 }),
   ],
   validate,
   asyncHandler(markerAnalyticsController.recordMarkerEvent)
@@ -191,7 +191,7 @@ router.patch(
   [
     validateUUID('markerId'),
     body('trigger_value').isInt({ min: 1 }),
-    body('end_value').optional().isInt({ min: 1 }),
+    body('end_value').optional({ values: 'falsy' }).isInt({ min: 1 }),
   ],
   validate,
   asyncHandler(markerAnalyticsController.updateMarkerPosition)

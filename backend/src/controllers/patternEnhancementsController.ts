@@ -602,8 +602,8 @@ export async function createPatternAnnotation(req: Request, res: Response) {
   const { patternId } = req.params;
   const { projectId, pageNumber, annotationType, data, imageUrl } = req.body;
 
-  if (!pageNumber || !annotationType) {
-    throw new ValidationError('Page number and annotation type are required');
+  if (!annotationType) {
+    throw new ValidationError('Annotation type is required');
   }
 
   // Verify pattern ownership
@@ -631,12 +631,11 @@ export async function createPatternAnnotation(req: Request, res: Response) {
     .insert({
       pattern_id: patternId,
       project_id: projectId || null,
-      page_number: pageNumber,
+      page_number: pageNumber || null,
       annotation_type: annotationType,
       data: data ? JSON.stringify(data) : null,
-      image_url: imageUrl,
+      image_url: imageUrl || null,
       created_at: new Date(),
-      updated_at: new Date(),
     })
     .returning('*');
 

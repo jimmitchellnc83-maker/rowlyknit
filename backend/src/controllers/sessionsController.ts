@@ -450,7 +450,7 @@ export async function getMilestones(req: Request, res: Response) {
 export async function createMilestone(req: Request, res: Response) {
   const userId = req.user!.userId;
   const { id: projectId } = req.params;
-  const { name, targetRows, notes } = req.body;
+  const { name, targetRows } = req.body;
 
   if (!name) {
     throw new ValidationError('Milestone name is required');
@@ -470,10 +470,8 @@ export async function createMilestone(req: Request, res: Response) {
     .insert({
       project_id: projectId,
       name,
-      target_rows: targetRows,
-      notes,
+      target_rows: targetRows || null,
       created_at: new Date(),
-      updated_at: new Date(),
     })
     .returning('*');
 
@@ -518,13 +516,12 @@ export async function updateMilestone(req: Request, res: Response) {
     throw new NotFoundError('Milestone not found');
   }
 
-  const updateData: any = { updated_at: new Date() };
+  const updateData: any = {};
   if (updates.name !== undefined) updateData.name = updates.name;
   if (updates.targetRows !== undefined) updateData.target_rows = updates.targetRows;
   if (updates.actualRows !== undefined) updateData.actual_rows = updates.actualRows;
   if (updates.timeSpentSeconds !== undefined) updateData.time_spent_seconds = updates.timeSpentSeconds;
   if (updates.completedAt !== undefined) updateData.completed_at = updates.completedAt;
-  if (updates.notes !== undefined) updateData.notes = updates.notes;
 
   const [updatedMilestone] = await db('project_milestones')
     .where({ id: milestoneId })
