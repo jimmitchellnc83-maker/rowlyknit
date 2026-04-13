@@ -37,7 +37,7 @@ export async function getCounters(req: Request, res: Response) {
  * Get counters in hierarchical structure
  */
 export async function getCounterHierarchy(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { id: projectId } = req.params;
 
   // Verify project ownership
@@ -685,7 +685,7 @@ async function checkAndExecuteCounterLinks(
  * Increment counter with all children (for linked mode)
  */
 export async function incrementWithChildren(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { id: projectId, counterId } = req.params;
   const { amount = 1, mode = 'linked' } = req.body;
 

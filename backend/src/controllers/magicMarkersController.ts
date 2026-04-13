@@ -98,7 +98,7 @@ export async function getMagicMarkers(req: Request, res: Response) {
  * Get magic markers that are active for a specific row
  */
 export async function getActiveMarkersForRow(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { id: projectId } = req.params;
   const { row, counterId } = req.query;
 
@@ -519,7 +519,7 @@ export async function updateMagicMarker(req: Request, res: Response) {
  * Snooze a magic marker
  */
 export async function snoozeMagicMarker(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { id: projectId, markerId } = req.params;
   const { duration } = req.body;
 
@@ -569,7 +569,7 @@ export async function snoozeMagicMarker(req: Request, res: Response) {
  * Mark a magic marker as completed
  */
 export async function completeMagicMarker(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { id: projectId, markerId } = req.params;
 
   const project = await db('projects')
@@ -705,7 +705,7 @@ export async function toggleMagicMarker(req: Request, res: Response) {
  * Record that a marker was triggered
  */
 export async function recordTrigger(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { id: projectId, markerId } = req.params;
 
   const project = await db('projects')

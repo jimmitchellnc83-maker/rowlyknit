@@ -123,8 +123,37 @@ axios.interceptors.response.use(
       });
     }
 
-    // Handle 401 Unauthorized - redirect to login
-    if (error.response?.status === 401) {
+    // Handle 401 Unauthorized - try refresh token before redirecting
+    if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
+      originalRequest._retry = true;
+
+      // Don't retry refresh/login/register requests
+      const skipRefreshPaths = ['/api/auth/login', '/api/auth/register', '/api/auth/refresh', '/api/auth/profile'];
+      const isSkipPath = skipRefreshPaths.some(p => originalRequest.url?.includes(p));
+
+      if (!isSkipPath) {
+        try {
+          // Attempt to refresh the access token
+          const refreshResponse = await axios.post('/api/auth/refresh', {});
+          const newToken = refreshResponse.data?.data?.accessToken;
+
+          if (newToken) {
+            // Update stored token
+            const { useAuthStore } = await import('../stores/authStore');
+            useAuthStore.getState().setToken(newToken);
+
+            // Retry the original request with the new token
+            originalRequest.headers = originalRequest.headers || {};
+            originalRequest.headers['Authorization'] = `Bearer ${newToken}`;
+            return axios(originalRequest);
+          }
+        } catch (refreshError) {
+          // Refresh failed - clear auth and redirect
+          const { useAuthStore } = await import('../stores/authStore');
+          useAuthStore.getState().logout();
+        }
+      }
+
       // Clear CSRF token
       csrfToken = null;
 
