@@ -117,7 +117,7 @@ export async function getPattern(req: Request, res: Response) {
  * Get charts associated with a pattern (direct link or via related projects)
  */
 export async function getPatternCharts(req: Request, res: Response) {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const { id: patternId } = req.params;
 
   const pattern = await db('patterns')
