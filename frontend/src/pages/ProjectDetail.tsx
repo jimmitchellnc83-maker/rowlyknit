@@ -823,19 +823,20 @@ export default function ProjectDetail() {
           )}
 
           {/* Photos */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center mb-4">
+          <details className="bg-white rounded-lg shadow" open={photos.length > 0 || undefined}>
+            <summary className="flex items-center p-6 cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden">
               <FiImage className="h-5 w-5 text-purple-600 mr-2" />
               <h2 className="text-lg font-semibold text-gray-900">Project Photos</h2>
               <span className="ml-2 text-sm text-gray-500">({photos.length})</span>
+              <span className="ml-auto text-sm text-purple-600">{photos.length === 0 ? 'Click to add photos' : ''}</span>
+            </summary>
+            <div className="px-6 pb-6">
+              <div className="mb-4">
+                <FileUpload onUpload={handlePhotoUpload} />
+              </div>
+              <PhotoGallery photos={photos} onDelete={handlePhotoDelete} />
             </div>
-
-            <div className="mb-6">
-              <FileUpload onUpload={handlePhotoUpload} />
-            </div>
-
-            <PhotoGallery photos={photos} onDelete={handlePhotoDelete} />
-          </div>
+          </details>
 
           {/* Counters */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
@@ -946,8 +947,8 @@ export default function ProjectDetail() {
           </div>
         </div>
 
-        {/* Sidebar - Right Column */}
-        <div className="space-y-6">
+        {/* Sidebar - Right Column (sticky so it follows scroll) */}
+        <div className="space-y-6 lg:sticky lg:top-6 lg:self-start">
           {/* Timeline */}
           <div className="bg-white rounded-lg shadow p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Timeline</h2>
