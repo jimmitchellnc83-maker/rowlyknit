@@ -272,6 +272,24 @@ function HierarchicalCounterCard({
           </div>
         )}
 
+        {/* Voice commands reference */}
+        {isListening && showButtons && (
+          <div className="mt-3 p-2 bg-red-50 dark:bg-red-900/20 rounded-lg text-xs text-red-700 dark:text-red-300">
+            <div className="flex items-center gap-1 mb-1 font-medium">
+              <FiMic className="h-3 w-3 animate-pulse" />
+              Listening...
+            </div>
+            <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-red-600 dark:text-red-400">
+              <span>"next" / "add" → +1</span>
+              <span>"back" / "undo" → -1</span>
+              <span>"add 3" → +3</span>
+              <span>"back 5" → -5</span>
+              <span>"plus ten" → +10</span>
+              <span>"subtract two" → -2</span>
+            </div>
+          </div>
+        )}
+
         {/* Non-primary counter in linked mode - show value only */}
         {!showButtons && (
           <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-2">
