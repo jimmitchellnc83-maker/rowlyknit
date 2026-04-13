@@ -4,7 +4,7 @@ import * as notesController from '../controllers/notesController';
 import { authenticate } from '../middleware/auth';
 import { validate, validateUUID } from '../middleware/validator';
 import { asyncHandler } from '../utils/errorHandler';
-import { uploadAudioMiddleware } from '../controllers/uploadsController';
+import { uploadAudioMiddleware, uploadHandwrittenMiddleware } from '../controllers/uploadsController';
 
 const router = Router();
 
@@ -123,7 +123,7 @@ router.post(
   '/projects/:id/memos',
   [
     validateUUID('id'),
-    body('templateType').notEmpty().isIn(['gauge_swatch', 'fit_adjustment', 'yarn_substitution', 'finishing']),
+    body('templateType').notEmpty().isIn(['gauge_swatch', 'fit_adjustment', 'yarn_substitution', 'finishing', 'finishing_techniques']),
     body('data').notEmpty().isObject(),
     body('title').optional().isString(),
   ],
@@ -134,7 +134,7 @@ router.post(
   '/projects/:id/structured-memos',
   [
     validateUUID('id'),
-    body('templateType').notEmpty().isIn(['gauge_swatch', 'fit_adjustment', 'yarn_substitution', 'finishing']),
+    body('templateType').notEmpty().isIn(['gauge_swatch', 'fit_adjustment', 'yarn_substitution', 'finishing', 'finishing_techniques']),
     body('data').notEmpty().isObject(),
     body('title').optional().isString(),
   ],
@@ -240,6 +240,36 @@ router.delete(
   [validateUUID('id'), validateUUID('noteId')],
   validate,
   asyncHandler(notesController.deleteTextNote)
+);
+
+/**
+ * Handwritten Notes Routes
+ */
+
+router.get(
+  '/projects/:id/handwritten-notes',
+  validateUUID('id'),
+  asyncHandler(notesController.getHandwrittenNotes)
+);
+
+router.post(
+  '/projects/:id/handwritten-notes',
+  uploadHandwrittenMiddleware,
+  [
+    validateUUID('id'),
+    body('patternId').optional({ values: 'null' }).isUUID(),
+    body('pageNumber').optional().isNumeric(),
+    body('notes').optional().isString(),
+  ],
+  validate,
+  asyncHandler(notesController.createHandwrittenNote)
+);
+
+router.delete(
+  '/projects/:id/handwritten-notes/:noteId',
+  [validateUUID('id'), validateUUID('noteId')],
+  validate,
+  asyncHandler(notesController.deleteHandwrittenNote)
 );
 
 export default router;
