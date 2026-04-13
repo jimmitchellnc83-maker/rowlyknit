@@ -733,3 +733,4 @@ export const deleteYarnPhoto = async (req: Request, res: Response) => {
 export const uploadImageMiddleware = imageUpload.single('photo');
 export const uploadPatternFileMiddleware = patternFileUpload.single('file');
 export const uploadAudioMiddleware = audioUpload.single('audio');
+export const uploadHandwrittenMiddleware = imageUpload.single('image');
