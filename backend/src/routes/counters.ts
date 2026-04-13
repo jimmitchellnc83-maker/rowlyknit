@@ -70,7 +70,7 @@ router.post(
     body('incrementPattern').optional().isObject(),
     body('sortOrder').optional().isNumeric(),
     body('notes').optional().isString(),
-    body('parentCounterId').optional().isUUID(),
+    body('parentCounterId').optional({ values: 'null' }).isUUID(),
     body('autoReset').optional().isBoolean(),
   ],
   validate,

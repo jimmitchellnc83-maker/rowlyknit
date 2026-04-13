@@ -119,7 +119,7 @@ router.post(
     validateUUID('projectId'),
     body('color_name').isString().isLength({ min: 1, max: 100 }),
     body('hex_code').isString().matches(/^#[0-9A-Fa-f]{6}$/),
-    body('yarn_id').optional().isUUID(),
+    body('yarn_id').optional({ values: 'null' }).isUUID(),
     body('estimated_yardage').optional().isNumeric(),
   ],
   validate,
@@ -161,7 +161,7 @@ router.post(
  */
 router.get(
   '/color-palettes',
-  [query('project_id').optional().isUUID()],
+  [query('project_id').optional({ values: 'null' }).isUUID()],
   validate,
   asyncHandler(colorPlanningController.getSavedPalettes)
 );

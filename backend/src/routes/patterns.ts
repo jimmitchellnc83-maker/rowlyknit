@@ -58,7 +58,7 @@ router.post(
   '/:id/export',
   [
     validateUUID('id'),
-    body('projectId').optional().isUUID(),
+    body('projectId').optional({ values: 'null' }).isUUID(),
     body('includeYarnRequirements').optional().isBoolean(),
     body('includeSizeAdjustments').optional().isBoolean(),
     body('includeNotes').optional().isBoolean(),

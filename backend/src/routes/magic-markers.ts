@@ -36,7 +36,7 @@ router.get(
   [
     validateUUID('id'),
     query('row').notEmpty().isNumeric(),
-    query('counterId').optional().isUUID(),
+    query('counterId').optional({ values: 'null' }).isUUID(),
   ],
   validate,
   asyncHandler(magicMarkersController.getActiveMarkersForRow)
@@ -63,7 +63,7 @@ router.post(
   '/projects/:id/magic-markers',
   [
     validateUUID('id'),
-    body('counterId').optional().isUUID(),
+    body('counterId').optional({ values: 'null' }).isUUID(),
     body('name').trim().notEmpty().isLength({ max: 255 }),
     body('triggerType').optional().isIn(['counter_value', 'row_interval', 'row_range', 'stitch_count', 'time_based', 'custom', 'at_same_time']),
     body('triggerCondition').optional().isObject(),
