@@ -69,9 +69,9 @@ router.post(
   '/projects/:id/sessions/start',
   [
     validateUUID('id'),
-    body('mood').optional().isString(),
-    body('location').optional().isString(),
-    body('notes').optional().isString(),
+    body('mood').optional({ values: 'null' }).isString(),
+    body('location').optional({ values: 'null' }).isString(),
+    body('notes').optional({ values: 'null' }).isString(),
   ],
   validate,
   asyncHandler(sessionsController.startSession)
@@ -87,8 +87,8 @@ router.post(
   [
     validateUUID('id'),
     validateUUID('sessionId'),
-    body('notes').optional().isString(),
-    body('mood').optional().isString(),
+    body('notes').optional({ values: 'null' }).isString(),
+    body('mood').optional({ values: 'null' }).isString(),
   ],
   validate,
   asyncHandler(sessionsController.endSession)
@@ -144,7 +144,7 @@ router.post(
     validateUUID('id'),
     body('name').trim().notEmpty().isLength({ max: 255 }),
     body('targetRows').optional({ values: 'falsy' }).isNumeric(),
-    body('notes').optional().isString(),
+    body('notes').optional({ values: 'null' }).isString(),
   ],
   validate,
   asyncHandler(sessionsController.createMilestone)

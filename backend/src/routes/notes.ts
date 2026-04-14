@@ -49,10 +49,10 @@ router.post(
   [
     validateUUID('id'),
     body('patternId').optional({ values: 'null' }).isUUID(),
-    body('transcription').optional().isString(),
+    body('transcription').optional({ values: 'null' }).isString(),
     body('durationSeconds').optional({ values: 'falsy' }).isNumeric(),
-    body('title').optional().isString(),
-    body('tags').optional().isArray(),
+    body('title').optional({ values: 'null' }).isString(),
+    body('tags').optional({ values: 'null' }).isArray(),
   ],
   validate,
   asyncHandler(notesController.createAudioNote)
@@ -125,7 +125,7 @@ router.post(
     validateUUID('id'),
     body('templateType').notEmpty().isIn(['gauge_swatch', 'fit_adjustment', 'yarn_substitution', 'finishing', 'finishing_techniques']),
     body('data').notEmpty().isObject(),
-    body('title').optional().isString(),
+    body('title').optional({ values: 'null' }).isString(),
   ],
   validate,
   asyncHandler(notesController.createStructuredMemo)
@@ -136,7 +136,7 @@ router.post(
     validateUUID('id'),
     body('templateType').notEmpty().isIn(['gauge_swatch', 'fit_adjustment', 'yarn_substitution', 'finishing', 'finishing_techniques']),
     body('data').notEmpty().isObject(),
-    body('title').optional().isString(),
+    body('title').optional({ values: 'null' }).isString(),
   ],
   validate,
   asyncHandler(notesController.createStructuredMemo)
@@ -209,9 +209,9 @@ router.post(
   [
     validateUUID('id'),
     body('content').notEmpty().isString(),
-    body('title').optional().isString(),
+    body('title').optional({ values: 'null' }).isString(),
     body('patternId').optional({ values: 'null' }).isUUID(),
-    body('tags').optional().isArray(),
+    body('tags').optional({ values: 'null' }).isArray(),
     body('isPinned').optional({ values: 'falsy' }).isBoolean(),
   ],
   validate,
@@ -259,7 +259,7 @@ router.post(
     validateUUID('id'),
     body('patternId').optional({ values: 'null' }).isUUID(),
     body('pageNumber').optional({ values: 'falsy' }).isNumeric(),
-    body('notes').optional().isString(),
+    body('notes').optional({ values: 'null' }).isString(),
   ],
   validate,
   asyncHandler(notesController.createHandwrittenNote)

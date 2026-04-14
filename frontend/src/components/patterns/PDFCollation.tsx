@@ -85,7 +85,8 @@ export const PDFCollation: React.FC = () => {
       }
     } catch (err: any) {
       console.error('Failed to collate patterns:', err);
-      setError(err.response?.data?.message || 'Failed to merge PDFs');
+      const msg = err.response?.data?.message || err.response?.data?.error?.message || 'Failed to merge PDFs';
+      setError(msg.includes('No PDF') ? 'No PDF files found. Upload PDFs to your patterns first, then merge them here.' : msg);
     } finally {
       setLoading(false);
     }

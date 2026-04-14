@@ -63,10 +63,10 @@ router.post(
     body('includeSizeAdjustments').optional({ values: 'falsy' }).isBoolean(),
     body('includeNotes').optional({ values: 'falsy' }).isBoolean(),
     body('includeGauge').optional({ values: 'falsy' }).isBoolean(),
-    body('selectedSize').optional().isString().isLength({ max: 50 }),
+    body('selectedSize').optional({ values: 'null' }).isString().isLength({ max: 50 }),
     body('lengthAdjustment').optional({ values: 'falsy' }).isNumeric(),
     body('widthAdjustment').optional({ values: 'falsy' }).isNumeric(),
-    body('adjustmentUnit').optional().isIn(['inches', 'cm']),
+    body('adjustmentUnit').optional({ values: 'null' }).isIn(['inches', 'cm']),
   ],
   validate,
   asyncHandler(patternExportController.exportPattern)
@@ -84,7 +84,7 @@ router.post(
     body('baseYardage').optional({ values: 'falsy' }).isNumeric(),
     body('lengthAdjustment').optional({ values: 'falsy' }).isNumeric(),
     body('widthAdjustment').optional({ values: 'falsy' }).isNumeric(),
-    body('adjustmentUnit').optional().isIn(['inches', 'cm']),
+    body('adjustmentUnit').optional({ values: 'null' }).isIn(['inches', 'cm']),
   ],
   validate,
   asyncHandler(patternExportController.calculateYarn)

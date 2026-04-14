@@ -47,7 +47,7 @@ router.post(
     body('pageNumber').isInt({ min: 1 }),
     body('yPosition').optional({ values: 'falsy' }).isInt(),
     body('zoomLevel').optional().isFloat({ min: 0.1, max: 5.0 }),
-    body('notes').optional().isString(),
+    body('notes').optional({ values: 'null' }).isString(),
     body('color').optional().matches(/^#[0-9A-Fa-f]{6}$/),
     body('projectId').optional({ values: 'null' }).isUUID(),
     body('sortOrder').optional({ values: 'falsy' }).isInt({ min: 0 }),
