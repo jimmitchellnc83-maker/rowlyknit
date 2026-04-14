@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { FiSearch, FiX, FiDownload, FiStar, FiLoader } from 'react-icons/fi';
+import { useNavigate } from 'react-router-dom';
+import { FiSearch, FiX, FiDownload, FiStar, FiLoader, FiLink } from 'react-icons/fi';
 import axios from 'axios';
 
 interface RavelryYarn {
@@ -28,6 +29,7 @@ interface RavelryYarnSearchProps {
 }
 
 export default function RavelryYarnSearch({ isOpen, onClose, onImport }: RavelryYarnSearchProps) {
+  const navigate = useNavigate();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<RavelryYarn[]>([]);
   const [loading, setLoading] = useState(false);
@@ -35,6 +37,7 @@ export default function RavelryYarnSearch({ isOpen, onClose, onImport }: Ravelry
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
   const [totalResults, setTotalResults] = useState(0);
+  const [ravelryConnected, setRavelryConnected] = useState<boolean | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -81,8 +84,20 @@ export default function RavelryYarnSearch({ isOpen, onClose, onImport }: Ravelry
       setResults([]);
       setPage(1);
       setError(null);
+      setRavelryConnected(null);
       return;
     }
+
+    // Check Ravelry connection status
+    const checkConnection = async () => {
+      try {
+        const response = await axios.get('/api/ravelry/oauth/status');
+        setRavelryConnected(response.data.data.connected);
+      } catch {
+        setRavelryConnected(false);
+      }
+    };
+    checkConnection();
 
     // Focus the search input when modal opens
     setTimeout(() => inputRef.current?.focus(), 100);
@@ -184,7 +199,26 @@ export default function RavelryYarnSearch({ isOpen, onClose, onImport }: Ravelry
 
         {/* Results */}
         <div className="flex-1 overflow-y-auto p-4">
-          {error && (
+          {ravelryConnected === false && (
+            <div className="text-center py-12">
+              <FiLink className="mx-auto h-12 w-12 text-gray-300 mb-3" />
+              <p className="text-gray-600 mb-2">Connect your Ravelry account to search yarns</p>
+              <button
+                onClick={() => { onClose(); navigate('/profile?tab=integrations'); }}
+                className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
+              >
+                Connect to Ravelry
+              </button>
+            </div>
+          )}
+
+          {ravelryConnected === null && (
+            <div className="flex items-center justify-center py-12">
+              <FiLoader className="h-6 w-6 text-purple-600 animate-spin" />
+            </div>
+          )}
+
+          {ravelryConnected && error && (
             <div className="text-center py-8">
               <p className="text-red-600">{error}</p>
               <button
@@ -196,13 +230,13 @@ export default function RavelryYarnSearch({ isOpen, onClose, onImport }: Ravelry
             </div>
           )}
 
-          {!error && results.length === 0 && !loading && query && (
+          {ravelryConnected && !error && results.length === 0 && !loading && query && (
             <div className="text-center py-12 text-gray-500">
               No yarns found matching your search.
             </div>
           )}
 
-          {!error && results.length === 0 && !loading && !query && (
+          {ravelryConnected && !error && results.length === 0 && !loading && !query && (
             <div className="text-center py-12 text-gray-400">
               <FiSearch className="mx-auto h-12 w-12 mb-3" />
               <p>Start typing to search the Ravelry yarn database</p>
