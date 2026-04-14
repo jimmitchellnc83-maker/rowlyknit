@@ -125,6 +125,11 @@ function HierarchicalCounterCard({
       }
     };
 
+    // If voice was active before this effect re-ran (e.g., parent re-rendered), restart it
+    if (isListeningRef.current) {
+      try { recognition.start(); } catch { /* already started or failed */ }
+    }
+
     return () => {
       try { recognition.stop(); } catch { /* ignore */ }
     };
