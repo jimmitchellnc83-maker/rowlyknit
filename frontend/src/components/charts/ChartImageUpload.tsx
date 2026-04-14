@@ -445,6 +445,7 @@ const ChartImageUpload: React.FC<ChartImageUploadProps> = ({
           {/* Side by side view */}
           <Grid container spacing={2} sx={{ mb: 2 }}>
             {/* Original image */}
+            {/* @ts-ignore MUI Grid v1 API */}
             <Grid item xs={12} md={6}>
               <Typography variant="subtitle2" gutterBottom>
                 Original Image
@@ -472,6 +473,7 @@ const ChartImageUpload: React.FC<ChartImageUploadProps> = ({
             </Grid>
 
             {/* Detected chart */}
+            {/* @ts-ignore MUI Grid v1 API */}
             <Grid item xs={12} md={6}>
               <Typography variant="subtitle2" gutterBottom>
                 Detected Chart (click cells to correct)
