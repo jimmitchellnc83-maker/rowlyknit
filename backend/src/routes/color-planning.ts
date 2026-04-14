@@ -42,7 +42,7 @@ router.post(
     validateUUID('projectId'),
     body('total_rows').isInt({ min: 1, max: 10000 }),
     body('colors').isArray({ min: 1, max: 10 }),
-    body('colors.*.name').optional().isString(),
+    body('colors.*.name').optional({ values: 'null' }).isString(),
     body('colors.*.hex').isString().matches(/^#[0-9A-Fa-f]{6}$/),
     body('transition_style').isIn(['linear', 'smooth', 'striped']),
     body('stripe_width').optional({ values: 'falsy' }).isInt({ min: 1, max: 100 }),
@@ -60,8 +60,8 @@ router.post(
   '/projects/:projectId/color-transitions',
   [
     validateUUID('projectId'),
-    body('name').optional().isString().isLength({ max: 100 }),
-    body('transition_type').optional().isIn(['gradient', 'stripe', 'fair_isle', 'intarsia']),
+    body('name').optional({ values: 'null' }).isString().isLength({ max: 100 }),
+    body('transition_type').optional({ values: 'null' }).isIn(['gradient', 'stripe', 'fair_isle', 'intarsia']),
     body('color_sequence').isArray(),
     body('total_rows').optional({ values: 'falsy' }).isInt({ min: 1 }),
   ],
@@ -91,7 +91,7 @@ router.post(
   [
     body('num_colors').optional({ values: 'falsy' }).isInt({ min: 2, max: 10 }),
     body('save_palette').optional({ values: 'falsy' }).isBoolean(),
-    body('palette_name').optional().isString().isLength({ max: 100 }),
+    body('palette_name').optional({ values: 'null' }).isString().isLength({ max: 100 }),
   ],
   validate,
   asyncHandler(colorPlanningController.extractColors)
@@ -148,7 +148,7 @@ router.post(
     body('base_color').isString().matches(/^#[0-9A-Fa-f]{6}$/),
     body('scheme').isIn(['analogous', 'complementary', 'triadic', 'monochromatic', 'split_complementary']),
     body('save').optional({ values: 'falsy' }).isBoolean(),
-    body('name').optional().isString().isLength({ max: 100 }),
+    body('name').optional({ values: 'null' }).isString().isLength({ max: 100 }),
   ],
   validate,
   asyncHandler(colorPlanningController.generatePalette)

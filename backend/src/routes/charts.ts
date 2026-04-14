@@ -91,7 +91,7 @@ router.post(
     body('detection_id').isUUID().withMessage('Detection ID is required'),
     body('project_id').optional({ values: 'null' }).isUUID(),
     body('pattern_id').optional({ values: 'null' }).isUUID(),
-    body('chart_name').optional().isString().isLength({ max: 255 }),
+    body('chart_name').optional({ values: 'null' }).isString().isLength({ max: 255 }),
   ],
   validate,
   asyncHandler(chartDetectionController.saveDetectedChart)
@@ -112,7 +112,7 @@ router.get('/symbols', asyncHandler(chartDetectionController.getSymbols));
 router.get(
   '/detections',
   [
-    query('status').optional().isIn(['pending', 'processing', 'completed', 'failed']),
+    query('status').optional({ values: 'null' }).isIn(['pending', 'processing', 'completed', 'failed']),
     query('project_id').optional({ values: 'null' }).isUUID(),
     query('limit').optional({ values: 'falsy' }).isInt({ min: 1, max: 100 }),
     query('offset').optional({ values: 'falsy' }).isInt({ min: 0 }),
@@ -145,11 +145,11 @@ router.post(
   '/:chartId/share',
   [
     validateUUID('chartId'),
-    body('visibility').optional().isIn(['public', 'private']),
+    body('visibility').optional({ values: 'null' }).isIn(['public', 'private']),
     body('allow_copy').optional({ values: 'falsy' }).isBoolean(),
     body('allow_download').optional({ values: 'falsy' }).isBoolean(),
     body('expires_in_days').optional({ values: 'falsy' }).isInt({ min: 1, max: 365 }),
-    body('password').optional().isString().isLength({ min: 4, max: 50 }),
+    body('password').optional({ values: 'null' }).isString().isLength({ min: 4, max: 50 }),
   ],
   validate,
   asyncHandler(chartSharingController.shareChart)
@@ -165,7 +165,7 @@ router.post(
   [
     validateUUID('chartId'),
     body('format').isIn(['pdf', 'png', 'csv', 'ravelry', 'markdown']),
-    body('options').optional().isObject(),
+    body('options').optional({ values: 'null' }).isObject(),
   ],
   validate,
   asyncHandler(chartSharingController.exportChartHandler)

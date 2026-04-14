@@ -18,7 +18,7 @@ const router = Router();
  */
 router.get(
   '/chart/:token',
-  [query('password').optional().isString()],
+  [query('password').optional({ values: 'null' }).isString()],
   validate,
   asyncHandler(chartSharingController.viewSharedChart)
 );
@@ -31,8 +31,8 @@ router.get(
 router.get(
   '/chart/:token/download',
   [
-    query('format').optional().isIn(['pdf', 'png', 'csv']),
-    query('password').optional().isString(),
+    query('format').optional({ values: 'null' }).isIn(['pdf', 'png', 'csv']),
+    query('password').optional({ values: 'null' }).isString(),
   ],
   validate,
   asyncHandler(chartSharingController.downloadSharedChart)

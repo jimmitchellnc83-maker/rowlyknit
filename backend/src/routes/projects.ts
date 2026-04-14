@@ -149,7 +149,7 @@ router.post(
   [
     validateUUID('id'),
     body('patternId').notEmpty().isUUID(),
-    body('modifications').optional().isString(),
+    body('modifications').optional({ values: 'null' }).isString(),
   ],
   validate,
   asyncHandler(projectsController.addPatternToProject)
@@ -277,8 +277,8 @@ router.post(
     validateUUID('chartId'),
     body('current_row').optional({ values: 'falsy' }).isInt({ min: 0 }),
     body('current_column').optional({ values: 'falsy' }).isInt({ min: 0 }),
-    body('completed_cells').optional().isArray(),
-    body('completed_rows').optional().isArray(),
+    body('completed_cells').optional({ values: 'null' }).isArray(),
+    body('completed_rows').optional({ values: 'null' }).isArray(),
     body('tracking_enabled').optional({ values: 'falsy' }).isBoolean(),
   ],
   validate,
