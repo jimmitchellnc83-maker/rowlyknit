@@ -23,6 +23,7 @@ import Register from './pages/auth/Register';
 import ForgotPassword from './pages/auth/ForgotPassword';
 import ResetPassword from './pages/auth/ResetPassword';
 import VerifyEmail from './pages/auth/VerifyEmail';
+import RavelryCallback from './pages/auth/RavelryCallback';
 import NotFound from './pages/NotFound';
 
 // Protected route wrapper
@@ -91,6 +92,7 @@ function App() {
         <Route path="/tools" element={<Tools />} />
         <Route path="/recipients" element={<Recipients />} />
         <Route path="/profile" element={<Profile />} />
+        <Route path="/auth/ravelry/callback" element={<RavelryCallback />} />
         <Route path="/stats" element={<Stats />} />
       </Route>
 

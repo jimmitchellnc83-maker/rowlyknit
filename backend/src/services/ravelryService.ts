@@ -1,5 +1,6 @@
 import axios, { AxiosInstance } from 'axios';
 import logger from '../config/logger';
+import ravelryOAuthService from './ravelryOAuthService';
 
 interface RavelryYarnSearchResult {
   yarns: Array<{
@@ -46,22 +47,42 @@ interface RavelryPatternSearchResult {
 }
 
 class RavelryService {
-  private client: AxiosInstance;
+  private basicClient: AxiosInstance | null = null;
 
-  constructor() {
-    const username = process.env.RAVELRY_USERNAME;
-    const password = process.env.RAVELRY_PASSWORD;
+  /**
+   * Get Basic Auth client for reference endpoints that don't require OAuth
+   */
+  private getBasicClient(): AxiosInstance {
+    if (!this.basicClient) {
+      const username = process.env.RAVELRY_USERNAME;
+      const password = process.env.RAVELRY_PASSWORD;
 
-    if (!username || !password) {
-      logger.warn('Ravelry API credentials not configured. Ravelry integration will not work.');
+      if (!username || !password) {
+        throw new RavelryNotConfiguredError();
+      }
+
+      const auth = Buffer.from(`${username}:${password}`).toString('base64');
+      this.basicClient = axios.create({
+        baseURL: 'https://api.ravelry.com',
+        headers: {
+          'Authorization': `Basic ${auth}`,
+          'Accept': 'application/json',
+        },
+        timeout: 15000,
+      });
     }
 
-    const auth = Buffer.from(`${username || ''}:${password || ''}`).toString('base64');
+    return this.basicClient;
+  }
 
-    this.client = axios.create({
+  /**
+   * Get OAuth client for a specific user's access token
+   */
+  private getOAuthClient(accessToken: string): AxiosInstance {
+    return axios.create({
       baseURL: 'https://api.ravelry.com',
       headers: {
-        'Authorization': `Basic ${auth}`,
+        'Authorization': `Bearer ${accessToken}`,
         'Accept': 'application/json',
       },
       timeout: 15000,
@@ -69,15 +90,30 @@ class RavelryService {
   }
 
   /**
-   * Search yarns in the Ravelry database
+   * Get an authenticated client for a user (OAuth required for search/detail endpoints)
+   */
+  private async getClientForUser(userId: string): Promise<AxiosInstance> {
+    const token = await ravelryOAuthService.getValidTokenForUser(userId);
+    if (!token) {
+      throw new RavelryOAuthRequiredError();
+    }
+    return this.getOAuthClient(token);
+  }
+
+  /**
+   * Search yarns in the Ravelry database (requires OAuth)
    */
   async searchYarns(
     query: string,
     page: number = 1,
     pageSize: number = 20,
-    filters?: { weight?: string; fiberContent?: string }
+    filters?: { weight?: string; fiberContent?: string },
+    userId?: string
   ): Promise<{ yarns: any[]; pagination: any } | null> {
     try {
+      if (!userId) throw new RavelryOAuthRequiredError();
+      const client = await this.getClientForUser(userId);
+
       const params: Record<string, string | number> = {
         query,
         page,
@@ -91,7 +127,7 @@ class RavelryService {
         params.fiber = filters.fiberContent;
       }
 
-      const response = await this.client.get<RavelryYarnSearchResult>('/yarns/search.json', { params });
+      const response = await client.get<RavelryYarnSearchResult>('/yarns/search.json', { params });
 
       const yarns = (response.data.yarns || []).map((y) => ({
         id: y.id,
@@ -119,6 +155,7 @@ class RavelryService {
         },
       };
     } catch (error: any) {
+      if (error instanceof RavelryOAuthRequiredError) throw error;
       logger.error('Ravelry yarn search failed', {
         query,
         error: error.message,
@@ -129,11 +166,13 @@ class RavelryService {
   }
 
   /**
-   * Get detailed yarn information by ID
+   * Get detailed yarn information by ID (requires OAuth)
    */
-  async getYarn(id: number): Promise<any | null> {
+  async getYarn(id: number, userId?: string): Promise<any | null> {
     try {
-      const response = await this.client.get(`/yarns/${id}.json`);
+      if (!userId) throw new RavelryOAuthRequiredError();
+      const client = await this.getClientForUser(userId);
+      const response = await client.get(`/yarns/${id}.json`);
       const y = response.data.yarn;
 
       if (!y) return null;
@@ -158,6 +197,7 @@ class RavelryService {
         needleSizes: y.needle_sizes,
       };
     } catch (error: any) {
+      if (error instanceof RavelryOAuthRequiredError) throw error;
       logger.error('Ravelry get yarn failed', {
         id,
         error: error.message,
@@ -168,15 +208,19 @@ class RavelryService {
   }
 
   /**
-   * Search patterns in the Ravelry database
+   * Search patterns in the Ravelry database (requires OAuth)
    */
   async searchPatterns(
     query: string,
     page: number = 1,
     pageSize: number = 20,
-    filters?: { craft?: string; difficulty?: string; weight?: string }
+    filters?: { craft?: string; difficulty?: string; weight?: string },
+    userId?: string
   ): Promise<{ patterns: any[]; pagination: any } | null> {
     try {
+      if (!userId) throw new RavelryOAuthRequiredError();
+      const client = await this.getClientForUser(userId);
+
       const params: Record<string, string | number> = {
         query,
         page,
@@ -193,7 +237,7 @@ class RavelryService {
         params.weight = filters.weight;
       }
 
-      const response = await this.client.get<RavelryPatternSearchResult>('/patterns/search.json', { params });
+      const response = await client.get<RavelryPatternSearchResult>('/patterns/search.json', { params });
 
       const patterns = (response.data.patterns || []).map((p) => ({
         id: p.id,
@@ -219,6 +263,7 @@ class RavelryService {
         },
       };
     } catch (error: any) {
+      if (error instanceof RavelryOAuthRequiredError) throw error;
       logger.error('Ravelry pattern search failed', {
         query,
         error: error.message,
@@ -229,11 +274,13 @@ class RavelryService {
   }
 
   /**
-   * Get detailed pattern information by ID
+   * Get detailed pattern information by ID (requires OAuth)
    */
-  async getPattern(id: number): Promise<any | null> {
+  async getPattern(id: number, userId?: string): Promise<any | null> {
     try {
-      const response = await this.client.get(`/patterns/${id}.json`);
+      if (!userId) throw new RavelryOAuthRequiredError();
+      const client = await this.getClientForUser(userId);
+      const response = await client.get(`/patterns/${id}.json`);
       const p = response.data.pattern;
 
       if (!p) return null;
@@ -260,6 +307,7 @@ class RavelryService {
         })) || [],
       };
     } catch (error: any) {
+      if (error instanceof RavelryOAuthRequiredError) throw error;
       logger.error('Ravelry get pattern failed', {
         id,
         error: error.message,
@@ -270,13 +318,15 @@ class RavelryService {
   }
 
   /**
-   * Get yarn weights reference data
+   * Get yarn weights reference data (works with Basic Auth)
    */
   async getYarnWeights(): Promise<any[] | null> {
     try {
-      const response = await this.client.get('/yarn_weights.json');
-      return response.data.yarn_weights || [];
+      const client = this.getBasicClient();
+      const response = await client.get('/yarn_attributes/groups.json');
+      return response.data.yarn_attribute_groups || [];
     } catch (error: any) {
+      if (error instanceof RavelryNotConfiguredError) throw error;
       logger.error('Ravelry get yarn weights failed', {
         error: error.message,
         status: error.response?.status,
@@ -286,19 +336,35 @@ class RavelryService {
   }
 
   /**
-   * Get color families reference data
+   * Get color families reference data (works with Basic Auth)
    */
   async getColorFamilies(): Promise<any[] | null> {
     try {
-      const response = await this.client.get('/color_families.json');
-      return response.data.color_families || [];
+      const client = this.getBasicClient();
+      const response = await client.get('/fiber_attributes.json');
+      return response.data.fiber_attributes || [];
     } catch (error: any) {
+      if (error instanceof RavelryNotConfiguredError) throw error;
       logger.error('Ravelry get color families failed', {
         error: error.message,
         status: error.response?.status,
       });
       return null;
     }
+  }
+}
+
+export class RavelryNotConfiguredError extends Error {
+  constructor() {
+    super('Ravelry API credentials are not configured. Set RAVELRY_USERNAME and RAVELRY_PASSWORD environment variables.');
+    this.name = 'RavelryNotConfiguredError';
+  }
+}
+
+export class RavelryOAuthRequiredError extends Error {
+  constructor() {
+    super('Please connect your Ravelry account to search yarns and patterns.');
+    this.name = 'RavelryOAuthRequiredError';
   }
 }
 

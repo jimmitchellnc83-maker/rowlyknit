@@ -1,13 +1,20 @@
-import { useState } from 'react';
-import { FiUser, FiMail, FiLock, FiSave } from 'react-icons/fi';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { FiUser, FiMail, FiLock, FiSave, FiLink, FiCheck, FiXCircle } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { useAuthStore } from '../stores/authStore';
 
 export default function Profile() {
   const { user, setUser } = useAuthStore();
-  const [activeTab, setActiveTab] = useState<'profile' | 'password'>('profile');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState<'profile' | 'password' | 'integrations'>('profile');
   const [saving, setSaving] = useState(false);
+
+  // Ravelry connection state
+  const [ravelryConnected, setRavelryConnected] = useState(false);
+  const [ravelryUsername, setRavelryUsername] = useState<string | null>(null);
+  const [ravelryLoading, setRavelryLoading] = useState(false);
 
   const [profileData, setProfileData] = useState({
     firstName: user?.firstName || '',
@@ -20,6 +27,71 @@ export default function Profile() {
     newPassword: '',
     confirmPassword: '',
   });
+
+  // Handle URL params for tab selection and Ravelry status
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab === 'integrations') {
+      setActiveTab('integrations');
+    }
+
+    const ravelryStatus = searchParams.get('ravelry');
+    if (ravelryStatus === 'connected') {
+      toast.success('Ravelry account connected successfully!');
+      setSearchParams({}, { replace: true });
+      setActiveTab('integrations');
+    } else if (ravelryStatus === 'error') {
+      toast.error('Failed to connect Ravelry account. Please try again.');
+      setSearchParams({}, { replace: true });
+      setActiveTab('integrations');
+    }
+  }, [searchParams, setSearchParams]);
+
+  // Fetch Ravelry connection status when integrations tab is active
+  useEffect(() => {
+    if (activeTab === 'integrations') {
+      fetchRavelryStatus();
+    }
+  }, [activeTab]);
+
+  const fetchRavelryStatus = async () => {
+    try {
+      const response = await axios.get('/api/ravelry/oauth/status');
+      if (response.data.success) {
+        setRavelryConnected(response.data.data.connected);
+        setRavelryUsername(response.data.data.ravelryUsername);
+      }
+    } catch {
+      // Silently fail - user just sees disconnected state
+    }
+  };
+
+  const handleConnectRavelry = async () => {
+    setRavelryLoading(true);
+    try {
+      const response = await axios.get('/api/ravelry/oauth/authorize');
+      if (response.data.success) {
+        window.location.href = response.data.data.url;
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to initiate Ravelry connection.');
+      setRavelryLoading(false);
+    }
+  };
+
+  const handleDisconnectRavelry = async () => {
+    setRavelryLoading(true);
+    try {
+      await axios.delete('/api/ravelry/oauth/disconnect');
+      setRavelryConnected(false);
+      setRavelryUsername(null);
+      toast.success('Ravelry account disconnected.');
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to disconnect Ravelry.');
+    } finally {
+      setRavelryLoading(false);
+    }
+  };
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -131,6 +203,17 @@ export default function Profile() {
         >
           <FiLock className="h-4 w-4" />
           Change Password
+        </button>
+        <button
+          onClick={() => setActiveTab('integrations')}
+          className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-md text-sm font-medium transition ${
+            activeTab === 'integrations'
+              ? 'bg-white dark:bg-gray-800 text-purple-600 shadow'
+              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+          }`}
+        >
+          <FiLink className="h-4 w-4" />
+          Integrations
         </button>
       </div>
 
@@ -252,6 +335,51 @@ export default function Profile() {
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {/* Integrations Tab */}
+      {activeTab === 'integrations' && (
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Ravelry</h3>
+
+          {ravelryConnected ? (
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                  <FiCheck className="h-5 w-5 text-green-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Connected</p>
+                  {ravelryUsername && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400">as {ravelryUsername}</p>
+                  )}
+                </div>
+              </div>
+              <button
+                onClick={handleDisconnectRavelry}
+                disabled={ravelryLoading}
+                className="flex items-center gap-2 px-4 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition disabled:opacity-50"
+              >
+                <FiXCircle className="h-4 w-4" />
+                {ravelryLoading ? 'Disconnecting...' : 'Disconnect'}
+              </button>
+            </div>
+          ) : (
+            <div>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                Connect your Ravelry account to search and import yarns and patterns from the Ravelry database.
+              </p>
+              <button
+                onClick={handleConnectRavelry}
+                disabled={ravelryLoading}
+                className="flex items-center gap-2 px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed"
+              >
+                <FiLink className="h-4 w-4" />
+                {ravelryLoading ? 'Connecting...' : 'Connect to Ravelry'}
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
