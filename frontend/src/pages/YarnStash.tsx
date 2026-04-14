@@ -1,11 +1,12 @@
 import { useState, useCallback } from 'react';
-import { FiPlus, FiTrash2, FiPackage, FiEdit2 } from 'react-icons/fi';
+import { FiPlus, FiTrash2, FiPackage, FiEdit2, FiSearch } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import ConfirmModal from '../components/ConfirmModal';
 import { useYarn, useCreateYarn, useUpdateYarn, useDeleteYarn } from '../hooks/useApi';
 import HelpTooltip from '../components/HelpTooltip';
+import RavelryYarnSearch from '../components/RavelryYarnSearch';
 
 interface Yarn {
   id: string;
@@ -38,6 +39,7 @@ export default function YarnStash() {
   const deleteYarnMutation = useDeleteYarn();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showRavelrySearch, setShowRavelrySearch] = useState(false);
   const [editingYarn, setEditingYarn] = useState<Yarn | null>(null);
   const [yarnPhotos, setYarnPhotos] = useState<YarnPhoto[]>([]);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
@@ -58,9 +60,25 @@ export default function YarnStash() {
   const closeAllModals = useCallback(() => {
     setShowCreateModal(false);
     setShowEditModal(false);
+    setShowRavelrySearch(false);
     setEditingYarn(null);
   }, []);
-  useEscapeKey(closeAllModals, showCreateModal || showEditModal);
+  useEscapeKey(closeAllModals, showCreateModal || showEditModal || showRavelrySearch);
+
+  const handleRavelryImport = (yarnData: { brand: string; name: string; weight: string; fiberContent: string; yardsTotal: string }) => {
+    setFormData({
+      brand: yarnData.brand,
+      name: yarnData.name,
+      color: '',
+      weight: yarnData.weight,
+      fiberContent: yarnData.fiberContent,
+      yardsTotal: yarnData.yardsTotal,
+      skeinsTotal: '1',
+      lowStockThreshold: '',
+      lowStockAlert: false,
+    });
+    setShowCreateModal(true);
+  };
 
   const handleCreateYarn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -224,13 +242,22 @@ export default function YarnStash() {
           <h1 className="text-3xl font-bold text-gray-900">Yarn Stash</h1>
           <p className="text-gray-600 mt-1">Manage your yarn inventory</p>
         </div>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
-        >
-          <FiPlus className="mr-2" />
-          Add Yarn
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={() => setShowRavelrySearch(true)}
+            className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+          >
+            <FiSearch className="mr-2" />
+            Search Ravelry
+          </button>
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
+          >
+            <FiPlus className="mr-2" />
+            Add Yarn
+          </button>
+        </div>
       </div>
 
       {yarn.length === 0 ? (
@@ -696,6 +723,12 @@ export default function YarnStash() {
           onCancel={() => setPhotoDeleteTarget(null)}
         />
       )}
+
+      <RavelryYarnSearch
+        isOpen={showRavelrySearch}
+        onClose={() => setShowRavelrySearch(false)}
+        onImport={handleRavelryImport}
+      />
     </div>
   );
 }

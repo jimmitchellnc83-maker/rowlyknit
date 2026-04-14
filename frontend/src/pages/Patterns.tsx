@@ -1,12 +1,13 @@
 import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FiPlus, FiTrash2, FiBook, FiEdit2 } from 'react-icons/fi';
+import { FiPlus, FiTrash2, FiBook, FiEdit2, FiSearch } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { PDFCollation } from '../components/patterns';
 import ConfirmModal from '../components/ConfirmModal';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import { usePatterns, useCreatePattern, useUpdatePattern, useDeletePattern } from '../hooks/useApi';
+import RavelryPatternSearch from '../components/RavelryPatternSearch';
 
 interface Pattern {
   id: string;
@@ -27,6 +28,7 @@ export default function Patterns() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showCollationModal, setShowCollationModal] = useState(false);
+  const [showRavelrySearch, setShowRavelrySearch] = useState(false);
   const [editingPattern, setEditingPattern] = useState<Pattern | null>(null);
   const [patternFiles, setPatternFiles] = useState<File[]>([]);
   const [uploadingFiles, setUploadingFiles] = useState(false);
@@ -43,9 +45,21 @@ export default function Patterns() {
     setShowCreateModal(false);
     setShowEditModal(false);
     setShowCollationModal(false);
+    setShowRavelrySearch(false);
     setEditingPattern(null);
   }, []);
-  useEscapeKey(closeAllModals, showCreateModal || showEditModal || showCollationModal);
+  useEscapeKey(closeAllModals, showCreateModal || showEditModal || showCollationModal || showRavelrySearch);
+
+  const handleRavelryImport = (patternData: { name: string; designer: string; difficulty: string; category: string; description: string }) => {
+    setFormData({
+      name: patternData.name,
+      description: patternData.description,
+      designer: patternData.designer,
+      difficulty: patternData.difficulty,
+      category: patternData.category,
+    });
+    setShowCreateModal(true);
+  };
 
   const handleCreatePattern = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -180,8 +194,15 @@ export default function Patterns() {
         </div>
         <div className="flex gap-3">
           <button
-            onClick={() => setShowCollationModal(true)}
+            onClick={() => setShowRavelrySearch(true)}
             className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+          >
+            <FiSearch className="mr-2" />
+            Search Ravelry
+          </button>
+          <button
+            onClick={() => setShowCollationModal(true)}
+            className="flex items-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition"
             disabled={patterns.length === 0}
           >
             <FiBook className="mr-2" />
@@ -577,6 +598,12 @@ export default function Patterns() {
           onCancel={() => setDeleteTarget(null)}
         />
       )}
+
+      <RavelryPatternSearch
+        isOpen={showRavelrySearch}
+        onClose={() => setShowRavelrySearch(false)}
+        onImport={handleRavelryImport}
+      />
     </div>
   );
 }
