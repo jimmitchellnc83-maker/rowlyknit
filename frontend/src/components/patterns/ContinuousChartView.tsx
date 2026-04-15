@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-// @ts-ignore react-window types
-import { FixedSizeList as List } from 'react-window';
+// @ts-ignore react-window namespace import for Docker build compatibility
+import * as ReactWindow from 'react-window';
+const List = ReactWindow.FixedSizeList;
 import { Card, Typography, Box, IconButton, Slider, Tooltip, Chip, Alert } from '@mui/material';
 import {
   ZoomIn,
@@ -73,7 +74,7 @@ const ContinuousChartView: React.FC<ContinuousChartViewProps> = ({
 }) => {
   const [cellSize, setCellSize] = useState(initialCellSize);
   const [scrollToRow, setScrollToRow] = useState<number | null>(null);
-  const listRef = useRef<List>(null);
+  const listRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Flatten all pages into a single array of rows with global row indices
