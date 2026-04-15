@@ -33,10 +33,51 @@ function serializePattern(pattern) {
 }
 /**
  * Coerce structured Ravelry data into a clean display string.
- * - Strings pass through.
- * - Arrays get joined intelligently.
- * - Objects get a sensible string form.
+ * Handles every object shape we know about:
+ *  - {name}                                           → "name"
+ *  - {yarnName, yarnCompany, quantity}                → "yarnName — yarnCompany — quantity"
+ *  - {fiber, weight, yardage}                         → "worsted wool, 400 yds"
+ *  - {stitches, rows, unit}                           → "20 sts × 28 rows over 4 inches"
+ *  - arrays of any of the above (joined with ", ")
  */
+function objectToString(x) {
+    if (x == null)
+        return null;
+    if (typeof x === 'string')
+        return x.trim() || null;
+    if (typeof x === 'number')
+        return String(x);
+    if (typeof x !== 'object')
+        return null;
+    // Named entity (needles, sizes, simple things)
+    if (x.name)
+        return String(x.name);
+    // Ravelry yarn pack
+    if (x.yarnName || x.yarnCompany) {
+        return [x.yarnName, x.yarnCompany, x.quantity]
+            .filter((v) => v != null && v !== '')
+            .join(' — ') || null;
+    }
+    // Yarn requirement (fiber/weight/yardage)
+    if (x.fiber || x.weight || x.yardage) {
+        const yardage = x.yardage ? `${x.yardage} yds` : null;
+        const composition = [x.weight, x.fiber].filter(Boolean).join(' ');
+        return [composition, yardage].filter(Boolean).join(', ') || null;
+    }
+    // Gauge (stitches/rows/unit)
+    if (x.stitches || x.rows) {
+        const parts = [];
+        if (x.stitches)
+            parts.push(`${x.stitches} sts`);
+        if (x.rows)
+            parts.push(`${x.rows} rows`);
+        let result = parts.join(' × ');
+        if (x.unit)
+            result += ` over ${x.unit}`;
+        return result || null;
+    }
+    return null;
+}
 function toDisplayString(val) {
     if (val === null || val === undefined || val === '')
         return null;
@@ -47,23 +88,11 @@ function toDisplayString(val) {
     if (Array.isArray(val)) {
         if (val.length === 0)
             return null;
-        const parts = val.map((x) => {
-            if (x == null)
-                return null;
-            if (typeof x === 'string')
-                return x;
-            if (x.name)
-                return x.name;
-            if (x.yarnName)
-                return [x.yarnName, x.yarnCompany, x.quantity].filter(Boolean).join(' — ');
-            return null;
-        }).filter(Boolean);
+        const parts = val.map(objectToString).filter(Boolean);
         return parts.length > 0 ? parts.join(', ') : null;
     }
     if (typeof val === 'object') {
-        if (val.name)
-            return val.name;
-        return null;
+        return objectToString(val);
     }
     return null;
 }
