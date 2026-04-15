@@ -12,6 +12,7 @@ exports.getRecipientStats = getRecipientStats;
 const database_1 = __importDefault(require("../config/database"));
 const errorHandler_1 = require("../utils/errorHandler");
 const auditLog_1 = require("../middleware/auditLog");
+const inputSanitizer_1 = require("../utils/inputSanitizer");
 async function getRecipients(req, res) {
     const userId = req.user.userId;
     const { search, page = 1, limit = 20 } = req.query;
@@ -19,11 +20,12 @@ async function getRecipients(req, res) {
         .where({ user_id: userId })
         .whereNull('deleted_at');
     if (search) {
+        const sanitizedSearch = (0, inputSanitizer_1.sanitizeSearchQuery)(search);
         query = query.where((builder) => {
             builder
-                .where('first_name', 'ilike', `%${search}%`)
-                .orWhere('last_name', 'ilike', `%${search}%`)
-                .orWhere('relationship', 'ilike', `%${search}%`);
+                .where('first_name', 'ilike', `%${sanitizedSearch}%`)
+                .orWhere('last_name', 'ilike', `%${sanitizedSearch}%`)
+                .orWhere('relationship', 'ilike', `%${sanitizedSearch}%`);
         });
     }
     const offset = (Number(page) - 1) * Number(limit);
@@ -106,7 +108,6 @@ async function createRecipient(req, res) {
 async function updateRecipient(req, res) {
     const userId = req.user.userId;
     const { id } = req.params;
-    const updates = req.body;
     const recipient = await (0, database_1.default)('recipients')
         .where({ id, user_id: userId })
         .whereNull('deleted_at')
@@ -114,12 +115,32 @@ async function updateRecipient(req, res) {
     if (!recipient) {
         throw new errorHandler_1.NotFoundError('Recipient not found');
     }
+    // Whitelist allowed fields -- use same camelCase names as createRecipient
+    const { firstName, lastName, relationship, birthday, measurements, preferences, clothingSize, shoeSize, notes, } = req.body;
+    const updateData = {
+        updated_at: new Date(),
+    };
+    if (firstName !== undefined)
+        updateData.first_name = firstName;
+    if (lastName !== undefined)
+        updateData.last_name = lastName;
+    if (relationship !== undefined)
+        updateData.relationship = relationship;
+    if (birthday !== undefined)
+        updateData.birthday = birthday;
+    if (measurements !== undefined)
+        updateData.measurements = JSON.stringify(measurements);
+    if (preferences !== undefined)
+        updateData.preferences = JSON.stringify(preferences);
+    if (clothingSize !== undefined)
+        updateData.clothing_size = clothingSize;
+    if (shoeSize !== undefined)
+        updateData.shoe_size = shoeSize;
+    if (notes !== undefined)
+        updateData.notes = notes;
     const [updatedRecipient] = await (0, database_1.default)('recipients')
         .where({ id })
-        .update({
-        ...updates,
-        updated_at: new Date(),
-    })
+        .update(updateData)
         .returning('*');
     await (0, auditLog_1.createAuditLog)(req, {
         userId,

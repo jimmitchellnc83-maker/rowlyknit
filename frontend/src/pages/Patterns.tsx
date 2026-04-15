@@ -75,7 +75,7 @@ export default function Patterns() {
 
     const missing: string[] = [];
     if (!patternData.description) missing.push('description');
-    if (!patternData.needleSizes || patternData.needleSizes.length === 0) missing.push('needle sizes');
+    if (!patternData.needleSizes) missing.push('needle sizes');
     if (!patternData.gauge) missing.push('gauge');
     if (missing.length > 0) {
       toast.info(`Imported from Ravelry. You may want to add: ${missing.join(', ')}.`, { autoClose: 6000 });

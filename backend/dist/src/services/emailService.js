@@ -92,6 +92,11 @@ class EmailService {
                 error_message: error instanceof Error ? error.message : 'Unknown error',
                 sent_at: new Date(),
             });
+            // In development, log the failure but don't crash the request
+            if (process.env.NODE_ENV === 'development') {
+                logger_1.default.warn('Email sending skipped in development (no valid email provider configured)');
+                return;
+            }
             throw error;
         }
     }

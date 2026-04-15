@@ -10,17 +10,43 @@ import path from 'path';
 import { sanitizeSearchQuery } from '../utils/inputSanitizer';
 
 /**
- * Serialize pattern JSONB fields to strings for frontend compatibility
+ * Serialize pattern fields for frontend.
+ * After migration 37, needle_sizes/gauge/sizes_available/yarn_requirements are TEXT.
+ * Only tags is still JSONB.
  */
 function serializePattern(pattern: any) {
   return {
     ...pattern,
-    yarn_requirements: pattern.yarn_requirements ? JSON.stringify(pattern.yarn_requirements) : null,
-    gauge: pattern.gauge ? JSON.stringify(pattern.gauge) : null,
-    needle_sizes: pattern.needle_sizes ? JSON.stringify(pattern.needle_sizes) : null,
-    sizes_available: pattern.sizes_available ? JSON.stringify(pattern.sizes_available) : null,
-    tags: pattern.tags ? JSON.stringify(pattern.tags) : null,
+    tags: pattern.tags ? (typeof pattern.tags === 'string' ? pattern.tags : JSON.stringify(pattern.tags)) : null,
   };
+}
+
+/**
+ * Coerce structured Ravelry data into a clean display string.
+ * - Strings pass through.
+ * - Arrays get joined intelligently.
+ * - Objects get a sensible string form.
+ */
+function toDisplayString(val: any): string | null {
+  if (val === null || val === undefined || val === '') return null;
+  if (typeof val === 'string') return val.trim() || null;
+  if (typeof val === 'number') return String(val);
+  if (Array.isArray(val)) {
+    if (val.length === 0) return null;
+    const parts = val.map((x: any) => {
+      if (x == null) return null;
+      if (typeof x === 'string') return x;
+      if (x.name) return x.name;
+      if (x.yarnName) return [x.yarnName, x.yarnCompany, x.quantity].filter(Boolean).join(' — ');
+      return null;
+    }).filter(Boolean);
+    return parts.length > 0 ? parts.join(', ') : null;
+  }
+  if (typeof val === 'object') {
+    if (val.name) return val.name;
+    return null;
+  }
+  return null;
 }
 
 /**
@@ -188,10 +214,10 @@ export async function createPattern(req: Request, res: Response) {
       source_url: sourceUrl,
       difficulty,
       category,
-      yarn_requirements: yarnRequirements ? JSON.stringify(yarnRequirements) : '[]',
-      needle_sizes: needleSizes ? JSON.stringify(needleSizes) : '[]',
-      gauge: gauge ? JSON.stringify(gauge) : null,
-      sizes_available: sizesAvailable ? JSON.stringify(sizesAvailable) : '[]',
+      yarn_requirements: toDisplayString(yarnRequirements),
+      needle_sizes: toDisplayString(needleSizes),
+      gauge: toDisplayString(gauge),
+      sizes_available: toDisplayString(sizesAvailable),
       estimated_yardage: estimatedYardage,
       notes,
       tags: tags ? JSON.stringify(tags) : '[]',
@@ -261,10 +287,10 @@ export async function updatePattern(req: Request, res: Response) {
   if (sourceUrl !== undefined) updateData.source_url = sourceUrl;
   if (difficulty !== undefined) updateData.difficulty = difficulty;
   if (category !== undefined) updateData.category = category;
-  if (yarnRequirements !== undefined) updateData.yarn_requirements = JSON.stringify(yarnRequirements);
-  if (needleSizes !== undefined) updateData.needle_sizes = JSON.stringify(needleSizes);
-  if (gauge !== undefined) updateData.gauge = gauge ? JSON.stringify(gauge) : null;
-  if (sizesAvailable !== undefined) updateData.sizes_available = JSON.stringify(sizesAvailable);
+  if (yarnRequirements !== undefined) updateData.yarn_requirements = toDisplayString(yarnRequirements);
+  if (needleSizes !== undefined) updateData.needle_sizes = toDisplayString(needleSizes);
+  if (gauge !== undefined) updateData.gauge = toDisplayString(gauge);
+  if (sizesAvailable !== undefined) updateData.sizes_available = toDisplayString(sizesAvailable);
   if (estimatedYardage !== undefined) updateData.estimated_yardage = estimatedYardage;
   if (notes !== undefined) updateData.notes = notes;
   if (tags !== undefined) updateData.tags = JSON.stringify(tags);

@@ -3,13 +3,16 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.uploadAudioMiddleware = exports.uploadPatternFileMiddleware = exports.uploadImageMiddleware = exports.deleteYarnPhoto = exports.getYarnPhotos = exports.uploadYarnPhoto = exports.downloadPatternFile = exports.deletePatternFile = exports.getPatternFiles = exports.uploadPatternFile = exports.deleteProjectPhoto = exports.getProjectPhotos = exports.uploadProjectPhoto = void 0;
+exports.uploadHandwrittenMiddleware = exports.uploadAudioMiddleware = exports.uploadPatternFileMiddleware = exports.uploadImageMiddleware = exports.deleteYarnPhoto = exports.getYarnPhotos = exports.uploadPatternThumbnailFromUrl = exports.uploadYarnPhotoFromUrl = exports.uploadYarnPhoto = exports.downloadPatternFile = exports.deletePatternFile = exports.getPatternFiles = exports.uploadPatternFile = exports.deleteProjectPhoto = exports.getProjectPhotos = exports.uploadProjectPhoto = void 0;
 const multer_1 = __importDefault(require("multer"));
 const sharp_1 = __importDefault(require("sharp"));
 const path_1 = __importDefault(require("path"));
 const fs_1 = __importDefault(require("fs"));
+const axios_1 = __importDefault(require("axios"));
 const util_1 = require("util");
 const database_1 = __importDefault(require("../config/database"));
+const logger_1 = __importDefault(require("../config/logger"));
+const inputSanitizer_1 = require("../utils/inputSanitizer");
 const unlinkAsync = (0, util_1.promisify)(fs_1.default.unlink);
 // Configure multer for image uploads (project/yarn photos)
 const imageUpload = (0, multer_1.default)({
@@ -161,7 +164,7 @@ const uploadProjectPhoto = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Upload error:', error);
+        logger_1.default.error('Upload error', { error: error.message, stack: error.stack });
         res.status(500).json({
             success: false,
             message: 'Failed to upload photo',
@@ -196,7 +199,7 @@ const getProjectPhotos = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Error fetching photos:', error);
+        logger_1.default.error('Error fetching photos', { error: error.message, stack: error.stack });
         res.status(500).json({
             success: false,
             message: 'Failed to fetch photos',
@@ -247,7 +250,7 @@ const deleteProjectPhoto = async (req, res) => {
                 await unlinkAsync(thumbnailPath);
         }
         catch (fileError) {
-            console.error('Error deleting files:', fileError);
+            logger_1.default.error('Error deleting files', { error: fileError.message });
             // Continue even if file deletion fails
         }
         res.json({
@@ -256,7 +259,7 @@ const deleteProjectPhoto = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Error deleting photo:', error);
+        logger_1.default.error('Error deleting photo', { error: error.message, stack: error.stack });
         res.status(500).json({
             success: false,
             message: 'Failed to delete photo',
@@ -339,7 +342,7 @@ const uploadPatternFile = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Pattern file upload error:', error);
+        logger_1.default.error('Pattern file upload error', { error: error.message, stack: error.stack });
         res.status(500).json({
             success: false,
             message: 'Failed to upload pattern file',
@@ -375,7 +378,7 @@ const getPatternFiles = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Error fetching pattern files:', error);
+        logger_1.default.error('Error fetching pattern files', { error: error.message, stack: error.stack });
         res.status(500).json({
             success: false,
             message: 'Failed to fetch pattern files',
@@ -423,7 +426,7 @@ const deletePatternFile = async (req, res) => {
                 await unlinkAsync(filepath);
         }
         catch (fileError) {
-            console.error('Error deleting file:', fileError);
+            logger_1.default.error('Error deleting file', { error: fileError.message });
             // Continue even if file deletion fails
         }
         res.json({
@@ -432,7 +435,7 @@ const deletePatternFile = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Error deleting pattern file:', error);
+        logger_1.default.error('Error deleting pattern file', { error: error.message, stack: error.stack });
         res.status(500).json({
             success: false,
             message: 'Failed to delete pattern file',
@@ -476,22 +479,24 @@ const downloadPatternFile = async (req, res) => {
         }
         // Set headers for download/viewing
         res.setHeader('Content-Type', file.mime_type);
+        // Sanitize filename to prevent header injection attacks
+        const sanitizedFilename = (0, inputSanitizer_1.sanitizeHeaderValue)(file.original_filename);
         // Use inline disposition for PDFs and images to allow browser viewing
         // Use attachment for other file types to trigger download
         const forceDownload = req.query.download === 'true';
         const isViewableInBrowser = file.file_type === 'pdf' || file.file_type === 'image';
         if (isViewableInBrowser && !forceDownload) {
-            res.setHeader('Content-Disposition', `inline; filename="${file.original_filename}"`);
+            res.setHeader('Content-Disposition', `inline; filename="${sanitizedFilename}"`);
         }
         else {
-            res.setHeader('Content-Disposition', `attachment; filename="${file.original_filename}"`);
+            res.setHeader('Content-Disposition', `attachment; filename="${sanitizedFilename}"`);
         }
         // Stream the file
         const fileStream = fs_1.default.createReadStream(filepath);
         fileStream.pipe(res);
     }
     catch (error) {
-        console.error('Error downloading pattern file:', error);
+        logger_1.default.error('Error downloading pattern file', { error: error.message, stack: error.stack });
         res.status(500).json({
             success: false,
             message: 'Failed to download pattern file',
@@ -565,7 +570,7 @@ const uploadYarnPhoto = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Yarn photo upload error:', error);
+        logger_1.default.error('Yarn photo upload error', { error: error.message, stack: error.stack });
         res.status(500).json({
             success: false,
             message: 'Failed to upload yarn photo',
@@ -574,6 +579,156 @@ const uploadYarnPhoto = async (req, res) => {
     }
 };
 exports.uploadYarnPhoto = uploadYarnPhoto;
+// Upload yarn photo from external URL (e.g. Ravelry)
+const uploadYarnPhotoFromUrl = async (req, res) => {
+    try {
+        const userId = req.user.userId;
+        const { yarnId } = req.params;
+        const { photoUrl } = req.body;
+        if (!photoUrl || typeof photoUrl !== 'string') {
+            return res.status(400).json({
+                success: false,
+                message: 'Photo URL is required',
+            });
+        }
+        try {
+            const parsedUrl = new URL(photoUrl);
+            if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+                throw new Error('Invalid protocol');
+            }
+        }
+        catch {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid photo URL',
+            });
+        }
+        const yarn = await (0, database_1.default)('yarn')
+            .where({ id: yarnId, user_id: userId })
+            .whereNull('deleted_at')
+            .first();
+        if (!yarn) {
+            return res.status(404).json({ success: false, message: 'Yarn not found' });
+        }
+        const imageResponse = await axios_1.default.get(photoUrl, {
+            responseType: 'arraybuffer',
+            timeout: 15000,
+            maxContentLength: 10 * 1024 * 1024,
+            headers: { 'User-Agent': 'Rowly/1.0' },
+        });
+        const buffer = Buffer.from(imageResponse.data);
+        const metadata = await (0, sharp_1.default)(buffer).metadata();
+        if (!metadata.width || !metadata.height) {
+            return res.status(400).json({ success: false, message: 'Invalid image' });
+        }
+        const timestamp = Date.now();
+        const filename = `yarn-${yarnId}-${timestamp}.webp`;
+        const thumbnailFilename = `yarn-${yarnId}-${timestamp}-thumb.webp`;
+        const filepath = path_1.default.join('uploads/yarn', filename);
+        const thumbnailPath = path_1.default.join('uploads/yarn/thumbnails', thumbnailFilename);
+        await (0, sharp_1.default)(buffer)
+            .resize(1920, 1920, { fit: 'inside', withoutEnlargement: true })
+            .webp({ quality: 85 })
+            .toFile(filepath);
+        await (0, sharp_1.default)(buffer)
+            .resize(400, 400, { fit: 'cover' })
+            .webp({ quality: 80 })
+            .toFile(thumbnailPath);
+        const [photo] = await (0, database_1.default)('yarn_photos')
+            .insert({
+            yarn_id: yarnId,
+            user_id: userId,
+            filename,
+            thumbnail_filename: thumbnailFilename,
+            original_filename: 'ravelry-import.webp',
+            file_path: `/uploads/yarn/${filename}`,
+            thumbnail_path: `/uploads/yarn/thumbnails/${thumbnailFilename}`,
+            mime_type: 'image/webp',
+            size: buffer.length,
+            width: metadata.width,
+            height: metadata.height,
+            caption: 'Imported from Ravelry',
+        })
+            .returning('*');
+        res.status(201).json({
+            success: true,
+            message: 'Yarn photo imported successfully',
+            data: { photo },
+        });
+    }
+    catch (error) {
+        logger_1.default.error('Yarn photo URL import error', { error: error.message });
+        res.status(500).json({
+            success: false,
+            message: 'Failed to import photo from URL',
+            error: error.message,
+        });
+    }
+};
+exports.uploadYarnPhotoFromUrl = uploadYarnPhotoFromUrl;
+// Upload pattern thumbnail from external URL (e.g. Ravelry)
+const uploadPatternThumbnailFromUrl = async (req, res) => {
+    try {
+        const userId = req.user.userId;
+        const { patternId } = req.params;
+        const { photoUrl } = req.body;
+        if (!photoUrl || typeof photoUrl !== 'string') {
+            return res.status(400).json({ success: false, message: 'Photo URL is required' });
+        }
+        try {
+            const parsedUrl = new URL(photoUrl);
+            if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+                throw new Error('Invalid protocol');
+            }
+        }
+        catch {
+            return res.status(400).json({ success: false, message: 'Invalid photo URL' });
+        }
+        const pattern = await (0, database_1.default)('patterns')
+            .where({ id: patternId, user_id: userId })
+            .whereNull('deleted_at')
+            .first();
+        if (!pattern) {
+            return res.status(404).json({ success: false, message: 'Pattern not found' });
+        }
+        const imageResponse = await axios_1.default.get(photoUrl, {
+            responseType: 'arraybuffer',
+            timeout: 15000,
+            maxContentLength: 10 * 1024 * 1024,
+            headers: { 'User-Agent': 'Rowly/1.0' },
+        });
+        const buffer = Buffer.from(imageResponse.data);
+        const metadata = await (0, sharp_1.default)(buffer).metadata();
+        if (!metadata.width || !metadata.height) {
+            return res.status(400).json({ success: false, message: 'Invalid image' });
+        }
+        const timestamp = Date.now();
+        const filename = `pattern-${patternId}-${timestamp}.webp`;
+        const filepath = path_1.default.join('uploads/patterns', filename);
+        await (0, sharp_1.default)(buffer)
+            .resize(800, 800, { fit: 'inside', withoutEnlargement: true })
+            .webp({ quality: 85 })
+            .toFile(filepath);
+        const thumbnailUrl = `/uploads/patterns/${filename}`;
+        await (0, database_1.default)('patterns')
+            .where({ id: patternId, user_id: userId })
+            .update({ thumbnail_url: thumbnailUrl, updated_at: database_1.default.fn.now() });
+        res.status(201).json({
+            success: true,
+            message: 'Pattern thumbnail imported successfully',
+            data: { thumbnailUrl },
+        });
+    }
+    catch (error) {
+        logger_1.default.error('Pattern thumbnail URL import error', { error: error.message });
+        res.status(500).json({
+            success: false,
+            message: 'Failed to import pattern thumbnail',
+            error: error.message,
+        });
+    }
+};
+exports.uploadPatternThumbnailFromUrl = uploadPatternThumbnailFromUrl;
 // Get yarn photos
 const getYarnPhotos = async (req, res) => {
     try {
@@ -601,7 +756,7 @@ const getYarnPhotos = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Error fetching yarn photos:', error);
+        logger_1.default.error('Error fetching yarn photos', { error: error.message, stack: error.stack });
         res.status(500).json({
             success: false,
             message: 'Failed to fetch yarn photos',
@@ -652,7 +807,7 @@ const deleteYarnPhoto = async (req, res) => {
                 await unlinkAsync(thumbnailPath);
         }
         catch (fileError) {
-            console.error('Error deleting files:', fileError);
+            logger_1.default.error('Error deleting files', { error: fileError.message });
             // Continue even if file deletion fails
         }
         res.json({
@@ -661,7 +816,7 @@ const deleteYarnPhoto = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Error deleting yarn photo:', error);
+        logger_1.default.error('Error deleting yarn photo', { error: error.message, stack: error.stack });
         res.status(500).json({
             success: false,
             message: 'Failed to delete yarn photo',
@@ -673,3 +828,4 @@ exports.deleteYarnPhoto = deleteYarnPhoto;
 exports.uploadImageMiddleware = imageUpload.single('photo');
 exports.uploadPatternFileMiddleware = patternFileUpload.single('file');
 exports.uploadAudioMiddleware = audioUpload.single('audio');
+exports.uploadHandwrittenMiddleware = imageUpload.single('image');

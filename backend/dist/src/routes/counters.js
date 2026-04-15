@@ -53,6 +53,12 @@ router.use(auth_1.authenticate);
  */
 router.get('/projects/:id/counters', (0, validator_1.validateUUID)('id'), (0, errorHandler_1.asyncHandler)(countersController.getCounters));
 /**
+ * @route   GET /api/projects/:id/counters/hierarchy
+ * @desc    Get counters in hierarchical structure
+ * @access  Private
+ */
+router.get('/projects/:id/counters/hierarchy', (0, validator_1.validateUUID)('id'), (0, errorHandler_1.asyncHandler)(countersController.getCounterHierarchy));
+/**
  * @route   GET /api/projects/:id/counters/:counterId
  * @desc    Get single counter by ID
  * @access  Private
@@ -66,18 +72,31 @@ router.get('/projects/:id/counters/:counterId', [(0, validator_1.validateUUID)('
 router.post('/projects/:id/counters', [
     (0, validator_1.validateUUID)('id'),
     (0, express_validator_1.body)('name').trim().notEmpty().isLength({ max: 255 }),
-    (0, express_validator_1.body)('type').optional().isIn(['rows', 'stitches', 'repeats', 'custom']),
-    (0, express_validator_1.body)('currentValue').optional().isNumeric(),
-    (0, express_validator_1.body)('targetValue').optional().isNumeric(),
-    (0, express_validator_1.body)('incrementBy').optional().isNumeric(),
-    (0, express_validator_1.body)('minValue').optional().isNumeric(),
-    (0, express_validator_1.body)('maxValue').optional().isNumeric(),
-    (0, express_validator_1.body)('displayColor').optional().isString(),
-    (0, express_validator_1.body)('isVisible').optional().isBoolean(),
-    (0, express_validator_1.body)('incrementPattern').optional().isObject(),
-    (0, express_validator_1.body)('sortOrder').optional().isNumeric(),
-    (0, express_validator_1.body)('notes').optional().isString(),
+    (0, express_validator_1.body)('type').optional({ values: 'null' }).isIn(['rows', 'stitches', 'repeats', 'custom']),
+    (0, express_validator_1.body)('currentValue').optional({ values: 'falsy' }).isNumeric(),
+    (0, express_validator_1.body)('targetValue').optional({ values: 'falsy' }).isNumeric(),
+    (0, express_validator_1.body)('incrementBy').optional({ values: 'falsy' }).isNumeric(),
+    (0, express_validator_1.body)('minValue').optional({ values: 'falsy' }).isNumeric(),
+    (0, express_validator_1.body)('maxValue').optional({ values: 'falsy' }).isNumeric(),
+    (0, express_validator_1.body)('displayColor').optional({ values: 'null' }).isString(),
+    (0, express_validator_1.body)('isVisible').optional({ values: 'falsy' }).isBoolean(),
+    (0, express_validator_1.body)('incrementPattern').optional({ values: 'null' }).isObject(),
+    (0, express_validator_1.body)('sortOrder').optional({ values: 'falsy' }).isNumeric(),
+    (0, express_validator_1.body)('notes').optional({ values: 'null' }).isString(),
+    (0, express_validator_1.body)('parentCounterId').optional({ values: 'null' }).isUUID(),
+    (0, express_validator_1.body)('autoReset').optional({ values: 'falsy' }).isBoolean(),
 ], validator_1.validate, (0, errorHandler_1.asyncHandler)(countersController.createCounter));
+/**
+ * @route   POST /api/projects/:id/counters/:counterId/increment
+ * @desc    Increment counter with all linked children (for linked mode)
+ * @access  Private
+ */
+router.post('/projects/:id/counters/:counterId/increment', [
+    (0, validator_1.validateUUID)('id'),
+    (0, validator_1.validateUUID)('counterId'),
+    (0, express_validator_1.body)('amount').optional({ values: 'falsy' }).isNumeric(),
+    (0, express_validator_1.body)('mode').optional({ values: 'null' }).isIn(['linked', 'independent']),
+], validator_1.validate, (0, errorHandler_1.asyncHandler)(countersController.incrementWithChildren));
 /**
  * @route   PUT /api/projects/:id/counters/:counterId
  * @desc    Update a counter (including value changes)
@@ -132,10 +151,10 @@ router.post('/projects/:id/counter-links', [
     (0, validator_1.validateUUID)('id'),
     (0, express_validator_1.body)('sourceCounterId').notEmpty().isUUID(),
     (0, express_validator_1.body)('targetCounterId').notEmpty().isUUID(),
-    (0, express_validator_1.body)('linkType').optional().isString(),
+    (0, express_validator_1.body)('linkType').optional({ values: 'null' }).isString(),
     (0, express_validator_1.body)('triggerCondition').notEmpty().isObject(),
     (0, express_validator_1.body)('action').notEmpty().isObject(),
-    (0, express_validator_1.body)('isActive').optional().isBoolean(),
+    (0, express_validator_1.body)('isActive').optional({ values: 'falsy' }).isBoolean(),
 ], validator_1.validate, (0, errorHandler_1.asyncHandler)(counterLinksController.createCounterLink));
 /**
  * @route   PUT /api/projects/:id/counter-links/:linkId

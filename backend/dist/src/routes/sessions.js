@@ -76,9 +76,9 @@ router.get('/projects/:id/sessions/:sessionId', [(0, validator_1.validateUUID)('
  */
 router.post('/projects/:id/sessions/start', [
     (0, validator_1.validateUUID)('id'),
-    (0, express_validator_1.body)('mood').optional().isString(),
-    (0, express_validator_1.body)('location').optional().isString(),
-    (0, express_validator_1.body)('notes').optional().isString(),
+    (0, express_validator_1.body)('mood').optional({ values: 'null' }).isString(),
+    (0, express_validator_1.body)('location').optional({ values: 'null' }).isString(),
+    (0, express_validator_1.body)('notes').optional({ values: 'null' }).isString(),
 ], validator_1.validate, (0, errorHandler_1.asyncHandler)(sessionsController.startSession));
 /**
  * @route   POST /api/projects/:id/sessions/:sessionId/end
@@ -88,8 +88,8 @@ router.post('/projects/:id/sessions/start', [
 router.post('/projects/:id/sessions/:sessionId/end', [
     (0, validator_1.validateUUID)('id'),
     (0, validator_1.validateUUID)('sessionId'),
-    (0, express_validator_1.body)('notes').optional().isString(),
-    (0, express_validator_1.body)('mood').optional().isString(),
+    (0, express_validator_1.body)('notes').optional({ values: 'null' }).isString(),
+    (0, express_validator_1.body)('mood').optional({ values: 'null' }).isString(),
 ], validator_1.validate, (0, errorHandler_1.asyncHandler)(sessionsController.endSession));
 /**
  * @route   PUT /api/projects/:id/sessions/:sessionId
@@ -120,8 +120,8 @@ router.get('/projects/:id/milestones', (0, validator_1.validateUUID)('id'), (0, 
 router.post('/projects/:id/milestones', [
     (0, validator_1.validateUUID)('id'),
     (0, express_validator_1.body)('name').trim().notEmpty().isLength({ max: 255 }),
-    (0, express_validator_1.body)('targetRows').optional().isNumeric(),
-    (0, express_validator_1.body)('notes').optional().isString(),
+    (0, express_validator_1.body)('targetRows').optional({ values: 'falsy' }).isNumeric(),
+    (0, express_validator_1.body)('notes').optional({ values: 'null' }).isString(),
 ], validator_1.validate, (0, errorHandler_1.asyncHandler)(sessionsController.createMilestone));
 /**
  * @route   PUT /api/projects/:id/milestones/:milestoneId

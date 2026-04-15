@@ -5,6 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.sessionRedisClient = exports.redisClient = void 0;
 const ioredis_1 = __importDefault(require("ioredis"));
+const logger_1 = __importDefault(require("./logger"));
 const redisConfig = {
     host: process.env.REDIS_HOST || 'localhost',
     port: parseInt(process.env.REDIS_PORT || '6379'),
@@ -19,10 +20,10 @@ const redisConfig = {
 // Create Redis client for rate limiting
 exports.redisClient = new ioredis_1.default(redisConfig);
 exports.redisClient.on('connect', () => {
-    console.log('✓ Redis connection established');
+    logger_1.default.info('Redis connection established');
 });
 exports.redisClient.on('error', (err) => {
-    console.error('✗ Redis connection error:', err.message);
+    logger_1.default.error('Redis connection error', { error: err.message });
 });
 // Create separate Redis client for sessions
 exports.sessionRedisClient = new ioredis_1.default(redisConfig);

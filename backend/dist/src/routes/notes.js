@@ -65,11 +65,11 @@ router.get('/projects/:id/audio-notes/:noteId', [(0, validator_1.validateUUID)('
  */
 router.post('/projects/:id/audio-notes', uploadsController_1.uploadAudioMiddleware, [
     (0, validator_1.validateUUID)('id'),
-    (0, express_validator_1.body)('patternId').optional().isUUID(),
-    (0, express_validator_1.body)('transcription').optional().isString(),
-    (0, express_validator_1.body)('durationSeconds').optional().isNumeric(),
-    (0, express_validator_1.body)('title').optional().isString(),
-    (0, express_validator_1.body)('tags').optional().isArray(),
+    (0, express_validator_1.body)('patternId').optional({ values: 'null' }).isUUID(),
+    (0, express_validator_1.body)('transcription').optional({ values: 'null' }).isString(),
+    (0, express_validator_1.body)('durationSeconds').optional({ values: 'falsy' }).isNumeric(),
+    (0, express_validator_1.body)('title').optional({ values: 'null' }).isString(),
+    (0, express_validator_1.body)('tags').optional({ values: 'null' }).isArray(),
 ], validator_1.validate, (0, errorHandler_1.asyncHandler)(notesController.createAudioNote));
 /**
  * @route   PUT /api/projects/:id/audio-notes/:noteId
@@ -92,6 +92,7 @@ router.delete('/projects/:id/audio-notes/:noteId', [(0, validator_1.validateUUID
  * @access  Private
  */
 router.get('/projects/:id/memos', (0, validator_1.validateUUID)('id'), (0, errorHandler_1.asyncHandler)(notesController.getStructuredMemos));
+router.get('/projects/:id/structured-memos', (0, validator_1.validateUUID)('id'), (0, errorHandler_1.asyncHandler)(notesController.getStructuredMemos));
 /**
  * @route   GET /api/projects/:id/memos/:memoId
  * @desc    Get single structured memo by ID
@@ -105,9 +106,15 @@ router.get('/projects/:id/memos/:memoId', [(0, validator_1.validateUUID)('id'), 
  */
 router.post('/projects/:id/memos', [
     (0, validator_1.validateUUID)('id'),
-    (0, express_validator_1.body)('templateType').notEmpty().isIn(['gauge_swatch', 'fit_adjustment', 'yarn_substitution', 'finishing']),
+    (0, express_validator_1.body)('templateType').notEmpty().isIn(['gauge_swatch', 'fit_adjustment', 'yarn_substitution', 'finishing', 'finishing_techniques']),
     (0, express_validator_1.body)('data').notEmpty().isObject(),
-    (0, express_validator_1.body)('title').optional().isString(),
+    (0, express_validator_1.body)('title').optional({ values: 'null' }).isString(),
+], validator_1.validate, (0, errorHandler_1.asyncHandler)(notesController.createStructuredMemo));
+router.post('/projects/:id/structured-memos', [
+    (0, validator_1.validateUUID)('id'),
+    (0, express_validator_1.body)('templateType').notEmpty().isIn(['gauge_swatch', 'fit_adjustment', 'yarn_substitution', 'finishing', 'finishing_techniques']),
+    (0, express_validator_1.body)('data').notEmpty().isObject(),
+    (0, express_validator_1.body)('title').optional({ values: 'null' }).isString(),
 ], validator_1.validate, (0, errorHandler_1.asyncHandler)(notesController.createStructuredMemo));
 /**
  * @route   PUT /api/projects/:id/memos/:memoId
@@ -121,6 +128,7 @@ router.put('/projects/:id/memos/:memoId', [(0, validator_1.validateUUID)('id'), 
  * @access  Private
  */
 router.delete('/projects/:id/memos/:memoId', [(0, validator_1.validateUUID)('id'), (0, validator_1.validateUUID)('memoId')], validator_1.validate, (0, errorHandler_1.asyncHandler)(notesController.deleteStructuredMemo));
+router.delete('/projects/:id/structured-memos/:memoId', [(0, validator_1.validateUUID)('id'), (0, validator_1.validateUUID)('memoId')], validator_1.validate, (0, errorHandler_1.asyncHandler)(notesController.deleteStructuredMemo));
 /**
  * Text Notes Routes
  */
@@ -144,10 +152,10 @@ router.get('/projects/:id/text-notes/:noteId', [(0, validator_1.validateUUID)('i
 router.post('/projects/:id/text-notes', [
     (0, validator_1.validateUUID)('id'),
     (0, express_validator_1.body)('content').notEmpty().isString(),
-    (0, express_validator_1.body)('title').optional().isString(),
-    (0, express_validator_1.body)('patternId').optional().isUUID(),
-    (0, express_validator_1.body)('tags').optional().isArray(),
-    (0, express_validator_1.body)('isPinned').optional().isBoolean(),
+    (0, express_validator_1.body)('title').optional({ values: 'null' }).isString(),
+    (0, express_validator_1.body)('patternId').optional({ values: 'null' }).isUUID(),
+    (0, express_validator_1.body)('tags').optional({ values: 'null' }).isArray(),
+    (0, express_validator_1.body)('isPinned').optional({ values: 'falsy' }).isBoolean(),
 ], validator_1.validate, (0, errorHandler_1.asyncHandler)(notesController.createTextNote));
 /**
  * @route   PUT /api/projects/:id/text-notes/:noteId
@@ -161,4 +169,15 @@ router.put('/projects/:id/text-notes/:noteId', [(0, validator_1.validateUUID)('i
  * @access  Private
  */
 router.delete('/projects/:id/text-notes/:noteId', [(0, validator_1.validateUUID)('id'), (0, validator_1.validateUUID)('noteId')], validator_1.validate, (0, errorHandler_1.asyncHandler)(notesController.deleteTextNote));
+/**
+ * Handwritten Notes Routes
+ */
+router.get('/projects/:id/handwritten-notes', (0, validator_1.validateUUID)('id'), (0, errorHandler_1.asyncHandler)(notesController.getHandwrittenNotes));
+router.post('/projects/:id/handwritten-notes', uploadsController_1.uploadHandwrittenMiddleware, [
+    (0, validator_1.validateUUID)('id'),
+    (0, express_validator_1.body)('patternId').optional({ values: 'null' }).isUUID(),
+    (0, express_validator_1.body)('pageNumber').optional({ values: 'falsy' }).isNumeric(),
+    (0, express_validator_1.body)('notes').optional({ values: 'null' }).isString(),
+], validator_1.validate, (0, errorHandler_1.asyncHandler)(notesController.createHandwrittenNote));
+router.delete('/projects/:id/handwritten-notes/:noteId', [(0, validator_1.validateUUID)('id'), (0, validator_1.validateUUID)('noteId')], validator_1.validate, (0, errorHandler_1.asyncHandler)(notesController.deleteHandwrittenNote));
 exports.default = router;

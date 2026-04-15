@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { FiArrowLeft, FiEdit2, FiTrash2, FiFileText, FiGrid, FiTool } from 'react-icons/fi';
+import { FiArrowLeft, FiEdit2, FiTrash2, FiFileText, FiGrid, FiTool, FiBook } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { PDFCollation } from '../components/patterns';
@@ -25,6 +25,9 @@ interface Pattern {
   tags?: string[];
   is_favorite?: boolean;
   times_used?: number;
+  thumbnail_url?: string | null;
+  source_url?: string | null;
+  estimated_yardage?: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -381,89 +384,112 @@ export default function PatternDetail() {
         <>
           {/* Pattern Details */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-        {/* Main Info */}
-        <div className="lg:col-span-2 bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Pattern Information</h2>
-
-          {pattern.description && (
-            <div className="mb-4">
-              <h3 className="text-sm font-medium text-gray-700 mb-1">Description</h3>
-              <p className="text-gray-600">{pattern.description}</p>
+        {/* Left column: Photo + Stats */}
+        <div className="lg:col-span-1 space-y-6">
+          {pattern.thumbnail_url ? (
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+              <div className="w-full aspect-square bg-gray-100">
+                <img
+                  src={pattern.thumbnail_url}
+                  alt={pattern.name}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+              <div className="w-full aspect-square bg-gray-100 flex items-center justify-center">
+                <FiBook className="h-24 w-24 text-gray-300" />
+              </div>
             </div>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {pattern.category && (
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Statistics</h2>
+            <div className="space-y-3">
               <div>
-                <h3 className="text-sm font-medium text-gray-700">Category</h3>
-                <p className="text-gray-900">{pattern.category}</p>
+                <div className="text-xs text-gray-500 uppercase tracking-wide">Times Used</div>
+                <div className="text-2xl font-bold text-purple-600">{pattern.times_used || 0}</div>
               </div>
-            )}
-
-            {pattern.needle_sizes && (
               <div>
-                <h3 className="text-sm font-medium text-gray-700">Needle Size</h3>
-                <p className="text-gray-900">{pattern.needle_sizes}</p>
+                <div className="text-xs text-gray-500 uppercase tracking-wide">Files Attached</div>
+                <div className="text-2xl font-bold text-purple-600">{files.length}</div>
               </div>
-            )}
-
-            {pattern.gauge && (
-              <div>
-                <h3 className="text-sm font-medium text-gray-700">Gauge</h3>
-                <p className="text-gray-900">{pattern.gauge}</p>
+              <div className="pt-3 border-t border-gray-200">
+                <div className="text-xs text-gray-500 uppercase tracking-wide">Created</div>
+                <div className="text-sm text-gray-700 dark:text-gray-300">{new Date(pattern.created_at).toLocaleDateString()}</div>
               </div>
-            )}
-
-            {pattern.sizes_available && (
-              <div>
-                <h3 className="text-sm font-medium text-gray-700">Sizes Available</h3>
-                <p className="text-gray-900">{pattern.sizes_available}</p>
-              </div>
-            )}
+              {pattern.updated_at && pattern.updated_at !== pattern.created_at && (
+                <div>
+                  <div className="text-xs text-gray-500 uppercase tracking-wide">Last Updated</div>
+                  <div className="text-sm text-gray-700 dark:text-gray-300">{new Date(pattern.updated_at).toLocaleDateString()}</div>
+                </div>
+              )}
+            </div>
           </div>
-
-          {pattern.yarn_requirements && (
-            <div className="mt-4">
-              <h3 className="text-sm font-medium text-gray-700 mb-1">Yarn Requirements</h3>
-              <p className="text-gray-600">{pattern.yarn_requirements}</p>
-            </div>
-          )}
-
-          {pattern.notes && (
-            <div className="mt-4">
-              <h3 className="text-sm font-medium text-gray-700 mb-1">Notes</h3>
-              <p className="text-gray-600 whitespace-pre-wrap">{pattern.notes}</p>
-            </div>
-          )}
         </div>
 
-        {/* Stats */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Statistics</h2>
-
-          <div className="space-y-3">
-            <div>
-              <h3 className="text-sm font-medium text-gray-700">Times Used</h3>
-              <p className="text-2xl font-bold text-purple-600">{pattern.times_used || 0}</p>
-            </div>
-
-            <div>
-              <h3 className="text-sm font-medium text-gray-700">Files Attached</h3>
-              <p className="text-2xl font-bold text-purple-600">{files.length}</p>
-            </div>
-
-            <div className="pt-3 border-t border-gray-200">
-              <h3 className="text-sm font-medium text-gray-700">Created</h3>
-              <p className="text-gray-600">{new Date(pattern.created_at).toLocaleDateString()}</p>
-            </div>
-
-            {pattern.updated_at && pattern.updated_at !== pattern.created_at && (
-              <div>
-                <h3 className="text-sm font-medium text-gray-700">Last Updated</h3>
-                <p className="text-gray-600">{new Date(pattern.updated_at).toLocaleDateString()}</p>
+        {/* Right column: Pattern info */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Title card with category */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">About</h2>
+            {pattern.category && (
+              <p className="text-sm text-gray-500 mb-3">
+                <span className="capitalize">{pattern.category}</span>
+              </p>
+            )}
+            {pattern.description ? (
+              <div className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed">
+                {pattern.description}
               </div>
+            ) : (
+              <p className="text-sm text-gray-400 italic">No description yet.</p>
             )}
           </div>
+
+          {/* Specifications */}
+          {(pattern.needle_sizes || pattern.gauge || pattern.sizes_available) && (
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Specifications</h2>
+              <dl className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {pattern.needle_sizes && (
+                  <div>
+                    <dt className="text-xs text-gray-500 uppercase tracking-wide">Needle Sizes</dt>
+                    <dd className="text-gray-900 dark:text-gray-100 mt-1">{pattern.needle_sizes}</dd>
+                  </div>
+                )}
+                {pattern.gauge && (
+                  <div>
+                    <dt className="text-xs text-gray-500 uppercase tracking-wide">Gauge</dt>
+                    <dd className="text-gray-900 dark:text-gray-100 mt-1">{pattern.gauge}</dd>
+                  </div>
+                )}
+                {pattern.sizes_available && (
+                  <div className="md:col-span-2">
+                    <dt className="text-xs text-gray-500 uppercase tracking-wide">Sizes Available</dt>
+                    <dd className="text-gray-900 dark:text-gray-100 mt-1">{pattern.sizes_available}</dd>
+                  </div>
+                )}
+              </dl>
+            </div>
+          )}
+
+          {/* Yarn Requirements */}
+          {pattern.yarn_requirements && (
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Yarn Requirements</h2>
+              <div className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{pattern.yarn_requirements}</div>
+            </div>
+          )}
+
+          {/* Notes */}
+          {pattern.notes && (
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Notes</h2>
+              <div className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{pattern.notes}</div>
+            </div>
+          )}
         </div>
       </div>
 

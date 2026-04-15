@@ -3,6 +3,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.ALLOWED_PROJECT_TYPES = void 0;
+exports.getProjectTypes = getProjectTypes;
 exports.getProjects = getProjects;
 exports.getProject = getProject;
 exports.createProject = createProject;
@@ -19,6 +21,36 @@ exports.removeToolFromProject = removeToolFromProject;
 const database_1 = __importDefault(require("../config/database"));
 const errorHandler_1 = require("../utils/errorHandler");
 const auditLog_1 = require("../middleware/auditLog");
+const inputSanitizer_1 = require("../utils/inputSanitizer");
+exports.ALLOWED_PROJECT_TYPES = [
+    'sweater',
+    'cardigan',
+    'hat',
+    'scarf',
+    'cowl',
+    'shawl',
+    'shawlette',
+    'socks',
+    'mittens',
+    'blanket',
+    'baby',
+    'toy',
+    'bag',
+    'home',
+    'dishcloth',
+    'other',
+];
+/**
+ * Return allowed project types for UI/API consumers
+ */
+async function getProjectTypes(req, res) {
+    res.json({
+        success: true,
+        data: {
+            projectTypes: exports.ALLOWED_PROJECT_TYPES,
+        },
+    });
+}
 /**
  * Get all projects for current user
  */
@@ -32,10 +64,11 @@ async function getProjects(req, res) {
         query = query.where({ status });
     }
     if (search) {
+        const sanitizedSearch = (0, inputSanitizer_1.sanitizeSearchQuery)(search);
         query = query.where((builder) => {
             builder
-                .where('name', 'ilike', `%${search}%`)
-                .orWhere('description', 'ilike', `%${search}%`);
+                .where('name', 'ilike', `%${sanitizedSearch}%`)
+                .orWhere('description', 'ilike', `%${sanitizedSearch}%`);
         });
     }
     const offset = (Number(page) - 1) * Number(limit);
@@ -110,14 +143,17 @@ async function createProject(req, res) {
     if (!name) {
         throw new errorHandler_1.ValidationError('Project name is required');
     }
+    if (projectType && !exports.ALLOWED_PROJECT_TYPES.includes(projectType)) {
+        throw new errorHandler_1.ValidationError(`Project type must be one of: ${exports.ALLOWED_PROJECT_TYPES.join(', ')}`);
+    }
     const [project] = await (0, database_1.default)('projects')
         .insert({
         user_id: userId,
         name,
         description,
-        project_type: projectType,
-        start_date: startDate,
-        target_completion_date: targetCompletionDate,
+        project_type: projectType || exports.ALLOWED_PROJECT_TYPES[0],
+        start_date: startDate || null,
+        target_completion_date: targetCompletionDate || null,
         notes,
         metadata: metadata ? JSON.stringify(metadata) : '{}',
         tags: tags ? JSON.stringify(tags) : '[]',
@@ -144,7 +180,6 @@ async function createProject(req, res) {
 async function updateProject(req, res) {
     const userId = req.user.userId;
     const { id } = req.params;
-    const updates = req.body;
     const project = await (0, database_1.default)('projects')
         .where({ id, user_id: userId })
         .whereNull('deleted_at')
@@ -152,12 +187,42 @@ async function updateProject(req, res) {
     if (!project) {
         throw new errorHandler_1.NotFoundError('Project not found');
     }
+    // Whitelist allowed fields to prevent mass assignment
+    const { name, description, projectType, startDate, targetCompletionDate, completedDate: completedAt, status, notes, metadata, tags, } = req.body;
+    const updateData = {
+        updated_at: new Date(),
+    };
+    if (name !== undefined)
+        updateData.name = name;
+    if (description !== undefined)
+        updateData.description = description;
+    if (projectType !== undefined) {
+        if (!exports.ALLOWED_PROJECT_TYPES.includes(projectType)) {
+            throw new errorHandler_1.ValidationError(`Project type must be one of: ${exports.ALLOWED_PROJECT_TYPES.join(', ')}`);
+        }
+        updateData.project_type = projectType;
+    }
+    if (startDate !== undefined)
+        updateData.start_date = startDate || null;
+    if (targetCompletionDate !== undefined)
+        updateData.target_completion_date = targetCompletionDate || null;
+    if (completedAt !== undefined)
+        updateData.completed_at = completedAt || null;
+    if (status !== undefined) {
+        updateData.status = status;
+        if (status === 'completed' && updateData.completed_at === undefined) {
+            updateData.completed_at = new Date();
+        }
+    }
+    if (notes !== undefined)
+        updateData.notes = notes;
+    if (metadata !== undefined)
+        updateData.metadata = JSON.stringify(metadata);
+    if (tags !== undefined)
+        updateData.tags = JSON.stringify(tags);
     const [updatedProject] = await (0, database_1.default)('projects')
         .where({ id })
-        .update({
-        ...updates,
-        updated_at: new Date(),
-    })
+        .update(updateData)
         .returning('*');
     await (0, auditLog_1.createAuditLog)(req, {
         userId,
