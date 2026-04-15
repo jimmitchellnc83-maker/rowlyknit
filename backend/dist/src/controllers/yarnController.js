@@ -12,6 +12,7 @@ exports.getYarnStats = getYarnStats;
 const database_1 = __importDefault(require("../config/database"));
 const errorHandler_1 = require("../utils/errorHandler");
 const auditLog_1 = require("../middleware/auditLog");
+const inputSanitizer_1 = require("../utils/inputSanitizer");
 async function getYarn(req, res) {
     const userId = req.user.userId;
     const { weight, brand, search, page = 1, limit = 20 } = req.query;
@@ -25,11 +26,12 @@ async function getYarn(req, res) {
         query = query.where({ brand });
     }
     if (search) {
+        const sanitizedSearch = (0, inputSanitizer_1.sanitizeSearchQuery)(search);
         query = query.where((builder) => {
             builder
-                .where('name', 'ilike', `%${search}%`)
-                .orWhere('brand', 'ilike', `%${search}%`)
-                .orWhere('color', 'ilike', `%${search}%`);
+                .where('name', 'ilike', `%${sanitizedSearch}%`)
+                .orWhere('brand', 'ilike', `%${sanitizedSearch}%`)
+                .orWhere('color', 'ilike', `%${sanitizedSearch}%`);
         });
     }
     const offset = (Number(page) - 1) * Number(limit);
@@ -38,6 +40,29 @@ async function getYarn(req, res) {
         .orderBy('created_at', 'desc')
         .limit(Number(limit))
         .offset(offset);
+    // Attach primary photo (oldest, or marked is_primary)
+    if (yarn.length > 0) {
+        const yarnIds = yarn.map((y) => y.id);
+        const photos = await (0, database_1.default)('yarn_photos')
+            .whereIn('yarn_id', yarnIds)
+            .whereNull('deleted_at')
+            .orderBy([
+            { column: 'is_primary', order: 'desc' },
+            { column: 'created_at', order: 'asc' },
+        ])
+            .select('yarn_id', 'thumbnail_path', 'file_path');
+        const photosByYarn = {};
+        for (const photo of photos) {
+            if (!photosByYarn[photo.yarn_id]) {
+                photosByYarn[photo.yarn_id] = photo;
+            }
+        }
+        for (const y of yarn) {
+            const photo = photosByYarn[y.id];
+            y.thumbnail_path = photo?.thumbnail_path || null;
+            y.photo_path = photo?.file_path || null;
+        }
+    }
     res.json({
         success: true,
         data: {
@@ -68,7 +93,9 @@ async function getYarnById(req, res) {
 }
 async function createYarn(req, res) {
     const userId = req.user.userId;
-    const { brand, line, name, color, colorCode, weight, fiberContent, yardsTotal, gramsTotal, skeinsTotal, pricePerSkein, purchaseDate, purchaseLocation, dyeLot, notes, tags, } = req.body;
+    const { brand, line, name, color, colorCode, weight, fiberContent, yardsTotal, gramsTotal, skeinsTotal, pricePerSkein, purchaseDate, purchaseLocation, dyeLot, notes, tags, 
+    // Ravelry/structured fields
+    gauge, needleSizes, machineWashable, discontinued, ravelryId, ravelryRating, description, } = req.body;
     if (!name) {
         throw new errorHandler_1.ValidationError('Yarn name is required');
     }
@@ -94,6 +121,13 @@ async function createYarn(req, res) {
         dye_lot: dyeLot,
         notes,
         tags: tags ? JSON.stringify(tags) : '[]',
+        gauge,
+        needle_sizes: needleSizes,
+        machine_washable: machineWashable,
+        discontinued: discontinued || false,
+        ravelry_id: ravelryId,
+        ravelry_rating: ravelryRating,
+        description,
         created_at: new Date(),
         updated_at: new Date(),
     })
@@ -114,7 +148,6 @@ async function createYarn(req, res) {
 async function updateYarn(req, res) {
     const userId = req.user.userId;
     const { id } = req.params;
-    const updates = req.body;
     const yarn = await (0, database_1.default)('yarn')
         .where({ id, user_id: userId })
         .whereNull('deleted_at')
@@ -122,12 +155,74 @@ async function updateYarn(req, res) {
     if (!yarn) {
         throw new errorHandler_1.NotFoundError('Yarn not found');
     }
+    // Whitelist allowed fields -- use same camelCase names as createYarn
+    const { brand, line, name, color, colorCode, weight, fiberContent, yardsTotal, gramsTotal, skeinsTotal, pricePerSkein, purchaseDate, purchaseLocation, dyeLot, notes, tags, lowStockThreshold, lowStockAlert, gauge, needleSizes, machineWashable, discontinued, ravelryId, ravelryRating, description, } = req.body;
+    const updateData = {
+        updated_at: new Date(),
+    };
+    if (brand !== undefined)
+        updateData.brand = brand;
+    if (line !== undefined)
+        updateData.line = line;
+    if (name !== undefined)
+        updateData.name = name;
+    if (color !== undefined)
+        updateData.color = color;
+    if (colorCode !== undefined)
+        updateData.color_code = colorCode;
+    if (weight !== undefined)
+        updateData.weight = weight;
+    if (fiberContent !== undefined)
+        updateData.fiber_content = fiberContent;
+    if (yardsTotal !== undefined) {
+        // Adjust remaining by the same delta so usage tracking is preserved
+        const delta = Number(yardsTotal) - (yarn.yards_total || 0);
+        updateData.yards_total = yardsTotal;
+        updateData.yards_remaining = Math.max(0, (yarn.yards_remaining || 0) + delta);
+    }
+    if (gramsTotal !== undefined) {
+        const delta = Number(gramsTotal) - (yarn.grams_total || 0);
+        updateData.grams_total = gramsTotal;
+        updateData.grams_remaining = Math.max(0, (yarn.grams_remaining || 0) + delta);
+    }
+    if (skeinsTotal !== undefined) {
+        const delta = Number(skeinsTotal) - (yarn.skeins_total || 0);
+        updateData.skeins_total = skeinsTotal;
+        updateData.skeins_remaining = Math.max(0, (yarn.skeins_remaining || 0) + delta);
+    }
+    if (pricePerSkein !== undefined)
+        updateData.price_per_skein = pricePerSkein;
+    if (purchaseDate !== undefined)
+        updateData.purchase_date = purchaseDate;
+    if (purchaseLocation !== undefined)
+        updateData.purchase_location = purchaseLocation;
+    if (dyeLot !== undefined)
+        updateData.dye_lot = dyeLot;
+    if (notes !== undefined)
+        updateData.notes = notes;
+    if (tags !== undefined)
+        updateData.tags = typeof tags === 'string' ? tags : JSON.stringify(tags);
+    if (lowStockThreshold !== undefined)
+        updateData.low_stock_threshold = lowStockThreshold;
+    if (lowStockAlert !== undefined)
+        updateData.low_stock_alert = lowStockAlert;
+    if (gauge !== undefined)
+        updateData.gauge = gauge;
+    if (needleSizes !== undefined)
+        updateData.needle_sizes = needleSizes;
+    if (machineWashable !== undefined)
+        updateData.machine_washable = machineWashable;
+    if (discontinued !== undefined)
+        updateData.discontinued = discontinued;
+    if (ravelryId !== undefined)
+        updateData.ravelry_id = ravelryId;
+    if (ravelryRating !== undefined)
+        updateData.ravelry_rating = ravelryRating;
+    if (description !== undefined)
+        updateData.description = description;
     const [updatedYarn] = await (0, database_1.default)('yarn')
         .where({ id })
-        .update({
-        ...updates,
-        updated_at: new Date(),
-    })
+        .update(updateData)
         .returning('*');
     await (0, auditLog_1.createAuditLog)(req, {
         userId,

@@ -170,16 +170,29 @@ async function endSession(req, res) {
     // Get current counter values to calculate progress
     const counters = await (0, database_1.default)('counters')
         .where({ project_id: projectId })
-        .select('id', 'name', 'current_value');
-    const counterValues = session.starting_counter_values || {};
+        .select('id', 'name', 'type', 'current_value');
+    const counterValues = typeof session.starting_counter_values === 'string'
+        ? JSON.parse(session.starting_counter_values)
+        : session.starting_counter_values || {};
     let rowsCompleted = 0;
+    const progressDetails = [];
     counters.forEach((c) => {
-        if (counterValues[c.id]) {
-            counterValues[c.id].end_value = c.current_value;
-            const progress = c.current_value - counterValues[c.id].start_value;
-            if (c.name.toLowerCase().includes('row')) {
-                rowsCompleted += progress;
-            }
+        const existing = counterValues[c.id] || { start_value: c.current_value, end_value: c.current_value };
+        const delta = c.current_value - existing.start_value;
+        counterValues[c.id] = {
+            name: existing.name || c.name,
+            start_value: existing.start_value,
+            end_value: c.current_value,
+        };
+        progressDetails.push({
+            counterId: c.id,
+            counterName: c.name,
+            start: existing.start_value,
+            end: c.current_value,
+            delta,
+        });
+        if (c.type === 'rows' || c.name.toLowerCase().includes('row')) {
+            rowsCompleted += delta;
         }
     });
     const [updatedSession] = await (0, database_1.default)('knitting_sessions')
@@ -204,7 +217,7 @@ async function endSession(req, res) {
     res.json({
         success: true,
         message: 'Session ended successfully',
-        data: { session: updatedSession },
+        data: { session: updatedSession, progressDetails },
     });
 }
 /**
@@ -369,7 +382,7 @@ async function getMilestones(req, res) {
 async function createMilestone(req, res) {
     const userId = req.user.userId;
     const { id: projectId } = req.params;
-    const { name, targetRows, notes } = req.body;
+    const { name, targetRows } = req.body;
     if (!name) {
         throw new errorHandler_1.ValidationError('Milestone name is required');
     }
@@ -385,10 +398,8 @@ async function createMilestone(req, res) {
         .insert({
         project_id: projectId,
         name,
-        target_rows: targetRows,
-        notes,
+        target_rows: targetRows || null,
         created_at: new Date(),
-        updated_at: new Date(),
     })
         .returning('*');
     await (0, auditLog_1.createAuditLog)(req, {
@@ -425,7 +436,7 @@ async function updateMilestone(req, res) {
     if (!milestone) {
         throw new errorHandler_1.NotFoundError('Milestone not found');
     }
-    const updateData = { updated_at: new Date() };
+    const updateData = {};
     if (updates.name !== undefined)
         updateData.name = updates.name;
     if (updates.targetRows !== undefined)
@@ -436,8 +447,6 @@ async function updateMilestone(req, res) {
         updateData.time_spent_seconds = updates.timeSpentSeconds;
     if (updates.completedAt !== undefined)
         updateData.completed_at = updates.completedAt;
-    if (updates.notes !== undefined)
-        updateData.notes = updates.notes;
     const [updatedMilestone] = await (0, database_1.default)('project_milestones')
         .where({ id: milestoneId })
         .update(updateData)

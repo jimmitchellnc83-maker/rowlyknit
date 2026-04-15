@@ -80,6 +80,24 @@ router.post('/logout', auth_1.authenticate, (0, errorHandler_1.asyncHandler)(aut
  */
 router.get('/profile', auth_1.authenticate, (0, errorHandler_1.asyncHandler)(authController.getProfile));
 /**
+ * @route   PUT /api/auth/profile
+ * @desc    Update user profile
+ * @access  Private
+ */
+router.put('/profile', auth_1.authenticate, [
+    (0, express_validator_1.body)('firstName').optional().trim(),
+    (0, express_validator_1.body)('lastName').optional().trim(),
+], validator_1.validate, (0, errorHandler_1.asyncHandler)(authController.updateProfile));
+/**
+ * @route   PUT /api/auth/password
+ * @desc    Change user password
+ * @access  Private
+ */
+router.put('/password', auth_1.authenticate, [
+    (0, express_validator_1.body)('currentPassword').notEmpty(),
+    (0, express_validator_1.body)('newPassword').isLength({ min: 8 }),
+], validator_1.validate, (0, errorHandler_1.asyncHandler)(authController.changePassword));
+/**
  * @route   GET /api/auth/verify-email
  * @desc    Verify email address
  * @access  Public

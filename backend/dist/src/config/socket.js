@@ -7,6 +7,7 @@ exports.getIO = exports.initializeSocket = void 0;
 const socket_io_1 = require("socket.io");
 const logger_1 = __importDefault(require("./logger"));
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
+const database_1 = __importDefault(require("./database"));
 let io = null;
 const initializeSocket = (httpServer) => {
     io = new socket_io_1.Server(httpServer, {
@@ -42,10 +43,26 @@ const initializeSocket = (httpServer) => {
         logger_1.default.info(`Client connected: ${socket.id} (User: ${userId})`);
         // Join user-specific room
         socket.join(`user:${userId}`);
-        // Handle project room joins
-        socket.on('join:project', (projectId) => {
-            socket.join(`project:${projectId}`);
-            logger_1.default.info(`User ${userId} joined project room: ${projectId}`);
+        // Handle project room joins - VERIFY OWNERSHIP FIRST
+        socket.on('join:project', async (projectId) => {
+            try {
+                // Security: Verify user owns this project before allowing them to join
+                const project = await (0, database_1.default)('projects')
+                    .where({ id: projectId, user_id: userId })
+                    .whereNull('deleted_at')
+                    .first();
+                if (!project) {
+                    logger_1.default.warn(`User ${userId} attempted to join unauthorized project: ${projectId}`);
+                    socket.emit('error', { message: 'Unauthorized: You do not have access to this project' });
+                    return;
+                }
+                socket.join(`project:${projectId}`);
+                logger_1.default.info(`User ${userId} joined project room: ${projectId}`);
+            }
+            catch (error) {
+                logger_1.default.error(`Error joining project room: ${error}`);
+                socket.emit('error', { message: 'Failed to join project room' });
+            }
         });
         socket.on('leave:project', (projectId) => {
             socket.leave(`project:${projectId}`);

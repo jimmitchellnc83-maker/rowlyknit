@@ -29,9 +29,10 @@ export interface RavelryPatternImportData {
   category: string;
   description: string;
   photoUrl?: string;
-  needleSizes?: any[];
-  sizesAvailable?: any[];
-  yarnRequirements?: any[];
+  // All display strings (already normalized by the import handler)
+  needleSizes?: string;
+  sizesAvailable?: string;
+  yarnRequirements?: string;
   estimatedYardage?: number;
   gauge?: string;
   sourceUrl?: string;
@@ -210,6 +211,32 @@ export default function RavelryPatternSearch({ isOpen, onClose, onImport }: Rave
       description = description.substring(0, 800).replace(/\s+\S*$/, '') + '...';
     }
 
+    // Normalize structured fields to display strings
+    const flattenList = (val: any): string | undefined => {
+      if (!val) return undefined;
+      if (typeof val === 'string') return val;
+      if (Array.isArray(val)) {
+        if (val.length === 0) return undefined;
+        const parts = val
+          .map((x: any) => (typeof x === 'string' ? x : x?.name || null))
+          .filter(Boolean);
+        return parts.length > 0 ? parts.join(', ') : undefined;
+      }
+      return undefined;
+    };
+
+    const flattenYarnRequirements = (val: any): string | undefined => {
+      if (!val || !Array.isArray(val) || val.length === 0) return undefined;
+      const lines = val
+        .map((y: any) => {
+          if (typeof y === 'string') return y;
+          const parts = [y.yarnName, y.yarnCompany, y.quantity].filter(Boolean);
+          return parts.join(' — ');
+        })
+        .filter(Boolean);
+      return lines.length > 0 ? lines.join('\n') : undefined;
+    };
+
     onImport({
       name: merged.name || '',
       designer: merged.designer || '',
@@ -217,11 +244,11 @@ export default function RavelryPatternSearch({ isOpen, onClose, onImport }: Rave
       category,
       description,
       photoUrl: merged.photoUrl || merged.photoSquareUrl || undefined,
-      needleSizes: merged.needleSizes || undefined,
-      sizesAvailable: merged.sizesAvailable || undefined,
-      yarnRequirements: merged.yarnSuggestions || undefined,
+      needleSizes: flattenList(merged.needleSizes),
+      sizesAvailable: flattenList(merged.sizesAvailable),
+      yarnRequirements: flattenYarnRequirements(merged.yarnSuggestions),
       estimatedYardage: merged.yardageMax || undefined,
-      gauge: merged.gauge || undefined,
+      gauge: typeof merged.gauge === 'string' ? merged.gauge : undefined,
       sourceUrl: pattern.id ? `https://www.ravelry.com/patterns/library/${pattern.id}` : undefined,
     });
     onClose();

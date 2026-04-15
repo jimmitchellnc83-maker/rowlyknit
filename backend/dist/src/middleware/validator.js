@@ -40,7 +40,10 @@ function sanitizeInput(req, res, next) {
  */
 function sanitizeObject(obj) {
     if (typeof obj === 'string') {
-        return validator_1.default.escape(obj.trim());
+        // Trim whitespace but don't HTML-escape -- React handles output escaping.
+        // validator.escape() converts / ' " & < > to HTML entities which corrupts
+        // stored data (e.g. "US 7 / 4.5mm" becomes "US 7 &#x2F; 4.5mm").
+        return obj.trim();
     }
     if (Array.isArray(obj)) {
         return obj.map(sanitizeObject);

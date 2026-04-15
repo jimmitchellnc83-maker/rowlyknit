@@ -22,26 +22,38 @@ function getRequiredEnv(key) {
 }
 const JWT_SECRET = getRequiredEnv('JWT_SECRET');
 const JWT_REFRESH_SECRET = getRequiredEnv('JWT_REFRESH_SECRET');
+// Validate that JWT secrets are different for security
+if (JWT_SECRET === JWT_REFRESH_SECRET) {
+    throw new Error('Security Error: JWT_SECRET and JWT_REFRESH_SECRET must be different values!');
+}
 const JWT_EXPIRY = process.env.JWT_EXPIRY || '15m';
 const JWT_REFRESH_EXPIRY = process.env.JWT_REFRESH_EXPIRY || '7d';
 /**
  * Generate access token
  */
 function generateAccessToken(payload) {
-    return jsonwebtoken_1.default.sign({ ...payload, jti: (0, uuid_1.v4)() }, JWT_SECRET, { expiresIn: JWT_EXPIRY });
+    const options = {
+        algorithm: 'HS256',
+        expiresIn: JWT_EXPIRY,
+    };
+    return jsonwebtoken_1.default.sign({ ...payload, jti: (0, uuid_1.v4)() }, JWT_SECRET, options);
 }
 /**
  * Generate refresh token
  */
 function generateRefreshToken(payload) {
-    return jsonwebtoken_1.default.sign({ ...payload, jti: (0, uuid_1.v4)() }, JWT_REFRESH_SECRET, { expiresIn: JWT_REFRESH_EXPIRY });
+    const options = {
+        algorithm: 'HS256',
+        expiresIn: JWT_REFRESH_EXPIRY,
+    };
+    return jsonwebtoken_1.default.sign({ ...payload, jti: (0, uuid_1.v4)() }, JWT_REFRESH_SECRET, options);
 }
 /**
  * Verify access token
  */
 function verifyAccessToken(token) {
     try {
-        return jsonwebtoken_1.default.verify(token, JWT_SECRET);
+        return jsonwebtoken_1.default.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
     }
     catch (error) {
         throw new Error('Invalid or expired token');
@@ -52,7 +64,7 @@ function verifyAccessToken(token) {
  */
 function verifyRefreshToken(token) {
     try {
-        return jsonwebtoken_1.default.verify(token, JWT_REFRESH_SECRET);
+        return jsonwebtoken_1.default.verify(token, JWT_REFRESH_SECRET, { algorithms: ['HS256'] });
     }
     catch (error) {
         throw new Error('Invalid or expired refresh token');

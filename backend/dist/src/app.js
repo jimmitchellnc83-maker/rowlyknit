@@ -1,4 +1,37 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -13,10 +46,14 @@ const dotenv_1 = __importDefault(require("dotenv"));
 const path_1 = __importDefault(require("path"));
 // Load environment variables
 dotenv_1.default.config();
+// Validate environment variables before starting app
+const validateEnv_1 = require("./utils/validateEnv");
+(0, validateEnv_1.validateEnvironmentVariables)();
+(0, validateEnv_1.validateSecretStrength)();
 // Import configuration
 require("./config/database");
 require("./config/redis");
-const logger_1 = require("./config/logger");
+const logger_1 = __importStar(require("./config/logger"));
 // Import middleware
 const rateLimiter_1 = require("./middleware/rateLimiter");
 const validator_1 = require("./middleware/validator");
@@ -38,9 +75,13 @@ const pattern_enhancements_1 = __importDefault(require("./routes/pattern-enhance
 const notes_1 = __importDefault(require("./routes/notes"));
 const magic_markers_1 = __importDefault(require("./routes/magic-markers"));
 const patternBookmarks_1 = __importDefault(require("./routes/patternBookmarks"));
+const stats_1 = __importDefault(require("./routes/stats"));
+const charts_1 = __importDefault(require("./routes/charts"));
+const color_planning_1 = __importDefault(require("./routes/color-planning"));
+const shared_1 = __importDefault(require("./routes/shared"));
+const ravelry_1 = __importDefault(require("./routes/ravelry"));
 // Create Express app
 const app = (0, express_1.default)();
-const PORT = process.env.PORT || 5000;
 // Trust proxy (for rate limiting behind nginx)
 app.set('trust proxy', 1);
 // Security middleware
@@ -59,9 +100,22 @@ app.use((0, helmet_1.default)({
         preload: true,
     },
 }));
-// CORS configuration
+// CORS configuration with origin validation
+const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',').map(o => o.trim()) || ['http://localhost:3000'];
 const corsOptions = {
-    origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000'],
+    origin: (origin, callback) => {
+        // Allow requests with no origin (mobile apps, Postman, etc.)
+        if (!origin)
+            return callback(null, true);
+        // Check if origin is in whitelist
+        if (allowedOrigins.includes(origin)) {
+            callback(null, true);
+        }
+        else {
+            logger_1.default.warn(`CORS blocked request from unauthorized origin: ${origin}`);
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
     credentials: true,
     optionsSuccessStatus: 200,
 };
@@ -93,15 +147,12 @@ app.use(auditLog_1.auditMiddleware);
 app.use('/api/', rateLimiter_1.apiLimiter);
 // Static files (uploads)
 app.use('/uploads', express_1.default.static(path_1.default.join(__dirname, '..', 'uploads')));
-// Health check endpoint
-app.get('/health', (req, res) => {
-    res.json({
-        success: true,
-        message: 'Rowly API is running',
-        timestamp: new Date().toISOString(),
-        environment: process.env.NODE_ENV,
-    });
-});
+// Import health check handlers
+const healthCheck_1 = require("./utils/healthCheck");
+// Health check endpoints
+app.get('/health', healthCheck_1.healthCheckHandler); // Comprehensive health check
+app.get('/health/live', healthCheck_1.livenessProbe); // Kubernetes liveness probe
+app.get('/health/ready', healthCheck_1.readinessProbe); // Kubernetes readiness probe
 // Metrics endpoint (Prometheus)
 app.get('/metrics', monitoring_1.metricsEndpoint);
 // CSRF token endpoint
@@ -115,12 +166,22 @@ app.use('/api', notes_1.default);
 app.use('/api', magic_markers_1.default);
 app.use('/api', pattern_enhancements_1.default);
 app.use('/api', patternBookmarks_1.default);
+app.use('/api/stats', stats_1.default);
 app.use('/api/projects', projects_1.default);
 app.use('/api/patterns', patterns_1.default);
 app.use('/api/yarn', yarn_1.default);
 app.use('/api/recipients', recipients_1.default);
 app.use('/api/tools', tools_1.default);
 app.use('/api/uploads', uploads_1.default);
+app.use('/api/charts', charts_1.default);
+// Legacy alias for /api/chart-symbols -> /api/charts/symbols
+app.get('/api/chart-symbols', (req, res, next) => {
+    req.url = '/symbols';
+    (0, charts_1.default)(req, res, next);
+});
+app.use('/api', color_planning_1.default);
+app.use('/api/ravelry', ravelry_1.default);
+app.use('/shared', shared_1.default); // Public shared content routes
 // API documentation
 app.get('/api', (req, res) => {
     res.json({

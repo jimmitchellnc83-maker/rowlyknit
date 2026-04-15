@@ -62,17 +62,20 @@ const config = {
             database: process.env.DB_NAME,
             user: process.env.DB_USER,
             password: process.env.DB_PASSWORD,
+            ssl: process.env.DB_SSL === 'false' ? false : { rejectUnauthorized: false },
         },
         pool: {
             min: parseInt(process.env.DB_POOL_MIN || '2'),
             max: parseInt(process.env.DB_POOL_MAX || '10'),
         },
         migrations: {
-            directory: '/app/dist/migrations',
+            directory: path_1.default.join(__dirname, 'migrations'),
             tableName: 'knex_migrations',
+            extension: 'ts',
         },
         seeds: {
-            directory: '/app/dist/seeds',
+            directory: path_1.default.join(__dirname, 'seeds'),
+            extension: 'ts',
         },
     },
 };

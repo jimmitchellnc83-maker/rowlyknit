@@ -8,6 +8,8 @@ exports.login = login;
 exports.refreshToken = refreshToken;
 exports.logout = logout;
 exports.getProfile = getProfile;
+exports.updateProfile = updateProfile;
+exports.changePassword = changePassword;
 exports.verifyEmail = verifyEmail;
 exports.requestPasswordReset = requestPasswordReset;
 exports.resetPassword = resetPassword;
@@ -101,24 +103,15 @@ async function login(req, res) {
     if (!isPasswordValid) {
         throw new errorHandler_1.UnauthorizedError('Invalid email or password');
     }
-    // Generate tokens
-    const accessToken = (0, jwt_1.generateAccessToken)({
-        userId: user.id,
-        email: user.email,
-    });
-    // Create session
-    const refreshToken = (0, jwt_1.generateRefreshToken)({
-        userId: user.id,
-        sessionId: '',
-    });
     // Set session expiry based on "Remember Me"
     // Remember Me: 30 days, Regular: 7 days
     const sessionDays = rememberMe ? 30 : 7;
     const sessionExpires = new Date(Date.now() + sessionDays * 24 * 60 * 60 * 1000);
+    // Create session first to get the real session ID
     const [session] = await (0, database_1.default)('sessions')
         .insert({
         user_id: user.id,
-        refresh_token: refreshToken,
+        refresh_token: '', // placeholder, updated below
         ip_address: req.ip,
         user_agent: req.headers['user-agent'],
         expires_at: sessionExpires,
@@ -126,6 +119,19 @@ async function login(req, res) {
         updated_at: new Date(),
     })
         .returning('*');
+    // Generate tokens with the real session ID
+    const accessToken = (0, jwt_1.generateAccessToken)({
+        userId: user.id,
+        email: user.email,
+    });
+    const refreshToken = (0, jwt_1.generateRefreshToken)({
+        userId: user.id,
+        sessionId: session.id,
+    });
+    // Update session with the actual refresh token
+    await (0, database_1.default)('sessions')
+        .where({ id: session.id })
+        .update({ refresh_token: refreshToken });
     // Update last login
     await (0, database_1.default)('users').where({ id: user.id }).update({
         last_login: new Date(),
@@ -133,10 +139,15 @@ async function login(req, res) {
     });
     // Set cookies
     const isProduction = process.env.NODE_ENV === 'production';
+    const sameSite = process.env.COOKIE_SAMESITE
+        || (isProduction ? 'none' : 'lax');
+    const cookieDomain = process.env.COOKIE_DOMAIN;
     const cookieOptions = {
         httpOnly: true,
-        secure: isProduction,
-        sameSite: 'lax', // Changed from 'strict' to 'lax' for cross-origin cookies
+        secure: isProduction || sameSite === 'none',
+        sameSite,
+        ...(cookieDomain ? { domain: cookieDomain } : {}),
+        path: '/',
     };
     res.cookie('accessToken', accessToken, {
         ...cookieOptions,
@@ -173,7 +184,7 @@ async function login(req, res) {
  * Refresh access token
  */
 async function refreshToken(req, res) {
-    const { refreshToken: token } = req.body || req.cookies;
+    const token = req.body?.refreshToken || req.cookies?.refreshToken;
     if (!token) {
         throw new errorHandler_1.UnauthorizedError('Refresh token required');
     }
@@ -204,13 +215,18 @@ async function refreshToken(req, res) {
         userId: user.id,
         email: user.email,
     });
-    // Update cookie
+    // Update cookie with same policy used during login
     const isProduction = process.env.NODE_ENV === 'production';
+    const sameSite = process.env.COOKIE_SAMESITE
+        || (isProduction ? 'none' : 'lax');
+    const cookieDomain = process.env.COOKIE_DOMAIN;
     res.cookie('accessToken', accessToken, {
         httpOnly: true,
-        secure: isProduction,
-        sameSite: 'strict',
+        secure: isProduction || sameSite === 'none',
+        sameSite,
         maxAge: 15 * 60 * 1000, // 15 minutes
+        ...(cookieDomain ? { domain: cookieDomain } : {}),
+        path: '/',
     });
     res.json({
         success: true,
@@ -230,9 +246,20 @@ async function logout(req, res) {
             .where({ refresh_token: refreshToken, user_id: userId })
             .update({ is_revoked: true, updated_at: new Date() });
     }
-    // Clear cookies
-    res.clearCookie('accessToken');
-    res.clearCookie('refreshToken');
+    // Clear cookies using the same domain/path/sameSite settings to ensure removal
+    const isProduction = process.env.NODE_ENV === 'production';
+    const sameSite = process.env.COOKIE_SAMESITE
+        || (isProduction ? 'none' : 'lax');
+    const cookieDomain = process.env.COOKIE_DOMAIN;
+    const clearOptions = {
+        httpOnly: true,
+        secure: isProduction || sameSite === 'none',
+        sameSite,
+        ...(cookieDomain ? { domain: cookieDomain } : {}),
+        path: '/',
+    };
+    res.clearCookie('accessToken', clearOptions);
+    res.clearCookie('refreshToken', clearOptions);
     // Log audit
     if (userId) {
         await (0, auditLog_1.createAuditLog)(req, {
@@ -251,7 +278,7 @@ async function logout(req, res) {
  * Get current user profile
  */
 async function getProfile(req, res) {
-    const userId = req.user?.userId;
+    const userId = req.user.userId;
     const user = await (0, database_1.default)('users')
         .where({ id: userId })
         .whereNull('deleted_at')
@@ -275,6 +302,95 @@ async function getProfile(req, res) {
                 createdAt: user.created_at,
             },
         },
+    });
+}
+/**
+ * Update user profile
+ */
+async function updateProfile(req, res) {
+    const userId = req.user.userId;
+    const { firstName, lastName } = req.body;
+    const user = await (0, database_1.default)('users')
+        .where({ id: userId })
+        .whereNull('deleted_at')
+        .first();
+    if (!user) {
+        throw new errorHandler_1.NotFoundError('User not found');
+    }
+    const updateData = { updated_at: new Date() };
+    if (firstName !== undefined)
+        updateData.first_name = firstName;
+    if (lastName !== undefined)
+        updateData.last_name = lastName;
+    const [updatedUser] = await (0, database_1.default)('users')
+        .where({ id: userId })
+        .update(updateData)
+        .returning(['id', 'email', 'first_name', 'last_name', 'email_verified', 'preferences', 'created_at']);
+    await (0, auditLog_1.createAuditLog)(req, {
+        userId,
+        action: 'profile_updated',
+        entityType: 'user',
+        entityId: userId,
+    });
+    res.json({
+        success: true,
+        message: 'Profile updated successfully',
+        data: {
+            user: {
+                id: updatedUser.id,
+                email: updatedUser.email,
+                firstName: updatedUser.first_name,
+                lastName: updatedUser.last_name,
+                emailVerified: updatedUser.email_verified,
+                preferences: updatedUser.preferences,
+                createdAt: updatedUser.created_at,
+            },
+        },
+    });
+}
+/**
+ * Change password
+ */
+async function changePassword(req, res) {
+    const userId = req.user.userId;
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) {
+        throw new errorHandler_1.ValidationError('Current password and new password are required');
+    }
+    const user = await (0, database_1.default)('users')
+        .where({ id: userId })
+        .whereNull('deleted_at')
+        .first();
+    if (!user) {
+        throw new errorHandler_1.NotFoundError('User not found');
+    }
+    // Verify current password
+    const isValid = await (0, password_1.comparePassword)(currentPassword, user.password_hash);
+    if (!isValid) {
+        throw new errorHandler_1.UnauthorizedError('Current password is incorrect');
+    }
+    // Validate new password strength
+    const passwordValidation = (0, password_1.validatePasswordStrength)(newPassword);
+    if (!passwordValidation.valid) {
+        throw new errorHandler_1.ValidationError('New password does not meet requirements', passwordValidation.errors);
+    }
+    // Hash and save
+    const passwordHash = await (0, password_1.hashPassword)(newPassword);
+    await (0, database_1.default)('users')
+        .where({ id: userId })
+        .update({
+        password_hash: passwordHash,
+        updated_at: new Date(),
+    });
+    await (0, auditLog_1.createAuditLog)(req, {
+        userId,
+        action: 'password_changed',
+        entityType: 'user',
+        entityId: userId,
+    });
+    res.json({
+        success: true,
+        message: 'Password changed successfully',
     });
 }
 /**

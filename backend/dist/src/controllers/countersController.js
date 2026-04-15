@@ -4,6 +4,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getCounters = getCounters;
+exports.getCounterHierarchy = getCounterHierarchy;
 exports.getCounter = getCounter;
 exports.createCounter = createCounter;
 exports.updateCounter = updateCounter;
@@ -11,9 +12,12 @@ exports.deleteCounter = deleteCounter;
 exports.reorderCounters = reorderCounters;
 exports.getCounterHistory = getCounterHistory;
 exports.undoCounterToPoint = undoCounterToPoint;
+exports.incrementWithChildren = incrementWithChildren;
 const database_1 = __importDefault(require("../config/database"));
 const errorHandler_1 = require("../utils/errorHandler");
 const auditLog_1 = require("../middleware/auditLog");
+const socket_1 = require("../config/socket");
+const logger_1 = __importDefault(require("../config/logger"));
 /**
  * Get all counters for a project
  */
@@ -35,6 +39,47 @@ async function getCounters(req, res) {
     res.json({
         success: true,
         data: { counters },
+    });
+}
+/**
+ * Get counters in hierarchical structure
+ */
+async function getCounterHierarchy(req, res) {
+    const userId = req.user.userId;
+    const { id: projectId } = req.params;
+    // Verify project ownership
+    const project = await (0, database_1.default)('projects')
+        .where({ id: projectId, user_id: userId })
+        .whereNull('deleted_at')
+        .first();
+    if (!project) {
+        throw new errorHandler_1.NotFoundError('Project not found');
+    }
+    // Get all counters for the project
+    const counters = await (0, database_1.default)('counters')
+        .where({ project_id: projectId })
+        .orderBy('sort_order', 'asc')
+        .orderBy('created_at', 'asc');
+    // Build hierarchy
+    const counterMap = new Map();
+    const rootCounters = [];
+    // First pass: create map of all counters with empty children array
+    counters.forEach((counter) => {
+        counterMap.set(counter.id, { ...counter, children: [] });
+    });
+    // Second pass: build hierarchy
+    counters.forEach((counter) => {
+        const counterWithChildren = counterMap.get(counter.id);
+        if (counter.parent_counter_id && counterMap.has(counter.parent_counter_id)) {
+            counterMap.get(counter.parent_counter_id).children.push(counterWithChildren);
+        }
+        else {
+            rootCounters.push(counterWithChildren);
+        }
+    });
+    res.json({
+        success: true,
+        data: { counters: rootCounters },
     });
 }
 /**
@@ -68,7 +113,7 @@ async function getCounter(req, res) {
 async function createCounter(req, res) {
     const userId = req.user.userId;
     const { id: projectId } = req.params;
-    const { name, type, currentValue = 0, targetValue, incrementBy = 1, minValue, maxValue, displayColor, isVisible = true, incrementPattern, sortOrder, notes, } = req.body;
+    const { name, type, currentValue = 0, targetValue, incrementBy = 1, minValue, maxValue, displayColor, isVisible = true, incrementPattern, sortOrder, notes, parentCounterId, autoReset = false, } = req.body;
     if (!name) {
         throw new errorHandler_1.ValidationError('Counter name is required');
     }
@@ -104,6 +149,8 @@ async function createCounter(req, res) {
         increment_pattern: incrementPattern ? JSON.stringify(incrementPattern) : null,
         sort_order: finalSortOrder,
         notes: notes || null,
+        parent_counter_id: parentCounterId || null,
+        auto_reset: autoReset,
         created_at: new Date(),
         updated_at: new Date(),
     })
@@ -151,38 +198,52 @@ async function updateCounter(req, res) {
     if (!counter) {
         throw new errorHandler_1.NotFoundError('Counter not found');
     }
+    // Accept both camelCase (from frontend) and snake_case field names
+    const resolve = (camel, snake) => updates[camel] !== undefined ? updates[camel] : updates[snake];
+    const currentValueInput = resolve('currentValue', 'current_value');
     const oldValue = counter.current_value;
-    const newValue = updates.current_value !== undefined ? updates.current_value : oldValue;
+    const newValue = currentValueInput !== undefined ? currentValueInput : oldValue;
     // Prepare update data
     const updateData = {
         updated_at: new Date(),
     };
-    // Update allowed fields
-    if (updates.name !== undefined)
-        updateData.name = updates.name;
-    if (updates.type !== undefined)
-        updateData.type = updates.type;
-    if (updates.current_value !== undefined)
-        updateData.current_value = updates.current_value;
-    if (updates.target_value !== undefined)
-        updateData.target_value = updates.target_value;
-    if (updates.increment_by !== undefined)
-        updateData.increment_by = updates.increment_by;
-    if (updates.min_value !== undefined)
-        updateData.min_value = updates.min_value;
-    if (updates.max_value !== undefined)
-        updateData.max_value = updates.max_value;
-    if (updates.display_color !== undefined)
-        updateData.display_color = updates.display_color;
-    if (updates.is_visible !== undefined)
-        updateData.is_visible = updates.is_visible;
-    if (updates.increment_pattern !== undefined) {
-        updateData.increment_pattern = updates.increment_pattern ? JSON.stringify(updates.increment_pattern) : null;
+    // Update allowed fields -- accept camelCase or snake_case
+    const nameVal = updates.name;
+    const typeVal = updates.type;
+    const targetValue = resolve('targetValue', 'target_value');
+    const incrementBy = resolve('incrementBy', 'increment_by');
+    const minValue = resolve('minValue', 'min_value');
+    const maxValue = resolve('maxValue', 'max_value');
+    const displayColor = resolve('displayColor', 'display_color');
+    const isVisible = resolve('isVisible', 'is_visible');
+    const incrementPattern = resolve('incrementPattern', 'increment_pattern');
+    const sortOrder = resolve('sortOrder', 'sort_order');
+    const notesVal = updates.notes;
+    if (nameVal !== undefined)
+        updateData.name = nameVal;
+    if (typeVal !== undefined)
+        updateData.type = typeVal;
+    if (currentValueInput !== undefined)
+        updateData.current_value = currentValueInput;
+    if (targetValue !== undefined)
+        updateData.target_value = targetValue;
+    if (incrementBy !== undefined)
+        updateData.increment_by = incrementBy;
+    if (minValue !== undefined)
+        updateData.min_value = minValue;
+    if (maxValue !== undefined)
+        updateData.max_value = maxValue;
+    if (displayColor !== undefined)
+        updateData.display_color = displayColor;
+    if (isVisible !== undefined)
+        updateData.is_visible = isVisible;
+    if (incrementPattern !== undefined) {
+        updateData.increment_pattern = incrementPattern ? JSON.stringify(incrementPattern) : null;
     }
-    if (updates.sort_order !== undefined)
-        updateData.sort_order = updates.sort_order;
-    if (updates.notes !== undefined)
-        updateData.notes = updates.notes;
+    if (sortOrder !== undefined)
+        updateData.sort_order = sortOrder;
+    if (notesVal !== undefined)
+        updateData.notes = notesVal;
     const [updatedCounter] = await (0, database_1.default)('counters')
         .where({ id: counterId })
         .update(updateData)
@@ -392,90 +453,279 @@ async function checkAndExecuteCounterLinks(counterId, newValue, userId, req) {
         source_counter_id: counterId,
         is_active: true,
     });
+    logger_1.default.debug(`[Counter Links] Checking ${links.length} link(s) for counter ${counterId} (value: ${newValue})`);
     for (const link of links) {
         let shouldTrigger = false;
-        // Parse trigger condition
-        const condition = link.trigger_condition;
-        if (typeof condition === 'object' && condition !== null) {
-            const { type, value } = condition;
-            switch (type) {
-                case 'equals':
-                    shouldTrigger = newValue === value;
-                    break;
-                case 'greater_than':
-                    shouldTrigger = newValue > value;
-                    break;
-                case 'less_than':
-                    shouldTrigger = newValue < value;
-                    break;
-                case 'multiple_of':
-                    shouldTrigger = newValue % value === 0;
-                    break;
-                case 'every_n':
-                    shouldTrigger = newValue % value === 0 && newValue > 0;
-                    break;
+        try {
+            // Parse trigger condition (stored as JSON string in database)
+            let condition = link.trigger_condition;
+            if (typeof condition === 'string') {
+                try {
+                    condition = JSON.parse(condition);
+                }
+                catch (e) {
+                    logger_1.default.error(`[Counter Links] Failed to parse trigger_condition for link ${link.id}:`, e);
+                    continue;
+                }
+            }
+            if (typeof condition === 'object' && condition !== null) {
+                const { type, value } = condition;
+                logger_1.default.debug(`[Counter Links] Link ${link.id}: Checking condition ${type} ${value} against ${newValue}`);
+                switch (type) {
+                    case 'equals':
+                        shouldTrigger = newValue === value;
+                        break;
+                    case 'greater_than':
+                        shouldTrigger = newValue > value;
+                        break;
+                    case 'less_than':
+                        shouldTrigger = newValue < value;
+                        break;
+                    case 'multiple_of':
+                    case 'modulo':
+                        shouldTrigger = value > 0 && newValue % value === 0;
+                        break;
+                    case 'every_n':
+                        shouldTrigger = value > 0 && newValue % value === 0 && newValue > 0;
+                        break;
+                }
+                logger_1.default.debug(`[Counter Links] Link ${link.id}: Trigger = ${shouldTrigger}`);
+            }
+            if (shouldTrigger) {
+                // Get target counter
+                const targetCounter = await (0, database_1.default)('counters')
+                    .where({ id: link.target_counter_id })
+                    .first();
+                if (!targetCounter) {
+                    logger_1.default.warn(`[Counter Links] Target counter ${link.target_counter_id} not found for link ${link.id}`);
+                    continue;
+                }
+                const targetOldValue = targetCounter.current_value;
+                let targetNewValue = targetOldValue;
+                // Parse and execute action (stored as JSON string in database)
+                let action = link.action;
+                if (typeof action === 'string') {
+                    try {
+                        action = JSON.parse(action);
+                    }
+                    catch (e) {
+                        logger_1.default.error(`[Counter Links] Failed to parse action for link ${link.id}:`, e);
+                        continue;
+                    }
+                }
+                if (typeof action === 'object' && action !== null) {
+                    const { type, value } = action;
+                    logger_1.default.debug(`[Counter Links] Executing action ${type} ${value !== undefined ? value : ''} on counter ${link.target_counter_id}`);
+                    switch (type) {
+                        case 'increment':
+                            targetNewValue = targetOldValue + (value || 1);
+                            break;
+                        case 'decrement':
+                            targetNewValue = targetOldValue - (value || 1);
+                            break;
+                        case 'reset':
+                            targetNewValue = value !== undefined ? value : 0;
+                            break;
+                        case 'set':
+                            targetNewValue = value;
+                            break;
+                    }
+                }
+                // Apply min/max constraints
+                if (targetCounter.min_value !== null && targetNewValue < targetCounter.min_value) {
+                    logger_1.default.debug(`[Counter Links] Clamping to min_value: ${targetCounter.min_value}`);
+                    targetNewValue = targetCounter.min_value;
+                }
+                if (targetCounter.max_value !== null && targetNewValue > targetCounter.max_value) {
+                    logger_1.default.debug(`[Counter Links] Clamping to max_value: ${targetCounter.max_value}`);
+                    targetNewValue = targetCounter.max_value;
+                }
+                logger_1.default.debug(`[Counter Links] Updating counter ${link.target_counter_id}: ${targetOldValue} -> ${targetNewValue}`);
+                // Update target counter
+                await (0, database_1.default)('counters')
+                    .where({ id: link.target_counter_id })
+                    .update({
+                    current_value: targetNewValue,
+                    updated_at: new Date(),
+                });
+                // Create history entry for target counter
+                await (0, database_1.default)('counter_history').insert({
+                    counter_id: link.target_counter_id,
+                    old_value: targetOldValue,
+                    new_value: targetNewValue,
+                    action: 'linked_update',
+                    user_note: `Auto-updated by linked counter: ${counterId}`,
+                    created_at: new Date(),
+                });
+                // Audit log
+                await (0, auditLog_1.createAuditLog)(req, {
+                    userId,
+                    action: 'counter_linked_update',
+                    entityType: 'counter',
+                    entityId: link.target_counter_id,
+                    oldValues: { current_value: targetOldValue },
+                    newValues: { current_value: targetNewValue },
+                });
+                // Emit WebSocket event for real-time updates
+                try {
+                    const io = (0, socket_1.getIO)();
+                    io.to(`project:${targetCounter.project_id}`).emit('counter:updated', {
+                        counterId: link.target_counter_id,
+                        projectId: targetCounter.project_id,
+                        currentValue: targetNewValue,
+                        linkedFrom: counterId,
+                    });
+                    logger_1.default.debug(`[Counter Links] WebSocket event emitted for counter ${link.target_counter_id}`);
+                }
+                catch (socketError) {
+                    // Don't fail the whole operation if WebSocket fails
+                    logger_1.default.error(`[Counter Links] Failed to emit WebSocket event:`, socketError);
+                }
+                logger_1.default.debug(`[Counter Links] Successfully updated linked counter ${link.target_counter_id}`);
             }
         }
-        if (shouldTrigger) {
-            // Get target counter
-            const targetCounter = await (0, database_1.default)('counters')
-                .where({ id: link.target_counter_id })
-                .first();
-            if (!targetCounter)
-                continue;
-            const targetOldValue = targetCounter.current_value;
-            let targetNewValue = targetOldValue;
-            // Parse and execute action
-            const action = link.action;
-            if (typeof action === 'object' && action !== null) {
-                const { type, value } = action;
-                switch (type) {
-                    case 'increment':
-                        targetNewValue = targetOldValue + (value || 1);
-                        break;
-                    case 'decrement':
-                        targetNewValue = targetOldValue - (value || 1);
-                        break;
-                    case 'reset':
-                        targetNewValue = value || 0;
-                        break;
-                    case 'set':
-                        targetNewValue = value;
-                        break;
+        catch (error) {
+            logger_1.default.error(`[Counter Links] Error processing link ${link.id}:`, error);
+            // Continue processing other links even if one fails
+        }
+    }
+}
+/**
+ * Increment counter with all children (for linked mode)
+ */
+async function incrementWithChildren(req, res) {
+    const userId = req.user.userId;
+    const { id: projectId, counterId } = req.params;
+    const { amount = 1, mode = 'linked' } = req.body;
+    // Verify project ownership
+    const project = await (0, database_1.default)('projects')
+        .where({ id: projectId, user_id: userId })
+        .whereNull('deleted_at')
+        .first();
+    if (!project) {
+        throw new errorHandler_1.NotFoundError('Project not found');
+    }
+    // Get the counter
+    const counter = await (0, database_1.default)('counters')
+        .where({ id: counterId, project_id: projectId })
+        .first();
+    if (!counter) {
+        throw new errorHandler_1.NotFoundError('Counter not found');
+    }
+    const updates = [];
+    // Update primary counter
+    const oldValue = counter.current_value;
+    let newValue = oldValue + amount;
+    // Apply min/max constraints
+    if (counter.min_value !== null && newValue < counter.min_value) {
+        newValue = counter.min_value;
+    }
+    if (counter.max_value !== null && newValue > counter.max_value) {
+        newValue = counter.max_value;
+    }
+    await (0, database_1.default)('counters')
+        .where({ id: counterId })
+        .update({
+        current_value: newValue,
+        updated_at: new Date(),
+    });
+    // Create history entry
+    await (0, database_1.default)('counter_history').insert({
+        counter_id: counterId,
+        old_value: oldValue,
+        new_value: newValue,
+        action: amount > 0 ? 'increment' : 'decrement',
+        created_at: new Date(),
+    });
+    updates.push({
+        id: counterId,
+        new_value: newValue,
+        reset: false,
+    });
+    // If linked mode, update all child counters
+    if (mode === 'linked') {
+        const children = await (0, database_1.default)('counters')
+            .where({ parent_counter_id: counterId, project_id: projectId })
+            .orderBy('sort_order', 'asc');
+        for (const child of children) {
+            const childOldValue = child.current_value;
+            let childNewValue = childOldValue + amount;
+            let didReset = false;
+            let completionMessage;
+            // Check if child should auto-reset
+            if (child.auto_reset && child.target_value && amount > 0) {
+                if (childNewValue >= child.target_value) {
+                    // Calculate reset value (handle cases where increment > remaining)
+                    const completedRepeats = Math.floor(childNewValue / child.target_value);
+                    childNewValue = childNewValue % child.target_value;
+                    if (childNewValue === 0) {
+                        childNewValue = child.target_value; // Show full before reset animation
+                    }
+                    // Actually reset to 1 (or min_value) for the next repeat
+                    if (childOldValue + amount >= child.target_value) {
+                        childNewValue = child.min_value || 1;
+                        didReset = true;
+                        completionMessage = `${child.name} complete! Starting repeat ${completedRepeats + 1}.`;
+                    }
                 }
             }
             // Apply min/max constraints
-            if (targetCounter.min_value !== null && targetNewValue < targetCounter.min_value) {
-                targetNewValue = targetCounter.min_value;
+            if (child.min_value !== null && childNewValue < child.min_value) {
+                childNewValue = child.min_value;
             }
-            if (targetCounter.max_value !== null && targetNewValue > targetCounter.max_value) {
-                targetNewValue = targetCounter.max_value;
+            if (child.max_value !== null && childNewValue > child.max_value) {
+                childNewValue = child.max_value;
             }
-            // Update target counter
             await (0, database_1.default)('counters')
-                .where({ id: link.target_counter_id })
+                .where({ id: child.id })
                 .update({
-                current_value: targetNewValue,
+                current_value: childNewValue,
                 updated_at: new Date(),
             });
-            // Create history entry for target counter
+            // Create history entry for child
             await (0, database_1.default)('counter_history').insert({
-                counter_id: link.target_counter_id,
-                old_value: targetOldValue,
-                new_value: targetNewValue,
-                action: 'linked_update',
-                user_note: `Auto-updated by linked counter: ${counterId}`,
+                counter_id: child.id,
+                old_value: childOldValue,
+                new_value: childNewValue,
+                action: didReset ? 'reset' : (amount > 0 ? 'increment' : 'decrement'),
+                user_note: didReset ? completionMessage : `Linked update from parent counter`,
                 created_at: new Date(),
             });
-            // Audit log
-            await (0, auditLog_1.createAuditLog)(req, {
-                userId,
-                action: 'counter_linked_update',
-                entityType: 'counter',
-                entityId: link.target_counter_id,
-                oldValues: { current_value: targetOldValue },
-                newValues: { current_value: targetNewValue },
+            updates.push({
+                id: child.id,
+                new_value: childNewValue,
+                reset: didReset,
+                completion_message: completionMessage,
             });
         }
     }
+    // Emit WebSocket events for real-time updates
+    try {
+        const io = (0, socket_1.getIO)();
+        updates.forEach((update) => {
+            io.to(`project:${projectId}`).emit('counter:updated', {
+                counterId: update.id,
+                projectId,
+                currentValue: update.new_value,
+                reset: update.reset,
+            });
+        });
+    }
+    catch (socketError) {
+        console.error('[Counter Hierarchy] Failed to emit WebSocket events:', socketError);
+    }
+    // Audit log
+    await (0, auditLog_1.createAuditLog)(req, {
+        userId,
+        action: 'counter_increment_with_children',
+        entityType: 'counter',
+        entityId: counterId,
+        oldValues: { current_value: oldValue },
+        newValues: { current_value: newValue, updates },
+    });
+    res.json({
+        success: true,
+        message: 'Counters updated successfully',
+        data: { updated_counters: updates },
+    });
 }

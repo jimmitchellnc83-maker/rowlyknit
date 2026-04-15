@@ -64,12 +64,12 @@ router.post('/patterns/:patternId/bookmarks', [
     (0, validator_1.validateUUID)('patternId'),
     (0, express_validator_1.body)('name').trim().notEmpty().isLength({ max: 255 }),
     (0, express_validator_1.body)('pageNumber').isInt({ min: 1 }),
-    (0, express_validator_1.body)('yPosition').optional().isInt(),
+    (0, express_validator_1.body)('yPosition').optional({ values: 'falsy' }).isInt(),
     (0, express_validator_1.body)('zoomLevel').optional().isFloat({ min: 0.1, max: 5.0 }),
-    (0, express_validator_1.body)('notes').optional().isString(),
+    (0, express_validator_1.body)('notes').optional({ values: 'null' }).isString(),
     (0, express_validator_1.body)('color').optional().matches(/^#[0-9A-Fa-f]{6}$/),
-    (0, express_validator_1.body)('projectId').optional().isUUID(),
-    (0, express_validator_1.body)('sortOrder').optional().isInt({ min: 0 }),
+    (0, express_validator_1.body)('projectId').optional({ values: 'null' }).isUUID(),
+    (0, express_validator_1.body)('sortOrder').optional({ values: 'falsy' }).isInt({ min: 0 }),
 ], validator_1.validate, (0, errorHandler_1.asyncHandler)(patternBookmarksController.createBookmark));
 /**
  * @route   PUT /api/patterns/:patternId/bookmarks/:bookmarkId

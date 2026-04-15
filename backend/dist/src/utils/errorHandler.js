@@ -81,12 +81,22 @@ function errorHandler(err, req, res, next) {
         userId: req.user?.userId,
     });
     // Send error response
-    res.status(statusCode).json({
+    const errorResponse = {
         success: false,
-        message,
-        ...(errors && { errors }),
-        ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
-    });
+        error: {
+            message: message,
+            code: statusCode,
+        },
+    };
+    // Only include errors array if present
+    if (errors) {
+        errorResponse.error.errors = errors;
+    }
+    // Only include stack trace in development
+    if (process.env.NODE_ENV !== 'production') {
+        errorResponse.error.stack = err.stack;
+    }
+    res.status(statusCode).json(errorResponse);
 }
 /**
  * Async handler wrapper to catch errors in async route handlers
