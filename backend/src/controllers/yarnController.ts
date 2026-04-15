@@ -37,6 +37,32 @@ export async function getYarn(req: Request, res: Response) {
     .limit(Number(limit))
     .offset(offset);
 
+  // Attach primary photo (oldest, or marked is_primary)
+  if (yarn.length > 0) {
+    const yarnIds = yarn.map((y: any) => y.id);
+    const photos = await db('yarn_photos')
+      .whereIn('yarn_id', yarnIds)
+      .whereNull('deleted_at')
+      .orderBy([
+        { column: 'is_primary', order: 'desc' },
+        { column: 'created_at', order: 'asc' },
+      ])
+      .select('yarn_id', 'thumbnail_path', 'file_path');
+
+    const photosByYarn: Record<string, any> = {};
+    for (const photo of photos) {
+      if (!photosByYarn[photo.yarn_id]) {
+        photosByYarn[photo.yarn_id] = photo;
+      }
+    }
+
+    for (const y of yarn as any[]) {
+      const photo = photosByYarn[y.id];
+      y.thumbnail_path = photo?.thumbnail_path || null;
+      y.photo_path = photo?.file_path || null;
+    }
+  }
+
   res.json({
     success: true,
     data: {
@@ -89,6 +115,14 @@ export async function createYarn(req: Request, res: Response) {
     dyeLot,
     notes,
     tags,
+    // Ravelry/structured fields
+    gauge,
+    needleSizes,
+    machineWashable,
+    discontinued,
+    ravelryId,
+    ravelryRating,
+    description,
   } = req.body;
 
   if (!name) {
@@ -117,6 +151,13 @@ export async function createYarn(req: Request, res: Response) {
       dye_lot: dyeLot,
       notes,
       tags: tags ? JSON.stringify(tags) : '[]',
+      gauge,
+      needle_sizes: needleSizes,
+      machine_washable: machineWashable,
+      discontinued: discontinued || false,
+      ravelry_id: ravelryId,
+      ravelry_rating: ravelryRating,
+      description,
       created_at: new Date(),
       updated_at: new Date(),
     })
@@ -170,6 +211,13 @@ export async function updateYarn(req: Request, res: Response) {
     tags,
     lowStockThreshold,
     lowStockAlert,
+    gauge,
+    needleSizes,
+    machineWashable,
+    discontinued,
+    ravelryId,
+    ravelryRating,
+    description,
   } = req.body;
 
   const updateData: any = {
@@ -207,6 +255,13 @@ export async function updateYarn(req: Request, res: Response) {
   if (tags !== undefined) updateData.tags = typeof tags === 'string' ? tags : JSON.stringify(tags);
   if (lowStockThreshold !== undefined) updateData.low_stock_threshold = lowStockThreshold;
   if (lowStockAlert !== undefined) updateData.low_stock_alert = lowStockAlert;
+  if (gauge !== undefined) updateData.gauge = gauge;
+  if (needleSizes !== undefined) updateData.needle_sizes = needleSizes;
+  if (machineWashable !== undefined) updateData.machine_washable = machineWashable;
+  if (discontinued !== undefined) updateData.discontinued = discontinued;
+  if (ravelryId !== undefined) updateData.ravelry_id = ravelryId;
+  if (ravelryRating !== undefined) updateData.ravelry_rating = ravelryRating;
+  if (description !== undefined) updateData.description = description;
 
   const [updatedYarn] = await db('yarn')
     .where({ id })

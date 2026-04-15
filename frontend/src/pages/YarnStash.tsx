@@ -1,4 +1,5 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { FiPlus, FiTrash2, FiPackage, FiEdit2, FiSearch } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
@@ -6,7 +7,7 @@ import { useEscapeKey } from '../hooks/useEscapeKey';
 import ConfirmModal from '../components/ConfirmModal';
 import { useYarn, useCreateYarn, useUpdateYarn, useDeleteYarn } from '../hooks/useApi';
 import HelpTooltip from '../components/HelpTooltip';
-import RavelryYarnSearch from '../components/RavelryYarnSearch';
+import RavelryYarnSearch, { type RavelryYarnImportData } from '../components/RavelryYarnSearch';
 
 interface Yarn {
   id: string;
@@ -21,6 +22,14 @@ interface Yarn {
   skeins_total?: number;
   low_stock_threshold?: number;
   low_stock_alert?: boolean;
+  notes?: string;
+  description?: string;
+  gauge?: string;
+  needle_sizes?: string;
+  machine_washable?: boolean;
+  discontinued?: boolean;
+  ravelry_rating?: number;
+  thumbnail_path?: string | null;
   photos?: YarnPhoto[];
 }
 
@@ -33,6 +42,8 @@ interface YarnPhoto {
 }
 
 export default function YarnStash() {
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { data: yarn = [], isLoading: loading } = useYarn() as { data: Yarn[] | undefined; isLoading: boolean };
   const createYarn = useCreateYarn();
   const updateYarnMutation = useUpdateYarn();
@@ -45,6 +56,8 @@ export default function YarnStash() {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [photoDeleteTarget, setPhotoDeleteTarget] = useState<string | null>(null);
+  const [pendingRavelryPhotoUrl, setPendingRavelryPhotoUrl] = useState<string | null>(null);
+  const [pendingRavelryExtras, setPendingRavelryExtras] = useState<any | null>(null);
   const [formData, setFormData] = useState({
     brand: '',
     name: '',
@@ -55,6 +68,10 @@ export default function YarnStash() {
     skeinsTotal: '1',
     lowStockThreshold: '',
     lowStockAlert: false,
+    notes: '',
+    gauge: '',
+    needleSizes: '',
+    description: '',
   });
 
   const closeAllModals = useCallback(() => {
@@ -65,38 +82,91 @@ export default function YarnStash() {
   }, []);
   useEscapeKey(closeAllModals, showCreateModal || showEditModal || showRavelrySearch);
 
-  const handleRavelryImport = (yarnData: { brand: string; name: string; weight: string; fiberContent: string; yardsTotal: string }) => {
+  // Open edit modal if ?edit=<id> is in URL (from YarnDetail page)
+  useEffect(() => {
+    const editId = searchParams.get('edit');
+    if (editId && yarn.length > 0) {
+      const y = yarn.find((item) => item.id === editId);
+      if (y) {
+        handleEditClick(y);
+        setSearchParams({}, { replace: true });
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, yarn]);
+
+  const emptyFormData = {
+    brand: '',
+    name: '',
+    color: '',
+    weight: 'worsted',
+    fiberContent: '',
+    yardsTotal: '',
+    skeinsTotal: '1',
+    lowStockThreshold: '',
+    lowStockAlert: false,
+    notes: '',
+    gauge: '',
+    needleSizes: '',
+    description: '',
+  };
+
+  const handleRavelryImport = (yarnData: RavelryYarnImportData) => {
     setFormData({
+      ...emptyFormData,
       brand: yarnData.brand,
       name: yarnData.name,
-      color: '',
       weight: yarnData.weight,
       fiberContent: yarnData.fiberContent,
       yardsTotal: yarnData.yardsTotal,
-      skeinsTotal: '1',
-      lowStockThreshold: '',
-      lowStockAlert: false,
+      gauge: yarnData.gauge || '',
+      needleSizes: yarnData.needleSizes || '',
+      description: yarnData.description || '',
+    });
+    setPendingRavelryPhotoUrl(yarnData.photoUrl || null);
+    setPendingRavelryExtras({
+      gramsTotal: yarnData.gramsTotal ? Number(yarnData.gramsTotal) : undefined,
+      machineWashable: yarnData.machineWashable,
+      discontinued: yarnData.discontinued,
+      ravelryId: yarnData.ravelryId,
+      ravelryRating: yarnData.ravelryRating,
     });
     setShowCreateModal(true);
+
+    // Inform user about empty fields
+    const missing: string[] = [];
+    if (!yarnData.fiberContent) missing.push('fiber content');
+    if (!yarnData.yardsTotal) missing.push('yardage');
+    if (!yarnData.gauge) missing.push('gauge');
+    if (missing.length > 0) {
+      toast.info(`Imported from Ravelry. You may want to add: ${missing.join(', ')}.`, { autoClose: 6000 });
+    } else {
+      toast.success('Imported from Ravelry — review and save.');
+    }
   };
 
   const handleCreateYarn = async (e: React.FormEvent) => {
     e.preventDefault();
-    createYarn.mutate(formData, {
-      onSuccess: () => {
+    const payload = pendingRavelryExtras ? { ...formData, ...pendingRavelryExtras } : formData;
+    createYarn.mutate(payload as any, {
+      onSuccess: async (response: any) => {
         toast.success('Yarn added successfully!');
         setShowCreateModal(false);
-        setFormData({
-          brand: '',
-          name: '',
-          color: '',
-          weight: 'worsted',
-          fiberContent: '',
-          yardsTotal: '',
-          skeinsTotal: '1',
-          lowStockThreshold: '',
-          lowStockAlert: false,
-        });
+
+        // If we have a pending Ravelry photo URL, download and attach it
+        const newYarnId = response?.id;
+        if (pendingRavelryPhotoUrl && newYarnId) {
+          try {
+            await axios.post(`/api/uploads/yarn/${newYarnId}/photos/from-url`, {
+              photoUrl: pendingRavelryPhotoUrl,
+            });
+          } catch (err) {
+            console.error('Failed to import Ravelry photo:', err);
+          }
+        }
+        setPendingRavelryPhotoUrl(null);
+        setPendingRavelryExtras(null);
+        setFormData(emptyFormData);
       },
       onError: (error: any) => {
         toast.error(error.response?.data?.message || 'Failed to add yarn');
@@ -116,6 +186,10 @@ export default function YarnStash() {
       skeinsTotal: y.skeins_total?.toString() || '1',
       lowStockThreshold: y.low_stock_threshold?.toString() || '',
       lowStockAlert: y.low_stock_alert || false,
+      notes: y.notes || '',
+      gauge: y.gauge || '',
+      needleSizes: y.needle_sizes || '',
+      description: y.description || '',
     });
 
     // Fetch photos for this yarn
@@ -183,17 +257,7 @@ export default function YarnStash() {
         toast.success('Yarn updated successfully!');
         setShowEditModal(false);
         setEditingYarn(null);
-        setFormData({
-          brand: '',
-          name: '',
-          color: '',
-          weight: 'worsted',
-          fiberContent: '',
-          yardsTotal: '',
-          skeinsTotal: '1',
-          lowStockThreshold: '',
-          lowStockAlert: false,
-        });
+        setFormData(emptyFormData);
       },
       onError: (error: any) => {
         toast.error(error.response?.data?.message || 'Failed to update yarn');
@@ -278,62 +342,81 @@ export default function YarnStash() {
           {yarn.map((y) => (
             <div
               key={y.id}
-              className="bg-white rounded-lg shadow hover:shadow-lg transition p-6"
+              className="bg-white rounded-lg shadow hover:shadow-lg transition overflow-hidden flex flex-col"
             >
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-gray-900">
-                    {y.brand && `${y.brand} `}{y.name}
-                  </h3>
-                  {y.color && (
-                    <p className="text-sm text-gray-600 mt-1">{y.color}</p>
+              {y.thumbnail_path && (
+                <div
+                  onClick={() => navigate(`/yarn/${y.id}`)}
+                  className="w-full h-48 bg-gray-100 overflow-hidden cursor-pointer"
+                >
+                  <img
+                    src={y.thumbnail_path}
+                    alt={y.name}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              )}
+              <div
+                onClick={() => navigate(`/yarn/${y.id}`)}
+                className="p-6 cursor-pointer flex-1"
+              >
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex-1">
+                    <h3 className="text-lg font-semibold text-gray-900 hover:text-purple-600 transition">
+                      {y.brand && `${y.brand} `}{y.name}
+                    </h3>
+                    {y.color && (
+                      <p className="text-sm text-gray-600 mt-1">{y.color}</p>
+                    )}
+                  </div>
+                  {y.weight && (
+                    <span
+                      className={`px-2 py-1 text-xs font-medium rounded-full ${getWeightColor(
+                        y.weight
+                      )}`}
+                    >
+                      {y.weight}
+                    </span>
                   )}
                 </div>
-                {y.weight && (
-                  <span
-                    className={`px-2 py-1 text-xs font-medium rounded-full ${getWeightColor(
-                      y.weight
-                    )}`}
+
+                {y.fiber_content && (
+                  <p className="text-sm text-gray-500 mb-3">{y.fiber_content}</p>
+                )}
+
+                <div className="space-y-2">
+                  {y.skeins_remaining !== undefined && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Skeins:</span>
+                      <span className="font-medium text-gray-900">{y.skeins_remaining}</span>
+                    </div>
+                  )}
+                  {y.yards_remaining !== undefined && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Yards:</span>
+                      <span className="font-medium text-gray-900">{y.yards_remaining}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="px-6 pb-6">
+                <div className="flex items-center gap-2 pt-4 border-t border-gray-200">
+                  <button
+                    onClick={() => handleEditClick(y)}
+                    className="flex-1 px-3 py-2 bg-purple-50 text-purple-600 rounded-lg hover:bg-purple-100 transition flex items-center justify-center text-sm"
                   >
-                    {y.weight}
-                  </span>
-                )}
-              </div>
-
-              {y.fiber_content && (
-                <p className="text-sm text-gray-500 mb-3">{y.fiber_content}</p>
-              )}
-
-              <div className="space-y-2 mb-4">
-                {y.skeins_remaining !== undefined && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Skeins:</span>
-                    <span className="font-medium text-gray-900">{y.skeins_remaining}</span>
-                  </div>
-                )}
-                {y.yards_remaining !== undefined && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Yards:</span>
-                    <span className="font-medium text-gray-900">{y.yards_remaining}</span>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex items-center gap-2 pt-4 border-t border-gray-200">
-                <button
-                  onClick={() => handleEditClick(y)}
-                  className="flex-1 px-3 py-2 bg-purple-50 text-purple-600 rounded-lg hover:bg-purple-100 transition flex items-center justify-center text-sm"
-                >
-                  <FiEdit2 className="mr-2 h-4 w-4" />
-                  Edit
-                </button>
-                <button
-                  onClick={() => setDeleteTarget({ id: y.id, name: y.name })}
-                  className="flex-1 px-3 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition flex items-center justify-center text-sm"
-                >
-                  <FiTrash2 className="mr-2 h-4 w-4" />
-                  Delete
-                </button>
+                    <FiEdit2 className="mr-2 h-4 w-4" />
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => setDeleteTarget({ id: y.id, name: y.name })}
+                    className="flex-1 px-3 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition flex items-center justify-center text-sm"
+                  >
+                    <FiTrash2 className="mr-2 h-4 w-4" />
+                    Delete
+                  </button>
+                </div>
               </div>
             </div>
           ))}
@@ -451,6 +534,59 @@ export default function YarnStash() {
                     placeholder="e.g., 364"
                   />
                 </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Gauge
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.gauge}
+                    onChange={(e) => setFormData({ ...formData, gauge: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    placeholder="e.g., 20 sts over 4 inches"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Needle Sizes
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.needleSizes}
+                    onChange={(e) => setFormData({ ...formData, needleSizes: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    placeholder="e.g., US 5 / 3.75 mm"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Description
+                </label>
+                <textarea
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  placeholder="Marketing description, fiber notes, etc."
+                  rows={3}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Notes
+                </label>
+                <textarea
+                  value={formData.notes}
+                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  placeholder="Personal notes about this yarn"
+                  rows={3}
+                />
               </div>
 
               <div className="flex gap-3 pt-4">
@@ -586,6 +722,59 @@ export default function YarnStash() {
                 </div>
               </div>
 
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Gauge
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.gauge}
+                    onChange={(e) => setFormData({ ...formData, gauge: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    placeholder="e.g., 20 sts over 4 inches"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Needle Sizes
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.needleSizes}
+                    onChange={(e) => setFormData({ ...formData, needleSizes: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    placeholder="e.g., US 5 / 3.75 mm"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Description
+                </label>
+                <textarea
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  placeholder="Marketing description, fiber notes, etc."
+                  rows={3}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Notes
+                </label>
+                <textarea
+                  value={formData.notes}
+                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  placeholder="Personal notes about this yarn"
+                  rows={3}
+                />
+              </div>
+
               {/* Photo Gallery Section */}
               <div className="border-t border-gray-200 pt-4">
                 <h3 className="text-sm font-medium text-gray-900 mb-3">Photos</h3>
@@ -676,17 +865,7 @@ export default function YarnStash() {
                     setShowEditModal(false);
                     setEditingYarn(null);
                     setYarnPhotos([]);
-                    setFormData({
-                      brand: '',
-                      name: '',
-                      color: '',
-                      weight: 'worsted',
-                      fiberContent: '',
-                      yardsTotal: '',
-                      skeinsTotal: '1',
-                      lowStockThreshold: '',
-                      lowStockAlert: false,
-                    });
+                    setFormData(emptyFormData);
                   }}
                   className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition"
                 >

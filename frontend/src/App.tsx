@@ -14,6 +14,7 @@ import ProjectDetail from './pages/ProjectDetail';
 import Patterns from './pages/Patterns';
 import PatternDetail from './pages/PatternDetail';
 import YarnStash from './pages/YarnStash';
+import YarnDetail from './pages/YarnDetail';
 import Tools from './pages/Tools';
 import Recipients from './pages/Recipients';
 import Profile from './pages/Profile';
@@ -89,6 +90,7 @@ function App() {
         <Route path="/patterns" element={<Patterns />} />
         <Route path="/patterns/:id" element={<PatternDetail />} />
         <Route path="/yarn" element={<YarnStash />} />
+        <Route path="/yarn/:id" element={<YarnDetail />} />
         <Route path="/tools" element={<Tools />} />
         <Route path="/recipients" element={<Recipients />} />
         <Route path="/profile" element={<Profile />} />
