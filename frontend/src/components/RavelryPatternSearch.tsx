@@ -205,11 +205,8 @@ export default function RavelryPatternSearch({ isOpen, onClose, onImport }: Rave
       }
     }
 
-    // Use Ravelry's clean description if available, truncated to avoid wall-of-text
-    let description = merged.description || '';
-    if (description.length > 800) {
-      description = description.substring(0, 800).replace(/\s+\S*$/, '') + '...';
-    }
+    // Use Ravelry's full description (already HTML-stripped by the backend)
+    const description = merged.description || '';
 
     // Normalize structured fields to display strings
     const flattenList = (val: any): string | undefined => {
