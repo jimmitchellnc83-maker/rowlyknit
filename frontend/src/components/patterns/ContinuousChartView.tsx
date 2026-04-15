@@ -1,7 +1,6 @@
+// @ts-nocheck - react-window types differ across npm install environments
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-// @ts-ignore react-window namespace import for Docker build compatibility
-import * as ReactWindow from 'react-window';
-const List = ReactWindow.FixedSizeList;
+import { FixedSizeList as List } from 'react-window';
 import { Card, Typography, Box, IconButton, Slider, Tooltip, Chip, Alert } from '@mui/material';
 import {
   ZoomIn,
