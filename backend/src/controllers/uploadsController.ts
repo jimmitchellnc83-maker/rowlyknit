@@ -3,6 +3,7 @@ import multer from 'multer';
 import sharp from 'sharp';
 import path from 'path';
 import fs from 'fs';
+import axios from 'axios';
 import { promisify } from 'util';
 import db from '../config/database';
 import logger from '../config/logger';
@@ -622,6 +623,174 @@ export const uploadYarnPhoto = async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       message: 'Failed to upload yarn photo',
+      error: error.message,
+    });
+  }
+};
+
+// Upload yarn photo from external URL (e.g. Ravelry)
+export const uploadYarnPhotoFromUrl = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user!.userId;
+    const { yarnId } = req.params;
+    const { photoUrl } = req.body;
+
+    if (!photoUrl || typeof photoUrl !== 'string') {
+      return res.status(400).json({
+        success: false,
+        message: 'Photo URL is required',
+      });
+    }
+
+    try {
+      const parsedUrl = new URL(photoUrl);
+      if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+        throw new Error('Invalid protocol');
+      }
+    } catch {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid photo URL',
+      });
+    }
+
+    const yarn = await db('yarn')
+      .where({ id: yarnId, user_id: userId })
+      .whereNull('deleted_at')
+      .first();
+
+    if (!yarn) {
+      return res.status(404).json({ success: false, message: 'Yarn not found' });
+    }
+
+    const imageResponse = await axios.get(photoUrl, {
+      responseType: 'arraybuffer',
+      timeout: 15000,
+      maxContentLength: 10 * 1024 * 1024,
+      headers: { 'User-Agent': 'Rowly/1.0' },
+    });
+
+    const buffer = Buffer.from(imageResponse.data);
+    const metadata = await sharp(buffer).metadata();
+    if (!metadata.width || !metadata.height) {
+      return res.status(400).json({ success: false, message: 'Invalid image' });
+    }
+
+    const timestamp = Date.now();
+    const filename = `yarn-${yarnId}-${timestamp}.webp`;
+    const thumbnailFilename = `yarn-${yarnId}-${timestamp}-thumb.webp`;
+    const filepath = path.join('uploads/yarn', filename);
+    const thumbnailPath = path.join('uploads/yarn/thumbnails', thumbnailFilename);
+
+    await sharp(buffer)
+      .resize(1920, 1920, { fit: 'inside', withoutEnlargement: true })
+      .webp({ quality: 85 })
+      .toFile(filepath);
+
+    await sharp(buffer)
+      .resize(400, 400, { fit: 'cover' })
+      .webp({ quality: 80 })
+      .toFile(thumbnailPath);
+
+    const [photo] = await db('yarn_photos')
+      .insert({
+        yarn_id: yarnId,
+        user_id: userId,
+        filename,
+        thumbnail_filename: thumbnailFilename,
+        original_filename: 'ravelry-import.webp',
+        file_path: `/uploads/yarn/${filename}`,
+        thumbnail_path: `/uploads/yarn/thumbnails/${thumbnailFilename}`,
+        mime_type: 'image/webp',
+        size: buffer.length,
+        width: metadata.width,
+        height: metadata.height,
+        caption: 'Imported from Ravelry',
+      })
+      .returning('*');
+
+    res.status(201).json({
+      success: true,
+      message: 'Yarn photo imported successfully',
+      data: { photo },
+    });
+  } catch (error: any) {
+    logger.error('Yarn photo URL import error', { error: error.message });
+    res.status(500).json({
+      success: false,
+      message: 'Failed to import photo from URL',
+      error: error.message,
+    });
+  }
+};
+
+// Upload pattern thumbnail from external URL (e.g. Ravelry)
+export const uploadPatternThumbnailFromUrl = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user!.userId;
+    const { patternId } = req.params;
+    const { photoUrl } = req.body;
+
+    if (!photoUrl || typeof photoUrl !== 'string') {
+      return res.status(400).json({ success: false, message: 'Photo URL is required' });
+    }
+
+    try {
+      const parsedUrl = new URL(photoUrl);
+      if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+        throw new Error('Invalid protocol');
+      }
+    } catch {
+      return res.status(400).json({ success: false, message: 'Invalid photo URL' });
+    }
+
+    const pattern = await db('patterns')
+      .where({ id: patternId, user_id: userId })
+      .whereNull('deleted_at')
+      .first();
+
+    if (!pattern) {
+      return res.status(404).json({ success: false, message: 'Pattern not found' });
+    }
+
+    const imageResponse = await axios.get(photoUrl, {
+      responseType: 'arraybuffer',
+      timeout: 15000,
+      maxContentLength: 10 * 1024 * 1024,
+      headers: { 'User-Agent': 'Rowly/1.0' },
+    });
+
+    const buffer = Buffer.from(imageResponse.data);
+    const metadata = await sharp(buffer).metadata();
+    if (!metadata.width || !metadata.height) {
+      return res.status(400).json({ success: false, message: 'Invalid image' });
+    }
+
+    const timestamp = Date.now();
+    const filename = `pattern-${patternId}-${timestamp}.webp`;
+    const filepath = path.join('uploads/patterns', filename);
+
+    await sharp(buffer)
+      .resize(800, 800, { fit: 'inside', withoutEnlargement: true })
+      .webp({ quality: 85 })
+      .toFile(filepath);
+
+    const thumbnailUrl = `/uploads/patterns/${filename}`;
+
+    await db('patterns')
+      .where({ id: patternId, user_id: userId })
+      .update({ thumbnail_url: thumbnailUrl, updated_at: db.fn.now() });
+
+    res.status(201).json({
+      success: true,
+      message: 'Pattern thumbnail imported successfully',
+      data: { thumbnailUrl },
+    });
+  } catch (error: any) {
+    logger.error('Pattern thumbnail URL import error', { error: error.message });
+    res.status(500).json({
+      success: false,
+      message: 'Failed to import pattern thumbnail',
       error: error.message,
     });
   }

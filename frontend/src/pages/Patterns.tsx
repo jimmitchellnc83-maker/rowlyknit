@@ -7,7 +7,7 @@ import { PDFCollation } from '../components/patterns';
 import ConfirmModal from '../components/ConfirmModal';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import { usePatterns, useCreatePattern, useUpdatePattern, useDeletePattern } from '../hooks/useApi';
-import RavelryPatternSearch from '../components/RavelryPatternSearch';
+import RavelryPatternSearch, { type RavelryPatternImportData } from '../components/RavelryPatternSearch';
 
 interface Pattern {
   id: string;
@@ -16,6 +16,7 @@ interface Pattern {
   designer: string;
   difficulty: string;
   category: string;
+  thumbnail_url?: string | null;
   created_at: string;
 }
 
@@ -33,6 +34,8 @@ export default function Patterns() {
   const [patternFiles, setPatternFiles] = useState<File[]>([]);
   const [uploadingFiles, setUploadingFiles] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [pendingRavelryPhotoUrl, setPendingRavelryPhotoUrl] = useState<string | null>(null);
+  const [pendingRavelryExtras, setPendingRavelryExtras] = useState<any | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -50,7 +53,7 @@ export default function Patterns() {
   }, []);
   useEscapeKey(closeAllModals, showCreateModal || showEditModal || showCollationModal || showRavelrySearch);
 
-  const handleRavelryImport = (patternData: { name: string; designer: string; difficulty: string; category: string; description: string }) => {
+  const handleRavelryImport = (patternData: RavelryPatternImportData) => {
     setFormData({
       name: patternData.name,
       description: patternData.description,
@@ -58,7 +61,27 @@ export default function Patterns() {
       difficulty: patternData.difficulty,
       category: patternData.category,
     });
+    setPendingRavelryPhotoUrl(patternData.photoUrl || null);
+    setPendingRavelryExtras({
+      needleSizes: patternData.needleSizes,
+      sizesAvailable: patternData.sizesAvailable,
+      yarnRequirements: patternData.yarnRequirements,
+      estimatedYardage: patternData.estimatedYardage,
+      gauge: patternData.gauge,
+      sourceUrl: patternData.sourceUrl,
+      source: 'ravelry',
+    });
     setShowCreateModal(true);
+
+    const missing: string[] = [];
+    if (!patternData.description) missing.push('description');
+    if (!patternData.needleSizes || patternData.needleSizes.length === 0) missing.push('needle sizes');
+    if (!patternData.gauge) missing.push('gauge');
+    if (missing.length > 0) {
+      toast.info(`Imported from Ravelry. You may want to add: ${missing.join(', ')}.`, { autoClose: 6000 });
+    } else {
+      toast.success('Imported from Ravelry — review and save.');
+    }
   };
 
   const handleCreatePattern = async (e: React.FormEvent) => {
@@ -66,9 +89,24 @@ export default function Patterns() {
 
     setUploadingFiles(true);
 
-    createPattern.mutate(formData, {
-      onSuccess: async (newPattern) => {
+    const payload = pendingRavelryExtras ? { ...formData, ...pendingRavelryExtras } : formData;
+
+    createPattern.mutate(payload as any, {
+      onSuccess: async (newPattern: any) => {
         toast.success('Pattern created!');
+
+        // If we have a pending Ravelry photo URL, download and attach it
+        if (pendingRavelryPhotoUrl && newPattern?.id) {
+          try {
+            await axios.post(`/api/uploads/patterns/${newPattern.id}/thumbnail/from-url`, {
+              photoUrl: pendingRavelryPhotoUrl,
+            });
+          } catch (err) {
+            console.error('Failed to import Ravelry photo:', err);
+          }
+        }
+        setPendingRavelryPhotoUrl(null);
+        setPendingRavelryExtras(null);
 
         // Upload PDF files if any
         if (patternFiles.length > 0) {
@@ -236,8 +274,20 @@ export default function Patterns() {
           {patterns.map((pattern) => (
             <div
               key={pattern.id}
-              className="bg-white rounded-lg shadow hover:shadow-lg transition"
+              className="bg-white rounded-lg shadow hover:shadow-lg transition overflow-hidden"
             >
+              {pattern.thumbnail_url && (
+                <div
+                  onClick={() => navigate(`/patterns/${pattern.id}`)}
+                  className="w-full h-48 bg-gray-100 overflow-hidden cursor-pointer"
+                >
+                  <img
+                    src={pattern.thumbnail_url}
+                    alt={pattern.name}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              )}
               {/* Clickable card area */}
               <div
                 onClick={() => navigate(`/patterns/${pattern.id}`)}

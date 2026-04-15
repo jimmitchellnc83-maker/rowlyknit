@@ -53,6 +53,11 @@ router.post(
   uploadsController.uploadYarnPhoto
 );
 
+router.post(
+  '/yarn/:yarnId/photos/from-url',
+  uploadsController.uploadYarnPhotoFromUrl
+);
+
 router.get(
   '/yarn/:yarnId/photos',
   uploadsController.getYarnPhotos
@@ -61,6 +66,11 @@ router.get(
 router.delete(
   '/yarn/:yarnId/photos/:photoId',
   uploadsController.deleteYarnPhoto
+);
+
+router.post(
+  '/patterns/:patternId/thumbnail/from-url',
+  uploadsController.uploadPatternThumbnailFromUrl
 );
 
 export default router;

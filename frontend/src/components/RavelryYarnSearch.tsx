@@ -14,18 +14,35 @@ interface RavelryYarn {
   ratingAverage: number | null;
   ratingCount: number | null;
   photoUrl: string | null;
+  description?: string | null;
+  discontinued?: boolean;
+  gauge?: string | null;
+  needleSizes?: string | null;
+  machineWashable?: boolean | null;
+}
+
+export interface RavelryYarnImportData {
+  brand: string;
+  name: string;
+  weight: string;
+  fiberContent: string;
+  yardsTotal: string;
+  gramsTotal?: string;
+  // Structured fields stored in their own columns
+  gauge?: string;
+  needleSizes?: string;
+  machineWashable?: boolean;
+  discontinued?: boolean;
+  ravelryId?: number;
+  ravelryRating?: number;
+  description?: string;
+  photoUrl?: string;
 }
 
 interface RavelryYarnSearchProps {
   isOpen: boolean;
   onClose: () => void;
-  onImport: (yarnData: {
-    brand: string;
-    name: string;
-    weight: string;
-    fiberContent: string;
-    yardsTotal: string;
-  }) => void;
+  onImport: (yarnData: RavelryYarnImportData) => void;
 }
 
 export default function RavelryYarnSearch({ isOpen, onClose, onImport }: RavelryYarnSearchProps) {
@@ -131,7 +148,29 @@ export default function RavelryYarnSearch({ isOpen, onClose, onImport }: Ravelry
     searchYarns(query, nextPage);
   };
 
-  const handleImport = (yarn: RavelryYarn) => {
+  const handleImport = async (yarn: RavelryYarn) => {
+    // Fetch full yarn details from Ravelry for richer data
+    let detail: any = null;
+    try {
+      const response = await axios.get(`/api/ravelry/yarns/${yarn.id}`);
+      if (response.data.success) {
+        detail = response.data.data.yarn;
+      }
+    } catch {
+      // Fall back to search result
+    }
+
+    // Merge preferring non-null values from either source
+    const merged: any = { ...yarn };
+    if (detail) {
+      for (const key of Object.keys(detail)) {
+        const val = detail[key];
+        if (val !== null && val !== undefined && val !== '') {
+          merged[key] = val;
+        }
+      }
+    }
+
     // Map Ravelry weight names to the app's weight values
     const weightMap: Record<string, string> = {
       'Lace': 'lace',
@@ -146,14 +185,23 @@ export default function RavelryYarnSearch({ isOpen, onClose, onImport }: Ravelry
       'Jumbo': 'super-bulky',
     };
 
-    const mappedWeight = yarn.weight ? (weightMap[yarn.weight] || 'worsted') : 'worsted';
+    const mappedWeight = merged.weight ? (weightMap[merged.weight] || 'worsted') : 'worsted';
 
     onImport({
-      brand: yarn.brand || '',
-      name: yarn.name || '',
+      brand: merged.brand || '',
+      name: merged.name || '',
       weight: mappedWeight,
-      fiberContent: yarn.fiberContent || '',
-      yardsTotal: yarn.yardage ? String(yarn.yardage) : '',
+      fiberContent: merged.fiberContent || '',
+      yardsTotal: merged.yardage ? String(merged.yardage) : '',
+      gramsTotal: merged.grams ? String(merged.grams) : undefined,
+      gauge: merged.gauge || undefined,
+      needleSizes: merged.needleSizes || undefined,
+      machineWashable: merged.machineWashable ?? undefined,
+      discontinued: merged.discontinued || false,
+      ravelryId: merged.id,
+      ravelryRating: merged.ratingAverage || undefined,
+      description: merged.description || undefined,
+      photoUrl: merged.photoUrl || undefined,
     });
     onClose();
   };

@@ -2,6 +2,186 @@ import axios, { AxiosInstance } from 'axios';
 import logger from '../config/logger';
 import ravelryOAuthService from './ravelryOAuthService';
 
+/**
+ * Map a Ravelry yarn object (from search or detail endpoint) to our normalized shape.
+ * Both endpoints sometimes use different field names — we handle both here.
+ */
+function mapYarnFields(y: any, isDetail: boolean = false) {
+  // Fiber content: yarn_fibers (detail) or fiber_content (some search responses)
+  let fiberContent: string | null = null;
+  const fibers = y.yarn_fibers || y.fiber_content;
+  if (Array.isArray(fibers) && fibers.length > 0) {
+    fiberContent = fibers
+      .map((f: any) => {
+        const name = f.fiber_type?.name || f.name;
+        const pct = f.percentage;
+        return pct ? `${pct}% ${name}` : name;
+      })
+      .filter(Boolean)
+      .join(', ');
+  }
+
+  // Brand: yarn_company.name (detail) or yarn_company_name (search)
+  const brand = y.yarn_company?.name || y.yarn_company_name || null;
+
+  // Gauge: gauge_description, or built from min/max gauge
+  let gauge: string | null = null;
+  if (y.gauge_description) {
+    gauge = y.gauge_description;
+  } else if (y.min_gauge || y.max_gauge) {
+    const divisor = y.gauge_divisor || 4;
+    if (y.min_gauge && y.max_gauge && y.min_gauge !== y.max_gauge) {
+      gauge = `${y.min_gauge}–${y.max_gauge} sts over ${divisor} inches`;
+    } else {
+      gauge = `${y.min_gauge || y.max_gauge} sts over ${divisor} inches`;
+    }
+  }
+
+  // Needle sizes: build a range from min/max
+  let needleSizes: string | null = null;
+  if (y.min_needle_size || y.max_needle_size) {
+    const formatNeedle = (n: any): string => {
+      if (!n) return '';
+      const us = n.us ? `US ${n.us}` : '';
+      const metric = n.metric ? `${n.metric} mm` : '';
+      return [us, metric].filter(Boolean).join(' / ');
+    };
+    const min = formatNeedle(y.min_needle_size);
+    const max = formatNeedle(y.max_needle_size);
+    needleSizes = min && max && min !== max ? `${min} – ${max}` : min || max;
+  }
+
+  // Description: notes_html (preferred) or notes, with HTML stripped
+  let description: string | null = null;
+  if (isDetail) {
+    if (y.notes_html) {
+      description = String(y.notes_html)
+        .replace(/<br\s*\/?>/gi, '\n')
+        .replace(/<\/p>/gi, '\n\n')
+        .replace(/<[^>]*>/g, '')
+        .replace(/&amp;/g, '&')
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&#39;/g, "'")
+        .replace(/&quot;/g, '"')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+    } else if (y.notes) {
+      description = String(y.notes).trim();
+    }
+  }
+
+  // Photo URL
+  const photoUrl =
+    y.photos?.[0]?.medium_url ||
+    y.photos?.[0]?.small_url ||
+    y.first_photo?.medium_url ||
+    y.first_photo?.small_url ||
+    null;
+
+  return {
+    id: y.id,
+    name: y.name,
+    brand,
+    weight: y.yarn_weight?.name || null,
+    fiberContent,
+    yardage: y.yardage,
+    grams: y.grams,
+    machineWashable: y.machine_washable,
+    ratingAverage: y.rating_average,
+    ratingCount: y.rating_count,
+    photoUrl,
+    description,
+    discontinued: y.discontinued || false,
+    gauge,
+    needleSizes,
+    texture: y.texture || null,
+    wpi: y.wpi || null,
+  };
+}
+
+/**
+ * Map a Ravelry pattern object to our normalized shape.
+ */
+function mapPatternFields(p: any, isDetail: boolean = false) {
+  // Designer
+  const designer = p.pattern_author?.name || p.designer?.name || null;
+
+  // Categories
+  const categories = p.pattern_categories?.map((c: any) => c.name) || [];
+
+  // Gauge
+  let gauge: string | null = null;
+  if (p.gauge_description) {
+    gauge = p.gauge_description;
+  } else if (p.gauge) {
+    const divisor = p.gauge_divisor || 4;
+    const pat = p.gauge_pattern || 'pattern';
+    gauge = `${p.gauge} sts = ${divisor}" in ${pat}`;
+  }
+
+  // Needle sizes (array of needle objects)
+  let needleSizes: any[] | null = null;
+  const rawNeedles = p.pattern_needle_sizes || p.needle_sizes;
+  if (Array.isArray(rawNeedles) && rawNeedles.length > 0) {
+    needleSizes = rawNeedles
+      .map((n: any) => {
+        if (typeof n === 'string') return { name: n };
+        const us = n.us ? `US ${n.us}` : '';
+        const metric = n.metric ? `${n.metric} mm` : '';
+        const name = [us, metric].filter(Boolean).join(' / ') || n.name;
+        return name ? { name } : null;
+      })
+      .filter(Boolean);
+  }
+
+  // Sizes available
+  let sizesAvailable: any[] | null = null;
+  if (p.sizes_available) {
+    sizesAvailable = Array.isArray(p.sizes_available) ? p.sizes_available : [p.sizes_available];
+  }
+
+  // Description: notes_html with HTML stripped
+  let description: string | null = null;
+  if (isDetail) {
+    const raw = p.notes_html || p.notes;
+    if (raw) {
+      description = String(raw)
+        .replace(/<br\s*\/?>/gi, '\n')
+        .replace(/<\/p>/gi, '\n\n')
+        .replace(/<[^>]*>/g, '')
+        .replace(/&amp;/g, '&')
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&#39;/g, "'")
+        .replace(/&quot;/g, '"')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+    }
+  }
+
+  return {
+    id: p.id,
+    name: p.name,
+    designer,
+    difficultyAverage: p.difficulty_average,
+    ratingAverage: p.rating_average,
+    yarnWeight: p.yarn_weight_description || p.yarn_weight?.name || null,
+    yardageMax: p.yardage_max || p.yardage,
+    photoUrl: p.first_photo?.medium_url || p.first_photo?.small_url || p.photos?.[0]?.medium_url || null,
+    photoSquareUrl: p.first_photo?.square_url || null,
+    categories,
+    craft: p.craft?.name || null,
+    description,
+    gauge,
+    needleSizes,
+    sizesAvailable,
+    yarnSuggestions: p.packs?.map((pack: any) => ({
+      yarnName: pack.yarn_name,
+      yarnCompany: pack.yarn?.yarn_company?.name || pack.yarn?.yarn_company_name,
+      quantity: pack.quantity_description,
+    })) || [],
+  };
+}
+
 interface RavelryYarnSearchResult {
   yarns: Array<{
     id: number;
@@ -129,21 +309,7 @@ class RavelryService {
 
       const response = await client.get<RavelryYarnSearchResult>('/yarns/search.json', { params });
 
-      const yarns = (response.data.yarns || []).map((y) => ({
-        id: y.id,
-        name: y.name,
-        brand: y.yarn_company_name,
-        weight: y.yarn_weight?.name || null,
-        fiberContent: y.fiber_content
-          ? y.fiber_content.map((f) => `${f.percentage}% ${f.fiber_type.name}`).join(', ')
-          : null,
-        yardage: y.yardage,
-        grams: y.grams,
-        machineWashable: y.machine_washable,
-        ratingAverage: y.rating_average,
-        ratingCount: y.rating_count,
-        photoUrl: y.first_photo?.medium_url || y.first_photo?.small_url || null,
-      }));
+      const yarns = (response.data.yarns || []).map((y: any) => mapYarnFields(y));
 
       return {
         yarns,
@@ -177,25 +343,7 @@ class RavelryService {
 
       if (!y) return null;
 
-      return {
-        id: y.id,
-        name: y.name,
-        brand: y.yarn_company_name,
-        weight: y.yarn_weight?.name || null,
-        fiberContent: y.fiber_content
-          ? y.fiber_content.map((f: any) => `${f.percentage}% ${f.fiber_type.name}`).join(', ')
-          : null,
-        yardage: y.yardage,
-        grams: y.grams,
-        machineWashable: y.machine_washable,
-        ratingAverage: y.rating_average,
-        ratingCount: y.rating_count,
-        photoUrl: y.photos?.[0]?.medium_url || null,
-        description: y.notes || null,
-        discontinued: y.discontinued,
-        gaugeDescription: y.gauge_description,
-        needleSizes: y.needle_sizes,
-      };
+      return mapYarnFields(y, true);
     } catch (error: any) {
       if (error instanceof RavelryOAuthRequiredError) throw error;
       logger.error('Ravelry get yarn failed', {
@@ -239,19 +387,7 @@ class RavelryService {
 
       const response = await client.get<RavelryPatternSearchResult>('/patterns/search.json', { params });
 
-      const patterns = (response.data.patterns || []).map((p) => ({
-        id: p.id,
-        name: p.name,
-        designer: p.designer?.name || null,
-        difficultyAverage: p.difficulty_average,
-        ratingAverage: p.rating_average,
-        yarnWeight: p.yarn_weight_description || null,
-        yardageMax: p.yardage_max,
-        photoUrl: p.first_photo?.medium_url || p.first_photo?.small_url || null,
-        photoSquareUrl: p.first_photo?.square_url || null,
-        categories: p.pattern_categories?.map((c) => c.name) || [],
-        craft: p.craft?.name || null,
-      }));
+      const patterns = (response.data.patterns || []).map((p: any) => mapPatternFields(p));
 
       return {
         patterns,
@@ -285,27 +421,7 @@ class RavelryService {
 
       if (!p) return null;
 
-      return {
-        id: p.id,
-        name: p.name,
-        designer: p.pattern_author?.name || null,
-        difficultyAverage: p.difficulty_average,
-        ratingAverage: p.rating_average,
-        yarnWeight: p.yarn_weight_description || null,
-        description: p.notes_html || p.notes || null,
-        photoUrl: p.photos?.[0]?.medium_url || null,
-        categories: p.pattern_categories?.map((c: any) => c.name) || [],
-        craft: p.craft?.name || null,
-        gauge: p.gauge_description,
-        yardage: p.yardage_max,
-        sizesAvailable: p.sizes_available,
-        needleSizes: p.pattern_needle_sizes,
-        yarnSuggestions: p.packs?.map((pack: any) => ({
-          yarnName: pack.yarn_name,
-          yarnCompany: pack.yarn?.yarn_company_name,
-          quantity: pack.quantity_description,
-        })) || [],
-      };
+      return mapPatternFields(p, true);
     } catch (error: any) {
       if (error instanceof RavelryOAuthRequiredError) throw error;
       logger.error('Ravelry get pattern failed', {

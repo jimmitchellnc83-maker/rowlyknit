@@ -15,18 +15,32 @@ interface RavelryPattern {
   photoSquareUrl: string | null;
   categories: string[];
   craft: string | null;
+  description?: string | null;
+  gauge?: string | null;
+  needleSizes?: any[] | null;
+  sizesAvailable?: any[] | null;
+  yarnSuggestions?: any[];
+}
+
+export interface RavelryPatternImportData {
+  name: string;
+  designer: string;
+  difficulty: string;
+  category: string;
+  description: string;
+  photoUrl?: string;
+  needleSizes?: any[];
+  sizesAvailable?: any[];
+  yarnRequirements?: any[];
+  estimatedYardage?: number;
+  gauge?: string;
+  sourceUrl?: string;
 }
 
 interface RavelryPatternSearchProps {
   isOpen: boolean;
   onClose: () => void;
-  onImport: (patternData: {
-    name: string;
-    designer: string;
-    difficulty: string;
-    category: string;
-    description: string;
-  }) => void;
+  onImport: (patternData: RavelryPatternImportData) => void;
 }
 
 export default function RavelryPatternSearch({ isOpen, onClose, onImport }: RavelryPatternSearchProps) {
@@ -130,13 +144,35 @@ export default function RavelryPatternSearch({ isOpen, onClose, onImport }: Rave
     searchPatterns(query, nextPage);
   };
 
-  const handleImport = (pattern: RavelryPattern) => {
+  const handleImport = async (pattern: RavelryPattern) => {
+    // Fetch full pattern details
+    let detail: any = null;
+    try {
+      const response = await axios.get(`/api/ravelry/patterns/${pattern.id}`);
+      if (response.data.success) {
+        detail = response.data.data.pattern;
+      }
+    } catch {
+      // Fall back to search result
+    }
+
+    // Merge preferring non-null values
+    const merged: any = { ...pattern };
+    if (detail) {
+      for (const key of Object.keys(detail)) {
+        const val = detail[key];
+        if (val !== null && val !== undefined && val !== '') {
+          merged[key] = val;
+        }
+      }
+    }
+
     // Map Ravelry difficulty (1-10 scale) to app difficulty levels
     let difficulty = 'intermediate';
-    if (pattern.difficultyAverage !== null) {
-      if (pattern.difficultyAverage <= 2.5) difficulty = 'beginner';
-      else if (pattern.difficultyAverage <= 5) difficulty = 'intermediate';
-      else if (pattern.difficultyAverage <= 7.5) difficulty = 'advanced';
+    if (merged.difficultyAverage != null) {
+      if (merged.difficultyAverage <= 2.5) difficulty = 'beginner';
+      else if (merged.difficultyAverage <= 5) difficulty = 'intermediate';
+      else if (merged.difficultyAverage <= 7.5) difficulty = 'advanced';
       else difficulty = 'expert';
     }
 
@@ -159,7 +195,8 @@ export default function RavelryPatternSearch({ isOpen, onClose, onImport }: Rave
     };
 
     let category = 'other';
-    for (const cat of pattern.categories) {
+    const categories: string[] = merged.categories || [];
+    for (const cat of categories) {
       const mapped = categoryMap[cat];
       if (mapped) {
         category = mapped;
@@ -167,18 +204,25 @@ export default function RavelryPatternSearch({ isOpen, onClose, onImport }: Rave
       }
     }
 
-    const descriptionParts: string[] = [];
-    if (pattern.craft) descriptionParts.push(`Craft: ${pattern.craft}`);
-    if (pattern.yarnWeight) descriptionParts.push(`Yarn weight: ${pattern.yarnWeight}`);
-    if (pattern.categories.length > 0) descriptionParts.push(`Categories: ${pattern.categories.join(', ')}`);
-    if (pattern.ratingAverage) descriptionParts.push(`Rating: ${pattern.ratingAverage.toFixed(1)}/5`);
+    // Use Ravelry's clean description if available, truncated to avoid wall-of-text
+    let description = merged.description || '';
+    if (description.length > 800) {
+      description = description.substring(0, 800).replace(/\s+\S*$/, '') + '...';
+    }
 
     onImport({
-      name: pattern.name || '',
-      designer: pattern.designer || '',
+      name: merged.name || '',
+      designer: merged.designer || '',
       difficulty,
       category,
-      description: descriptionParts.join('\n'),
+      description,
+      photoUrl: merged.photoUrl || merged.photoSquareUrl || undefined,
+      needleSizes: merged.needleSizes || undefined,
+      sizesAvailable: merged.sizesAvailable || undefined,
+      yarnRequirements: merged.yarnSuggestions || undefined,
+      estimatedYardage: merged.yardageMax || undefined,
+      gauge: merged.gauge || undefined,
+      sourceUrl: pattern.id ? `https://www.ravelry.com/patterns/library/${pattern.id}` : undefined,
     });
     onClose();
   };
@@ -312,7 +356,7 @@ export default function RavelryPatternSearch({ isOpen, onClose, onImport }: Rave
                       <p className="text-sm text-gray-600">by {pattern.designer}</p>
                     )}
                     <div className="flex flex-wrap gap-2 mt-1">
-                      {pattern.difficultyAverage !== null && (
+                      {pattern.difficultyAverage != null && (
                         <span className={`text-xs px-2 py-0.5 rounded-full ${getDifficultyColor(pattern.difficultyAverage)}`}>
                           {getDifficultyLabel(pattern.difficultyAverage)} ({pattern.difficultyAverage.toFixed(1)})
                         </span>
