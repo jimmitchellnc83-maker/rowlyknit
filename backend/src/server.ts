@@ -1,12 +1,27 @@
 import http from 'http';
+import * as Sentry from '@sentry/node';
 import app from './app';
 import { initializeSocket } from './config/socket';
 import logger from './config/logger';
+
+// Initialize Sentry (before anything else)
+if (process.env.SENTRY_DSN) {
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    environment: process.env.NODE_ENV,
+  });
+  logger.info('Sentry error monitoring initialized');
+}
 
 const PORT = process.env.PORT || 5000;
 
 // Create HTTP server
 const httpServer = http.createServer(app);
+
+// Request timeout configuration
+httpServer.timeout = 30000;          // 30s general timeout
+httpServer.keepAliveTimeout = 65000; // above nginx keepalive (60s)
+httpServer.headersTimeout = 66000;   // slightly above keepAliveTimeout
 
 // Initialize Socket.IO
 initializeSocket(httpServer);

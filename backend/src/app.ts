@@ -185,6 +185,12 @@ app.use(notFoundHandler);
 // CSRF error handler (must be before global error handler)
 app.use(csrfErrorHandler);
 
+// Sentry error handler (must be before global error handler)
+import * as Sentry from '@sentry/node';
+if (process.env.SENTRY_DSN) {
+  Sentry.setupExpressErrorHandler(app);
+}
+
 // Global error handler
 app.use(errorHandler);
 
