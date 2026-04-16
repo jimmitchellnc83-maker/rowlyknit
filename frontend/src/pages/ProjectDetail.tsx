@@ -435,12 +435,15 @@ export default function ProjectDetail() {
     }
   };
 
-  const handleSaveAudioNote = async (audioBlob: Blob, durationSeconds: number, transcription?: string) => {
+  const handleSaveAudioNote = async (audioBlob: Blob, durationSeconds: number, transcription?: string, patternId?: string) => {
     const formData = new FormData();
     formData.append('audio', audioBlob, 'audio-note.webm');
     formData.append('durationSeconds', durationSeconds.toString());
     if (transcription) {
       formData.append('transcription', transcription);
+    }
+    if (patternId) {
+      formData.append('patternId', patternId);
     }
 
     try {
@@ -785,6 +788,7 @@ export default function ProjectDetail() {
                 <h2 className="text-lg md:text-xl font-bold text-gray-900 mb-4">Voice Notes</h2>
                 <AudioNotes
                   projectId={id!}
+                  patterns={project?.patterns || []}
                   notes={audioNotes}
                   onSaveNote={handleSaveAudioNote}
                   onDeleteNote={handleDeleteAudioNote}
@@ -904,6 +908,7 @@ export default function ProjectDetail() {
               {notesTab === 'audio' && (
                 <AudioNotes
                   projectId={id!}
+                  patterns={project?.patterns || []}
                   notes={audioNotes}
                   onSaveNote={handleSaveAudioNote}
                   onDeleteNote={handleDeleteAudioNote}

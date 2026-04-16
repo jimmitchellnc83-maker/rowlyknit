@@ -1,5 +1,6 @@
 // @ts-nocheck
 import React, { useState, useRef, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { FiMic, FiSquare, FiPlay, FiPause, FiTrash2, FiDownload, FiEdit2, FiCheck, FiX } from 'react-icons/fi';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -47,9 +48,10 @@ interface AudioNote {
 interface AudioNotesProps {
   projectId: string;
   patternId?: string;
+  patterns?: Array<{ id: string; name: string }>;
   notes: AudioNote[];
   getCurrentCounterValues?: () => Record<string, number>;
-  onSaveNote: (audioBlob: Blob, durationSeconds: number, transcription?: string) => Promise<void>;
+  onSaveNote: (audioBlob: Blob, durationSeconds: number, transcription?: string, patternId?: string) => Promise<void>;
   onDeleteNote: (noteId: string) => Promise<void>;
   onUpdateTranscription?: (noteId: string, transcription: string) => Promise<void>;
 }
@@ -57,6 +59,7 @@ interface AudioNotesProps {
 export const AudioNotes: React.FC<AudioNotesProps> = ({
   projectId,
   patternId,
+  patterns,
   notes,
   getCurrentCounterValues,
   onSaveNote,
@@ -68,6 +71,7 @@ export const AudioNotes: React.FC<AudioNotesProps> = ({
   const [playingNoteId, setPlayingNoteId] = useState<string | null>(null);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editTranscription, setEditTranscription] = useState('');
+  const [selectedPatternId, setSelectedPatternId] = useState<string>('');
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -161,7 +165,8 @@ export const AudioNotes: React.FC<AudioNotesProps> = ({
         const duration = recordingTimeRef.current;
         console.log(`⏱️  Recording duration: ${duration} seconds`);
         try {
-          await onSaveNote(audioBlob, duration, undefined);
+          await onSaveNote(audioBlob, duration, undefined, selectedPatternId || undefined);
+          setSelectedPatternId('');
           console.log('✅ Audio note saved successfully');
         } catch (error) {
           console.error('Failed to save audio note:', error);
@@ -310,6 +315,25 @@ export const AudioNotes: React.FC<AudioNotesProps> = ({
         Audio Notes
       </h3>
 
+      {/* Pattern Selector */}
+      {patterns && patterns.length > 0 && (
+        <div className="mb-4">
+          <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+            Link to pattern (optional)
+          </label>
+          <select
+            value={selectedPatternId}
+            onChange={(e) => setSelectedPatternId(e.target.value)}
+            className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+          >
+            <option value="">No pattern</option>
+            {patterns.map((p) => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
       {/* Recording Controls */}
       <div className="mb-6">
         {!isRecording ? (
@@ -362,10 +386,13 @@ export const AudioNotes: React.FC<AudioNotesProps> = ({
                     <div className="text-xs text-gray-500 dark:text-gray-400">
                       Duration: {formatDuration(note.duration_seconds)}
                     </div>
-                    {note.pattern_name && (
-                      <div className="mt-1 inline-flex items-center rounded-full bg-purple-50 dark:bg-purple-900/30 px-2 py-0.5 text-[11px] font-medium text-purple-700 dark:text-purple-200">
+                    {note.pattern_name && note.pattern_id && (
+                      <Link
+                        to={`/patterns/${note.pattern_id}`}
+                        className="mt-1 inline-flex items-center rounded-full bg-purple-50 dark:bg-purple-900/30 px-2 py-0.5 text-[11px] font-medium text-purple-700 dark:text-purple-200 hover:bg-purple-100 dark:hover:bg-purple-900/50 transition-colors"
+                      >
                         Linked pattern: {note.pattern_name}
-                      </div>
+                      </Link>
                     )}
                   </div>
                 <div className="flex items-center gap-2">
