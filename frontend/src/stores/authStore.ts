@@ -2,12 +2,26 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import axios from 'axios'; // Uses globally configured axios from lib/axios
 
+interface UserPreferences {
+  theme?: string;
+  notifications?: boolean;
+  measurements?: {
+    needleSizeFormat?: 'us' | 'mm' | 'uk';
+    lengthUnit?: 'in' | 'cm' | 'mm';
+    yarnQuantityUnit?: 'yd' | 'm';
+    yarnWeightUnit?: 'g' | 'oz';
+    gaugeBase?: '4in' | '10cm';
+    gaugeDetail?: 'per_base' | 'per_inch' | 'per_cm';
+  };
+}
+
 interface User {
   id: string;
   email: string;
   firstName: string;
   lastName: string;
   emailVerified: boolean;
+  preferences?: UserPreferences;
 }
 
 interface AuthState {

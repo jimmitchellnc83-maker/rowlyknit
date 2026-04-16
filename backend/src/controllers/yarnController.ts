@@ -129,6 +129,9 @@ export async function createYarn(req: Request, res: Response) {
     throw new ValidationError('Yarn name is required');
   }
 
+  // Compute normalized length in meters from yards (1 yd = 0.9144 m)
+  const totalLengthM = yardsTotal ? Number(yardsTotal) * 0.9144 : null;
+
   const [yarn] = await db('yarn')
     .insert({
       user_id: userId,
@@ -141,6 +144,8 @@ export async function createYarn(req: Request, res: Response) {
       fiber_content: fiberContent,
       yards_total: yardsTotal,
       yards_remaining: yardsTotal,
+      total_length_m: totalLengthM != null ? Math.round(totalLengthM * 100) / 100 : null,
+      remaining_length_m: totalLengthM != null ? Math.round(totalLengthM * 100) / 100 : null,
       grams_total: gramsTotal,
       grams_remaining: gramsTotal,
       skeins_total: skeinsTotal || 1,
@@ -236,6 +241,11 @@ export async function updateYarn(req: Request, res: Response) {
     const delta = Number(yardsTotal) - (yarn.yards_total || 0);
     updateData.yards_total = yardsTotal;
     updateData.yards_remaining = Math.max(0, (yarn.yards_remaining || 0) + delta);
+    // Keep normalized meter columns in sync
+    updateData.total_length_m = Math.round(Number(yardsTotal) * 0.9144 * 100) / 100;
+    updateData.remaining_length_m = Math.max(0, Math.round(
+      ((yarn.remaining_length_m || 0) + delta * 0.9144) * 100
+    ) / 100);
   }
   if (gramsTotal !== undefined) {
     const delta = Number(gramsTotal) - (yarn.grams_total || 0);

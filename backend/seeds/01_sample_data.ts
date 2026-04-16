@@ -34,7 +34,13 @@ export async function seed(knex: Knex): Promise<void> {
       preferences: JSON.stringify({
         theme: 'light',
         notifications: true,
-        units: 'imperial',
+        measurements: {
+          needleSizeFormat: 'us',
+          lengthUnit: 'in',
+          yarnQuantityUnit: 'yd',
+          yarnWeightUnit: 'g',
+          gaugeBase: '4in',
+        },
       }),
     })
     .returning('*');

@@ -88,6 +88,7 @@ export async function register(req: Request, res: Response) {
         email: user.email,
         firstName: user.first_name,
         lastName: user.last_name,
+        preferences: user.preferences,
       },
     },
   });
@@ -201,6 +202,7 @@ export async function login(req: Request, res: Response) {
         firstName: user.first_name,
         lastName: user.last_name,
         emailVerified: user.email_verified,
+        preferences: user.preferences,
       },
       accessToken,
       refreshToken,
@@ -369,7 +371,7 @@ export async function getProfile(req: Request, res: Response) {
 export async function updateProfile(req: Request, res: Response) {
   const userId = req.user!.userId;
 
-  const { firstName, lastName } = req.body;
+  const { firstName, lastName, preferences } = req.body;
 
   const user = await db('users')
     .where({ id: userId })
@@ -383,6 +385,16 @@ export async function updateProfile(req: Request, res: Response) {
   const updateData: any = { updated_at: new Date() };
   if (firstName !== undefined) updateData.first_name = firstName;
   if (lastName !== undefined) updateData.last_name = lastName;
+  if (preferences !== undefined) {
+    // Merge incoming preferences with existing ones (shallow merge at top level,
+    // deep merge for the measurements sub-object)
+    const existing = user.preferences || {};
+    const merged = { ...existing, ...preferences };
+    if (preferences.measurements) {
+      merged.measurements = { ...(existing.measurements || {}), ...preferences.measurements };
+    }
+    updateData.preferences = JSON.stringify(merged);
+  }
 
   const [updatedUser] = await db('users')
     .where({ id: userId })

@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { FiFolder, FiBook, FiPackage, FiUsers, FiPlus, FiAlertCircle } from 'react-icons/fi';
 import { useAuthStore } from '../stores/authStore';
 import { useDashboardStats } from '../hooks/useApi';
+import { useMeasurements } from '../hooks/useMeasurements';
 
 const iconMap: { [key: string]: React.ComponentType<{ className?: string }> } = {
   FiFolder,
@@ -13,6 +14,7 @@ const iconMap: { [key: string]: React.ComponentType<{ className?: string }> } = 
 export default function Dashboard() {
   const { user } = useAuthStore();
   const { data: dashboardData, isLoading: loading } = useDashboardStats();
+  const { fmt } = useMeasurements();
 
   const stats = dashboardData?.stats ?? [
     { name: 'Active Projects', value: '0', iconName: 'FiFolder', href: '/projects', color: 'bg-purple-500' },
@@ -134,7 +136,9 @@ export default function Dashboard() {
 
             <div className="space-y-3">
               {lowStockYarn.map((yarn) => {
-                const currentQty = yarn.yards_remaining || 0;
+                const currentQty = yarn.remaining_length_m != null
+                  ? Math.round(yarn.remaining_length_m * 1.09361)
+                  : (yarn.yards_remaining || 0);
                 const threshold = yarn.low_stock_threshold || 0;
                 const percentRemaining = threshold > 0 ? (currentQty / threshold) * 100 : 0;
 
@@ -150,7 +154,7 @@ export default function Dashboard() {
                           {yarn.brand} {yarn.name}
                         </h3>
                         <span className="text-sm font-medium text-orange-600">
-                          {currentQty} / {threshold} yards
+                          {fmt.yarnLength(yarn.remaining_length_m, yarn.yards_remaining)} / {threshold} {fmt.yarnLengthUnit()}
                         </span>
                       </div>
 

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FiSearch, FiX, FiDownload, FiStar, FiLoader, FiLink } from 'react-icons/fi';
 import axios from 'axios';
+import { useMeasurements } from '../hooks/useMeasurements';
 
 interface RavelryYarn {
   id: number;
@@ -47,6 +48,7 @@ interface RavelryYarnSearchProps {
 
 export default function RavelryYarnSearch({ isOpen, onClose, onImport }: RavelryYarnSearchProps) {
   const navigate = useNavigate();
+  const { fmt } = useMeasurements();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<RavelryYarn[]>([]);
   const [loading, setLoading] = useState(false);
@@ -326,7 +328,7 @@ export default function RavelryYarnSearch({ isOpen, onClose, onImport }: Ravelry
                       )}
                       {yarn.yardage && (
                         <span className="text-xs text-gray-500">
-                          {yarn.yardage} yds/skein
+                          {fmt.yarnLength(yarn.yardage ? yarn.yardage * 0.9144 : null, yarn.yardage)}/skein
                         </span>
                       )}
                       {yarn.grams && (

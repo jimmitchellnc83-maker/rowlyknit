@@ -4,6 +4,7 @@ import { FiArrowLeft, FiEdit2, FiTrash2, FiPackage, FiAlertCircle } from 'react-
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import ConfirmModal from '../components/ConfirmModal';
+import { useMeasurements } from '../hooks/useMeasurements';
 
 interface Yarn {
   id: string;
@@ -16,6 +17,8 @@ interface Yarn {
   fiber_content: string;
   yards_total?: number;
   yards_remaining?: number;
+  total_length_m?: number;
+  remaining_length_m?: number;
   grams_total?: number;
   grams_remaining?: number;
   skeins_total?: number;
@@ -61,6 +64,7 @@ const getWeightColor = (weight: string): string => {
 export default function YarnDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { fmt } = useMeasurements();
   const [yarn, setYarn] = useState<Yarn | null>(null);
   const [photos, setPhotos] = useState<YarnPhoto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -118,11 +122,13 @@ export default function YarnDetail() {
 
   const fullName = [yarn.brand, yarn.line, yarn.name].filter(Boolean).join(' — ');
   const primaryPhoto = photos[activePhotoIndex];
+  const remainingDisplay = fmt.yarnLength(yarn.remaining_length_m, yarn.yards_remaining);
   const isLowStock =
     yarn.low_stock_alert &&
-    yarn.yards_remaining !== undefined &&
     yarn.low_stock_threshold !== undefined &&
-    yarn.yards_remaining <= yarn.low_stock_threshold;
+    (yarn.remaining_length_m != null
+      ? fmt.metersToPreferred(yarn.remaining_length_m) <= yarn.low_stock_threshold
+      : (yarn.yards_remaining ?? Infinity) <= yarn.low_stock_threshold);
 
   return (
     <div className="max-w-6xl mx-auto">
@@ -222,7 +228,7 @@ export default function YarnDetail() {
             {isLowStock && (
               <div className="mt-4 flex items-center gap-2 px-3 py-2 bg-orange-50 text-orange-800 rounded-lg text-sm">
                 <FiAlertCircle className="h-4 w-4" />
-                Low stock — {yarn.yards_remaining} yards remaining
+                Low stock — {remainingDisplay} remaining
               </div>
             )}
           </div>
@@ -232,7 +238,13 @@ export default function YarnDetail() {
             <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Inventory</h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <StatCard label="Skeins" value={yarn.skeins_remaining} suffix={yarn.skeins_total ? `/${yarn.skeins_total}` : ''} />
-              <StatCard label="Yards" value={yarn.yards_remaining} suffix={yarn.yards_total ? `/${yarn.yards_total}` : ''} />
+              <StatCard
+                label="Length"
+                value={fmt.yarnLength(yarn.remaining_length_m, yarn.yards_remaining)}
+                suffix={yarn.total_length_m != null || yarn.yards_total != null
+                  ? `/${fmt.yarnLength(yarn.total_length_m, yarn.yards_total)}`
+                  : ''}
+              />
               <StatCard label="Grams" value={yarn.grams_remaining} suffix={yarn.grams_total ? `/${yarn.grams_total}` : ''} />
               {yarn.price_per_skein != null && (
                 <StatCard label="Price/Skein" value={`$${Number(yarn.price_per_skein).toFixed(2)}`} />
