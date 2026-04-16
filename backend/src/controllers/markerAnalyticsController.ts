@@ -108,12 +108,12 @@ export const acceptMarkerSuggestion = async (req: Request, res: Response) => {
       project_id: projectId,
       name: suggestion.name,
       trigger_type: suggestion.type,
-      trigger_value: suggestion.start_row,
-      end_value: suggestion.end_row || null,
+      start_row: suggestion.start_row,
+      end_row: suggestion.end_row || null,
       repeat_interval: suggestion.repeat_interval || null,
-      message: suggestion.message,
+      alert_message: suggestion.message,
       suggested_by_ai: true,
-      marker_color: getColorForType(suggestion.type),
+      color: getColorForType(suggestion.type),
       is_active: true,
       status: 'active',
     };
@@ -271,6 +271,8 @@ export const recordMarkerEvent = async (req: Request, res: Response) => {
       updateData.times_acknowledged = db.raw('times_acknowledged + 1');
     } else if (event_type === 'completed') {
       updateData.status = 'completed';
+      updateData.is_completed = true;
+      updateData.completed_at = new Date();
     }
 
     await db('magic_markers').where({ id: markerId }).update(updateData);
@@ -294,7 +296,7 @@ export const recordMarkerEvent = async (req: Request, res: Response) => {
 export const updateMarkerPosition = async (req: Request, res: Response) => {
   try {
     const { markerId } = req.params;
-    const { trigger_value, end_value } = req.body;
+    const { start_row, end_row } = req.body;
     const userId = req.user?.userId;
 
     if (!userId) {
@@ -312,16 +314,16 @@ export const updateMarkerPosition = async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Marker not found' });
     }
 
-    if (trigger_value === undefined || trigger_value < 1) {
-      return res.status(400).json({ error: 'Invalid trigger value' });
+    if (start_row === undefined || start_row < 1) {
+      return res.status(400).json({ error: 'Invalid start row value' });
     }
 
     const updateData: Record<string, any> = {
-      trigger_value,
+      start_row,
     };
 
-    if (end_value !== undefined) {
-      updateData.end_value = end_value;
+    if (end_row !== undefined) {
+      updateData.end_row = end_row;
     }
 
     await db('magic_markers').where({ id: markerId }).update(updateData);
@@ -367,7 +369,7 @@ export const updateMarkerColor = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Invalid color' });
     }
 
-    await db('magic_markers').where({ id: markerId }).update({ marker_color: color });
+    await db('magic_markers').where({ id: markerId }).update({ color });
 
     const updatedMarker = await db('magic_markers')
       .where({ id: markerId })
@@ -413,15 +415,17 @@ export const getUpcomingMarkers = async (req: Request, res: Response) => {
 
     // Get markers that will trigger in the next N rows
     const upcomingMarkers = await db('magic_markers')
-      .where({ project_id: projectId, status: 'active' })
-      .where('trigger_value', '>', currentRow)
-      .where('trigger_value', '<=', currentRow + lookAheadRows)
-      .orderBy('trigger_value', 'asc')
+      .where({ project_id: projectId, is_active: true })
+      .where('is_completed', false)
+      .where('start_row', '>', currentRow)
+      .where('start_row', '<=', currentRow + lookAheadRows)
+      .orderBy('start_row', 'asc')
       .select('*');
 
     // Also check interval markers
     const intervalMarkers = await db('magic_markers')
-      .where({ project_id: projectId, status: 'active' })
+      .where({ project_id: projectId, is_active: true })
+      .where('is_completed', false)
       .whereNotNull('repeat_interval')
       .where('repeat_interval', '>', 0)
       .select('*');
@@ -429,7 +433,7 @@ export const getUpcomingMarkers = async (req: Request, res: Response) => {
     // Calculate which interval markers will trigger
     const upcomingIntervals = intervalMarkers.filter((marker) => {
       const interval = marker.repeat_interval;
-      const start = marker.trigger_value;
+      const start = marker.start_row;
 
       // Find next occurrence after current row
       if (currentRow < start) {

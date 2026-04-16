@@ -190,8 +190,8 @@ router.patch(
   '/markers/:markerId/position',
   [
     validateUUID('markerId'),
-    body('trigger_value').isInt({ min: 1 }),
-    body('end_value').optional({ values: 'falsy' }).isInt({ min: 1 }),
+    body('start_row').isInt({ min: 1 }),
+    body('end_row').optional({ values: 'falsy' }).isInt({ min: 1 }),
   ],
   validate,
   asyncHandler(markerAnalyticsController.updateMarkerPosition)

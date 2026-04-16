@@ -367,12 +367,12 @@ export const generateMarkerTimeline = (
     id: string;
     name: string;
     trigger_type: string;
-    trigger_value: number;
-    end_value?: number;
+    start_row: number;
+    end_row?: number;
     repeat_interval?: number;
-    marker_color: string;
+    color: string;
     status: string;
-    message?: string;
+    alert_message?: string;
   }>,
   currentRow: number,
   projectLength: number
@@ -385,11 +385,11 @@ export const generateMarkerTimeline = (
 
     if (marker.status === 'completed') {
       status = 'completed';
-    } else if (marker.trigger_value <= currentRow) {
-      if (marker.end_value && marker.end_value >= currentRow) {
+    } else if (marker.start_row <= currentRow) {
+      if (marker.end_row && marker.end_row >= currentRow) {
         status = 'active';
-      } else if (!marker.end_value) {
-        status = marker.trigger_value === currentRow ? 'active' : 'completed';
+      } else if (!marker.end_row) {
+        status = marker.start_row === currentRow ? 'active' : 'completed';
       } else {
         status = 'completed';
       }
@@ -401,16 +401,16 @@ export const generateMarkerTimeline = (
     timeline.push({
       id: marker.id,
       name: marker.name,
-      row_position: marker.trigger_value,
+      row_position: marker.start_row,
       type: marker.trigger_type,
-      color: marker.marker_color || 'blue',
+      color: marker.color || 'blue',
       status,
-      message: marker.message,
+      message: marker.alert_message,
     });
 
     // For interval markers, add repeated instances
     if (marker.repeat_interval && marker.repeat_interval > 0) {
-      let repeatRow = marker.trigger_value + marker.repeat_interval;
+      let repeatRow = marker.start_row + marker.repeat_interval;
       let repeatCount = 0;
       const maxRepeats = 20; // Limit repeats shown
 
@@ -424,9 +424,9 @@ export const generateMarkerTimeline = (
           name: `${marker.name} (repeat)`,
           row_position: repeatRow,
           type: marker.trigger_type,
-          color: marker.marker_color || 'blue',
+          color: marker.color || 'blue',
           status: repeatStatus,
-          message: marker.message,
+          message: marker.alert_message,
         });
 
         repeatRow += marker.repeat_interval;
