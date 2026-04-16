@@ -18,7 +18,7 @@ validateSecretStrength();
 // Import configuration
 import './config/database';
 import './config/redis';
-import logger, { morganStream } from './config/logger';
+import { morganStream } from './config/logger';
 
 // Import middleware
 import { apiLimiter } from './middleware/rateLimiter';
@@ -72,24 +72,18 @@ app.use(helmet({
 }));
 
 // CORS configuration with origin validation
-const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',').map(o => o.trim()) || ['http://localhost:3000'];
-const corsOptions = {
-  origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
-    // Allow requests with no origin (mobile apps, Postman, etc.)
-    if (!origin) return callback(null, true);
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || process.env.CORS_ORIGIN || '').split(',').map(o => o.trim()).filter(Boolean);
 
-    // Check if origin is in whitelist
-    if (allowedOrigins.includes(origin)) {
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      logger.warn(`CORS blocked request from unauthorized origin: ${origin}`);
-      callback(new Error('Not allowed by CORS'));
+      callback(new Error(`CORS: origin ${origin} not allowed`));
     }
   },
   credentials: true,
-  optionsSuccessStatus: 200,
-};
-app.use(cors(corsOptions));
+}));
 
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
