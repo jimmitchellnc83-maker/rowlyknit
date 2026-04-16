@@ -71,3 +71,50 @@ Added `@sentry/node` (backend) and `@sentry/react` (frontend). Both initialize c
 3. `git pull && docker-compose up -d --build backend frontend`
 4. `docker-compose exec backend npx knex migrate:latest`
 5. Verify `https://rowlyknit.com/health` returns 200
+
+---
+
+## After-Action Review (actual deploy, April 16 2026)
+
+**Status:** ✅ Deployed to production. All 9 fixes live. Health checks green (DB, Redis, memory, disk all pass).
+
+### Things that went smoothly
+- All 9 code fixes committed cleanly, one commit per fix
+- TypeScript built clean on both backend and frontend (zero errors)
+- PR #24 created and merged to main
+- Backend Docker build succeeded in production
+
+### Issues encountered and resolutions
+
+**1. Frontend Docker build failed on `react-window` import.**
+Cause: The frontend Dockerfile runs `rm -f package-lock.json && npm install` which bypasses the locked version. In Docker's Alpine environment this resolved to a `react-window` variant whose ESM build differs from local. Local build works fine.
+Resolution: Deployed pre-built frontend `dist/` via scp + `docker cp` to the frontend container (the same pattern used in previous deploys per `settings.local.json`). Backend was rebuilt via Docker as normal.
+**Follow-up recommended:** Stop deleting the lockfile in the frontend Dockerfile so Docker uses the same pinned versions as local.
+
+**2. `EMAIL_API_KEY` was empty in `backend/.env` — blocked startup (Fix 1 working as designed).**
+This was the *exact* intended behavior of Fix 1 — the app refused to start until the variable was explicitly set.
+Resolution per user direction: Set a placeholder value `EMAIL_API_KEY=not-configured-email-disabled` so the app boots. Email features that depend on this key will no-op until a real key is wired up.
+**TODO for user:** When you have the real email service set up, replace this placeholder in `backend/.env` on production. The validation now guarantees you cannot forget to set it — an empty value will crash the app at boot.
+
+**3. `DB_PASSWORD` and `REDIS_PASSWORD` missing from root `.env` (used by docker-compose substitution).**
+The root `.env` was being used by `docker-compose` for variable interpolation in the compose file (e.g., `POSTGRES_PASSWORD: ${DB_PASSWORD}`). Missing values caused both containers to start with empty passwords, so backend auth failed.
+Resolution: Synced `DB_PASSWORD` and `REDIS_PASSWORD` from `backend/.env` into root `.env`, force-recreated Redis so it picked up `requirepass`, and ran `ALTER USER rowly_user WITH PASSWORD ...` in Postgres to align the stored password with what the backend sends.
+**Follow-up recommended:** Fold `backend/.env` into the root `.env` (or use Docker secrets) so there's a single source of truth.
+
+**4. Migration table drift (pre-existing).**
+Production had migration `20240101000039_add_ravelry_ids_to_patterns_and_projects.js` recorded as applied, but that file doesn't exist in the repo — a different `000039` (`add_tool_categories`) shipped instead. Two parallel PRs had claimed the same migration number in the past.
+Resolution: Manually inserted rows for migrations 39–46 (including my new 046) into `knex_migrations` so `migrate:latest` stops erroring on "directory is corrupt." The audit-log indexes from migration 046 already existed in the schema, so no actual DDL was needed.
+**Follow-up recommended:** Audit all migration files against the DB to confirm no schema drift exists between the two paths.
+
+### Final verification (post-deploy)
+- `https://rowlyknit.com/` — HTTP 200 (frontend serves)
+- `https://rowlyknit.com/health` — HTTP 200
+- `https://rowlyknit.com/api/` — responds correctly with 401 unauth
+- Backend container `/health` endpoint — `database: pass, redis: pass, memory: pass, disk: pass`
+- Nginx reloaded with new rate-limit rules applied
+
+### Net-new production dependencies installed
+- `sanitize-html` + `@types/sanitize-html` (backend)
+- `csrf-csrf` (backend) — replaces deprecated csurf pattern
+- `@sentry/node` (backend) — no-op unless `SENTRY_DSN` env is set
+- `@sentry/react` (frontend) — no-op unless `VITE_SENTRY_DSN` env is set
