@@ -1,7 +1,17 @@
 import http from 'http';
+import * as Sentry from '@sentry/node';
 import app from './app';
 import { initializeSocket } from './config/socket';
 import logger from './config/logger';
+
+// Initialize Sentry (before anything else)
+if (process.env.SENTRY_DSN) {
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    environment: process.env.NODE_ENV,
+  });
+  logger.info('Sentry error monitoring initialized');
+}
 
 const PORT = process.env.PORT || 5000;
 
