@@ -106,6 +106,7 @@ ensureUploadDirs();
 
 // Upload project photo
 export const uploadProjectPhoto = async (req: Request, res: Response) => {
+  req.socket.setTimeout(120000); // 2 min for uploads
   try {
     const userId = req.user!.userId;
     const { projectId } = req.params;
@@ -309,6 +310,7 @@ const getFileType = (mimetype: string, filename?: string): string => {
 
 // Upload pattern file
 export const uploadPatternFile = async (req: Request, res: Response) => {
+  req.socket.setTimeout(120000); // 2 min for uploads
   try {
     const userId = req.user!.userId;
     const { patternId } = req.params;
@@ -549,6 +551,7 @@ export const downloadPatternFile = async (req: Request, res: Response) => {
 
 // Upload yarn photo
 export const uploadYarnPhoto = async (req: Request, res: Response) => {
+  req.socket.setTimeout(120000); // 2 min for uploads
   try {
     const userId = req.user!.userId;
     const { yarnId } = req.params;

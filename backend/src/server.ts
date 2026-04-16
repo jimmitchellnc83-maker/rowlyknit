@@ -8,6 +8,11 @@ const PORT = process.env.PORT || 5000;
 // Create HTTP server
 const httpServer = http.createServer(app);
 
+// Request timeout configuration
+httpServer.timeout = 30000;          // 30s general timeout
+httpServer.keepAliveTimeout = 65000; // above nginx keepalive (60s)
+httpServer.headersTimeout = 66000;   // slightly above keepAliveTimeout
+
 // Initialize Socket.IO
 initializeSocket(httpServer);
 
