@@ -40,6 +40,35 @@ Rowly is a production-ready, full-stack web application for managing knitting pr
 - **Zero-Downtime Deployment**: Docker-based blue-green deployment
 - **CI/CD**: Automated testing, security scanning, and deployment
 
+## 🔒 Security Setup
+
+**Never commit** `.env.production` or `PRODUCTION_SECRETS.env` to version control. These files are blocked by `.gitignore`.
+
+### Setting Up Environment Variables
+
+1. Copy the example file:
+   ```bash
+   cp .env.example .env.production
+   ```
+
+2. Generate secrets for each `CHANGE_ME` placeholder:
+   ```bash
+   # Generate a secure random secret (use for JWT_SECRET, JWT_REFRESH_SECRET, SESSION_SECRET, CSRF_SECRET)
+   node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+
+   # Generate a secure random password (use for DB_PASSWORD, REDIS_PASSWORD)
+   node -e "console.log(require('crypto').randomBytes(24).toString('base64url'))"
+   ```
+
+3. Fill in all remaining values (API keys, domain names, etc.) and deploy the `.env.production` file to your server **outside of git** (e.g., via SSH, secrets manager, or CI/CD environment variables).
+
+### What if secrets are accidentally committed?
+
+1. **Rotate immediately** — assume any committed secret is compromised.
+2. Replace the file contents with `# This file is not stored in git. See .env.example`
+3. Commit the replacement and force-push if needed.
+4. Verify `.gitignore` blocks the file from future commits.
+
 ## 🏗️ Architecture
 
 ### Technology Stack
