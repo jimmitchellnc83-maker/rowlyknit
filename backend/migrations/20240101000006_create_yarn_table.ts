@@ -11,8 +11,8 @@ export async function up(knex: Knex): Promise<void> {
     table.string('color_code', 100);
     table.string('weight', 50); // lace, fingering, sport, DK, worsted, bulky, etc.
     table.string('fiber_content', 255);
-    table.integer('yards_total');
-    table.integer('yards_remaining');
+    table.integer('yards_total'); // DEPRECATED: use total_length_m (added in migration 000040)
+    table.integer('yards_remaining'); // DEPRECATED: use remaining_length_m (added in migration 000040)
     table.integer('grams_total');
     table.integer('grams_remaining');
     table.integer('skeins_total').defaultTo(1);

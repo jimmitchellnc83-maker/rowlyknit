@@ -248,6 +248,11 @@ class GaugeAdjustmentService {
   ): Promise<any> {
     const comparison = this.compareGauge(patternGauge, actualGauge);
 
+    // Compute normalized gauge per 10 cm
+    // measurement is in inches, so: per10cm = value * (10 / (measurement * 2.54))
+    const toPerTenCm = (value: number, measurementInches: number) =>
+      Math.round(value * (10 / (measurementInches * 2.54)) * 100) / 100;
+
     // Update project with gauge data
     const [project] = await db('projects')
       .where({ id: projectId, user_id: userId })
@@ -255,6 +260,8 @@ class GaugeAdjustmentService {
         pattern_gauge_stitches: patternGauge.stitches,
         pattern_gauge_rows: patternGauge.rows,
         pattern_gauge_measurement: patternGauge.measurement,
+        stitches_per_10cm: toPerTenCm(patternGauge.stitches, patternGauge.measurement),
+        rows_per_10cm: toPerTenCm(patternGauge.rows, patternGauge.measurement),
         actual_gauge_stitches: actualGauge.stitches,
         actual_gauge_rows: actualGauge.rows,
         actual_gauge_measurement: actualGauge.measurement,

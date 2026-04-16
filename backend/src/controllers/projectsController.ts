@@ -376,11 +376,13 @@ export async function addYarnToProject(req: Request, res: Response) {
       skeins_used: skeinsUsed,
     });
 
-    // Deduct from stash
+    // Deduct from stash (both legacy yards and normalized meters)
+    const metersUsed = Math.round(yardsUsed * 0.9144 * 100) / 100;
     await trx('yarn')
       .where({ id: yarnId })
       .update({
         yards_remaining: trx.raw('yards_remaining - ?', [yardsUsed]),
+        remaining_length_m: trx.raw('GREATEST(0, COALESCE(remaining_length_m, 0) - ?)', [metersUsed]),
         skeins_remaining: trx.raw('skeins_remaining - ?', [skeinsUsed]),
         updated_at: new Date(),
       });
@@ -475,11 +477,13 @@ export async function updateProjectYarn(req: Request, res: Response) {
         skeins_used: skeinsUsed,
       });
 
-    // Adjust stash (subtract the difference)
+    // Adjust stash (subtract the difference — both legacy yards and normalized meters)
+    const metersDiff = Math.round(yardsDiff * 0.9144 * 100) / 100;
     await trx('yarn')
       .where({ id: yarnId })
       .update({
         yards_remaining: trx.raw('yards_remaining - ?', [yardsDiff]),
+        remaining_length_m: trx.raw('GREATEST(0, COALESCE(remaining_length_m, 0) - ?)', [metersDiff]),
         skeins_remaining: trx.raw('skeins_remaining - ?', [skeinsDiff]),
         updated_at: new Date(),
       });
@@ -548,11 +552,13 @@ export async function removeYarnFromProject(req: Request, res: Response) {
       .where({ project_id: projectId, yarn_id: yarnId })
       .delete();
 
-    // Restore to stash
+    // Restore to stash (both legacy yards and normalized meters)
+    const metersReturned = Math.round((projectYarn.yards_used || 0) * 0.9144 * 100) / 100;
     await trx('yarn')
       .where({ id: yarnId })
       .update({
         yards_remaining: trx.raw('yards_remaining + ?', [projectYarn.yards_used || 0]),
+        remaining_length_m: trx.raw('COALESCE(remaining_length_m, 0) + ?', [metersReturned]),
         skeins_remaining: trx.raw('skeins_remaining + ?', [projectYarn.skeins_used || 0]),
         updated_at: new Date(),
       });

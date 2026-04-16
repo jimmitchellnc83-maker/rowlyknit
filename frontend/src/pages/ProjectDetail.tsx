@@ -18,6 +18,7 @@ import MagicMarkerManager from '../components/magic-markers/MagicMarkerManager';
 import LoadingSpinner from '../components/LoadingSpinner';
 import PatternPreview from '../components/PatternPreview';
 import HelpTooltip from '../components/HelpTooltip';
+import { useMeasurements } from '../hooks/useMeasurements';
 
 interface Project {
   id: string;
@@ -41,6 +42,7 @@ export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { joinProject, leaveProject } = useWebSocket();
+  const { fmt } = useMeasurements();
 
   const [project, setProject] = useState<Project | null>(null);
   const [photos, setPhotos] = useState<any[]>([]);
@@ -1139,7 +1141,8 @@ export default function ProjectDetail() {
               <div className="space-y-4">
                 {project.yarn.map((y: any) => {
                   const percentage = getYarnPercentage(y);
-                  const isLowStock = y.low_stock_alert && y.yards_remaining <= (y.low_stock_threshold || 0);
+                  const yardsFallback = y.remaining_length_m != null ? Math.round(y.remaining_length_m * 1.09361) : (y.yards_remaining || 0);
+                  const isLowStock = y.low_stock_alert && yardsFallback <= (y.low_stock_threshold || 0);
 
                   return (
                     <div key={y.id} className="border border-gray-200 rounded-lg p-3">
@@ -1165,13 +1168,13 @@ export default function ProjectDetail() {
                         <div>
                           <p className="text-xs text-gray-500">Used in Project</p>
                           <p className="text-xs font-medium text-gray-900">
-                            {y.skeins_used || 0} skeins, {y.yards_used || 0} yds
+                            {y.skeins_used || 0} skeins, {fmt.yarnLength(null, y.yards_used || 0)}
                           </p>
                         </div>
                         <div>
                           <p className="text-xs text-gray-500">Remaining in Stash</p>
                           <p className="text-xs font-medium text-gray-900">
-                            {y.skeins_remaining || 0} skeins, {y.yards_remaining || 0} yds
+                            {y.skeins_remaining || 0} skeins, {fmt.yarnLength(y.remaining_length_m, y.yards_remaining)}
                           </p>
                         </div>
                       </div>
@@ -1196,7 +1199,7 @@ export default function ProjectDetail() {
                       {isLowStock && (
                         <div className="flex items-center text-orange-600 text-xs mt-2">
                           <FiAlertCircle className="mr-1 h-3 w-3" />
-                          Low stock! Only {y.yards_remaining} yards remaining
+                          Low stock! Only {fmt.yarnLength(y.remaining_length_m, y.yards_remaining)} remaining
                         </div>
                       )}
                     </div>
@@ -1514,7 +1517,7 @@ export default function ProjectDetail() {
                     .map((yarn) => (
                       <option key={yarn.id} value={yarn.id}>
                         {yarn.brand} {yarn.name} - {yarn.color}
-                        ({yarn.skeins_remaining} skeins, {yarn.yards_remaining} yds available)
+                        ({yarn.skeins_remaining} skeins, {fmt.yarnLength(yarn.remaining_length_m, yarn.yards_remaining)} available)
                       </option>
                     ))}
                 </select>
@@ -1537,7 +1540,7 @@ export default function ProjectDetail() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Yards to Use
+                    {fmt.yarnLengthUnit() === 'm' ? 'Meters' : 'Yards'} to Use
                   </label>
                   <input
                     type="number"
