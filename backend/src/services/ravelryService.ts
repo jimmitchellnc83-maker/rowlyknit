@@ -1,6 +1,18 @@
 import axios, { AxiosInstance } from 'axios';
+import sanitizeHtml from 'sanitize-html';
 import logger from '../config/logger';
 import ravelryOAuthService from './ravelryOAuthService';
+
+/** Strip all HTML tags and decode entities for plain-text storage */
+function stripHtml(html: string): string {
+  return sanitizeHtml(html, { allowedTags: [], allowedAttributes: {} })
+    .replace(/&amp;/g, '&')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&#39;/g, "'")
+    .replace(/&quot;/g, '"')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
 
 /**
  * Map a Ravelry yarn object (from search or detail endpoint) to our normalized shape.
@@ -55,16 +67,7 @@ function mapYarnFields(y: any, isDetail: boolean = false) {
   let description: string | null = null;
   if (isDetail) {
     if (y.notes_html) {
-      description = String(y.notes_html)
-        .replace(/<br\s*\/?>/gi, '\n')
-        .replace(/<\/p>/gi, '\n\n')
-        .replace(/<[^>]*>/g, '')
-        .replace(/&amp;/g, '&')
-        .replace(/&nbsp;/g, ' ')
-        .replace(/&#39;/g, "'")
-        .replace(/&quot;/g, '"')
-        .replace(/\n{3,}/g, '\n\n')
-        .trim();
+      description = stripHtml(String(y.notes_html));
     } else if (y.notes) {
       description = String(y.notes).trim();
     }
@@ -145,16 +148,7 @@ function mapPatternFields(p: any, isDetail: boolean = false) {
   if (isDetail) {
     const raw = p.notes_html || p.notes;
     if (raw) {
-      description = String(raw)
-        .replace(/<br\s*\/?>/gi, '\n')
-        .replace(/<\/p>/gi, '\n\n')
-        .replace(/<[^>]*>/g, '')
-        .replace(/&amp;/g, '&')
-        .replace(/&nbsp;/g, ' ')
-        .replace(/&#39;/g, "'")
-        .replace(/&quot;/g, '"')
-        .replace(/\n{3,}/g, '\n\n')
-        .trim();
+      description = stripHtml(String(raw));
     }
   }
 

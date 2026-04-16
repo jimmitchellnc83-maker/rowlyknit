@@ -49,9 +49,9 @@ router.post(
   [
     validateUUID('id'),
     body('patternId').optional({ values: 'null' }).isUUID(),
-    body('transcription').optional({ values: 'null' }).isString(),
+    body('transcription').optional({ values: 'null' }).isString().isLength({ max: 50000 }),
     body('durationSeconds').optional({ values: 'falsy' }).isNumeric(),
-    body('title').optional({ values: 'null' }).isString(),
+    body('title').optional({ values: 'null' }).isString().isLength({ max: 500 }),
     body('tags').optional({ values: 'null' }).isArray(),
   ],
   validate,
@@ -125,7 +125,7 @@ router.post(
     validateUUID('id'),
     body('templateType').notEmpty().isIn(['gauge_swatch', 'fit_adjustment', 'yarn_substitution', 'finishing', 'finishing_techniques']),
     body('data').notEmpty().isObject(),
-    body('title').optional({ values: 'null' }).isString(),
+    body('title').optional({ values: 'null' }).isString().isLength({ max: 500 }),
   ],
   validate,
   asyncHandler(notesController.createStructuredMemo)
@@ -136,7 +136,7 @@ router.post(
     validateUUID('id'),
     body('templateType').notEmpty().isIn(['gauge_swatch', 'fit_adjustment', 'yarn_substitution', 'finishing', 'finishing_techniques']),
     body('data').notEmpty().isObject(),
-    body('title').optional({ values: 'null' }).isString(),
+    body('title').optional({ values: 'null' }).isString().isLength({ max: 500 }),
   ],
   validate,
   asyncHandler(notesController.createStructuredMemo)
@@ -208,8 +208,8 @@ router.post(
   '/projects/:id/text-notes',
   [
     validateUUID('id'),
-    body('content').notEmpty().isString(),
-    body('title').optional({ values: 'null' }).isString(),
+    body('content').notEmpty().isString().isLength({ max: 50000 }),
+    body('title').optional({ values: 'null' }).isString().isLength({ max: 500 }),
     body('patternId').optional({ values: 'null' }).isUUID(),
     body('tags').optional({ values: 'null' }).isArray(),
     body('isPinned').optional({ values: 'falsy' }).isBoolean(),
@@ -259,7 +259,7 @@ router.post(
     validateUUID('id'),
     body('patternId').optional({ values: 'null' }).isUUID(),
     body('pageNumber').optional({ values: 'falsy' }).isNumeric(),
-    body('notes').optional({ values: 'null' }).isString(),
+    body('notes').optional({ values: 'null' }).isString().isLength({ max: 10000 }),
   ],
   validate,
   asyncHandler(notesController.createHandwrittenNote)

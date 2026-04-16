@@ -17,9 +17,9 @@ const REQUIRED_ENV_VARS: EnvVar[] = [
 ];
 
 const PRODUCTION_ENV_VARS: EnvVar[] = [
-  { name: 'EMAIL_API_KEY', required: false, description: 'Email service API key (recommended for production)' },
+  { name: 'EMAIL_API_KEY', required: true, description: 'Email service API key (required for production)' },
   { name: 'SENTRY_DSN', required: false, description: 'Sentry error monitoring DSN (optional but recommended)' },
-  { name: 'REDIS_PASSWORD', required: false, description: 'Redis password (recommended for production)' },
+  { name: 'REDIS_PASSWORD', required: true, description: 'Redis password (required for production)' },
 ];
 
 /**

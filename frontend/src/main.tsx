@@ -3,12 +3,21 @@ import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ToastContainer } from 'react-toastify';
+import * as Sentry from '@sentry/react';
 import App from './App';
 import ErrorBoundary from './components/ErrorBoundary';
 import { WebSocketProvider } from './contexts/WebSocketContext';
 import './lib/axios'; // Initialize axios configuration with withCredentials
 import './styles/index.css';
 import 'react-toastify/dist/ReactToastify.css';
+
+// Initialize Sentry (before anything else)
+if (import.meta.env.VITE_SENTRY_DSN) {
+  Sentry.init({
+    dsn: import.meta.env.VITE_SENTRY_DSN,
+    environment: import.meta.env.MODE,
+  });
+}
 
 // Global error handlers for debugging
 window.addEventListener('error', (event) => {
