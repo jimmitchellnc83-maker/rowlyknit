@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from './stores/authStore';
 import PWAInstallPrompt from './components/PWAInstallPrompt';
 import OfflineIndicator from './components/OfflineIndicator';
+import ErrorBoundary from './components/ErrorBoundary';
 
 // Layouts
 import MainLayout from './components/layouts/MainLayout';
@@ -86,11 +87,11 @@ function App() {
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/projects" element={<Projects />} />
-        <Route path="/projects/:id" element={<ProjectDetail />} />
+        <Route path="/projects/:id" element={<ErrorBoundary><ProjectDetail /></ErrorBoundary>} />
         <Route path="/patterns" element={<Patterns />} />
-        <Route path="/patterns/:id" element={<PatternDetail />} />
-        <Route path="/yarn" element={<YarnStash />} />
-        <Route path="/yarn/:id" element={<YarnDetail />} />
+        <Route path="/patterns/:id" element={<ErrorBoundary><PatternDetail /></ErrorBoundary>} />
+        <Route path="/yarn" element={<ErrorBoundary><YarnStash /></ErrorBoundary>} />
+        <Route path="/yarn/:id" element={<ErrorBoundary><YarnDetail /></ErrorBoundary>} />
         <Route path="/tools" element={<Tools />} />
         <Route path="/recipients" element={<Recipients />} />
         <Route path="/profile" element={<Profile />} />
