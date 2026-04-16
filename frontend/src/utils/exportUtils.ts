@@ -249,7 +249,9 @@ export function exportPatternsToCSV(patterns: any[]): void {
 }
 
 // Export yarn to CSV
-export function exportYarnToCSV(yarns: any[]): void {
+// lengthUnit: 'yd' or 'm' — controls the header label and which column is exported
+export function exportYarnToCSV(yarns: any[], lengthUnit: 'yd' | 'm' = 'yd'): void {
+  const lengthLabel = lengthUnit === 'm' ? 'Length (m)' : 'Yardage';
   const headers = [
     'Brand',
     'Name',
@@ -258,21 +260,26 @@ export function exportYarnToCSV(yarns: any[]): void {
     'Color',
     'Lot Number',
     'Skeins',
-    'Yardage',
+    lengthLabel,
   ];
 
   const csvContent = [
     headers.join(','),
-    ...yarns.map((y) => [
-      escapeCSV(y.brand),
-      escapeCSV(y.name),
-      escapeCSV(y.weight),
-      escapeCSV(y.fiber_content),
-      escapeCSV(y.color_name),
-      escapeCSV(y.lot_number),
-      y.skeins_owned || '',
-      y.yardage_per_skein || '',
-    ].join(',')),
+    ...yarns.map((y) => {
+      const length = lengthUnit === 'm'
+        ? (y.total_length_m ?? (y.yards_total ? Math.round(y.yards_total * 0.9144) : ''))
+        : (y.yards_total ?? y.yardage_per_skein ?? '');
+      return [
+        escapeCSV(y.brand),
+        escapeCSV(y.name),
+        escapeCSV(y.weight),
+        escapeCSV(y.fiber_content),
+        escapeCSV(y.color_name),
+        escapeCSV(y.lot_number),
+        y.skeins_owned || y.skeins_total || '',
+        length,
+      ].join(',');
+    }),
   ].join('\n');
 
   downloadCSV(csvContent, 'rowly_yarn.csv');

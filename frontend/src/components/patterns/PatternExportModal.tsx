@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { FiDownload, FiLoader, FiCheck, FiX, FiAlertCircle, FiSettings, FiFileText } from 'react-icons/fi';
+import { useMeasurements } from '../../hooks/useMeasurements';
 
 interface Pattern {
   id: string;
@@ -40,6 +41,7 @@ export const PatternExportModal: React.FC<PatternExportModalProps> = ({
   pattern,
   projectId,
 }) => {
+  const { fmt } = useMeasurements();
   // Export options
   const [includeYarnRequirements, setIncludeYarnRequirements] = useState(true);
   const [includeSizeAdjustments, setIncludeSizeAdjustments] = useState(true);
@@ -189,7 +191,7 @@ export const PatternExportModal: React.FC<PatternExportModalProps> = ({
               <h4>Current Yarn Requirements</h4>
               <div className="yarn-value">
                 <span className="label">Base Yardage:</span>
-                <span className="value">{baseYardage} yards</span>
+                <span className="value">{baseYardage} {fmt.yarnLengthUnit()}</span>
               </div>
               {yarnRequirements.length > 0 && yarnRequirements[0].weight && (
                 <div className="yarn-value">
@@ -281,7 +283,7 @@ export const PatternExportModal: React.FC<PatternExportModalProps> = ({
               <div className="calculation-details">
                 <div className="calc-row">
                   <span className="label">Original:</span>
-                  <span className="value">{yarnCalculation.baseYardage} yards</span>
+                  <span className="value">{yarnCalculation.baseYardage} {fmt.yarnLengthUnit()}</span>
                 </div>
                 <div className="calc-row adjustment">
                   <span className="label">Adjustment:</span>
@@ -291,7 +293,7 @@ export const PatternExportModal: React.FC<PatternExportModalProps> = ({
                 </div>
                 <div className="calc-row result">
                   <span className="label">Adjusted Total:</span>
-                  <span className="value highlight">{yarnCalculation.adjustedYardage} yards</span>
+                  <span className="value highlight">{yarnCalculation.adjustedYardage} {fmt.yarnLengthUnit()}</span>
                 </div>
               </div>
               {calculating && <span className="calculating">Calculating...</span>}

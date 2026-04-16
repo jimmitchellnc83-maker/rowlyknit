@@ -108,8 +108,6 @@ class RavelryOAuthService {
         updated_at: db.fn.now(),
       });
 
-    logger.info('Ravelry OAuth tokens stored', { userId, ravelryUsername });
-
     return { ravelryUsername };
   }
 
@@ -169,13 +167,11 @@ class RavelryOAuthService {
 
     await db('ravelry_tokens').where({ user_id: userId }).update(updateData);
 
-    logger.info('Ravelry OAuth token refreshed', { userId });
     return access_token;
   }
 
   async disconnectUser(userId: string): Promise<void> {
     await db('ravelry_tokens').where({ user_id: userId }).delete();
-    logger.info('Ravelry disconnected', { userId });
   }
 
   async isUserConnected(userId: string): Promise<boolean> {

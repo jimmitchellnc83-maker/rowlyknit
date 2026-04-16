@@ -6,6 +6,11 @@ node_modules/
 .env.local
 .env.*.local
 
+# Production secrets — NEVER commit these
+.env.production
+PRODUCTION_SECRETS.env
+*.env.production
+
 # Build outputs
 dist/
 build/

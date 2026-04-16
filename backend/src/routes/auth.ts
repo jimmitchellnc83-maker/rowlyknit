@@ -74,6 +74,8 @@ router.put(
   [
     body('firstName').optional().trim(),
     body('lastName').optional().trim(),
+    body('preferences').optional().isObject(),
+    body('preferences.measurements').optional().isObject(),
   ],
   validate,
   asyncHandler(authController.updateProfile)

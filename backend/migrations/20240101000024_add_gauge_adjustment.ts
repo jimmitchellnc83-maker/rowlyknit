@@ -3,7 +3,7 @@ import type { Knex } from 'knex';
 export async function up(knex: Knex): Promise<void> {
   // Add gauge tracking columns to projects table
   await knex.schema.alterTable('projects', (table) => {
-    // Pattern gauge values
+    // Pattern gauge values — DEPRECATED: prefer stitches_per_10cm / rows_per_10cm (migration 000041)
     table.decimal('pattern_gauge_stitches', 5, 2).nullable();
     table.decimal('pattern_gauge_rows', 5, 2).nullable();
     table.integer('pattern_gauge_measurement').defaultTo(4); // inches
