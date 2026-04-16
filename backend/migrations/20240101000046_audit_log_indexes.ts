@@ -7,41 +7,34 @@ import type { Knex } from 'knex';
  * migration was modified.
  */
 export async function up(knex: Knex): Promise<void> {
-  const hasUserCreatedIdx = await knex.schema.raw(`
-    SELECT 1 FROM pg_indexes
+  const result = await knex.raw(`
+    SELECT indexname FROM pg_indexes
     WHERE tablename = 'audit_logs'
-    AND indexdef LIKE '%user_id%'
-    AND indexdef LIKE '%created_at%'
   `);
+  const existingIndexes = (result.rows as Array<{ indexname: string }>).map(r => r.indexname);
 
-  if (hasUserCreatedIdx.rows.length === 0) {
+  const hasUserCreatedIdx = existingIndexes.some(
+    name => name.includes('user_id') && name.includes('created_at')
+  );
+  if (!hasUserCreatedIdx) {
     await knex.schema.table('audit_logs', (table) => {
       table.index(['user_id', 'created_at']);
     });
   }
 
-  const hasEntityIdx = await knex.schema.raw(`
-    SELECT 1 FROM pg_indexes
-    WHERE tablename = 'audit_logs'
-    AND indexdef LIKE '%entity_type%'
-    AND indexdef LIKE '%entity_id%'
-  `);
-
-  if (hasEntityIdx.rows.length === 0) {
+  const hasEntityIdx = existingIndexes.some(
+    name => name.includes('entity_type') && name.includes('entity_id')
+  );
+  if (!hasEntityIdx) {
     await knex.schema.table('audit_logs', (table) => {
       table.index(['entity_type', 'entity_id']);
     });
   }
 
-  const hasCreatedAtIdx = await knex.schema.raw(`
-    SELECT 1 FROM pg_indexes
-    WHERE tablename = 'audit_logs'
-    AND indexname LIKE '%created_at%'
-    AND indexdef NOT LIKE '%user_id%'
-    AND indexdef NOT LIKE '%entity%'
-  `);
-
-  if (hasCreatedAtIdx.rows.length === 0) {
+  const hasCreatedAtOnly = existingIndexes.some(
+    name => name.includes('created_at') && !name.includes('user_id') && !name.includes('entity')
+  );
+  if (!hasCreatedAtOnly) {
     await knex.schema.table('audit_logs', (table) => {
       table.index('created_at');
     });
@@ -50,5 +43,4 @@ export async function up(knex: Knex): Promise<void> {
 
 export async function down(knex: Knex): Promise<void> {
   // Don't drop indexes in down — they may have been created by migration 000009
-  // and dropping them here could leave the DB in a bad state.
 }

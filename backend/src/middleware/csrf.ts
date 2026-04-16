@@ -8,17 +8,17 @@ import logger from '../config/logger';
  * replacement for the deprecated csurf package.
  */
 
-const { generateToken, doubleCsrfProtection } = doubleCsrf({
+const { generateCsrfToken, doubleCsrfProtection } = doubleCsrf({
   getSecret: () => process.env.CSRF_SECRET!,
+  getSessionIdentifier: (req) => req.ip || 'unknown',
   cookieName: '__csrf',
   cookieOptions: {
     secure: process.env.NODE_ENV === 'production',
-    sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+    sameSite: process.env.NODE_ENV === 'production' ? 'strict' as const : 'lax' as const,
     httpOnly: true,
-    signed: true,
     path: '/',
   },
-  getTokenFromRequest: (req: Request) => {
+  getCsrfTokenFromRequest: (req: Request) => {
     return (req.headers['x-csrf-token'] as string) || req.body?._csrf;
   },
 });
@@ -27,7 +27,7 @@ const { generateToken, doubleCsrfProtection } = doubleCsrf({
  * Send CSRF token to client
  */
 export function sendCsrfToken(req: Request, res: Response) {
-  const token = generateToken(req, res);
+  const token = generateCsrfToken(req, res);
   res.json({
     success: true,
     csrfToken: token,
@@ -62,12 +62,6 @@ export function csrfErrorHandler(err: any, req: Request, res: Response, next: Ne
  * Skip CSRF for certain routes (like API endpoints using JWT)
  */
 export function conditionalCsrf(req: Request, res: Response, next: NextFunction) {
-  // Skip CSRF validation for:
-  // - Health checks
-  // - Webhook endpoints
-  // - Auth endpoints (login, register) - protected by rate limiting instead
-  // - API endpoints using JWT authentication
-  // - Safe methods (GET, HEAD, OPTIONS)
   const skipPaths = [
     '/health',
     '/metrics',
@@ -80,17 +74,14 @@ export function conditionalCsrf(req: Request, res: Response, next: NextFunction)
     '/api/csrf-token',
   ];
 
-  // Check if JWT is present (API authentication)
   const hasJWT = req.headers.authorization?.startsWith('Bearer ');
-
-  // Skip validation for safe methods
   const isSafeMethod = ['GET', 'HEAD', 'OPTIONS'].includes(req.method);
 
   if (skipPaths.some(path => req.path.startsWith(path)) || hasJWT || isSafeMethod) {
-    // Still generate a token for GET requests so the client can fetch it
+    // Generate a token on GET so the client can fetch it
     if (isSafeMethod) {
       try {
-        generateToken(req, res, true);
+        generateCsrfToken(req, res, { overwrite: true });
       } catch {
         // Token generation failure on GET is non-fatal
       }
@@ -98,6 +89,5 @@ export function conditionalCsrf(req: Request, res: Response, next: NextFunction)
     return next();
   }
 
-  // Apply csrf-csrf double-submit validation
   return doubleCsrfProtection(req, res, next);
 }
