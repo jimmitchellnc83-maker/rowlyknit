@@ -79,6 +79,9 @@ export async function createTool(req: Request, res: Response) {
     notes,
     purchaseDate,
     purchasePrice,
+    craftType,
+    toolCategory,
+    cableLengthMm,
   } = req.body;
 
   if (!name || !type) {
@@ -99,6 +102,9 @@ export async function createTool(req: Request, res: Response) {
       notes,
       purchase_date: purchaseDate,
       purchase_price: purchasePrice,
+      craft_type: craftType || null,
+      tool_category: toolCategory || null,
+      cable_length_mm: cableLengthMm || null,
       created_at: new Date(),
       updated_at: new Date(),
     })
@@ -143,6 +149,10 @@ export async function updateTool(req: Request, res: Response) {
     purchaseLocation,
     purchasePrice,
     notes,
+    craftType,
+    toolCategory,
+    cableLengthMm,
+    quantity,
   } = req.body;
 
   const updateData: any = {
@@ -158,6 +168,10 @@ export async function updateTool(req: Request, res: Response) {
   if (purchaseLocation !== undefined) updateData.purchase_location = purchaseLocation;
   if (purchasePrice !== undefined) updateData.purchase_price = purchasePrice;
   if (notes !== undefined) updateData.notes = notes;
+  if (craftType !== undefined) updateData.craft_type = craftType;
+  if (toolCategory !== undefined) updateData.tool_category = toolCategory;
+  if (cableLengthMm !== undefined) updateData.cable_length_mm = cableLengthMm;
+  if (quantity !== undefined) updateData.quantity = quantity;
 
   const [updatedTool] = await db('tools')
     .where({ id })

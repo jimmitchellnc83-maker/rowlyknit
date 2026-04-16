@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { FiUser, FiMail, FiLock, FiSave, FiLink, FiCheck, FiXCircle } from 'react-icons/fi';
+import { FiUser, FiMail, FiLock, FiSave, FiLink, FiCheck, FiXCircle, FiSliders } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { useAuthStore } from '../stores/authStore';
@@ -8,13 +8,22 @@ import { useAuthStore } from '../stores/authStore';
 export default function Profile() {
   const { user, setUser } = useAuthStore();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [activeTab, setActiveTab] = useState<'profile' | 'password' | 'integrations'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'password' | 'units' | 'integrations'>('profile');
   const [saving, setSaving] = useState(false);
 
   // Ravelry connection state
   const [ravelryConnected, setRavelryConnected] = useState(false);
   const [ravelryUsername, setRavelryUsername] = useState<string | null>(null);
   const [ravelryLoading, setRavelryLoading] = useState(false);
+
+  const [unitPrefs, setUnitPrefs] = useState<Record<string, string>>({
+    needleSizeFormat: user?.preferences?.measurements?.needleSizeFormat || 'us',
+    lengthUnit: user?.preferences?.measurements?.lengthUnit || 'in',
+    yarnQuantityUnit: user?.preferences?.measurements?.yarnQuantityUnit || 'yd',
+    yarnWeightUnit: user?.preferences?.measurements?.yarnWeightUnit || 'g',
+    gaugeBase: user?.preferences?.measurements?.gaugeBase || '4in',
+  });
+  const [savingUnits, setSavingUnits] = useState(false);
 
   const [profileData, setProfileData] = useState({
     firstName: user?.firstName || '',
@@ -205,6 +214,17 @@ export default function Profile() {
           Change Password
         </button>
         <button
+          onClick={() => setActiveTab('units')}
+          className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-md text-sm font-medium transition ${
+            activeTab === 'units'
+              ? 'bg-white dark:bg-gray-800 text-purple-600 shadow'
+              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+          }`}
+        >
+          <FiSliders className="h-4 w-4" />
+          Units
+        </button>
+        <button
           onClick={() => setActiveTab('integrations')}
           className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-md text-sm font-medium transition ${
             activeTab === 'integrations'
@@ -335,6 +355,114 @@ export default function Profile() {
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {/* Units Tab */}
+      {activeTab === 'units' && (
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Measurement Preferences</h3>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+            Choose how measurements are displayed throughout the app.
+          </p>
+          <div className="space-y-5">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Needle / Hook Size Format
+              </label>
+              <select
+                value={unitPrefs.needleSizeFormat}
+                onChange={(e) => setUnitPrefs({ ...unitPrefs, needleSizeFormat: e.target.value })}
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+              >
+                <option value="us">US (e.g. US 7)</option>
+                <option value="mm">Metric mm (e.g. 4.5 mm)</option>
+                <option value="uk">UK (e.g. UK 7)</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Needle / Hook Length Display
+              </label>
+              <select
+                value={unitPrefs.lengthUnit}
+                onChange={(e) => setUnitPrefs({ ...unitPrefs, lengthUnit: e.target.value })}
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+              >
+                <option value="in">Inches (in)</option>
+                <option value="cm">Centimeters (cm)</option>
+                <option value="mm">Millimeters (mm)</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Yarn Length Unit
+              </label>
+              <select
+                value={unitPrefs.yarnQuantityUnit}
+                onChange={(e) => setUnitPrefs({ ...unitPrefs, yarnQuantityUnit: e.target.value })}
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+              >
+                <option value="yd">Yards (yd)</option>
+                <option value="m">Meters (m)</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Yarn Weight Unit
+              </label>
+              <select
+                value={unitPrefs.yarnWeightUnit}
+                onChange={(e) => setUnitPrefs({ ...unitPrefs, yarnWeightUnit: e.target.value })}
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+              >
+                <option value="g">Grams (g)</option>
+                <option value="oz">Ounces (oz)</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Gauge Base
+              </label>
+              <select
+                value={unitPrefs.gaugeBase}
+                onChange={(e) => setUnitPrefs({ ...unitPrefs, gaugeBase: e.target.value })}
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+              >
+                <option value="4in">Per 4 inches</option>
+                <option value="10cm">Per 10 cm</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="pt-6">
+            <button
+              onClick={async () => {
+                setSavingUnits(true);
+                try {
+                  const response = await axios.put('/api/auth/profile', {
+                    preferences: { measurements: unitPrefs },
+                  });
+                  const updatedUser = response.data.data.user;
+                  setUser(updatedUser);
+                  toast.success('Unit preferences saved!');
+                } catch {
+                  toast.error('Failed to save unit preferences');
+                } finally {
+                  setSavingUnits(false);
+                }
+              }}
+              disabled={savingUnits}
+              className="flex items-center gap-2 px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed"
+            >
+              <FiSave className="h-4 w-4" />
+              {savingUnits ? 'Saving...' : 'Save Preferences'}
+            </button>
+          </div>
         </div>
       )}
 

@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { FiFileText, FiPlus, FiTrash2, FiDownload } from 'react-icons/fi';
 import { formatDistanceToNow } from 'date-fns';
 import HelpTooltip from '../HelpTooltip';
+import { useMeasurements } from '../../hooks/useMeasurements';
 
 type TemplateType = 'gauge_swatch' | 'fit_adjustment' | 'yarn_substitution' | 'finishing_techniques';
 
@@ -87,6 +88,9 @@ export const StructuredMemoTemplates: React.FC<StructuredMemoTemplatesProps> = (
   onSaveMemo,
   onDeleteMemo,
 }) => {
+  const { fmt } = useMeasurements();
+  const lengthSym = fmt.prefs.lengthUnit === 'cm' ? 'cm' : fmt.prefs.lengthUnit === 'mm' ? 'mm' : '"';
+  const yardLabel = fmt.yarnLengthUnit();
   const [showNewMemoModal, setShowNewMemoModal] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<TemplateType>('gauge_swatch');
   const [formData, setFormData] = useState<any>({});
@@ -144,7 +148,7 @@ export const StructuredMemoTemplates: React.FC<StructuredMemoTemplatesProps> = (
         content += `Needle Size: ${gauge.needle_size}\n`;
         content += `Stitches per Inch: ${gauge.stitches_per_inch}\n`;
         content += `Rows per Inch: ${gauge.rows_per_inch}\n`;
-        content += `Swatch Dimensions: ${gauge.swatch_width}" × ${gauge.swatch_height}"\n`;
+        content += `Swatch Dimensions: ${gauge.swatch_width}${lengthSym} × ${gauge.swatch_height}${lengthSym}\n`;
         if (gauge.notes) content += `\nNotes: ${gauge.notes}\n`;
         break;
 
@@ -160,9 +164,9 @@ export const StructuredMemoTemplates: React.FC<StructuredMemoTemplatesProps> = (
       case 'yarn_substitution':
         const yarn = memo.data as YarnSubstitutionData;
         content += `Original Yarn: ${yarn.original_yarn_name} (${yarn.original_yarn_weight})\n`;
-        content += `Original Yardage: ${yarn.original_yardage} yards\n`;
+        content += `Original Yardage: ${yarn.original_yardage} ${yardLabel}\n`;
         content += `Replacement Yarn: ${yarn.replacement_yarn_name} (${yarn.replacement_yarn_weight})\n`;
-        content += `Replacement Yardage: ${yarn.replacement_yardage} yards\n`;
+        content += `Replacement Yardage: ${yarn.replacement_yardage} ${yardLabel}\n`;
         content += `Gauge Comparison: ${yarn.gauge_comparison}\n`;
         if (yarn.notes) content += `\nNotes: ${yarn.notes}\n`;
         break;
