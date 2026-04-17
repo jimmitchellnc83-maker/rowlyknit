@@ -3,8 +3,10 @@ import { verifyAccessToken, TokenPayload } from '../utils/jwt';
 import { UnauthorizedError } from '../utils/errorHandler';
 import db from '../config/database';
 
-// Extend Express Request to include user
+// Extend Express Request to include user. Declaration merging via `namespace`
+// is the idiomatic way to augment Express types; no ES-module equivalent.
 declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
     interface Request {
       user?: TokenPayload;

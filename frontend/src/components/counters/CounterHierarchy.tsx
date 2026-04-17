@@ -289,7 +289,7 @@ export default function CounterHierarchy({ projectId, onCounterChange }: Counter
       }
     };
 
-    return () => { try { rec.stop(); } catch {} };
+    return () => { try { rec.stop(); } catch { /* intentional: recogniser may not be started */ } };
   }, [parseVoiceAmount]);
 
   const handleToggleVoice = useCallback((counterId: string) => {
@@ -306,7 +306,7 @@ export default function CounterHierarchy({ projectId, onCounterChange }: Counter
       toast.info('Voice control stopped');
     } else {
       // Stop any existing, start for this counter
-      try { voiceRecognitionRef.current.stop(); } catch {}
+      try { voiceRecognitionRef.current.stop(); } catch { /* intentional: recogniser may not be started */ }
       voiceCounterIdRef.current = counterId;
       setVoiceActiveCounterId(counterId);
       setTimeout(() => {

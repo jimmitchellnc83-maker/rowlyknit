@@ -300,7 +300,7 @@ export default function MagicMarkerManager({ projectId, counters, currentRow }: 
     }
 
     switch (marker.trigger_type) {
-      case 'counter_value':
+      case 'counter_value': {
         const operatorMap: Record<string, string> = {
           equals: '=',
           greater_than: '>',
@@ -309,6 +309,7 @@ export default function MagicMarkerManager({ projectId, counters, currentRow }: 
         };
         const operatorText = operatorMap[condition.operator as string] || condition.operator;
         return `When counter ${operatorText} ${condition.value}`;
+      }
       case 'row_interval':
         return `Every ${condition.interval} rows`;
       case 'stitch_count':
