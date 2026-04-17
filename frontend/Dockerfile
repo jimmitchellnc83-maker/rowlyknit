@@ -3,20 +3,15 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Upgrade npm to support lockfileVersion 3
-# Use npm 10.x which is compatible with Node 18
-RUN npm install -g npm@10
-
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
-# Work around npm bug with optional dependencies on Alpine
-# Delete package-lock.json and do a fresh install with explicit rollup bindings
-RUN rm -f package-lock.json && \
-    npm install && \
-    npm install @rollup/rollup-linux-x64-musl --save-optional && \
-    npm cache clean --force
+# Install dependencies deterministically from the committed lockfile.
+# @rollup/rollup-linux-x64-musl is already an optional dep in package-lock.json,
+# so `npm ci` picks it up on Alpine automatically — no need to `rm` the lockfile
+# or re-run `npm install`. That workaround was for an old npm bug with optional
+# deps on Alpine that's since been fixed.
+RUN npm ci && npm cache clean --force
 
 # Copy source code
 COPY . .
