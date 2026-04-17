@@ -5,11 +5,24 @@ import axios from 'axios';
 import { toast } from 'react-toastify';
 import { useAuthStore } from '../stores/authStore';
 
+type ProfileTab = 'profile' | 'password' | 'units' | 'integrations';
+
 export default function Profile() {
   const { user, setUser } = useAuthStore();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [activeTab, setActiveTab] = useState<'profile' | 'password' | 'units' | 'integrations'>('profile');
+  const [activeTab, setActiveTab] = useState<ProfileTab>('profile');
   const [saving, setSaving] = useState(false);
+
+  const changeTab = (tab: ProfileTab) => {
+    setActiveTab(tab);
+    const next = new URLSearchParams(searchParams);
+    if (tab === 'profile') {
+      next.delete('tab');
+    } else {
+      next.set('tab', tab);
+    }
+    setSearchParams(next, { replace: true });
+  };
 
   // Ravelry connection state
   const [ravelryConnected, setRavelryConnected] = useState(false);
@@ -40,18 +53,18 @@ export default function Profile() {
   // Handle URL params for tab selection and Ravelry status
   useEffect(() => {
     const tab = searchParams.get('tab');
-    if (tab === 'integrations') {
-      setActiveTab('integrations');
+    if (tab === 'integrations' || tab === 'password' || tab === 'units' || tab === 'profile') {
+      setActiveTab(tab);
     }
 
     const ravelryStatus = searchParams.get('ravelry');
     if (ravelryStatus === 'connected') {
       toast.success('Ravelry account connected successfully!');
-      setSearchParams({}, { replace: true });
+      setSearchParams({ tab: 'integrations' }, { replace: true });
       setActiveTab('integrations');
     } else if (ravelryStatus === 'error') {
       toast.error('Failed to connect Ravelry account. Please try again.');
-      setSearchParams({}, { replace: true });
+      setSearchParams({ tab: 'integrations' }, { replace: true });
       setActiveTab('integrations');
     }
   }, [searchParams, setSearchParams]);
@@ -192,7 +205,7 @@ export default function Profile() {
       {/* Tabs */}
       <div className="flex gap-1 mb-6 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
         <button
-          onClick={() => setActiveTab('profile')}
+          onClick={() => changeTab('profile')}
           className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-md text-sm font-medium transition ${
             activeTab === 'profile'
               ? 'bg-white dark:bg-gray-800 text-purple-600 shadow'
@@ -203,7 +216,7 @@ export default function Profile() {
           Profile Info
         </button>
         <button
-          onClick={() => setActiveTab('password')}
+          onClick={() => changeTab('password')}
           className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-md text-sm font-medium transition ${
             activeTab === 'password'
               ? 'bg-white dark:bg-gray-800 text-purple-600 shadow'
@@ -214,7 +227,7 @@ export default function Profile() {
           Change Password
         </button>
         <button
-          onClick={() => setActiveTab('units')}
+          onClick={() => changeTab('units')}
           className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-md text-sm font-medium transition ${
             activeTab === 'units'
               ? 'bg-white dark:bg-gray-800 text-purple-600 shadow'
@@ -225,7 +238,7 @@ export default function Profile() {
           Units
         </button>
         <button
-          onClick={() => setActiveTab('integrations')}
+          onClick={() => changeTab('integrations')}
           className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-md text-sm font-medium transition ${
             activeTab === 'integrations'
               ? 'bg-white dark:bg-gray-800 text-purple-600 shadow'
