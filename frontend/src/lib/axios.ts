@@ -20,8 +20,12 @@ const inferredBaseUrl =
 axios.defaults.baseURL = inferredBaseUrl;
 axios.defaults.timeout = 30000; // 30 seconds
 axios.defaults.withCredentials = true; // Enable cookies for session/CSRF
-axios.defaults.xsrfCookieName = '_csrf';
-axios.defaults.xsrfHeaderName = 'x-csrf-token';
+// axios's built-in xsrfCookieName is useless here: the backend sets the CSRF
+// cookie (__csrf) as httpOnly, so axios can't read it from document.cookie
+// anyway. The manual flow below (getCsrfToken -> x-csrf-token header)
+// is the only path that actually works. A previous config set
+// xsrfCookieName: '_csrf' which additionally didn't even match the backend's
+// __csrf — pure dead code.
 axios.defaults.headers.common['Content-Type'] = 'application/json';
 
 // CSRF token cache
