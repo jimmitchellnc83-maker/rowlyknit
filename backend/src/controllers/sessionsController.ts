@@ -3,6 +3,19 @@ import db from '../config/database';
 import { NotFoundError, ValidationError } from '../utils/errorHandler';
 import { createAuditLog } from '../middleware/auditLog';
 
+// Columns safe to sort on via the listSessions endpoint. Anything outside
+// this set is rejected — `.orderBy()` interpolates its first argument as a
+// raw identifier, so accepting arbitrary req.query values would be a direct
+// SQL-injection sink.
+const SESSION_SORTABLE_COLUMNS = new Set([
+  'start_time',
+  'end_time',
+  'duration_seconds',
+  'rows_completed',
+  'created_at',
+]);
+const SORT_ORDERS = new Set(['asc', 'desc']);
+
 /**
  * Get all sessions for a project
  */
@@ -10,6 +23,11 @@ export async function getSessions(req: Request, res: Response) {
   const userId = req.user!.userId;
   const { id: projectId } = req.params;
   const { page = 1, limit = 20, sortBy = 'start_time', sortOrder = 'desc' } = req.query;
+
+  const sortColumn = SESSION_SORTABLE_COLUMNS.has(String(sortBy)) ? String(sortBy) : 'start_time';
+  const sortDirection = SORT_ORDERS.has(String(sortOrder).toLowerCase())
+    ? (String(sortOrder).toLowerCase() as 'asc' | 'desc')
+    : 'desc';
 
   // Verify project ownership
   const project = await db('projects')
@@ -28,7 +46,7 @@ export async function getSessions(req: Request, res: Response) {
 
   const sessions = await db('knitting_sessions')
     .where({ project_id: projectId })
-    .orderBy(sortBy as string, sortOrder as string)
+    .orderBy(sortColumn, sortDirection)
     .limit(Number(limit))
     .offset(offset);
 
