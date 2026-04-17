@@ -6,11 +6,15 @@ import { sanitizeSearchQuery } from '../utils/inputSanitizer';
 
 export async function getTools(req: Request, res: Response) {
   const userId = req.user!.userId;
-  const { type, search, page = 1, limit = 20 } = req.query;
+  const { type, category, search, page = 1, limit = 20 } = req.query;
 
   let query = db('tools')
     .where({ user_id: userId })
     .whereNull('deleted_at');
+
+  if (category) {
+    query = query.where({ category });
+  }
 
   if (type) {
     query = query.where({ type });
@@ -69,6 +73,7 @@ export async function createTool(req: Request, res: Response) {
   const userId = req.user!.userId;
   const {
     type,
+    category,
     name,
     size,
     sizeMm,
@@ -76,12 +81,16 @@ export async function createTool(req: Request, res: Response) {
     length,
     brand,
     quantity,
-    notes,
-    purchaseDate,
-    purchasePrice,
     craftType,
     toolCategory,
     cableLengthMm,
+    notes,
+    purchaseDate,
+    purchasePrice,
+    taxonomyTypeId,
+    taxonomyLabel,
+    taxonomyCategoryLabel,
+    taxonomySubcategoryLabel,
   } = req.body;
 
   if (!name || !type) {
@@ -92,9 +101,13 @@ export async function createTool(req: Request, res: Response) {
     .insert({
       user_id: userId,
       type,
+      category: category || 'other',
+      craft_type: craftType || 'knitting',
+      tool_category: toolCategory || 'accessory',
       name,
       size,
-      size_mm: sizeMm,
+      size_mm: sizeMm || null,
+      cable_length_mm: cableLengthMm || null,
       material,
       length,
       brand,
@@ -102,9 +115,10 @@ export async function createTool(req: Request, res: Response) {
       notes,
       purchase_date: purchaseDate,
       purchase_price: purchasePrice,
-      craft_type: craftType || null,
-      tool_category: toolCategory || null,
-      cable_length_mm: cableLengthMm || null,
+      taxonomy_type_id: taxonomyTypeId || null,
+      taxonomy_label: taxonomyLabel || null,
+      taxonomy_category_label: taxonomyCategoryLabel || null,
+      taxonomy_subcategory_label: taxonomySubcategoryLabel || null,
       created_at: new Date(),
       updated_at: new Date(),
     })
@@ -142,17 +156,22 @@ export async function updateTool(req: Request, res: Response) {
   const {
     name,
     type,
+    category,
     size,
+    sizeMm,
     material,
     brand,
-    purchaseDate,
-    purchaseLocation,
-    purchasePrice,
-    notes,
+    quantity,
     craftType,
     toolCategory,
     cableLengthMm,
-    quantity,
+    purchaseDate,
+    purchasePrice,
+    notes,
+    taxonomyTypeId,
+    taxonomyLabel,
+    taxonomyCategoryLabel,
+    taxonomySubcategoryLabel,
   } = req.body;
 
   const updateData: any = {
@@ -161,17 +180,22 @@ export async function updateTool(req: Request, res: Response) {
 
   if (name !== undefined) updateData.name = name;
   if (type !== undefined) updateData.type = type;
+  if (category !== undefined) updateData.category = category;
   if (size !== undefined) updateData.size = size;
+  if (sizeMm !== undefined) updateData.size_mm = sizeMm || null;
   if (material !== undefined) updateData.material = material;
   if (brand !== undefined) updateData.brand = brand;
-  if (purchaseDate !== undefined) updateData.purchase_date = purchaseDate;
-  if (purchaseLocation !== undefined) updateData.purchase_location = purchaseLocation;
-  if (purchasePrice !== undefined) updateData.purchase_price = purchasePrice;
-  if (notes !== undefined) updateData.notes = notes;
+  if (quantity !== undefined) updateData.quantity = quantity;
   if (craftType !== undefined) updateData.craft_type = craftType;
   if (toolCategory !== undefined) updateData.tool_category = toolCategory;
-  if (cableLengthMm !== undefined) updateData.cable_length_mm = cableLengthMm;
-  if (quantity !== undefined) updateData.quantity = quantity;
+  if (cableLengthMm !== undefined) updateData.cable_length_mm = cableLengthMm || null;
+  if (purchaseDate !== undefined) updateData.purchase_date = purchaseDate;
+  if (purchasePrice !== undefined) updateData.purchase_price = purchasePrice;
+  if (notes !== undefined) updateData.notes = notes;
+  if (taxonomyTypeId !== undefined) updateData.taxonomy_type_id = taxonomyTypeId || null;
+  if (taxonomyLabel !== undefined) updateData.taxonomy_label = taxonomyLabel || null;
+  if (taxonomyCategoryLabel !== undefined) updateData.taxonomy_category_label = taxonomyCategoryLabel || null;
+  if (taxonomySubcategoryLabel !== undefined) updateData.taxonomy_subcategory_label = taxonomySubcategoryLabel || null;
 
   const [updatedTool] = await db('tools')
     .where({ id })
@@ -236,8 +260,16 @@ export async function getToolStats(req: Request, res: Response) {
     .whereNull('deleted_at')
     .select(
       db.raw('COUNT(*) as total_count'),
-      db.raw("COUNT(*) FILTER (WHERE type = 'needle') as needle_count"),
-      db.raw("COUNT(*) FILTER (WHERE type = 'hook') as hook_count")
+      db.raw("COUNT(*) FILTER (WHERE category = 'knitting_needles') as knitting_needles_count"),
+      db.raw("COUNT(*) FILTER (WHERE category = 'crochet_hooks') as crochet_hooks_count"),
+      db.raw("COUNT(*) FILTER (WHERE category = 'measuring') as measuring_count"),
+      db.raw("COUNT(*) FILTER (WHERE category = 'markers_holders') as markers_holders_count"),
+      db.raw("COUNT(*) FILTER (WHERE category = 'cutting_finishing') as cutting_finishing_count"),
+      db.raw("COUNT(*) FILTER (WHERE category = 'blocking') as blocking_count"),
+      db.raw("COUNT(*) FILTER (WHERE category = 'yarn_handling') as yarn_handling_count"),
+      db.raw("COUNT(*) FILTER (WHERE category = 'comfort') as comfort_count"),
+      db.raw("COUNT(*) FILTER (WHERE category = 'specialty') as specialty_count"),
+      db.raw("COUNT(*) FILTER (WHERE category = 'other') as other_count")
     )
     .first();
 
