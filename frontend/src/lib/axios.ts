@@ -73,14 +73,6 @@ axios.interceptors.request.use(
       }
     }
 
-    // Log requests in development
-    if (import.meta.env.DEV) {
-      console.log(`[API Request] ${config.method?.toUpperCase()} ${config.url}`, {
-        params: config.params,
-        data: config.data,
-      });
-    }
-
     return config;
   },
   (error) => {
@@ -100,13 +92,6 @@ axios.interceptors.request.use(
  */
 axios.interceptors.response.use(
   (response) => {
-    // Log successful responses in development
-    if (import.meta.env.DEV) {
-      console.log(`[API Response] ${response.config.method?.toUpperCase()} ${response.config.url}`, {
-        status: response.status,
-        data: response.data,
-      });
-    }
     return response;
   },
   async (error: AxiosError) => {
@@ -197,10 +182,6 @@ axios.interceptors.response.use(
 
         // Exponential backoff: 1s, 2s, 4s
         const delay = Math.pow(2, retryCount) * 1000;
-
-        if (import.meta.env.DEV) {
-          console.log(`[API Retry] Attempt ${retryCount + 1}/${maxRetries} after ${delay}ms`);
-        }
 
         await new Promise(resolve => setTimeout(resolve, delay));
         return axios(originalRequest);

@@ -63,7 +63,6 @@ class SyncManager {
    * Handle when device comes online
    */
   private async handleOnline() {
-    console.log('Device is online, starting sync...');
     await this.processSyncQueue();
   }
 
@@ -71,7 +70,6 @@ class SyncManager {
    * Handle when device goes offline
    */
   private handleOffline() {
-    console.log('Device is offline');
     this.isSyncing = false;
   }
 
@@ -80,12 +78,10 @@ class SyncManager {
    */
   async processSyncQueue(): Promise<void> {
     if (this.isSyncing) {
-      console.log('Sync already in progress');
       return;
     }
 
     if (!navigator.onLine) {
-      console.log('Device is offline, skipping sync');
       return;
     }
 
@@ -94,7 +90,6 @@ class SyncManager {
 
     try {
       const unsyncedItems = await getUnsyncedItems();
-      console.log(`Processing ${unsyncedItems.length} unsynced items`);
 
       for (const item of unsyncedItems) {
         // Skip items that have exceeded max retries
@@ -106,7 +101,6 @@ class SyncManager {
         try {
           await this.syncItem(item);
           await markSyncItemComplete(item.id!);
-          console.log(`Successfully synced item ${item.id}`);
         } catch (error) {
           console.error(`Failed to sync item ${item.id}:`, error);
           await incrementSyncRetry(item.id!);

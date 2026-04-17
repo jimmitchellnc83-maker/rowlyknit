@@ -74,7 +74,6 @@ export const useOffline = () => {
           if (method === 'GET' && cacheGetter) {
             const cached = await cacheGetter();
             if (cached) {
-              console.log('Using cached data due to network error');
               return cached.data || cached;
             }
           }
