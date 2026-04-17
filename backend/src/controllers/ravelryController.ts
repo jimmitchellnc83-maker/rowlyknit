@@ -142,6 +142,29 @@ export async function getPattern(req: Request, res: Response) {
   }
 }
 
+export async function getFavorites(req: Request, res: Response) {
+  const { page, page_size } = req.query;
+
+  try {
+    const result = await ravelryService.getFavorites(
+      req.user!.userId,
+      page ? Number(page) : 1,
+      page_size ? Number(page_size) : 50
+    );
+
+    if (!result) {
+      return res.status(502).json({
+        success: false,
+        message: 'Failed to fetch Ravelry favorites. Please try again later.',
+      });
+    }
+
+    res.json({ success: true, data: result });
+  } catch (error) {
+    return handleRavelryError(error, res);
+  }
+}
+
 export async function getYarnWeights(req: Request, res: Response) {
   try {
     const weights = await ravelryService.getYarnWeights();
