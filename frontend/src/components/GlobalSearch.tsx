@@ -99,7 +99,7 @@ export default function GlobalSearch() {
           type: 'yarn',
           title: `${y.brand} ${y.name}`,
           subtitle: `${y.color_name || ''} - ${y.weight || ''}`,
-          url: '/yarn',
+          url: `/yarn/${y.id}`,
         });
       });
 
