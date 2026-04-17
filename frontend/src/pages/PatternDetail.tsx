@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { FiArrowLeft, FiEdit2, FiTrash2, FiFileText, FiGrid, FiTool, FiBook } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
@@ -567,7 +567,19 @@ export default function PatternDetail() {
                         <p className="text-sm text-gray-500">
                           {chart.rows || 0} rows · {chart.columns || 0} columns
                           {chart.project_name && (
-                            <span className="ml-2 text-gray-400">· Project: {chart.project_name}</span>
+                            <span className="ml-2 text-gray-400">
+                              · Project:{' '}
+                              {chart.project_id ? (
+                                <Link
+                                  to={`/projects/${chart.project_id}`}
+                                  className="text-purple-600 hover:text-purple-700 hover:underline"
+                                >
+                                  {chart.project_name}
+                                </Link>
+                              ) : (
+                                chart.project_name
+                              )}
+                            </span>
                           )}
                         </p>
                         {chart.updated_at && (

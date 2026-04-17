@@ -1153,10 +1153,13 @@ export default function ProjectDetail() {
                     <div key={y.id} className="border border-gray-200 rounded-lg p-3">
                       <div className="flex items-start justify-between mb-2">
                         <div className="flex-1">
-                          <h3 className="text-sm font-medium text-gray-900">
+                          <Link
+                            to={`/yarn/${y.id}`}
+                            className="text-sm font-medium text-purple-600 hover:text-purple-700 hover:underline"
+                          >
                             {y.brand} {y.name}
                             {y.color && <span className="text-gray-600"> - {y.color}</span>}
-                          </h3>
+                          </Link>
                           <p className="text-xs text-gray-500">{y.weight}</p>
                         </div>
                         <button
