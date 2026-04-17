@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { body } from 'express-validator';
 import * as toolsController from '../controllers/toolsController';
+import * as taxonomyController from '../controllers/toolTaxonomyController';
 import { authenticate } from '../middleware/auth';
 import { validate, validateUUID, validatePagination, validateSearch } from '../middleware/validator';
 import { asyncHandler } from '../utils/errorHandler';
@@ -8,6 +9,11 @@ import { asyncHandler } from '../utils/errorHandler';
 const router = Router();
 
 router.use(authenticate);
+
+// Taxonomy autocomplete — must be before /:id to avoid conflict
+router.get('/taxonomy/search', asyncHandler(taxonomyController.searchToolTaxonomy));
+router.get('/taxonomy/categories', asyncHandler(taxonomyController.getCategories));
+router.post('/taxonomy/recent', asyncHandler(taxonomyController.recordRecentSearch));
 
 router.get(
   '/',

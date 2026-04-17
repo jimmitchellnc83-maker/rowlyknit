@@ -298,8 +298,9 @@ export async function seed(knex: Knex): Promise<void> {
   const [tool1, tool2] = await knex('tools').insert([
     {
       user_id: demoUser.id,
-      type: 'circular',
-      name: 'Circular Needle',
+      category: 'knitting_needles',
+      type: 'circular_needle',
+      name: 'ChiaoGoo 32" Circular',
       size: 'US 7',
       size_mm: 4.5,
       material: 'bamboo',
@@ -313,8 +314,9 @@ export async function seed(knex: Knex): Promise<void> {
     },
     {
       user_id: demoUser.id,
-      type: 'circular',
-      name: 'Circular Needle',
+      category: 'knitting_needles',
+      type: 'circular_needle',
+      name: 'Addi Turbo 40" Circular',
       size: 'US 8',
       size_mm: 5.0,
       material: 'metal',
