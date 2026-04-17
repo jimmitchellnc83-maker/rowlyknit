@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { verifyAccessToken, TokenPayload } from '../utils/jwt';
 import { UnauthorizedError } from '../utils/errorHandler';
 import db from '../config/database';
+import { isJtiRevoked, getUserRevokedBefore } from '../utils/tokenRevocation';
 
 // Extend Express Request to include user
 declare global {
@@ -37,6 +38,17 @@ export async function authenticate(
 
     // Verify token
     const payload = verifyAccessToken(token);
+
+    // Revocation checks: jti deny-list (per-token) + user-level revoked-before epoch
+    // (set on password change/reset to invalidate all outstanding access tokens).
+    if (payload.jti && (await isJtiRevoked(payload.jti))) {
+      throw new UnauthorizedError('Token has been revoked');
+    }
+
+    const revokedBefore = await getUserRevokedBefore(payload.userId);
+    if (revokedBefore && payload.iat && payload.iat < revokedBefore) {
+      throw new UnauthorizedError('Token has been revoked');
+    }
 
     // Check if user exists and is active
     const user = await db('users')
@@ -81,6 +93,18 @@ export async function optionalAuthenticate(
 
     if (token) {
       const payload = verifyAccessToken(token);
+
+      if (payload.jti && (await isJtiRevoked(payload.jti))) {
+        next();
+        return;
+      }
+
+      const revokedBefore = await getUserRevokedBefore(payload.userId);
+      if (revokedBefore && payload.iat && payload.iat < revokedBefore) {
+        next();
+        return;
+      }
+
       const user = await db('users')
         .where({ id: payload.userId, is_active: true })
         .whereNull('deleted_at')

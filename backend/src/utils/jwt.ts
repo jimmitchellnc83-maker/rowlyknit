@@ -25,12 +25,16 @@ export interface TokenPayload {
   userId: string;
   email: string;
   jti?: string; // JWT ID for token revocation
+  iat?: number; // issued-at (seconds since epoch) — populated by jwt.verify
+  exp?: number; // expiry (seconds since epoch) — populated by jwt.verify
 }
 
 export interface RefreshTokenPayload {
   userId: string;
   sessionId: string;
   jti?: string;
+  iat?: number;
+  exp?: number;
 }
 
 /**
