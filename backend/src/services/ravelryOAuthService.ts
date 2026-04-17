@@ -51,16 +51,25 @@ class RavelryOAuthService {
     await redisClient.del(`ravelry_oauth_state:${state}`);
 
     // Exchange code for tokens
-    const tokenResponse = await axios.post(RAVELRY_TOKEN_URL, new URLSearchParams({
-      grant_type: 'authorization_code',
-      code,
-      redirect_uri: redirectUri,
-      client_id: clientId,
-      client_secret: clientSecret,
-    }).toString(), {
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      timeout: 15000,
-    });
+    let tokenResponse;
+    try {
+      tokenResponse = await axios.post(RAVELRY_TOKEN_URL, new URLSearchParams({
+        grant_type: 'authorization_code',
+        code,
+        redirect_uri: redirectUri,
+      }).toString(), {
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        auth: { username: clientId, password: clientSecret },
+        timeout: 15000,
+      });
+    } catch (tokenErr: any) {
+      logger.error('Ravelry token exchange failed', {
+        status: tokenErr.response?.status,
+        data: tokenErr.response?.data,
+        redirectUri,
+      });
+      throw tokenErr;
+    }
 
     const { access_token, refresh_token, expires_in, token_type, scope } = tokenResponse.data;
 

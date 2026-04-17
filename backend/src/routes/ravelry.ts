@@ -46,6 +46,9 @@ router.get('/yarns/:id', asyncHandler(ravelryController.getYarn));
 router.get('/patterns/search', asyncHandler(ravelryController.searchPatterns));
 router.get('/patterns/:id', asyncHandler(ravelryController.getPattern));
 
+// User's favorited patterns on Ravelry
+router.get('/favorites', asyncHandler(ravelryController.getFavorites));
+
 // Reference data endpoints (Basic Auth)
 router.get('/yarn-weights', asyncHandler(ravelryController.getYarnWeights));
 router.get('/color-families', asyncHandler(ravelryController.getColorFamilies));

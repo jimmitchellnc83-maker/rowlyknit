@@ -428,6 +428,81 @@ class RavelryService {
   }
 
   /**
+   * Get the current user's favorite patterns from Ravelry (requires OAuth).
+   *
+   * Calls Ravelry's `/people/{username}/favorites/list.json` endpoint with types=pattern
+   * and returns the favorited patterns normalized via mapPatternFields — same shape that
+   * the frontend pattern import flow already consumes.
+   */
+  async getFavorites(
+    userId: string,
+    page: number = 1,
+    pageSize: number = 50
+  ): Promise<{ patterns: any[]; pagination: any } | null> {
+    try {
+      if (!userId) throw new RavelryOAuthRequiredError();
+      const client = await this.getClientForUser(userId);
+
+      // Resolve the user's Ravelry username — stored on the tokens row during OAuth,
+      // but fall back to /current_user.json if missing.
+      const status = await ravelryOAuthService.getConnectionStatus(userId);
+      let username = status.ravelryUsername;
+      if (!username) {
+        try {
+          const meResponse = await client.get('/current_user.json');
+          username = meResponse.data?.user?.username || null;
+        } catch {
+          // fall through to error below
+        }
+      }
+
+      if (!username) {
+        logger.warn('Ravelry favorites: no username for user', { userId });
+        throw new RavelryOAuthRequiredError();
+      }
+
+      const response = await client.get(
+        `/people/${encodeURIComponent(username)}/favorites/list.json`,
+        {
+          params: {
+            types: 'pattern',
+            page,
+            page_size: pageSize,
+          },
+        }
+      );
+
+      const favorites: any[] = response.data.favorites || [];
+      const patterns = favorites
+        .map((f: any) => {
+          const favorited = f?.favorited;
+          if (!favorited || !favorited.id) return null;
+          return mapPatternFields(favorited);
+        })
+        .filter(Boolean);
+
+      const paginator = response.data.paginator || {};
+      return {
+        patterns,
+        pagination: {
+          page: paginator.page || page,
+          pageSize: paginator.page_size || pageSize,
+          totalResults: paginator.results ?? patterns.length,
+          totalPages: paginator.last_page || 1,
+        },
+      };
+    } catch (error: any) {
+      if (error instanceof RavelryOAuthRequiredError) throw error;
+      logger.error('Ravelry get favorites failed', {
+        userId,
+        error: error.message,
+        status: error.response?.status,
+      });
+      return null;
+    }
+  }
+
+  /**
    * Get yarn weights reference data (works with Basic Auth)
    */
   async getYarnWeights(): Promise<any[] | null> {
