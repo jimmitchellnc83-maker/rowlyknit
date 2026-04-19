@@ -252,25 +252,36 @@ export default function CounterCard({ counter, onUpdate: _onUpdate, onEdit, onDe
       recognitionRef.current.continuous = true;
       recognitionRef.current.interimResults = false;
       recognitionRef.current.lang = 'en-US';
-      recognitionRef.current.maxAlternatives = 1; // Faster processing with single best result
+      // Consider multiple alternative transcriptions so fuzzy speech ("neck"
+      // vs "next", "bag" vs "back") still triggers the right command.
+      recognitionRef.current.maxAlternatives = 3;
+
+      // Word-boundary regex so "backpack" doesn't trigger "back" etc.
+      const INCREMENT_RE = /\b(next|plus|add|up|increment|forward)\b/;
+      const DECREMENT_RE = /\b(back|minus|undo|down|decrement|previous)\b/;
+      const RESET_RE = /\b(reset|clear)\b/;
 
       recognitionRef.current.onresult = (event: any) => {
         const last = event.results.length - 1;
-        const command = event.results[last][0].transcript.toLowerCase().trim();
-        const confidence = event.results[last][0].confidence;
+        const alternatives = event.results[last];
 
-        console.log(`[Voice] Recognized: "${command}" (confidence: ${(confidence * 100).toFixed(0)}%)`);
-
-        // Process voice commands immediately without debouncing
-        if (command.includes('next') || command.includes('plus') || command.includes('add')) {
-          handleVoiceIncrement();
-        } else if (command.includes('back') || command.includes('minus') || command.includes('undo')) {
-          handleVoiceDecrement();
-        } else if (command.includes('reset')) {
-          console.log('[Voice] Reset command received');
-          handleReset();
-        } else {
-          console.log(`[Voice] Unrecognized command: "${command}"`);
+        // Check every alternative transcription, not just the top one. If the
+        // user said "next" but the top guess is "neck" with "next" as alt #2,
+        // we still catch it.
+        for (let i = 0; i < alternatives.length; i++) {
+          const command = alternatives[i].transcript.toLowerCase().trim();
+          if (INCREMENT_RE.test(command)) {
+            handleVoiceIncrement();
+            return;
+          }
+          if (DECREMENT_RE.test(command)) {
+            handleVoiceDecrement();
+            return;
+          }
+          if (RESET_RE.test(command)) {
+            handleReset();
+            return;
+          }
         }
       };
 
