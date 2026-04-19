@@ -1,0 +1,13 @@
+# gitleaks fingerprint allowlist.
+#
+# Format: <commit-sha>:<path>:<rule-id>:<line-number>
+# Use when a historical commit contains a secret that has already been rotated
+# and cannot be practically removed from history yet.
+#
+# To add an entry after a CI failure, copy the "Fingerprint:" line from the
+# gitleaks report exactly as printed.
+#
+# Pending: the pre-rotation secret commits tracked in
+# docs/MVP_LAUNCH_PUNCHLIST.md Phase 1 (c5a8668, 5d15bba). These only surface
+# on full-history audits (workflow_dispatch). Add their fingerprints here if
+# that audit runs before the planned `git filter-repo` cleanup.
