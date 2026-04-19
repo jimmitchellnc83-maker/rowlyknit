@@ -220,6 +220,39 @@ export default function Tools() {
     });
   };
 
+  // Turn a raw id like "knitting_needles" into "Knitting Needles" as a last-resort
+  // display fallback when neither the DB taxonomy_*_label nor the tree lookup has it.
+  const humanizeId = (id: string) =>
+    id.replace(/[_-]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+
+  // Build id → label maps from the taxonomy tree so tools that were saved before
+  // taxonomy labels were denormalised into the row still render human names.
+  const taxonomyLabels = useMemo(() => {
+    const categories = new Map<string, string>();
+    const subcategories = new Map<string, string>();
+    const toolTypes = new Map<string, string>();
+    for (const cat of taxonomyTree) {
+      categories.set(cat.id, cat.label);
+      for (const sub of cat.subcategories) {
+        subcategories.set(sub.id, sub.label);
+        for (const tt of sub.toolTypes) {
+          toolTypes.set(tt.id, tt.label);
+        }
+      }
+    }
+    return { categories, subcategories, toolTypes };
+  }, [taxonomyTree]);
+
+  const resolveCategoryLabel = (tool: Tool): string =>
+    tool.taxonomy_category_label ||
+    (tool.category && taxonomyLabels.categories.get(tool.category)) ||
+    (tool.category ? humanizeId(tool.category) : 'Other');
+
+  const resolveToolTypeLabel = (tool: Tool): string =>
+    tool.taxonomy_label ||
+    (tool.type && taxonomyLabels.toolTypes.get(tool.type)) ||
+    (tool.type ? humanizeId(tool.type) : '');
+
   // Category filter counts from user's tools
   const categoryCounts = new Map<string, { label: string; count: number }>();
   for (const t of tools) {
@@ -229,7 +262,7 @@ export default function Tools() {
       existing.count++;
     } else {
       categoryCounts.set(key, {
-        label: t.taxonomy_category_label || t.category || 'Other',
+        label: resolveCategoryLabel(t),
         count: 1,
       });
     }
@@ -564,14 +597,14 @@ export default function Tools() {
             <div key={tool.id} className="bg-white rounded-lg shadow hover:shadow-lg transition p-6">
               <div className="flex items-start justify-between mb-2">
                 <h3 className="text-lg font-semibold text-gray-900 flex-1 mr-2">{tool.name}</h3>
-                {(tool.taxonomy_category_label || tool.category) && (
+                {tool.category && (
                   <span className="px-2 py-1 text-xs font-medium rounded-full whitespace-nowrap bg-purple-100 text-purple-800">
-                    {tool.taxonomy_category_label || tool.category}
+                    {resolveCategoryLabel(tool)}
                   </span>
                 )}
               </div>
               <div className="text-sm text-purple-600 font-medium mb-3">
-                {tool.taxonomy_label || tool.type}
+                {resolveToolTypeLabel(tool)}
                 {tool.size_mm
                   ? <span className="text-gray-500"> &middot; {fmt.needleSize(tool.size_mm)}</span>
                   : tool.size && <span className="text-gray-500"> &middot; {tool.size}</span>

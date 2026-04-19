@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
+import { KnittingModeProvider, useKnittingMode } from '../../contexts/KnittingModeContext';
 import GlobalSearch from '../GlobalSearch';
 import ThemeToggle from '../ThemeToggle';
 import { SyncIndicator } from '../offline/SyncIndicator';
@@ -18,10 +19,19 @@ import {
 } from 'react-icons/fi';
 
 export default function MainLayout() {
+  return (
+    <KnittingModeProvider>
+      <MainLayoutInner />
+    </KnittingModeProvider>
+  );
+}
+
+function MainLayoutInner() {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
   const location = useLocation();
   const [conflicts, setConflicts] = useState<DataConflict[]>([]);
+  const { knittingMode } = useKnittingMode();
 
   const handleLogout = async () => {
     await logout();
@@ -52,8 +62,15 @@ export default function MainLayout() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200 pb-20 md:pb-0">
-      {/* Desktop Sidebar - Hidden on mobile */}
-      <aside className="hidden md:fixed md:inset-y-0 md:left-0 md:w-64 md:block bg-white dark:bg-gray-800 shadow-lg transition-colors duration-200">
+      {/* Desktop Sidebar - Hidden on mobile. Dimmed + non-interactive in Knitting
+          Mode so the user can't misclick away mid-row. */}
+      <aside
+        aria-hidden={knittingMode}
+        tabIndex={knittingMode ? -1 : undefined}
+        className={`hidden md:fixed md:inset-y-0 md:left-0 md:w-64 md:block bg-white dark:bg-gray-800 shadow-lg transition-all duration-200 ${
+          knittingMode ? 'opacity-30 pointer-events-none' : ''
+        }`}
+      >
         <div className="flex flex-col h-full">
           {/* Logo */}
           <div className="flex items-center justify-between px-4 h-16 bg-purple-600 dark:bg-purple-700">
@@ -126,7 +143,13 @@ export default function MainLayout() {
       </aside>
 
       {/* Mobile Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 md:hidden z-40" aria-label="Main navigation">
+      <nav
+        aria-hidden={knittingMode}
+        className={`fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 md:hidden z-40 transition-opacity duration-200 ${
+          knittingMode ? 'opacity-30 pointer-events-none' : ''
+        }`}
+        aria-label="Main navigation"
+      >
         <div className="flex justify-around items-center h-20">
           {mainNavigation.map((item) => {
             const Icon = item.icon;
