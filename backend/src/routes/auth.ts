@@ -4,6 +4,7 @@ import * as authController from '../controllers/authController';
 import { authenticate } from '../middleware/auth';
 import { validate } from '../middleware/validator';
 import { authLimiter, passwordResetLimiter } from '../middleware/rateLimiter';
+import { requireSameOrigin } from '../middleware/originCheck';
 import { asyncHandler } from '../utils/errorHandler';
 
 const router = Router();
@@ -33,6 +34,7 @@ router.post(
  */
 router.post(
   '/login',
+  requireSameOrigin,
   authLimiter,
   [
     body('email').isEmail().normalizeEmail(),
@@ -47,7 +49,7 @@ router.post(
  * @desc    Refresh access token
  * @access  Public
  */
-router.post('/refresh', asyncHandler(authController.refreshToken));
+router.post('/refresh', requireSameOrigin, asyncHandler(authController.refreshToken));
 
 /**
  * @route   POST /api/auth/logout
