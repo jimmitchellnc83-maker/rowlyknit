@@ -50,12 +50,10 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     });
 
     newSocket.on('connect', () => {
-      console.log('✅ Socket.IO connected:', newSocket.id);
       setIsConnected(true);
     });
 
-    newSocket.on('disconnect', (reason) => {
-      console.log('❌ Socket.IO disconnected:', reason);
+    newSocket.on('disconnect', () => {
       setIsConnected(false);
     });
 
@@ -79,14 +77,12 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const joinProject = useCallback((projectId: string) => {
     if (socketRef.current?.connected) {
       socketRef.current.emit('join:project', projectId);
-      console.log(`Joined project room: ${projectId}`);
     }
   }, []);
 
   const leaveProject = useCallback((projectId: string) => {
     if (socketRef.current?.connected) {
       socketRef.current.emit('leave:project', projectId);
-      console.log(`Left project room: ${projectId}`);
     }
   }, []);
 

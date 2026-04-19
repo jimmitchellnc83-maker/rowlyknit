@@ -40,7 +40,6 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
 
       // Unregister all existing service workers
       for (const registration of registrations) {
-        console.log('Unregistering old service worker...');
         await registration.unregister();
       }
 
@@ -48,16 +47,13 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
       if ('caches' in window) {
         const cacheNames = await caches.keys();
         for (const cacheName of cacheNames) {
-          console.log('Deleting cache:', cacheName);
           await caches.delete(cacheName);
         }
       }
 
-      console.log('✅ All service workers unregistered and caches cleared');
 
       // Now register the new service worker
-      const registration = await navigator.serviceWorker.register('/sw.js');
-      console.log('✅ New ServiceWorker registered:', registration);
+      await navigator.serviceWorker.register('/sw.js');
     } catch (error) {
       console.error('❌ ServiceWorker error:', error);
     }
@@ -83,9 +79,6 @@ try {
     throw new Error('Root element not found! DOM might not be ready.');
   }
 
-  console.log('Initializing React app...');
-  console.log('React version:', React.version);
-  console.log('Environment:', import.meta.env.MODE);
 
   ReactDOM.createRoot(rootElement).render(
     <React.StrictMode>
@@ -112,7 +105,6 @@ try {
     </React.StrictMode>
   );
 
-  console.log('✅ React app initialized successfully');
 } catch (error) {
   console.error('❌ Failed to initialize React app:', error);
 
