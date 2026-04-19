@@ -257,9 +257,11 @@ export default function CounterCard({ counter, onUpdate: _onUpdate, onEdit, onDe
       recognitionRef.current.maxAlternatives = 3;
 
       // Word-boundary regex so "backpack" doesn't trigger "back" etc.
-      const INCREMENT_RE = /\b(next|plus|add|up|increment|forward)\b/;
-      const DECREMENT_RE = /\b(back|minus|undo|down|decrement|previous)\b/;
-      const RESET_RE = /\b(reset|clear)\b/;
+      // Vocabulary kept deliberately wide so natural phrasing works:
+      // "one more", "tick it", "another", "oops" etc.
+      const INCREMENT_RE = /\b(next|plus|add|up|increment|forward|more|another|mark|tick|count|advance|go)\b/;
+      const DECREMENT_RE = /\b(back|minus|undo|down|decrement|previous|oops|mistake|return|rewind|last)\b/;
+      const RESET_RE = /\b(reset|clear|restart|zero)\b/;
 
       recognitionRef.current.onresult = (event: any) => {
         const last = event.results.length - 1;
