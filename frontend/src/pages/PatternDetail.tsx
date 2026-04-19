@@ -8,6 +8,7 @@ import PatternFileUpload from '../components/PatternFileUpload';
 import BookmarkManager from '../components/patterns/BookmarkManager';
 import PatternViewer from '../components/patterns/PatternViewer';
 import LoadingSpinner from '../components/LoadingSpinner';
+import ConfirmModal from '../components/ConfirmModal';
 import { ChartImageUpload } from '../components/charts';
 
 interface Pattern {
@@ -171,18 +172,18 @@ export default function PatternDetail() {
     }
   };
 
+  const [showDeletePatternConfirm, setShowDeletePatternConfirm] = useState(false);
+
   const handleDeletePattern = async () => {
     if (!pattern) return;
-    if (!confirm(`Are you sure you want to delete "${pattern.name}"? This will also delete all associated files.`)) {
-      return;
-    }
-
     try {
       await axios.delete(`/api/patterns/${pattern.id}`);
       toast.success('Pattern deleted successfully');
       navigate('/patterns');
     } catch {
       toast.error('Failed to delete pattern');
+    } finally {
+      setShowDeletePatternConfirm(false);
     }
   };
 
@@ -309,7 +310,7 @@ export default function PatternDetail() {
               <span className="text-base md:text-sm">Edit</span>
             </button>
             <button
-              onClick={handleDeletePattern}
+              onClick={() => setShowDeletePatternConfirm(true)}
               className="flex items-center justify-center px-4 py-3 md:py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition min-h-[48px] md:min-h-0 flex-1 sm:flex-none"
             >
               <FiTrash2 className="mr-2 h-5 w-5 md:h-4 md:w-4" />
@@ -932,6 +933,17 @@ export default function PatternDetail() {
             </div>
           </div>
         </div>
+      )}
+
+      {showDeletePatternConfirm && pattern && (
+        <ConfirmModal
+          title="Delete pattern?"
+          message={`Delete "${pattern.name}"? This will also delete all associated files and cannot be undone.`}
+          confirmLabel="Delete"
+          variant="danger"
+          onConfirm={handleDeletePattern}
+          onCancel={() => setShowDeletePatternConfirm(false)}
+        />
       )}
     </div>
   );

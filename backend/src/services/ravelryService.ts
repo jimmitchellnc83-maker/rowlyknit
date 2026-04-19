@@ -42,10 +42,11 @@ function mapYarnFields(y: any, isDetail: boolean = false) {
     gauge = y.gauge_description;
   } else if (y.min_gauge || y.max_gauge) {
     const divisor = y.gauge_divisor || 4;
+    const unit = divisor === 1 ? 'inch' : 'inches';
     if (y.min_gauge && y.max_gauge && y.min_gauge !== y.max_gauge) {
-      gauge = `${y.min_gauge}–${y.max_gauge} sts over ${divisor} inches`;
+      gauge = `${y.min_gauge}–${y.max_gauge} sts over ${divisor} ${unit}`;
     } else {
-      gauge = `${y.min_gauge || y.max_gauge} sts over ${divisor} inches`;
+      gauge = `${y.min_gauge || y.max_gauge} sts over ${divisor} ${unit}`;
     }
   }
 

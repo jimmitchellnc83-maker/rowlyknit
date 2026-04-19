@@ -1,6 +1,6 @@
-import { useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FiPlus, FiTrash2, FiBook, FiEdit2, FiSearch } from 'react-icons/fi';
+import { FiPlus, FiTrash2, FiBook, FiEdit2, FiSearch, FiMoreVertical } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { PDFCollation } from '../components/patterns';
@@ -30,6 +30,19 @@ export default function Patterns() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showCollationModal, setShowCollationModal] = useState(false);
   const [showRavelrySearch, setShowRavelrySearch] = useState(false);
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!showMoreMenu) return;
+    const onDocClick = (e: MouseEvent) => {
+      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target as Node)) {
+        setShowMoreMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, [showMoreMenu]);
   const [editingPattern, setEditingPattern] = useState<Pattern | null>(null);
   const [patternFiles, setPatternFiles] = useState<File[]>([]);
   const [uploadingFiles, setUploadingFiles] = useState(false);
@@ -239,20 +252,39 @@ export default function Patterns() {
             Search Ravelry
           </button>
           <button
-            onClick={() => setShowCollationModal(true)}
-            className="flex items-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition"
-            disabled={patterns.length === 0}
-          >
-            <FiBook className="mr-2" />
-            Merge PDFs
-          </button>
-          <button
             onClick={() => setShowCreateModal(true)}
             className="flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
           >
             <FiPlus className="mr-2" />
             New Pattern
           </button>
+          <div className="relative" ref={moreMenuRef}>
+            <button
+              onClick={() => setShowMoreMenu((s) => !s)}
+              className="flex items-center justify-center w-10 h-10 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition"
+              aria-label="More actions"
+              aria-haspopup="menu"
+              aria-expanded={showMoreMenu}
+            >
+              <FiMoreVertical />
+            </button>
+            {showMoreMenu && (
+              <div
+                role="menu"
+                className="absolute right-0 mt-2 w-52 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-20"
+              >
+                <button
+                  role="menuitem"
+                  onClick={() => { setShowMoreMenu(false); setShowCollationModal(true); }}
+                  disabled={patterns.length === 0}
+                  className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <FiBook className="h-4 w-4" />
+                  Merge PDFs
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
