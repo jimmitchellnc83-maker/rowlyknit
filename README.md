@@ -69,6 +69,17 @@ Rowly is a production-ready, full-stack web application for managing knitting pr
 3. Commit the replacement and force-push if needed.
 4. Verify `.gitignore` blocks the file from future commits.
 
+### Pre-commit secret scanning (optional, recommended)
+
+CI runs `gitleaks` on every PR and push to `main` (see `.github/workflows/secret-scan.yml`). To catch leaks locally **before** you push, enable the same check as a git hook:
+
+```bash
+pip install pre-commit     # or: brew install pre-commit
+pre-commit install         # wires .git/hooks/pre-commit to .pre-commit-config.yaml
+```
+
+From then on, every `git commit` runs `gitleaks protect --staged` and blocks the commit if it finds a secret. To run it once across staged files without committing: `pre-commit run gitleaks`.
+
 ## 🏗️ Architecture
 
 ### Technology Stack

@@ -1,0 +1,14 @@
+# Local pre-commit hooks. Opt-in for contributors:
+#
+#   pip install pre-commit          # or: brew install pre-commit
+#   pre-commit install              # run once to wire up .git/hooks/pre-commit
+#
+# Matches the gitleaks check that runs in CI (.github/workflows/secret-scan.yml),
+# so local commits get the same gate before they ever reach a PR.
+
+repos:
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.21.2
+    hooks:
+      - id: gitleaks
+        name: gitleaks (scan staged changes)
