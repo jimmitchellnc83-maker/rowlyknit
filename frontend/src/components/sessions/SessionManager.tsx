@@ -38,7 +38,6 @@ export const SessionManager: React.FC<SessionManagerProps> = ({
       }
     } catch (error) {
       // No active session
-      console.log('No active session');
     }
   };
 

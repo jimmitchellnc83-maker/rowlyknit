@@ -104,7 +104,6 @@ export const AudioNotes: React.FC<AudioNotesProps> = ({
 
     for (const type of types) {
       if (MediaRecorder.isTypeSupported(type)) {
-        console.log(`✅ Using audio mime type: ${type}`);
         return type;
       }
     }
@@ -136,19 +135,16 @@ export const AudioNotes: React.FC<AudioNotesProps> = ({
 
       mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
-          console.log(`📦 Audio chunk received: ${event.data.size} bytes`);
           audioChunksRef.current.push(event.data);
         }
       };
 
       mediaRecorder.onstop = async () => {
-        console.log(`🎤 Recording stopped. Total chunks: ${audioChunksRef.current.length}`);
 
         // Use the actual mime type from the MediaRecorder
         const actualMimeType = mediaRecorder.mimeType || recordingMimeTypeRef.current;
         const audioBlob = new Blob(audioChunksRef.current, { type: actualMimeType });
 
-        console.log(`📁 Audio blob created: ${audioBlob.size} bytes, type: ${actualMimeType}`);
 
         // Stop all tracks
         stream.getTracks().forEach((track) => track.stop());
@@ -163,11 +159,9 @@ export const AudioNotes: React.FC<AudioNotesProps> = ({
         // Save the note with duration (transcription can be added manually later)
         // Use ref value instead of state to get the current recording time
         const duration = recordingTimeRef.current;
-        console.log(`⏱️  Recording duration: ${duration} seconds`);
         try {
           await onSaveNote(audioBlob, duration, undefined, selectedPatternId || undefined);
           setSelectedPatternId('');
-          console.log('✅ Audio note saved successfully');
         } catch (error) {
           console.error('Failed to save audio note:', error);
           alert('Failed to save audio note');

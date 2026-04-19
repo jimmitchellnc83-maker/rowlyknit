@@ -28,16 +28,14 @@ export default function MainLayout() {
     navigate('/login');
   };
 
-  const handleResolveConflict = async (conflictId: string, resolution: 'local' | 'server' | 'merge') => {
+  const handleResolveConflict = async (conflictId: string, _resolution: 'local' | 'server' | 'merge') => {
     // Remove resolved conflict from state
     setConflicts(prev => prev.filter(c => c.id !== conflictId));
     // In a real app, this would sync the resolution to the server
-    console.log(`Resolved conflict ${conflictId} with ${resolution}`);
   };
 
-  const handleResolveAllConflicts = async (resolution: 'local' | 'server') => {
+  const handleResolveAllConflicts = async (_resolution: 'local' | 'server') => {
     setConflicts([]);
-    console.log(`Resolved all conflicts with ${resolution}`);
   };
 
   const navigation = [
