@@ -96,6 +96,41 @@ export async function getYarnById(req: Request, res: Response) {
   });
 }
 
+export async function getProjectsUsingYarn(req: Request, res: Response) {
+  const userId = req.user!.userId;
+  const { id } = req.params;
+
+  const yarn = await db('yarn')
+    .where({ id, user_id: userId })
+    .whereNull('deleted_at')
+    .first();
+
+  if (!yarn) {
+    throw new NotFoundError('Yarn not found');
+  }
+
+  const projects = await db('project_yarn as py')
+    .join('projects as p', 'p.id', 'py.project_id')
+    .where('py.yarn_id', id)
+    .andWhere('p.user_id', userId)
+    .whereNull('p.deleted_at')
+    .orderBy('p.created_at', 'desc')
+    .select(
+      'p.id',
+      'p.name',
+      'p.status',
+      'p.project_type',
+      'p.completion_date',
+      'py.yards_used',
+      'py.skeins_used'
+    );
+
+  res.json({
+    success: true,
+    data: { projects },
+  });
+}
+
 export async function createYarn(req: Request, res: Response) {
   const userId = req.user!.userId;
   const {
