@@ -120,7 +120,7 @@ export async function getProjectsUsingYarn(req: Request, res: Response) {
       'p.name',
       'p.status',
       'p.project_type',
-      'p.completion_date',
+      'p.actual_completion_date as completion_date',
       'py.yards_used',
       'py.skeins_used'
     );
