@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { FiFolder, FiBook, FiPackage, FiUsers, FiPlus, FiAlertCircle } from 'react-icons/fi';
+import { FiFolder, FiBook, FiPackage, FiUsers, FiPlus, FiAlertCircle, FiHelpCircle } from 'react-icons/fi';
 import { useAuthStore } from '../stores/authStore';
 import { useDashboardStats } from '../hooks/useApi';
 import { useMeasurements } from '../hooks/useMeasurements';
@@ -52,13 +52,22 @@ export default function Dashboard() {
   return (
     <div>
       {/* Welcome Section */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">
-          Welcome back, {user?.firstName}!
-        </h1>
-        <p className="text-gray-600">
-          Here's what's happening with your knitting projects today.
-        </p>
+      <div className="mb-8 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            Welcome back, {user?.firstName}!
+          </h1>
+          <p className="text-gray-600">
+            Here's what's happening with your knitting projects today.
+          </p>
+        </div>
+        <Link
+          to="/help"
+          className="flex-shrink-0 inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-purple-700 bg-purple-50 rounded-lg hover:bg-purple-100 transition"
+        >
+          <FiHelpCircle className="h-4 w-4" />
+          Help
+        </Link>
       </div>
 
       {/* Stats Grid */}

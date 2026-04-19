@@ -20,6 +20,7 @@ import Tools from './pages/Tools';
 import Recipients from './pages/Recipients';
 import Profile from './pages/Profile';
 import Stats from './pages/Stats';
+import Help from './pages/Help';
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
 import ForgotPassword from './pages/auth/ForgotPassword';
@@ -101,6 +102,7 @@ function App() {
         <Route path="/ravelry/sync" element={<RavelrySync />} />
         <Route path="/ravelry/favorites" element={<RavelryFavorites />} />
         <Route path="/stats" element={<Stats />} />
+        <Route path="/help" element={<Help />} />
       </Route>
 
       {/* 404 */}

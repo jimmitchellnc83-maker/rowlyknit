@@ -18,7 +18,9 @@ import MagicMarkerManager from '../components/magic-markers/MagicMarkerManager';
 import LoadingSpinner from '../components/LoadingSpinner';
 import PatternPreview from '../components/PatternPreview';
 import HelpTooltip from '../components/HelpTooltip';
+import ConfirmModal from '../components/ConfirmModal';
 import { useMeasurements } from '../hooks/useMeasurements';
+import { useKnittingMode } from '../contexts/KnittingModeContext';
 
 interface Project {
   id: string;
@@ -49,10 +51,15 @@ export default function ProjectDetail() {
   const [loading, setLoading] = useState(true);
   const [showEditModal, setShowEditModal] = useState(false);
 
-  // Knitting Mode state
-  const [knittingMode, setKnittingMode] = useState(false);
+  // Knitting Mode state (sourced from context so MainLayout can dim the sidebar)
+  const { knittingMode, setKnittingMode } = useKnittingMode();
   const [showKnittingVoiceNotes, setShowKnittingVoiceNotes] = useState(false);
   const [showKnittingHistory, setShowKnittingHistory] = useState(false);
+
+  // Clear knitting mode when leaving this page so the sidebar comes back elsewhere.
+  useEffect(() => {
+    return () => setKnittingMode(false);
+  }, [setKnittingMode]);
 
   // Notes state
   const [audioNotes, setAudioNotes] = useState<any[]>([]);
@@ -200,11 +207,10 @@ export default function ProjectDetail() {
     }
   };
 
-  const handleDelete = async () => {
-    if (!confirm(`Are you sure you want to delete "${project?.name}"?`)) {
-      return;
-    }
+  const [showDeleteProjectConfirm, setShowDeleteProjectConfirm] = useState(false);
+  const [removeYarnTarget, setRemoveYarnTarget] = useState<string | null>(null);
 
+  const handleDelete = async () => {
     try {
       await axios.delete(`/api/projects/${id}`);
       toast.success('Project deleted successfully');
@@ -212,6 +218,8 @@ export default function ProjectDetail() {
     } catch (error: any) {
       console.error('Error deleting project:', error);
       toast.error('Failed to delete project');
+    } finally {
+      setShowDeleteProjectConfirm(false);
     }
   };
 
@@ -359,10 +367,6 @@ export default function ProjectDetail() {
   };
 
   const handleRemoveYarn = async (yarnId: string) => {
-    if (!confirm('Remove this yarn? The used amount will be restored to your stash.')) {
-      return;
-    }
-
     try {
       await axios.delete(`/api/projects/${id}/yarn/${yarnId}`);
       toast.success('Yarn removed and restored to stash');
@@ -371,6 +375,8 @@ export default function ProjectDetail() {
     } catch (error: any) {
       console.error('Error removing yarn:', error);
       toast.error('Failed to remove yarn');
+    } finally {
+      setRemoveYarnTarget(null);
     }
   };
 
@@ -513,8 +519,9 @@ export default function ProjectDetail() {
   };
 
   const handleToggleKnittingMode = () => {
-    setKnittingMode(!knittingMode);
-    if (!knittingMode) {
+    const next = !knittingMode;
+    setKnittingMode(next);
+    if (next) {
       toast.success('Knitting Mode activated! 🧶');
     } else {
       toast.info('Knitting Mode deactivated');
@@ -713,7 +720,7 @@ export default function ProjectDetail() {
               <span className="text-base md:text-sm">Edit</span>
             </button>
             <button
-              onClick={handleDelete}
+              onClick={() => setShowDeleteProjectConfirm(true)}
               className="px-4 py-3 md:py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition flex items-center min-h-[48px] md:min-h-0"
             >
               <FiTrash2 className="mr-2 h-5 w-5 md:h-4 md:w-4" />
@@ -1163,7 +1170,7 @@ export default function ProjectDetail() {
                           <p className="text-xs text-gray-500">{y.weight}</p>
                         </div>
                         <button
-                          onClick={() => handleRemoveYarn(y.id)}
+                          onClick={() => setRemoveYarnTarget(y.id)}
                           className="text-red-600 hover:text-red-700 p-1"
                           title="Remove yarn"
                         >
@@ -1638,6 +1645,28 @@ export default function ProjectDetail() {
             </div>
           </div>
         </div>
+      )}
+
+      {showDeleteProjectConfirm && project && (
+        <ConfirmModal
+          title="Delete project?"
+          message={`Delete "${project.name}"? This cannot be undone.`}
+          confirmLabel="Delete"
+          variant="danger"
+          onConfirm={handleDelete}
+          onCancel={() => setShowDeleteProjectConfirm(false)}
+        />
+      )}
+
+      {removeYarnTarget && (
+        <ConfirmModal
+          title="Remove yarn from project?"
+          message="The used amount will be restored to your stash."
+          confirmLabel="Remove"
+          variant="warning"
+          onConfirm={() => handleRemoveYarn(removeYarnTarget)}
+          onCancel={() => setRemoveYarnTarget(null)}
+        />
       )}
     </div>
   );
