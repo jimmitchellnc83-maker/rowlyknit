@@ -2,12 +2,31 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import basicSsl from '@vitejs/plugin-basic-ssl';
 import { VitePWA } from 'vite-plugin-pwa';
+import { sentryVitePlugin } from '@sentry/vite-plugin';
 import path from 'path';
+
+const sentryAuthToken = process.env.SENTRY_AUTH_TOKEN;
+const sentryOrg = process.env.SENTRY_ORG;
+const sentryProject = process.env.SENTRY_PROJECT;
 
 export default defineConfig({
   plugins: [
     react(),
     basicSsl(),
+    // Upload source maps to Sentry for symbolicated prod stack traces.
+    // No-op unless SENTRY_AUTH_TOKEN / SENTRY_ORG / SENTRY_PROJECT are all set at build time.
+    ...(sentryAuthToken && sentryOrg && sentryProject
+      ? [
+          sentryVitePlugin({
+            authToken: sentryAuthToken,
+            org: sentryOrg,
+            project: sentryProject,
+            sourcemaps: {
+              filesToDeleteAfterUpload: ['dist/**/*.js.map', 'dist/**/*.mjs.map'],
+            },
+          }),
+        ]
+      : []),
     // Plugin to inject build timestamp into HTML
     {
       name: 'html-transform',
@@ -179,7 +198,10 @@ export default defineConfig({
         },
       },
     },
-    sourcemap: true,
+    // 'hidden' emits source maps but omits the //# sourceMappingURL comment,
+    // so they are not served to browsers. The Sentry plugin above uploads
+    // + deletes them post-build when credentials are set.
+    sourcemap: 'hidden',
     chunkSizeWarningLimit: 1000,
   },
 });

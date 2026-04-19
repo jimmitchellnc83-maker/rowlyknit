@@ -8,6 +8,7 @@ import {
   generateVerificationToken,
   generateResetToken,
 } from '../utils/jwt';
+import { revokeAccessTokenJti, revokeAllUserTokensBefore } from '../utils/tokenRevocation';
 import {
   UnauthorizedError,
   ValidationError,
@@ -282,6 +283,12 @@ export async function logout(req: Request, res: Response) {
   const userId = req.user?.userId;
   const { refreshToken } = req.cookies;
 
+  // Revoke the current access token via jti deny-list so it can't be reused
+  // before its natural expiry (up to 15 minutes).
+  if (req.user?.jti && req.user.exp) {
+    await revokeAccessTokenJti(req.user.jti, req.user.exp);
+  }
+
   if (refreshToken) {
     // Revoke session
     await db('sessions')
@@ -466,6 +473,14 @@ export async function changePassword(req: Request, res: Response) {
       updated_at: new Date(),
     });
 
+  // Invalidate any outstanding access tokens issued before this point
+  await revokeAllUserTokensBefore(userId);
+
+  // Revoke all refresh sessions too so re-login is required on other devices
+  await db('sessions')
+    .where({ user_id: userId })
+    .update({ is_revoked: true, updated_at: new Date() });
+
   await createAuditLog(req, {
     userId,
     action: 'password_changed',
@@ -623,6 +638,9 @@ export async function resetPassword(req: Request, res: Response) {
   await db('sessions')
     .where({ user_id: user.id })
     .update({ is_revoked: true, updated_at: new Date() });
+
+  // Invalidate any outstanding access tokens (they survive session revocation until exp otherwise)
+  await revokeAllUserTokensBefore(user.id);
 
   // Log audit
   await createAuditLog(req, {
