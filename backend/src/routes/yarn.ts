@@ -24,6 +24,12 @@ router.get(
   asyncHandler(yarnController.getYarnById)
 );
 
+router.get(
+  '/:id/projects',
+  validateUUID('id'),
+  asyncHandler(yarnController.getProjectsUsingYarn)
+);
+
 router.post(
   '/',
   [
