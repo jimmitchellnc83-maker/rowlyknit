@@ -180,7 +180,6 @@ export const uploadProjectPhoto = async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       message: 'Failed to upload photo',
-      error: error.message,
     });
   }
 };
@@ -263,7 +262,7 @@ export const deleteProjectPhoto = async (req: Request, res: Response) => {
 
     // Delete physical files
     try {
-      const filepath = path.join(photo.filename);
+      const filepath = path.join('uploads/projects', photo.filename);
       const thumbnailPath = path.join('uploads/projects/thumbnails', photo.thumbnail_filename);
 
       if (fs.existsSync(filepath)) await unlinkAsync(filepath);
@@ -371,7 +370,6 @@ export const uploadPatternFile = async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       message: 'Failed to upload pattern file',
-      error: error.message,
     });
   }
 };
@@ -626,7 +624,6 @@ export const uploadYarnPhoto = async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       message: 'Failed to upload yarn photo',
-      error: error.message,
     });
   }
 };
@@ -722,7 +719,6 @@ export const uploadYarnPhotoFromUrl = async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       message: 'Failed to import photo from URL',
-      error: error.message,
     });
   }
 };
@@ -794,7 +790,6 @@ export const uploadPatternThumbnailFromUrl = async (req: Request, res: Response)
     res.status(500).json({
       success: false,
       message: 'Failed to import pattern thumbnail',
-      error: error.message,
     });
   }
 };
