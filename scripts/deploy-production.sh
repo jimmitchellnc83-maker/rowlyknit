@@ -26,19 +26,20 @@ if [ ! -f "backend/.env" ]; then
     exit 1
 fi
 
-# Stop existing services
-echo -e "${YELLOW}📦 Stopping existing services...${NC}"
-docker compose down
+# Build flags — pass --no-cache as the first arg to force a clean rebuild.
+# Otherwise Docker layer cache is reused, skipping npm install when
+# package*.json hasn't changed (typical case = ~2 min instead of ~15).
+BUILD_FLAGS=""
+if [ "$1" = "--no-cache" ]; then
+    BUILD_FLAGS="--no-cache"
+    echo -e "${YELLOW}🧹 Forced clean rebuild (--no-cache)${NC}"
+fi
 
-# Remove old images to force rebuild
-echo -e "${YELLOW}🗑️  Removing old images...${NC}"
-docker compose rm -f backend frontend
-
-# Rebuild services
+# Build backend + frontend
 echo -e "${YELLOW}🔨 Building services...${NC}"
-docker compose build --no-cache backend frontend
+docker compose build $BUILD_FLAGS backend frontend
 
-# Start all services
+# Recreate containers whose images changed; postgres/redis/nginx stay up
 echo -e "${YELLOW}🚀 Starting services...${NC}"
 docker compose up -d
 
