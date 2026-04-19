@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { FiArrowLeft, FiEdit2, FiTrash2, FiPackage, FiAlertCircle } from 'react-icons/fi';
+import { useParams, useNavigate, Link } from 'react-router-dom';
+import { FiArrowLeft, FiEdit2, FiTrash2, FiPackage, FiAlertCircle, FiFolder } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import ConfirmModal from '../components/ConfirmModal';
@@ -48,6 +48,16 @@ interface YarnPhoto {
   thumbnail_path: string;
 }
 
+interface LinkedProject {
+  id: string;
+  name: string;
+  status: string;
+  project_type: string | null;
+  completion_date: string | null;
+  yards_used: number | null;
+  skeins_used: number | null;
+}
+
 const getWeightColor = (weight: string): string => {
   const colors: Record<string, string> = {
     lace: 'bg-pink-100 text-pink-800',
@@ -67,6 +77,8 @@ export default function YarnDetail() {
   const { fmt } = useMeasurements();
   const [yarn, setYarn] = useState<Yarn | null>(null);
   const [photos, setPhotos] = useState<YarnPhoto[]>([]);
+  const [projects, setProjects] = useState<LinkedProject[]>([]);
+  const [projectsLoading, setProjectsLoading] = useState(true);
   const [loading, setLoading] = useState(true);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [activePhotoIndex, setActivePhotoIndex] = useState(0);
@@ -75,6 +87,7 @@ export default function YarnDetail() {
     if (id) {
       fetchYarn();
       fetchPhotos();
+      fetchProjects();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
@@ -97,6 +110,17 @@ export default function YarnDetail() {
       setPhotos(response.data.data.photos || []);
     } catch {
       // No photos is fine
+    }
+  };
+
+  const fetchProjects = async () => {
+    try {
+      const response = await axios.get(`/api/yarn/${id}/projects`);
+      setProjects(response.data.data.projects || []);
+    } catch {
+      setProjects([]);
+    } finally {
+      setProjectsLoading(false);
     }
   };
 
@@ -292,6 +316,51 @@ export default function YarnDetail() {
               <div className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{yarn.description}</div>
             </div>
           )}
+
+          {/* Used in projects */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Used in projects</h2>
+            {projectsLoading ? (
+              <p className="text-sm text-gray-500">Loading…</p>
+            ) : projects.length === 0 ? (
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                This yarn isn't used in any projects yet.
+              </p>
+            ) : (
+              <ul className="divide-y divide-gray-100 dark:divide-gray-700">
+                {projects.map((p) => {
+                  const usageParts: string[] = [];
+                  if (p.skeins_used != null) {
+                    usageParts.push(`${p.skeins_used} skein${p.skeins_used === 1 ? '' : 's'}`);
+                  }
+                  if (p.yards_used != null) {
+                    usageParts.push(fmt.yarnLength(undefined, p.yards_used));
+                  }
+                  return (
+                    <li key={p.id}>
+                      <Link
+                        to={`/projects/${p.id}`}
+                        className="flex items-center justify-between gap-3 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/40 -mx-3 px-3 rounded transition"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <FiFolder className="h-4 w-4 text-purple-600 flex-shrink-0" />
+                          <div className="min-w-0">
+                            <div className="font-medium text-gray-900 dark:text-gray-100 truncate">{p.name}</div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-2 flex-wrap">
+                              {p.status && <span className="capitalize">{p.status.replace(/_/g, ' ')}</span>}
+                              {p.project_type && <span>· {p.project_type}</span>}
+                              {usageParts.length > 0 && <span>· uses {usageParts.join(', ')}</span>}
+                            </div>
+                          </div>
+                        </div>
+                        <span className="text-xs text-purple-600 hover:text-purple-700 flex-shrink-0">View →</span>
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
 
           {/* Purchase info */}
           {(yarn.purchase_date || yarn.purchase_location || yarn.dye_lot) && (
