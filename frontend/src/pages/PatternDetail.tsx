@@ -120,6 +120,7 @@ export default function PatternDetail() {
       const response = await axios.get(`/api/uploads/patterns/${id}/files`);
       setFiles(response.data.data.files || []);
     } catch {
+      /* optional endpoint — failures are non-fatal */
     }
   };
 

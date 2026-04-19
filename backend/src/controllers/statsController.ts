@@ -27,18 +27,21 @@ interface StatsResponse {
 function getFilterDate(period: string): Date {
   const now = new Date();
   switch (period) {
-    case 'today':
+    case 'today': {
       const today = new Date(now);
       today.setHours(0, 0, 0, 0);
       return today;
-    case 'week':
+    }
+    case 'week': {
       const weekAgo = new Date(now);
       weekAgo.setDate(weekAgo.getDate() - 7);
       return weekAgo;
-    case 'month':
+    }
+    case 'month': {
       const monthAgo = new Date(now);
       monthAgo.setMonth(monthAgo.getMonth() - 1);
       return monthAgo;
+    }
     case 'all':
     default:
       return new Date(0); // Beginning of time

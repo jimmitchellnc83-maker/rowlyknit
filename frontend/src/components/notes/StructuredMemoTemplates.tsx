@@ -143,7 +143,7 @@ export const StructuredMemoTemplates: React.FC<StructuredMemoTemplatesProps> = (
     content += `${'='.repeat(50)}\n\n`;
 
     switch (memo.template_type) {
-      case 'gauge_swatch':
+      case 'gauge_swatch': {
         const gauge = memo.data as GaugeSwatchData;
         content += `Needle Size: ${gauge.needle_size}\n`;
         content += `Stitches per Inch: ${gauge.stitches_per_inch}\n`;
@@ -151,8 +151,9 @@ export const StructuredMemoTemplates: React.FC<StructuredMemoTemplatesProps> = (
         content += `Swatch Dimensions: ${gauge.swatch_width}${lengthSym} × ${gauge.swatch_height}${lengthSym}\n`;
         if (gauge.notes) content += `\nNotes: ${gauge.notes}\n`;
         break;
+      }
 
-      case 'fit_adjustment':
+      case 'fit_adjustment': {
         const fit = memo.data as FitAdjustmentData;
         content += `Measurement: ${fit.measurement_name}\n`;
         content += `Original: ${fit.original_value}\n`;
@@ -160,8 +161,9 @@ export const StructuredMemoTemplates: React.FC<StructuredMemoTemplatesProps> = (
         content += `Reason: ${fit.reason}\n`;
         if (fit.notes) content += `\nNotes: ${fit.notes}\n`;
         break;
+      }
 
-      case 'yarn_substitution':
+      case 'yarn_substitution': {
         const yarn = memo.data as YarnSubstitutionData;
         content += `Original Yarn: ${yarn.original_yarn_name} (${yarn.original_yarn_weight})\n`;
         content += `Original Yardage: ${yarn.original_yardage} ${yardLabel}\n`;
@@ -170,14 +172,16 @@ export const StructuredMemoTemplates: React.FC<StructuredMemoTemplatesProps> = (
         content += `Gauge Comparison: ${yarn.gauge_comparison}\n`;
         if (yarn.notes) content += `\nNotes: ${yarn.notes}\n`;
         break;
+      }
 
-      case 'finishing_techniques':
+      case 'finishing_techniques': {
         const finish = memo.data as FinishingTechniquesData;
         content += `Bind-Off Method: ${finish.bind_off_method}\n`;
         content += `Seaming Technique: ${finish.seaming_technique}\n`;
         content += `Blocking Instructions: ${finish.blocking_instructions}\n`;
         if (finish.notes) content += `\nNotes: ${finish.notes}\n`;
         break;
+      }
     }
 
     return content;

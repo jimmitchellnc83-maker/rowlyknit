@@ -1,19 +1,19 @@
 /**
  * Test setup and teardown for backend integration tests.
  *
- * PREREQUISITES:
- *   - A running PostgreSQL instance accessible via the DB_* env vars
- *     (defaults: localhost:5432, database rowly_dev, user postgres).
- *   - Migrations must be runnable against that database.
+ * PREREQUISITES for integration tests:
+ *   - A running PostgreSQL instance reachable via DB_TEST_* env vars
+ *     (defaults: localhost:5432, database rowly_test, user postgres).
  *
- * The setup runs migrations before all tests and tears down the
- * Knex connection pool after all tests complete.
+ * Unit tests that mock their dependencies (e.g. src/utils/__tests__/*.test.ts)
+ * run fine without Postgres — this file's beforeAll/afterAll only execute in
+ * suites that import testDb.
  */
 
 import knex from 'knex';
 import config from '../../knexfile';
 
-const testDb = knex(config.development);
+const testDb = knex(config.test);
 
 beforeAll(async () => {
   await testDb.migrate.latest();

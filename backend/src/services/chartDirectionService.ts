@@ -101,7 +101,7 @@ class ChartDirectionService {
         }
         break;
 
-      case 'center_out':
+      case 'center_out': {
         const center = Math.floor(chartWidth / 2);
         void Math.abs(currentCol - center); // distanceFromCenter reserved for future use
 
@@ -118,6 +118,7 @@ class ChartDirectionService {
           newCol = center;
         }
         break;
+      }
     }
 
     // Clamp to valid range
@@ -172,7 +173,7 @@ class ChartDirectionService {
         }
         break;
 
-      case 'center_out':
+      case 'center_out': {
         const center = Math.floor(chartWidth / 2);
         if (currentCol !== center) {
           // Move toward center
@@ -183,6 +184,7 @@ class ChartDirectionService {
           newCol = center;
         }
         break;
+      }
     }
 
     const newDirection = this.calculateRowDirection(workingDirection, newRow + 1);
