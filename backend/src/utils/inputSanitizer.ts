@@ -30,10 +30,9 @@ export function sanitizeSearchQuery(query: string): string {
     return '';
   }
 
-  // Remove potentially dangerous characters
   // Keep alphanumeric, spaces, hyphens, underscores, dots, slashes, apostrophes, hash
   // (knitters search for needle sizes like "US 10/6mm", colors like "#5", yarn names with apostrophes)
-  return query.replace(/[^\w\s\-\.\/\#\']/g, '').trim().slice(0, 200);
+  return query.replace(/[^\w\s\-./#']/g, '').trim().slice(0, 200);
 }
 
 /**
@@ -44,12 +43,9 @@ export function sanitizeFilename(filename: string): string {
     return '';
   }
 
-  // Remove path separators and null bytes
-  return filename
-    .replace(/[\/\\:*?"<>|\x00]/g, '')
-    .replace(/\.\.+/g, '.')
-    .trim()
-    .slice(0, 255);
+  // null-byte rejection is the point; suppress no-control-regex.
+  // eslint-disable-next-line no-control-regex
+  return filename.replace(/[/\\:*?"<>|\x00]/g, '').replace(/\.\.+/g, '.').trim().slice(0, 255);
 }
 
 /**
@@ -60,7 +56,8 @@ export function sanitizeHeaderValue(value: string): string {
     return '';
   }
 
-  // Remove newlines and other control characters that could enable header injection
+  // null-byte rejection prevents header injection; suppress no-control-regex.
+  // eslint-disable-next-line no-control-regex
   return value.replace(/[\r\n\x00]/g, '').trim();
 }
 

@@ -29,6 +29,33 @@ const config: { [key: string]: Knex.Config } = {
     },
   },
 
+  // Used by `npm test`: Jest sets NODE_ENV=test so src/config/database.ts
+  // looks up this entry. Defaults point at a separate rowly_test DB so
+  // migrations don't trash development data. Override via DB_TEST_* vars.
+  test: {
+    client: 'postgresql',
+    connection: {
+      host: process.env.DB_TEST_HOST || process.env.DB_HOST || 'localhost',
+      port: parseInt(process.env.DB_TEST_PORT || process.env.DB_PORT || '5432'),
+      database: process.env.DB_TEST_NAME || 'rowly_test',
+      user: process.env.DB_TEST_USER || process.env.DB_USER || 'postgres',
+      password: process.env.DB_TEST_PASSWORD || process.env.DB_PASSWORD || 'postgres',
+    },
+    pool: {
+      min: 1,
+      max: 5,
+    },
+    migrations: {
+      directory: path.join(__dirname, 'migrations'),
+      tableName: 'knex_migrations',
+      extension: 'ts',
+    },
+    seeds: {
+      directory: path.join(__dirname, 'seeds'),
+      extension: 'ts',
+    },
+  },
+
   staging: {
     client: 'postgresql',
     connection: {
