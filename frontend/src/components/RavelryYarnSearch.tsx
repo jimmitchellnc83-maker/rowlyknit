@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { FiSearch, FiX, FiDownload, FiStar, FiLoader, FiLink } from 'react-icons/fi';
 import axios from 'axios';
 import { useMeasurements } from '../hooks/useMeasurements';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 interface RavelryYarn {
   id: number;
@@ -47,6 +48,8 @@ interface RavelryYarnSearchProps {
 }
 
 export default function RavelryYarnSearch({ isOpen, onClose, onImport }: RavelryYarnSearchProps) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(dialogRef, isOpen);
   const navigate = useNavigate();
   const { fmt } = useMeasurements();
   const [query, setQuery] = useState('');
@@ -211,12 +214,17 @@ export default function RavelryYarnSearch({ isOpen, onClose, onImport }: Ravelry
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] flex flex-col">
+    <div
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="ravelry-yarn-search-title"
+    >
+      <div ref={dialogRef} className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] flex flex-col">
         {/* Header */}
         <div className="p-6 border-b border-gray-200 flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">Search Ravelry Yarns</h2>
+            <h2 id="ravelry-yarn-search-title" className="text-2xl font-bold text-gray-900">Search Ravelry Yarns</h2>
             <p className="text-sm text-gray-500 mt-1">Find yarn details and import them to your stash</p>
           </div>
           <button

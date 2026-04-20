@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { FiClock, FiPlus, FiTrash2, FiCheckCircle, FiCircle } from 'react-icons/fi';
 import { ProjectMilestone } from '../../types/counter.types';
 import { formatDuration as _formatDuration } from 'date-fns';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 
 interface ProjectTimerProps {
   projectId: string;
@@ -25,6 +26,8 @@ export const ProjectTimer: React.FC<ProjectTimerProps> = ({
   onDeleteMilestone,
 }) => {
   const [showAddModal, setShowAddModal] = useState(false);
+  const addModalRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(addModalRef, showAddModal);
   const [_editingMilestone, _setEditingMilestone] = useState<ProjectMilestone | null>(null);
   const [newMilestone, setNewMilestone] = useState({
     name: '',
@@ -263,9 +266,14 @@ export const ProjectTimer: React.FC<ProjectTimerProps> = ({
 
       {/* Add Milestone Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6">
-            <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="add-milestone-title"
+        >
+          <div ref={addModalRef} className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6">
+            <h3 id="add-milestone-title" className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
               Add Milestone
             </h3>
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { FiPlus, FiLink, FiClock } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
@@ -7,6 +7,7 @@ import CounterForm from './CounterForm';
 import CounterHistory from './CounterHistory';
 import LinkCounterModal from './LinkCounterModal';
 import type { Counter } from '../../types/counter.types';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 
 interface CounterManagerProps {
   projectId: string;
@@ -18,6 +19,8 @@ export default function CounterManager({ projectId }: CounterManagerProps) {
   const [showForm, setShowForm] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [showCounterSelector, setShowCounterSelector] = useState(false);
+  const selectorRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(selectorRef, showCounterSelector);
   const [showLinkModal, setShowLinkModal] = useState(false);
   const [editingCounter, setEditingCounter] = useState<Counter | null>(null);
   const [selectedCounter, setSelectedCounter] = useState<Counter | null>(null);
@@ -237,10 +240,15 @@ export default function CounterManager({ projectId }: CounterManagerProps) {
 
       {/* Counter Selector Modal for History */}
       {showCounterSelector && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="counter-selector-title"
+        >
+          <div ref={selectorRef} className="bg-white rounded-lg shadow-xl max-w-md w-full">
             <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+              <h3 id="counter-selector-title" className="text-lg font-semibold text-gray-900 flex items-center gap-2">
                 <FiClock className="h-5 w-5" />
                 Select Counter for History
               </h3>

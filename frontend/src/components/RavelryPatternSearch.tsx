@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FiSearch, FiX, FiDownload, FiStar, FiLoader, FiLink } from 'react-icons/fi';
 import axios from 'axios';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 interface RavelryPattern {
   id: number;
@@ -45,6 +46,8 @@ interface RavelryPatternSearchProps {
 }
 
 export default function RavelryPatternSearch({ isOpen, onClose, onImport }: RavelryPatternSearchProps) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(dialogRef, isOpen);
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<RavelryPattern[]>([]);
@@ -270,12 +273,17 @@ export default function RavelryPatternSearch({ isOpen, onClose, onImport }: Rave
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] flex flex-col">
+    <div
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="ravelry-pattern-search-title"
+    >
+      <div ref={dialogRef} className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] flex flex-col">
         {/* Header */}
         <div className="p-6 border-b border-gray-200 flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">Search Ravelry Patterns</h2>
+            <h2 id="ravelry-pattern-search-title" className="text-2xl font-bold text-gray-900">Search Ravelry Patterns</h2>
             <p className="text-sm text-gray-500 mt-1">Find patterns and import them to your library</p>
           </div>
           <button

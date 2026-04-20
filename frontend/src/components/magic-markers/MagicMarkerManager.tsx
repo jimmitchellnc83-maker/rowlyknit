@@ -1,10 +1,11 @@
 // @ts-nocheck
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { FiAlertCircle, FiPlus, FiTrash2, FiToggleLeft, FiToggleRight, FiClock, FiCheck, FiRepeat, FiBell, FiFlag } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import HelpTooltip from '../HelpTooltip';
 import ConfirmModal from '../ConfirmModal';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 
 interface MagicMarker {
   id: string;
@@ -83,8 +84,10 @@ const DISPLAY_STYLES = [
 ];
 
 export default function MagicMarkerManager({ projectId, counters, currentRow }: MagicMarkerManagerProps) {
+  const modalRef = useRef<HTMLDivElement>(null);
   const [markers, setMarkers] = useState<MagicMarker[]>([]);
   const [showModal, setShowModal] = useState(false);
+  useFocusTrap(modalRef, showModal);
   const [loading, setLoading] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [formData, setFormData] = useState({
@@ -599,16 +602,22 @@ export default function MagicMarkerManager({ projectId, counters, currentRow }: 
 
       {/* Create Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="magic-marker-title"
+        >
+          <div ref={modalRef} className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
             <div className="sticky top-0 p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between bg-white dark:bg-gray-800">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">New Magic Marker</h3>
+              <h3 id="magic-marker-title" className="text-lg font-semibold text-gray-900 dark:text-white">New Magic Marker</h3>
               <button
                 onClick={() => {
                   setShowModal(false);
                   resetForm();
                 }}
                 className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-2xl"
+                aria-label="Close"
               >
                 x
               </button>

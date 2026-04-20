@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { FiArrowLeft, FiEdit2, FiTrash2, FiFileText, FiGrid, FiTool, FiBook } from 'react-icons/fi';
 import axios from 'axios';
@@ -10,6 +10,7 @@ import PatternViewer from '../components/patterns/PatternViewer';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ConfirmModal from '../components/ConfirmModal';
 import { ChartImageUpload } from '../components/charts';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 interface Pattern {
   id: string;
@@ -67,6 +68,14 @@ export default function PatternDetail() {
   const [showSectionsModal, setShowSectionsModal] = useState(false);
   const [showAnnotationsModal, setShowAnnotationsModal] = useState(false);
   const [showCollationModal, setShowCollationModal] = useState(false);
+  const editModalRef = useRef<HTMLDivElement>(null);
+  const sectionsModalRef = useRef<HTMLDivElement>(null);
+  const annotationsModalRef = useRef<HTMLDivElement>(null);
+  const collationModalRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(editModalRef, showEditModal);
+  useFocusTrap(sectionsModalRef, showSectionsModal);
+  useFocusTrap(annotationsModalRef, showAnnotationsModal);
+  useFocusTrap(collationModalRef, showCollationModal);
   const [sections, setSections] = useState<any[]>([]);
   const [annotations, setAnnotations] = useState<any[]>([]);
   const [newSectionName, setNewSectionName] = useState('');
@@ -658,10 +667,15 @@ export default function PatternDetail() {
 
       {/* Edit Modal */}
       {showEditModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="edit-pattern-detail-title"
+        >
+          <div ref={editModalRef} className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b border-gray-200">
-              <h2 className="text-2xl font-bold text-gray-900">Edit Pattern</h2>
+              <h2 id="edit-pattern-detail-title" className="text-2xl font-bold text-gray-900">Edit Pattern</h2>
             </div>
 
             <form onSubmit={handleUpdatePattern} className="p-6 space-y-4">
@@ -808,11 +822,16 @@ export default function PatternDetail() {
       )}
       {/* Sections Modal */}
       {showSectionsModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[80vh] overflow-y-auto">
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="sections-title"
+        >
+          <div ref={sectionsModalRef} className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[80vh] overflow-y-auto">
             <div className="p-6 border-b border-gray-200 flex justify-between items-center">
-              <h2 className="text-xl font-bold">Pattern Sections</h2>
-              <button onClick={() => setShowSectionsModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+              <h2 id="sections-title" className="text-xl font-bold">Pattern Sections</h2>
+              <button onClick={() => setShowSectionsModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl" aria-label="Close">&times;</button>
             </div>
             <div className="p-6">
               <div className="flex gap-2 mb-4">
@@ -865,11 +884,16 @@ export default function PatternDetail() {
 
       {/* Annotations Modal */}
       {showAnnotationsModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[80vh] overflow-y-auto">
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="annotations-title"
+        >
+          <div ref={annotationsModalRef} className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[80vh] overflow-y-auto">
             <div className="p-6 border-b border-gray-200 flex justify-between items-center">
-              <h2 className="text-xl font-bold">Pattern Annotations</h2>
-              <button onClick={() => setShowAnnotationsModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+              <h2 id="annotations-title" className="text-xl font-bold">Pattern Annotations</h2>
+              <button onClick={() => setShowAnnotationsModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl" aria-label="Close">&times;</button>
             </div>
             <div className="p-6">
               <div className="flex gap-2 mb-4">
@@ -922,11 +946,16 @@ export default function PatternDetail() {
 
       {/* Collation Modal */}
       {showCollationModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="collate-pattern-title"
+        >
+          <div ref={collationModalRef} className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b border-gray-200 flex justify-between items-center">
-              <h2 className="text-xl font-bold">Collate Pattern PDFs</h2>
-              <button onClick={() => setShowCollationModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+              <h2 id="collate-pattern-title" className="text-xl font-bold">Collate Pattern PDFs</h2>
+              <button onClick={() => setShowCollationModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl" aria-label="Close">&times;</button>
             </div>
             <div className="p-6">
               <PDFCollation />

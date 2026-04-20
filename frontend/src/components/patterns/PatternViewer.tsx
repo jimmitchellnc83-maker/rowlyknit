@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import {
   FiZoomIn,
@@ -19,6 +19,7 @@ import BookmarkManager from './BookmarkManager';
 import RowMarker from './RowMarker';
 import PatternHighlighter from './PatternHighlighter';
 import HelpTooltip from '../HelpTooltip';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 
@@ -47,6 +48,8 @@ export default function PatternViewer({ fileUrl, filename, patternId, projectId,
   const [showBookmarks, setShowBookmarks] = useState<boolean>(Boolean(patternId));
   const [showRowMarker, setShowRowMarker] = useState<boolean>(false);
   const [showHighlighter, setShowHighlighter] = useState<boolean>(false);
+  const viewerRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(viewerRef, fullscreen);
 
   const zoomLevel = ZOOM_LEVELS[zoomIndex];
 
@@ -169,7 +172,13 @@ export default function PatternViewer({ fileUrl, filename, patternId, projectId,
   }, []);
 
   return (
-    <div className={fullscreen ? "fixed inset-0 bg-gray-900 z-50 flex flex-col" : "bg-gray-900 flex flex-col h-full"}>
+    <div
+      ref={viewerRef}
+      className={fullscreen ? "fixed inset-0 bg-gray-900 z-50 flex flex-col" : "bg-gray-900 flex flex-col h-full"}
+      role={fullscreen ? 'dialog' : undefined}
+      aria-modal={fullscreen ? 'true' : undefined}
+      aria-label={fullscreen ? `Pattern viewer: ${filename}` : undefined}
+    >
       {/* Toolbar */}
       <div className="bg-gray-800 text-white p-3 flex items-center justify-between shadow-lg">
         <div className="flex items-center gap-4">
