@@ -20,6 +20,7 @@ export async function getProgress(req: Request, res: Response): Promise<void> {
     // Verify project belongs to user
     const project = await db('projects')
       .where({ id: projectId, user_id: userId })
+      .whereNull('deleted_at')
       .first();
 
     if (!project) {
@@ -88,6 +89,7 @@ export async function updateProgress(req: Request, res: Response): Promise<void>
     // Verify project belongs to user
     const project = await db('projects')
       .where({ id: projectId, user_id: userId })
+      .whereNull('deleted_at')
       .first();
 
     if (!project) {
@@ -155,6 +157,7 @@ export async function markCell(req: Request, res: Response): Promise<void> {
     // Verify project belongs to user
     const project = await db('projects')
       .where({ id: projectId, user_id: userId })
+      .whereNull('deleted_at')
       .first();
 
     if (!project) {
@@ -248,6 +251,7 @@ export async function markRow(req: Request, res: Response): Promise<void> {
     // Verify project belongs to user
     const project = await db('projects')
       .where({ id: projectId, user_id: userId })
+      .whereNull('deleted_at')
       .first();
 
     if (!project) {
@@ -350,6 +354,7 @@ export async function clearProgress(req: Request, res: Response): Promise<void> 
     // Verify project belongs to user
     const project = await db('projects')
       .where({ id: projectId, user_id: userId })
+      .whereNull('deleted_at')
       .first();
 
     if (!project) {

@@ -23,6 +23,7 @@ export const analyzeMarkersForProject = async (req: Request, res: Response) => {
     // Verify project ownership
     const project = await db('projects')
       .where({ id: projectId, user_id: userId })
+      .whereNull('deleted_at')
       .first();
 
     if (!project) {
@@ -93,6 +94,7 @@ export const acceptMarkerSuggestion = async (req: Request, res: Response) => {
     // Verify project ownership
     const project = await db('projects')
       .where({ id: projectId, user_id: userId })
+      .whereNull('deleted_at')
       .first();
 
     if (!project) {
@@ -145,6 +147,7 @@ export const getMarkerTimeline = async (req: Request, res: Response) => {
     // Verify project ownership and get project details
     const project = await db('projects')
       .where({ id: projectId, user_id: userId })
+      .whereNull('deleted_at')
       .first();
 
     if (!project) {
@@ -204,6 +207,7 @@ export const getMarkerAnalytics = async (req: Request, res: Response) => {
     // Verify project ownership
     const project = await db('projects')
       .where({ id: projectId, user_id: userId })
+      .whereNull('deleted_at')
       .first();
 
     if (!project) {
@@ -399,6 +403,7 @@ export const getUpcomingMarkers = async (req: Request, res: Response) => {
     // Verify project ownership
     const project = await db('projects')
       .where({ id: projectId, user_id: userId })
+      .whereNull('deleted_at')
       .first();
 
     if (!project) {
