@@ -167,7 +167,7 @@ export default function GlobalSearch() {
 
   return (
     <div
-      className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-start justify-center pt-20 px-4"
+      className="fixed inset-0 bg-black bg-opacity-75 backdrop-blur-sm z-50 flex items-center justify-center px-4"
       role="dialog"
       aria-modal="true"
       aria-label="Global search"
