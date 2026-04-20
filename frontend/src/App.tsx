@@ -28,6 +28,7 @@ import ResetPassword from './pages/auth/ResetPassword';
 import VerifyEmail from './pages/auth/VerifyEmail';
 import RavelryCallback from './pages/auth/RavelryCallback';
 import RavelrySync from './pages/RavelrySync';
+import RavelryStashSync from './pages/RavelryStashSync';
 import RavelryFavorites from './pages/RavelryFavorites';
 import NotFound from './pages/NotFound';
 
@@ -100,6 +101,7 @@ function App() {
         <Route path="/profile" element={<Profile />} />
         <Route path="/auth/ravelry/callback" element={<RavelryCallback />} />
         <Route path="/ravelry/sync" element={<RavelrySync />} />
+        <Route path="/ravelry/stash/sync" element={<RavelryStashSync />} />
         <Route path="/ravelry/favorites" element={<RavelryFavorites />} />
         <Route path="/stats" element={<Stats />} />
         <Route path="/help" element={<Help />} />
