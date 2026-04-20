@@ -3,12 +3,28 @@ import axios from 'axios';
 
 // ==================== Projects ====================
 
-export function useProjects() {
+export function useProjects(params?: { favorite?: boolean }) {
   return useQuery({
-    queryKey: ['projects'],
+    queryKey: ['projects', params ?? {}],
     queryFn: async () => {
-      const { data } = await axios.get('/api/projects');
+      const query: Record<string, string> = {};
+      if (params?.favorite) query.favorite = 'true';
+      const { data } = await axios.get('/api/projects', { params: query });
       return data.data.projects;
+    },
+  });
+}
+
+export function useUpdateProject() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, formData }: { id: string; formData: any }) => {
+      const { data } = await axios.put(`/api/projects/${id}`, formData);
+      return data.data.project;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
   });
 }
