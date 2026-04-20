@@ -373,6 +373,14 @@ export default function YarnStash() {
                   <FiRefreshCw className="h-4 w-4" />
                   Sync stash from Ravelry
                 </button>
+                <button
+                  role="menuitem"
+                  onClick={() => { setShowMoreMenu(false); navigate('/ravelry/favorites/yarns/sync'); }}
+                  className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                >
+                  <FiRefreshCw className="h-4 w-4" />
+                  Sync favorited yarns from Ravelry
+                </button>
               </div>
             )}
           </div>
