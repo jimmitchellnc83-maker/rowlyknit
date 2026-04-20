@@ -1,8 +1,9 @@
-import { useState, useCallback } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { FiPlus, FiTrash2, FiUsers, FiEdit2 } from 'react-icons/fi';
 import { toast } from 'react-toastify';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import ConfirmModal from '../components/ConfirmModal';
+import ListControls, { applyListControls, type SortOption } from '../components/ListControls';
 import { useRecipients, useCreateRecipient, useUpdateRecipient, useDeleteRecipient } from '../hooks/useApi';
 
 interface Recipient {
@@ -14,11 +15,29 @@ interface Recipient {
   notes: string;
 }
 
+const nameKey = (r: Recipient) => `${(r.last_name || '').toLowerCase()} ${(r.first_name || '').toLowerCase()}`;
+
+const SORT_OPTIONS: SortOption<Recipient>[] = [
+  { id: 'name_asc', label: 'Name (A–Z)', compare: (a, b) => nameKey(a).localeCompare(nameKey(b)) },
+  { id: 'name_desc', label: 'Name (Z–A)', compare: (a, b) => nameKey(b).localeCompare(nameKey(a)) },
+];
+
 export default function Recipients() {
   const { data: recipients = [], isLoading: loading } = useRecipients() as { data: Recipient[] | undefined; isLoading: boolean };
   const createRecipient = useCreateRecipient();
   const updateRecipientMutation = useUpdateRecipient();
   const deleteRecipientMutation = useDeleteRecipient();
+  const [search, setSearch] = useState('');
+  const [sortId, setSortId] = useState<string>('name_asc');
+  const visibleRecipients = useMemo(
+    () =>
+      applyListControls(recipients, {
+        search,
+        searchFields: (r) => [r.first_name, r.last_name, r.relationship, r.notes],
+        sort: SORT_OPTIONS.find((s) => s.id === sortId),
+      }),
+    [recipients, search, sortId],
+  );
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingRecipient, setEditingRecipient] = useState<Recipient | null>(null);
@@ -145,8 +164,18 @@ export default function Recipients() {
           </button>
         </div>
       ) : (
+        <>
+        <ListControls
+          searchValue={search}
+          onSearchChange={setSearch}
+          searchPlaceholder="Search recipients…"
+          sortOptions={SORT_OPTIONS}
+          sortValue={sortId}
+          onSortChange={setSortId}
+          resultCount={visibleRecipients.length}
+        />
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {recipients.map((recipient) => (
+          {visibleRecipients.map((recipient) => (
             <div
               key={recipient.id}
               className="bg-white rounded-lg shadow hover:shadow-lg transition p-6"
@@ -190,6 +219,7 @@ export default function Recipients() {
             </div>
           ))}
         </div>
+        </>
       )}
 
       {/* Create Recipient Modal */}

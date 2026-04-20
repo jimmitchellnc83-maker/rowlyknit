@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FiPlus, FiTrash2, FiBook, FiEdit2, FiSearch, FiMoreVertical, FiRefreshCw, FiHeart } from 'react-icons/fi';
 import axios from 'axios';
@@ -6,6 +6,7 @@ import { toast } from 'react-toastify';
 import { PDFCollation } from '../components/patterns';
 import ConfirmModal from '../components/ConfirmModal';
 import { useEscapeKey } from '../hooks/useEscapeKey';
+import ListControls, { applyListControls, type SortOption } from '../components/ListControls';
 import { usePatterns, useCreatePattern, useUpdatePattern, useDeletePattern } from '../hooks/useApi';
 import RavelryPatternSearch, { type RavelryPatternImportData } from '../components/RavelryPatternSearch';
 
@@ -21,12 +22,34 @@ interface Pattern {
   is_favorite?: boolean;
 }
 
+const PATTERN_SORT_OPTIONS: SortOption<Pattern>[] = [
+  {
+    id: 'recent',
+    label: 'Recently added',
+    compare: (a, b) => (b.created_at || '').localeCompare(a.created_at || ''),
+  },
+  { id: 'name_asc', label: 'Name (A–Z)', compare: (a, b) => (a.name || '').localeCompare(b.name || '') },
+  { id: 'designer', label: 'Designer', compare: (a, b) => (a.designer || '').localeCompare(b.designer || '') },
+  { id: 'difficulty', label: 'Difficulty', compare: (a, b) => (a.difficulty || '').localeCompare(b.difficulty || '') },
+];
+
 export default function Patterns() {
   const navigate = useNavigate();
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const { data: patterns = [], isLoading: loading } = usePatterns({
     favorite: showFavoritesOnly,
   }) as { data: Pattern[] | undefined; isLoading: boolean };
+  const [search, setSearch] = useState('');
+  const [sortId, setSortId] = useState<string>('recent');
+  const visiblePatterns = useMemo(
+    () =>
+      applyListControls(patterns, {
+        search,
+        searchFields: (p) => [p.name, p.designer, p.description, p.category],
+        sort: PATTERN_SORT_OPTIONS.find((s) => s.id === sortId),
+      }),
+    [patterns, search, sortId],
+  );
   const createPattern = useCreatePattern();
   const updatePattern = useUpdatePattern();
   const deletePatternMutation = useDeletePattern();
@@ -279,14 +302,6 @@ export default function Patterns() {
               >
                 <button
                   role="menuitem"
-                  onClick={() => { setShowMoreMenu(false); setShowFavoritesOnly((v) => !v); }}
-                  className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                >
-                  <FiHeart className={`h-4 w-4 ${showFavoritesOnly ? 'text-red-500 fill-current' : ''}`} />
-                  {showFavoritesOnly ? 'Show all patterns' : 'Show favorites only'}
-                </button>
-                <button
-                  role="menuitem"
                   onClick={() => { setShowMoreMenu(false); navigate('/ravelry/sync'); }}
                   className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
                 >
@@ -331,8 +346,20 @@ export default function Patterns() {
           </button>
         </div>
       ) : (
+        <>
+        <ListControls
+          searchValue={search}
+          onSearchChange={setSearch}
+          searchPlaceholder="Search patterns…"
+          sortOptions={PATTERN_SORT_OPTIONS}
+          sortValue={sortId}
+          onSortChange={setSortId}
+          showFavorites={showFavoritesOnly}
+          onShowFavoritesChange={setShowFavoritesOnly}
+          resultCount={visiblePatterns.length}
+        />
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {patterns.map((pattern) => (
+          {visiblePatterns.map((pattern) => (
             <div
               key={pattern.id}
               className="bg-white rounded-lg shadow hover:shadow-lg transition overflow-hidden relative"
@@ -430,6 +457,7 @@ export default function Patterns() {
             </div>
           ))}
         </div>
+        </>
       )}
 
       {/* Create Pattern Modal */}
