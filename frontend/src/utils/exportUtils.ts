@@ -274,7 +274,7 @@ export function exportYarnToCSV(yarns: any[], lengthUnit: 'yd' | 'm' = 'yd'): vo
         escapeCSV(y.name),
         escapeCSV(y.weight),
         escapeCSV(y.fiber_content),
-        escapeCSV(y.color_name),
+        escapeCSV(y.color),
         escapeCSV(y.lot_number),
         y.skeins_owned || y.skeins_total || '',
         length,

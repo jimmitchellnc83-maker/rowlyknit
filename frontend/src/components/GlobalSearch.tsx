@@ -98,7 +98,7 @@ export default function GlobalSearch() {
           id: y.id,
           type: 'yarn',
           title: `${y.brand} ${y.name}`,
-          subtitle: `${y.color_name || ''} - ${y.weight || ''}`,
+          subtitle: [y.color, y.weight].filter(Boolean).join(' \u2022 '),
           url: `/yarn/${y.id}`,
         });
       });
@@ -108,7 +108,7 @@ export default function GlobalSearch() {
         searchResults.push({
           id: r.id,
           type: 'recipient',
-          title: r.name,
+          title: [r.first_name, r.last_name].filter(Boolean).join(' '),
           subtitle: r.relationship,
           url: '/recipients',
         });
