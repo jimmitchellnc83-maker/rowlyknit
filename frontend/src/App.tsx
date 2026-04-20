@@ -31,6 +31,8 @@ import RavelrySync from './pages/RavelrySync';
 import RavelryStashSync from './pages/RavelryStashSync';
 import RavelryProjectsSync from './pages/RavelryProjectsSync';
 import RavelryFavoriteYarnsSync from './pages/RavelryFavoriteYarnsSync';
+import RavelryBookmarks from './pages/RavelryBookmarks';
+import RavelryBookmarksSync from './pages/RavelryBookmarksSync';
 import RavelryFavorites from './pages/RavelryFavorites';
 import NotFound from './pages/NotFound';
 
@@ -106,6 +108,8 @@ function App() {
         <Route path="/ravelry/stash/sync" element={<RavelryStashSync />} />
         <Route path="/ravelry/projects/sync" element={<RavelryProjectsSync />} />
         <Route path="/ravelry/favorites/yarns/sync" element={<RavelryFavoriteYarnsSync />} />
+        <Route path="/ravelry/bookmarks" element={<RavelryBookmarks />} />
+        <Route path="/ravelry/bookmarks/sync" element={<RavelryBookmarksSync />} />
         <Route path="/ravelry/favorites" element={<RavelryFavorites />} />
         <Route path="/stats" element={<Stats />} />
         <Route path="/help" element={<Help />} />
