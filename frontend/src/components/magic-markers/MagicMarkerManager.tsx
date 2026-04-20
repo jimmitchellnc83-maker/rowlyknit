@@ -4,6 +4,7 @@ import { FiAlertCircle, FiPlus, FiTrash2, FiToggleLeft, FiToggleRight, FiClock, 
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import HelpTooltip from '../HelpTooltip';
+import ConfirmModal from '../ConfirmModal';
 
 interface MagicMarker {
   id: string;
@@ -85,6 +86,7 @@ export default function MagicMarkerManager({ projectId, counters, currentRow }: 
   const [markers, setMarkers] = useState<MagicMarker[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     counterId: '',
@@ -243,11 +245,16 @@ export default function MagicMarkerManager({ projectId, counters, currentRow }: 
     }
   };
 
-  const handleDelete = async (markerId: string, name: string) => {
-    if (!confirm(`Delete magic marker "${name}"?`)) return;
+  const handleDelete = (markerId: string, name: string) => {
+    setDeleteTarget({ id: markerId, name });
+  };
 
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    const target = deleteTarget;
+    setDeleteTarget(null);
     try {
-      await axios.delete(`/api/projects/${projectId}/magic-markers/${markerId}`);
+      await axios.delete(`/api/projects/${projectId}/magic-markers/${target.id}`);
       toast.success('Marker deleted');
       fetchMarkers();
     } catch (error) {
@@ -801,6 +808,15 @@ export default function MagicMarkerManager({ projectId, counters, currentRow }: 
             </div>
           </div>
         </div>
+      )}
+
+      {deleteTarget && (
+        <ConfirmModal
+          title="Delete magic marker"
+          message={`Delete magic marker "${deleteTarget.name}"? This cannot be undone.`}
+          onConfirm={confirmDelete}
+          onCancel={() => setDeleteTarget(null)}
+        />
       )}
     </div>
   );

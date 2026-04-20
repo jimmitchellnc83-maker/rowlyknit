@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { FiX, FiChevronLeft, FiChevronRight, FiTrash2, FiDownload, FiZoomIn, FiZoomOut } from 'react-icons/fi';
+import ConfirmModal from './ConfirmModal';
 
 interface Photo {
   id: string;
@@ -18,6 +19,7 @@ interface PhotoGalleryProps {
 export default function PhotoGallery({ photos, onDelete }: PhotoGalleryProps) {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [zoom, setZoom] = useState(1);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   const openLightbox = (index: number) => {
     setSelectedIndex(index);
@@ -121,9 +123,7 @@ export default function PhotoGallery({ photos, onDelete }: PhotoGalleryProps) {
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  if (confirm('Are you sure you want to delete this photo?')) {
-                    onDelete(photo.id);
-                  }
+                  setDeleteTarget(photo.id);
                 }}
                 className="absolute top-2 right-2 p-2 bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-700"
               >
@@ -250,6 +250,19 @@ export default function PhotoGallery({ photos, onDelete }: PhotoGalleryProps) {
             </div>
           )}
         </div>
+      )}
+
+      {deleteTarget && onDelete && (
+        <ConfirmModal
+          title="Delete photo"
+          message="Are you sure you want to delete this photo? This cannot be undone."
+          onConfirm={() => {
+            const id = deleteTarget;
+            setDeleteTarget(null);
+            onDelete(id);
+          }}
+          onCancel={() => setDeleteTarget(null)}
+        />
       )}
     </>
   );
