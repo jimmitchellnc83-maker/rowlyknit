@@ -728,8 +728,8 @@ export default function Tools() {
             <form onSubmit={handleCreateTool} className="p-6 space-y-4">
               {toolForm}
               <div className="flex gap-3 pt-4">
-                <button type="button" onClick={() => setShowCreateModal(false)} className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition">Cancel</button>
-                <button type="submit" className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition">Add Tool</button>
+                <button type="button" onClick={() => setShowCreateModal(false)} disabled={createTool.isPending} className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition disabled:opacity-50 disabled:cursor-not-allowed">Cancel</button>
+                <button type="submit" disabled={createTool.isPending} className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed">{createTool.isPending ? 'Adding…' : 'Add Tool'}</button>
               </div>
             </form>
           </div>
@@ -751,8 +751,8 @@ export default function Tools() {
             <form onSubmit={handleUpdateTool} className="p-6 space-y-4">
               {toolForm}
               <div className="flex gap-3 pt-4">
-                <button type="button" onClick={() => { setShowEditModal(false); setEditingTool(null); setFormData({ ...EMPTY_FORM }); }} className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition">Cancel</button>
-                <button type="submit" className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition">Update Tool</button>
+                <button type="button" onClick={() => { setShowEditModal(false); setEditingTool(null); setFormData({ ...EMPTY_FORM }); }} disabled={updateToolMutation.isPending} className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition disabled:opacity-50 disabled:cursor-not-allowed">Cancel</button>
+                <button type="submit" disabled={updateToolMutation.isPending} className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed">{updateToolMutation.isPending ? 'Updating…' : 'Update Tool'}</button>
               </div>
             </form>
           </div>

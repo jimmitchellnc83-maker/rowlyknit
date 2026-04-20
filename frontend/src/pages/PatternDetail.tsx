@@ -166,10 +166,12 @@ export default function PatternDetail() {
     setShowEditModal(true);
   };
 
+  const [updatingPattern, setUpdatingPattern] = useState(false);
   const handleUpdatePattern = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!pattern) return;
 
+    setUpdatingPattern(true);
     try {
       await axios.put(`/api/patterns/${pattern.id}`, formData);
       toast.success('Pattern updated successfully!');
@@ -178,6 +180,8 @@ export default function PatternDetail() {
     } catch (error: unknown) {
       const axiosError = error as { response?: { data?: { message?: string } } };
       toast.error(axiosError.response?.data?.message || 'Failed to update pattern');
+    } finally {
+      setUpdatingPattern(false);
     }
   };
 
@@ -805,15 +809,17 @@ export default function PatternDetail() {
                 <button
                   type="button"
                   onClick={() => setShowEditModal(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition"
+                  disabled={updatingPattern}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
+                  disabled={updatingPattern}
+                  className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed"
                 >
-                  Update Pattern
+                  {updatingPattern ? 'Updating…' : 'Update Pattern'}
                 </button>
               </div>
             </form>
