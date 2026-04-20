@@ -198,9 +198,11 @@ export default function ProjectDetail() {
     }
   };
 
+  const [updatingProject, setUpdatingProject] = useState(false);
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    setUpdatingProject(true);
     try {
       await axios.put(`/api/projects/${id}`, formData);
       toast.success('Project updated successfully!');
@@ -209,6 +211,8 @@ export default function ProjectDetail() {
     } catch (error: any) {
       console.error('Error updating project:', error);
       toast.error('Failed to update project');
+    } finally {
+      setUpdatingProject(false);
     }
   };
 
@@ -1347,15 +1351,17 @@ export default function ProjectDetail() {
                 <button
                   type="button"
                   onClick={() => setShowEditModal(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition"
+                  disabled={updatingProject}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
+                  disabled={updatingProject}
+                  className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed"
                 >
-                  Save Changes
+                  {updatingProject ? 'Saving…' : 'Save Changes'}
                 </button>
               </div>
             </form>
