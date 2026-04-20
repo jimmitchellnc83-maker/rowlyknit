@@ -514,7 +514,14 @@ export default function Profile() {
                   className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
                 >
                   <FiRefreshCw className="h-4 w-4" />
-                  Sync from Ravelry
+                  Sync patterns
+                </button>
+                <button
+                  onClick={() => navigate('/ravelry/stash/sync')}
+                  className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
+                >
+                  <FiRefreshCw className="h-4 w-4" />
+                  Sync stash
                 </button>
                 <button
                   onClick={() => navigate('/ravelry/favorites')}
