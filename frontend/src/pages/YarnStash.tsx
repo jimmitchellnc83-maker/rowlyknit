@@ -1,6 +1,6 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { FiPlus, FiTrash2, FiPackage, FiEdit2, FiSearch, FiRefreshCw } from 'react-icons/fi';
+import { FiPlus, FiTrash2, FiPackage, FiEdit2, FiSearch, FiRefreshCw, FiMoreVertical, FiHeart } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { useEscapeKey } from '../hooks/useEscapeKey';
@@ -34,6 +34,7 @@ interface Yarn {
   ravelry_rating?: number;
   thumbnail_path?: string | null;
   photos?: YarnPhoto[];
+  is_favorite?: boolean;
 }
 
 interface YarnPhoto {
@@ -48,13 +49,29 @@ export default function YarnStash() {
   const { fmt } = useMeasurements();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { data: yarn = [], isLoading: loading } = useYarn() as { data: Yarn[] | undefined; isLoading: boolean };
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+  const { data: yarn = [], isLoading: loading } = useYarn({
+    favorite: showFavoritesOnly,
+  }) as { data: Yarn[] | undefined; isLoading: boolean };
   const createYarn = useCreateYarn();
   const updateYarnMutation = useUpdateYarn();
   const deleteYarnMutation = useDeleteYarn();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showRavelrySearch, setShowRavelrySearch] = useState(false);
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!showMoreMenu) return;
+    const onDocClick = (e: MouseEvent) => {
+      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target as Node)) {
+        setShowMoreMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, [showMoreMenu]);
   const [editingYarn, setEditingYarn] = useState<Yarn | null>(null);
   const [yarnPhotos, setYarnPhotos] = useState<YarnPhoto[]>([]);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
@@ -312,13 +329,6 @@ export default function YarnStash() {
         </div>
         <div className="flex gap-3">
           <button
-            onClick={() => navigate('/ravelry/stash/sync')}
-            className="flex items-center px-4 py-2 border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 transition"
-          >
-            <FiRefreshCw className="mr-2" />
-            Sync from Ravelry
-          </button>
-          <button
             onClick={() => setShowRavelrySearch(true)}
             className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
           >
@@ -332,6 +342,40 @@ export default function YarnStash() {
             <FiPlus className="mr-2" />
             Add Yarn
           </button>
+          <div className="relative" ref={moreMenuRef}>
+            <button
+              onClick={() => setShowMoreMenu((s) => !s)}
+              className="flex items-center justify-center w-10 h-10 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition"
+              aria-label="More actions"
+              aria-haspopup="menu"
+              aria-expanded={showMoreMenu}
+            >
+              <FiMoreVertical />
+            </button>
+            {showMoreMenu && (
+              <div
+                role="menu"
+                className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-20"
+              >
+                <button
+                  role="menuitem"
+                  onClick={() => { setShowMoreMenu(false); setShowFavoritesOnly((v) => !v); }}
+                  className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                >
+                  <FiHeart className={`h-4 w-4 ${showFavoritesOnly ? 'text-red-500 fill-current' : ''}`} />
+                  {showFavoritesOnly ? 'Show all yarn' : 'Show favorites only'}
+                </button>
+                <button
+                  role="menuitem"
+                  onClick={() => { setShowMoreMenu(false); navigate('/ravelry/stash/sync'); }}
+                  className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                >
+                  <FiRefreshCw className="h-4 w-4" />
+                  Sync stash from Ravelry
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -353,8 +397,24 @@ export default function YarnStash() {
           {yarn.map((y) => (
             <div
               key={y.id}
-              className="bg-white rounded-lg shadow hover:shadow-lg transition overflow-hidden flex flex-col"
+              className="bg-white rounded-lg shadow hover:shadow-lg transition overflow-hidden flex flex-col relative"
             >
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  updateYarnMutation.mutate({
+                    id: y.id,
+                    formData: { isFavorite: !y.is_favorite },
+                  });
+                }}
+                className="absolute top-2 right-2 z-10 h-9 w-9 flex items-center justify-center rounded-full bg-white/90 backdrop-blur shadow hover:bg-white transition"
+                aria-label={y.is_favorite ? 'Unfavorite yarn' : 'Favorite yarn'}
+                title={y.is_favorite ? 'Remove from favorites' : 'Add to favorites'}
+              >
+                <FiHeart
+                  className={`h-4 w-4 ${y.is_favorite ? 'text-red-500 fill-current' : 'text-gray-500'}`}
+                />
+              </button>
               {y.thumbnail_path && (
                 <div
                   onClick={() => navigate(`/yarn/${y.id}`)}
