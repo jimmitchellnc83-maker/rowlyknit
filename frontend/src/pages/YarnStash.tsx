@@ -1,10 +1,11 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { FiPlus, FiTrash2, FiPackage, FiEdit2, FiSearch, FiRefreshCw, FiMoreVertical, FiHeart } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import ConfirmModal from '../components/ConfirmModal';
+import ListControls, { applyListControls, type SortOption } from '../components/ListControls';
 import { useYarn, useCreateYarn, useUpdateYarn, useDeleteYarn } from '../hooks/useApi';
 import HelpTooltip from '../components/HelpTooltip';
 import RavelryYarnSearch, { type RavelryYarnImportData } from '../components/RavelryYarnSearch';
@@ -45,6 +46,15 @@ interface YarnPhoto {
   original_filename: string;
 }
 
+const yarnNameKey = (y: Yarn) => `${(y.brand || '').toLowerCase()} ${(y.name || '').toLowerCase()}`;
+
+const YARN_SORT_OPTIONS: SortOption<Yarn>[] = [
+  { id: 'recent', label: 'Recently added', compare: () => 0 },
+  { id: 'name_asc', label: 'Name (A–Z)', compare: (a, b) => yarnNameKey(a).localeCompare(yarnNameKey(b)) },
+  { id: 'skeins_most', label: 'Skeins: most first', compare: (a, b) => (b.skeins_remaining ?? 0) - (a.skeins_remaining ?? 0) },
+  { id: 'skeins_least', label: 'Skeins: least first', compare: (a, b) => (a.skeins_remaining ?? 0) - (b.skeins_remaining ?? 0) },
+];
+
 export default function YarnStash() {
   const { fmt } = useMeasurements();
   const navigate = useNavigate();
@@ -53,6 +63,17 @@ export default function YarnStash() {
   const { data: yarn = [], isLoading: loading } = useYarn({
     favorite: showFavoritesOnly,
   }) as { data: Yarn[] | undefined; isLoading: boolean };
+  const [search, setSearch] = useState('');
+  const [sortId, setSortId] = useState<string>('recent');
+  const visibleYarn = useMemo(
+    () =>
+      applyListControls(yarn, {
+        search,
+        searchFields: (y) => [y.brand, y.name, y.color, y.fiber_content],
+        sort: YARN_SORT_OPTIONS.find((s) => s.id === sortId),
+      }),
+    [yarn, search, sortId],
+  );
   const createYarn = useCreateYarn();
   const updateYarnMutation = useUpdateYarn();
   const deleteYarnMutation = useDeleteYarn();
@@ -359,14 +380,6 @@ export default function YarnStash() {
               >
                 <button
                   role="menuitem"
-                  onClick={() => { setShowMoreMenu(false); setShowFavoritesOnly((v) => !v); }}
-                  className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                >
-                  <FiHeart className={`h-4 w-4 ${showFavoritesOnly ? 'text-red-500 fill-current' : ''}`} />
-                  {showFavoritesOnly ? 'Show all yarn' : 'Show favorites only'}
-                </button>
-                <button
-                  role="menuitem"
                   onClick={() => { setShowMoreMenu(false); navigate('/ravelry/stash/sync'); }}
                   className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
                 >
@@ -401,8 +414,20 @@ export default function YarnStash() {
           </button>
         </div>
       ) : (
+        <>
+        <ListControls
+          searchValue={search}
+          onSearchChange={setSearch}
+          searchPlaceholder="Search brand, name, color…"
+          sortOptions={YARN_SORT_OPTIONS}
+          sortValue={sortId}
+          onSortChange={setSortId}
+          showFavorites={showFavoritesOnly}
+          onShowFavoritesChange={setShowFavoritesOnly}
+          resultCount={visibleYarn.length}
+        />
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {yarn.map((y) => (
+          {visibleYarn.map((y) => (
             <div
               key={y.id}
               className="bg-white rounded-lg shadow hover:shadow-lg transition overflow-hidden flex flex-col relative"
@@ -502,6 +527,7 @@ export default function YarnStash() {
             </div>
           ))}
         </div>
+        </>
       )}
 
       {/* Create Yarn Modal */}
