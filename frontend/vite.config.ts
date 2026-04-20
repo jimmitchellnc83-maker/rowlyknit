@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import basicSsl from '@vitejs/plugin-basic-ssl';
@@ -203,5 +204,11 @@ export default defineConfig({
     // + deletes them post-build when credentials are set.
     sourcemap: 'hidden',
     chunkSizeWarningLimit: 1000,
+  },
+  test: {
+    environment: 'happy-dom',
+    globals: true,
+    setupFiles: ['./src/test/setup.ts'],
+    css: false,
   },
 });
