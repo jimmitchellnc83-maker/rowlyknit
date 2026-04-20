@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { FiBookmark, FiPlus, FiX, FiEdit2, FiTrash2, FiChevronRight } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import ConfirmModal from '../ConfirmModal';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 
 interface Bookmark {
   id: string;
@@ -44,7 +45,9 @@ export default function BookmarkManager({
 }: BookmarkManagerProps) {
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const formModalRef = useRef<HTMLDivElement>(null);
   const [editingBookmark, setEditingBookmark] = useState<Bookmark | null>(null);
+  useFocusTrap(formModalRef, showCreateModal || !!editingBookmark);
   const [formData, setFormData] = useState({
     name: '',
     pageNumber: currentPage,
@@ -266,10 +269,15 @@ export default function BookmarkManager({
 
       {/* Create/Edit Modal */}
       {(showCreateModal || editingBookmark) && (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-800 rounded-lg shadow-xl max-w-md w-full">
+        <div
+          className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="bookmark-form-title"
+        >
+          <div ref={formModalRef} className="bg-gray-800 rounded-lg shadow-xl max-w-md w-full">
             <div className="p-4 border-b border-gray-700 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-white">
+              <h3 id="bookmark-form-title" className="text-lg font-semibold text-white">
                 {editingBookmark ? 'Edit Bookmark' : 'New Bookmark'}
               </h3>
               <button
@@ -279,6 +287,7 @@ export default function BookmarkManager({
                   resetForm();
                 }}
                 className="text-gray-400 hover:text-white"
+                aria-label="Close"
               >
                 <FiX className="h-5 w-5" />
               </button>

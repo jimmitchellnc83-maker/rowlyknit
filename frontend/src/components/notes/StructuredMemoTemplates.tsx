@@ -1,11 +1,12 @@
 // @ts-nocheck
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { FiFileText, FiPlus, FiTrash2, FiDownload } from 'react-icons/fi';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'react-toastify';
 import HelpTooltip from '../HelpTooltip';
 import ConfirmModal from '../ConfirmModal';
 import { useMeasurements } from '../../hooks/useMeasurements';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 
 type TemplateType = 'gauge_swatch' | 'fit_adjustment' | 'yarn_substitution' | 'finishing_techniques';
 
@@ -94,6 +95,8 @@ export const StructuredMemoTemplates: React.FC<StructuredMemoTemplatesProps> = (
   const lengthSym = fmt.prefs.lengthUnit === 'cm' ? 'cm' : fmt.prefs.lengthUnit === 'mm' ? 'mm' : '"';
   const yardLabel = fmt.yarnLengthUnit();
   const [showNewMemoModal, setShowNewMemoModal] = useState(false);
+  const modalRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(modalRef, showNewMemoModal);
   const [selectedTemplate, setSelectedTemplate] = useState<TemplateType>('gauge_swatch');
   const [formData, setFormData] = useState<any>({});
   const [deleteMemoId, setDeleteMemoId] = useState<string | null>(null);
@@ -626,11 +629,16 @@ export const StructuredMemoTemplates: React.FC<StructuredMemoTemplatesProps> = (
 
       {/* New Memo Modal */}
       {showNewMemoModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="new-memo-title"
+        >
+          <div ref={modalRef} className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center gap-2 mb-4">
               <span className="text-2xl">{TEMPLATE_INFO[selectedTemplate].icon}</span>
-              <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
+              <h3 id="new-memo-title" className="text-xl font-semibold text-gray-900 dark:text-white">
                 {TEMPLATE_INFO[selectedTemplate].name}
               </h3>
             </div>

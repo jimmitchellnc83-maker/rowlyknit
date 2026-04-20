@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { FiX, FiChevronLeft, FiChevronRight, FiTrash2, FiDownload, FiZoomIn, FiZoomOut } from 'react-icons/fi';
 import ConfirmModal from './ConfirmModal';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 interface Photo {
   id: string;
@@ -18,6 +19,8 @@ interface PhotoGalleryProps {
 
 export default function PhotoGallery({ photos, onDelete }: PhotoGalleryProps) {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const lightboxRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(lightboxRef, selectedIndex !== null);
   const [zoom, setZoom] = useState(1);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
@@ -137,10 +140,14 @@ export default function PhotoGallery({ photos, onDelete }: PhotoGalleryProps) {
       {/* Lightbox Modal */}
       {selectedPhoto && (
         <div
+          ref={lightboxRef}
           className="fixed inset-0 z-50 bg-black bg-opacity-95 flex items-center justify-center"
           onClick={closeLightbox}
           onKeyDown={handleKeyDown}
           tabIndex={0}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Photo viewer"
         >
           {/* Close Button */}
           <button

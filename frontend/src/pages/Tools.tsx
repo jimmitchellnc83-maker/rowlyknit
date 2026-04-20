@@ -1,7 +1,8 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useRef } from 'react';
 import { FiPlus, FiTrash2, FiTool, FiEdit2, FiSearch, FiChevronRight } from 'react-icons/fi';
 import { toast } from 'react-toastify';
 import { useEscapeKey } from '../hooks/useEscapeKey';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 import ConfirmModal from '../components/ConfirmModal';
 import ListControls, { applyListControls, type SortOption } from '../components/ListControls';
 import { LoadingCardGrid, ErrorState } from '../components/LoadingSpinner';
@@ -102,6 +103,10 @@ export default function Tools() {
   }, []);
 
   useEscapeKey(closeAllModals, showCreateModal || showEditModal);
+  const createModalRef = useRef<HTMLDivElement>(null);
+  const editModalRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(createModalRef, showCreateModal);
+  useFocusTrap(editModalRef, showEditModal && !!editingTool);
 
   // Derive tool types for the selected category
   const toolTypesForCategory = useMemo(() => {
@@ -710,10 +715,15 @@ export default function Tools() {
 
       {/* Create Tool Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="create-tool-title"
+        >
+          <div ref={createModalRef} className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Add Tool</h2>
+              <h2 id="create-tool-title" className="text-2xl font-bold text-gray-900 dark:text-gray-100">Add Tool</h2>
             </div>
             <form onSubmit={handleCreateTool} className="p-6 space-y-4">
               {toolForm}
@@ -728,10 +738,15 @@ export default function Tools() {
 
       {/* Edit Tool Modal */}
       {showEditModal && editingTool && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="edit-tool-title"
+        >
+          <div ref={editModalRef} className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Edit Tool</h2>
+              <h2 id="edit-tool-title" className="text-2xl font-bold text-gray-900 dark:text-gray-100">Edit Tool</h2>
             </div>
             <form onSubmit={handleUpdateTool} className="p-6 space-y-4">
               {toolForm}

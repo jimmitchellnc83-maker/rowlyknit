@@ -6,6 +6,7 @@ import { toast } from 'react-toastify';
 import { PDFCollation } from '../components/patterns';
 import ConfirmModal from '../components/ConfirmModal';
 import { useEscapeKey } from '../hooks/useEscapeKey';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 import ListControls, { applyListControls, type SortOption } from '../components/ListControls';
 import { LoadingCardGrid, ErrorState } from '../components/LoadingSpinner';
 import { usePatterns, useCreatePattern, useUpdatePattern, useDeletePattern } from '../hooks/useApi';
@@ -103,6 +104,12 @@ export default function Patterns() {
     setEditingPattern(null);
   }, []);
   useEscapeKey(closeAllModals, showCreateModal || showEditModal || showCollationModal || showRavelrySearch);
+  const createModalRef = useRef<HTMLDivElement>(null);
+  const editModalRef = useRef<HTMLDivElement>(null);
+  const collationModalRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(createModalRef, showCreateModal);
+  useFocusTrap(editModalRef, showEditModal && !!editingPattern);
+  useFocusTrap(collationModalRef, showCollationModal);
 
   const handleRavelryImport = (patternData: RavelryPatternImportData) => {
     setFormData({
@@ -497,10 +504,15 @@ export default function Patterns() {
 
       {/* Create Pattern Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="create-pattern-title"
+        >
+          <div ref={createModalRef} className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Add New Pattern</h2>
+              <h2 id="create-pattern-title" className="text-2xl font-bold text-gray-900 dark:text-gray-100">Add New Pattern</h2>
             </div>
 
             <form onSubmit={handleCreatePattern} className="p-6 space-y-4">
@@ -644,10 +656,15 @@ export default function Patterns() {
 
       {/* Edit Pattern Modal */}
       {showEditModal && editingPattern && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="edit-pattern-title"
+        >
+          <div ref={editModalRef} className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Edit Pattern</h2>
+              <h2 id="edit-pattern-title" className="text-2xl font-bold text-gray-900 dark:text-gray-100">Edit Pattern</h2>
             </div>
 
             <form onSubmit={handleUpdatePattern} className="p-6 space-y-4">
@@ -761,10 +778,15 @@ export default function Patterns() {
 
       {/* PDF Collation Modal */}
       {showCollationModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="collation-title"
+        >
+          <div ref={collationModalRef} className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Merge Pattern PDFs</h2>
+              <h2 id="collation-title" className="text-2xl font-bold text-gray-900 dark:text-gray-100">Merge Pattern PDFs</h2>
               <button
                 onClick={() => setShowCollationModal(false)}
                 className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-400 text-2xl font-bold"

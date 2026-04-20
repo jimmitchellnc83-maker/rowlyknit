@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { FiClock, FiPlay, FiPause, FiSquare } from 'react-icons/fi';
 import { KnittingSession } from '../../types/counter.types';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 
 interface SessionTimerProps {
   projectId: string;
@@ -23,6 +24,8 @@ export const SessionTimer: React.FC<SessionTimerProps> = ({
   const [elapsedTime, setElapsedTime] = useState(0);
   const [isRunning, setIsRunning] = useState(false);
   const [showEndModal, setShowEndModal] = useState(false);
+  const endModalRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(endModalRef, showEndModal);
   const [endNotes, setEndNotes] = useState('');
   const [mood, setMood] = useState<'productive' | 'frustrated' | 'relaxed' | undefined>();
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -161,9 +164,14 @@ export const SessionTimer: React.FC<SessionTimerProps> = ({
 
       {/* End Session Modal */}
       {showEndModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6">
-            <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="end-session-title"
+        >
+          <div ref={endModalRef} className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6">
+            <h3 id="end-session-title" className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
               End Knitting Session
             </h3>
 

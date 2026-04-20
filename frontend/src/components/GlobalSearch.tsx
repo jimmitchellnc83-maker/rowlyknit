@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { FiSearch, FiX } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 interface SearchResult {
   id: string;
@@ -18,7 +19,10 @@ export default function GlobalSearch() {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+
+  useFocusTrap(dialogRef, isOpen, inputRef);
 
   // Keyboard shortcut: Cmd/Ctrl + K
   useEffect(() => {
@@ -35,13 +39,6 @@ export default function GlobalSearch() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
-
-  // Focus input when modal opens
-  useEffect(() => {
-    if (isOpen && inputRef.current) {
-      inputRef.current.focus();
-    }
-  }, [isOpen]);
 
   // Search debounced
   useEffect(() => {
@@ -181,7 +178,7 @@ export default function GlobalSearch() {
         }
       }}
     >
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl w-full max-w-2xl max-h-[60vh] flex flex-col">
+      <div ref={dialogRef} className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl w-full max-w-2xl max-h-[60vh] flex flex-col">
         {/* Search Input */}
         <div className="p-4 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center gap-3">

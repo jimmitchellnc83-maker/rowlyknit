@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { FiX, FiRotateCcw, FiClock } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import type { Counter, CounterHistory as CounterHistoryType } from '../../types/counter.types';
 import ConfirmModal from '../ConfirmModal';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 
 interface CounterHistoryProps {
   counter: Counter;
@@ -12,6 +13,8 @@ interface CounterHistoryProps {
 }
 
 export default function CounterHistory({ counter, onClose, onUpdate }: CounterHistoryProps) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(dialogRef, true);
   const [history, setHistory] = useState<CounterHistoryType[]>([]);
   const [loading, setLoading] = useState(true);
   const [undoTarget, setUndoTarget] = useState<{ id: string; old_value: number } | null>(null);
@@ -94,16 +97,22 @@ export default function CounterHistory({ counter, onClose, onUpdate }: CounterHi
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+    <div
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="counter-history-title"
+    >
+      <div ref={dialogRef} className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
         <div className="border-b border-gray-200 px-6 py-4 flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-bold text-gray-900">Counter History</h2>
+            <h2 id="counter-history-title" className="text-xl font-bold text-gray-900">Counter History</h2>
             <p className="text-sm text-gray-500">{counter.name}</p>
           </div>
           <button
             onClick={onClose}
             className="p-2 hover:bg-gray-100 rounded-lg transition"
+            aria-label="Close"
           >
             <FiX className="h-5 w-5" />
           </button>
