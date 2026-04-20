@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { FiPlus, FiTrash2, FiPackage, FiEdit2, FiSearch } from 'react-icons/fi';
+import { FiPlus, FiTrash2, FiPackage, FiEdit2, FiSearch, FiRefreshCw } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { useEscapeKey } from '../hooks/useEscapeKey';
@@ -311,6 +311,13 @@ export default function YarnStash() {
           <p className="text-gray-600 mt-1">Manage your yarn inventory</p>
         </div>
         <div className="flex gap-3">
+          <button
+            onClick={() => navigate('/ravelry/stash/sync')}
+            className="flex items-center px-4 py-2 border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 transition"
+          >
+            <FiRefreshCw className="mr-2" />
+            Sync from Ravelry
+          </button>
           <button
             onClick={() => setShowRavelrySearch(true)}
             className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
