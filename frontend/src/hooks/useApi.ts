@@ -42,11 +42,13 @@ export function useDeleteProject() {
 
 // ==================== Patterns ====================
 
-export function usePatterns() {
+export function usePatterns(params?: { favorite?: boolean }) {
   return useQuery({
-    queryKey: ['patterns'],
+    queryKey: ['patterns', params ?? {}],
     queryFn: async () => {
-      const { data } = await axios.get('/api/patterns');
+      const query: Record<string, string> = {};
+      if (params?.favorite) query.favorite = 'true';
+      const { data } = await axios.get('/api/patterns', { params: query });
       return data.data.patterns;
     },
   });
@@ -94,11 +96,13 @@ export function useDeletePattern() {
 
 // ==================== Yarn ====================
 
-export function useYarn() {
+export function useYarn(params?: { favorite?: boolean }) {
   return useQuery({
-    queryKey: ['yarn'],
+    queryKey: ['yarn', params ?? {}],
     queryFn: async () => {
-      const { data } = await axios.get('/api/yarn');
+      const query: Record<string, string> = {};
+      if (params?.favorite) query.favorite = 'true';
+      const { data } = await axios.get('/api/yarn', { params: query });
       return data.data.yarn;
     },
   });

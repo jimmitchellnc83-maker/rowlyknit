@@ -6,7 +6,7 @@ import { sanitizeSearchQuery } from '../utils/inputSanitizer';
 
 export async function getYarn(req: Request, res: Response) {
   const userId = req.user!.userId;
-  const { weight, brand, search, page = 1, limit = 20 } = req.query;
+  const { weight, brand, search, favorite, page = 1, limit = 20 } = req.query;
 
   let query = db('yarn')
     .where({ user_id: userId })
@@ -18,6 +18,10 @@ export async function getYarn(req: Request, res: Response) {
 
   if (brand) {
     query = query.where({ brand });
+  }
+
+  if (favorite === 'true') {
+    query = query.where({ is_favorite: true });
   }
 
   if (search) {
@@ -258,6 +262,7 @@ export async function updateYarn(req: Request, res: Response) {
     ravelryId,
     ravelryRating,
     description,
+    isFavorite,
   } = req.body;
 
   const updateData: any = {
@@ -307,6 +312,7 @@ export async function updateYarn(req: Request, res: Response) {
   if (ravelryId !== undefined) updateData.ravelry_id = ravelryId;
   if (ravelryRating !== undefined) updateData.ravelry_rating = ravelryRating;
   if (description !== undefined) updateData.description = description;
+  if (isFavorite !== undefined) updateData.is_favorite = isFavorite;
 
   const [updatedYarn] = await db('yarn')
     .where({ id })

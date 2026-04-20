@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FiPlus, FiTrash2, FiBook, FiEdit2, FiSearch, FiMoreVertical } from 'react-icons/fi';
+import { FiPlus, FiTrash2, FiBook, FiEdit2, FiSearch, FiMoreVertical, FiRefreshCw, FiHeart } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { PDFCollation } from '../components/patterns';
@@ -18,11 +18,15 @@ interface Pattern {
   category: string;
   thumbnail_url?: string | null;
   created_at: string;
+  is_favorite?: boolean;
 }
 
 export default function Patterns() {
   const navigate = useNavigate();
-  const { data: patterns = [], isLoading: loading } = usePatterns() as { data: Pattern[] | undefined; isLoading: boolean };
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+  const { data: patterns = [], isLoading: loading } = usePatterns({
+    favorite: showFavoritesOnly,
+  }) as { data: Pattern[] | undefined; isLoading: boolean };
   const createPattern = useCreatePattern();
   const updatePattern = useUpdatePattern();
   const deletePatternMutation = useDeletePattern();
@@ -271,8 +275,33 @@ export default function Patterns() {
             {showMoreMenu && (
               <div
                 role="menu"
-                className="absolute right-0 mt-2 w-52 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-20"
+                className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-20"
               >
+                <button
+                  role="menuitem"
+                  onClick={() => { setShowMoreMenu(false); setShowFavoritesOnly((v) => !v); }}
+                  className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                >
+                  <FiHeart className={`h-4 w-4 ${showFavoritesOnly ? 'text-red-500 fill-current' : ''}`} />
+                  {showFavoritesOnly ? 'Show all patterns' : 'Show favorites only'}
+                </button>
+                <button
+                  role="menuitem"
+                  onClick={() => { setShowMoreMenu(false); navigate('/ravelry/sync'); }}
+                  className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                >
+                  <FiRefreshCw className="h-4 w-4" />
+                  Sync patterns from Ravelry
+                </button>
+                <button
+                  role="menuitem"
+                  onClick={() => { setShowMoreMenu(false); navigate('/ravelry/favorites'); }}
+                  className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                >
+                  <FiHeart className="h-4 w-4" />
+                  Browse Ravelry favorites
+                </button>
+                <div className="border-t border-gray-100 my-1" />
                 <button
                   role="menuitem"
                   onClick={() => { setShowMoreMenu(false); setShowCollationModal(true); }}
@@ -306,8 +335,24 @@ export default function Patterns() {
           {patterns.map((pattern) => (
             <div
               key={pattern.id}
-              className="bg-white rounded-lg shadow hover:shadow-lg transition overflow-hidden"
+              className="bg-white rounded-lg shadow hover:shadow-lg transition overflow-hidden relative"
             >
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  updatePattern.mutate({
+                    id: pattern.id,
+                    formData: { isFavorite: !pattern.is_favorite },
+                  });
+                }}
+                className="absolute top-2 right-2 z-10 h-9 w-9 flex items-center justify-center rounded-full bg-white/90 backdrop-blur shadow hover:bg-white transition"
+                aria-label={pattern.is_favorite ? 'Unfavorite pattern' : 'Favorite pattern'}
+                title={pattern.is_favorite ? 'Remove from favorites' : 'Add to favorites'}
+              >
+                <FiHeart
+                  className={`h-4 w-4 ${pattern.is_favorite ? 'text-red-500 fill-current' : 'text-gray-500'}`}
+                />
+              </button>
               {pattern.thumbnail_url && (
                 <div
                   onClick={() => navigate(`/patterns/${pattern.id}`)}
