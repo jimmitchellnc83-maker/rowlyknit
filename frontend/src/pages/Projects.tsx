@@ -178,15 +178,15 @@ export default function Projects() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active':
-        return 'bg-green-100 text-green-800';
+        return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400';
       case 'completed':
-        return 'bg-blue-100 text-blue-800';
+        return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400';
       case 'paused':
-        return 'bg-yellow-100 text-yellow-800';
+        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400';
       case 'planned':
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200';
     }
   };
 
@@ -198,7 +198,7 @@ export default function Projects() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-gray-500">Loading projects...</div>
+        <div className="text-gray-500 dark:text-gray-400">Loading projects...</div>
       </div>
     );
   }
@@ -208,8 +208,8 @@ export default function Projects() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Projects</h1>
-          <p className="text-gray-600 mt-1">Manage your knitting projects</p>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Projects</h1>
+          <p className="text-gray-600 dark:text-gray-400 mt-1">Manage your knitting projects</p>
         </div>
         <div className="flex gap-3">
           <button
@@ -222,7 +222,7 @@ export default function Projects() {
           <div className="relative" ref={moreMenuRef}>
             <button
               onClick={() => setShowMoreMenu((s) => !s)}
-              className="flex items-center justify-center w-10 h-10 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition"
+              className="flex items-center justify-center w-10 h-10 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 transition"
               aria-label="More actions"
               aria-haspopup="menu"
               aria-expanded={showMoreMenu}
@@ -232,12 +232,12 @@ export default function Projects() {
             {showMoreMenu && (
               <div
                 role="menu"
-                className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-20"
+                className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 z-20"
               >
                 <button
                   role="menuitem"
                   onClick={() => { setShowMoreMenu(false); navigate('/ravelry/projects/sync'); }}
-                  className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                  className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
                 >
                   <FiRefreshCw className="h-4 w-4" />
                   Sync projects from Ravelry
@@ -250,10 +250,10 @@ export default function Projects() {
 
       {/* Projects Grid */}
       {projects.length === 0 ? (
-        <div className="bg-white rounded-lg shadow p-12 text-center">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-12 text-center">
           <FiClock className="mx-auto h-16 w-16 text-gray-400 mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No projects yet</h3>
-          <p className="text-gray-500 mb-4">Start tracking your knitting projects</p>
+          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No projects yet</h3>
+          <p className="text-gray-500 dark:text-gray-400 mb-4">Start tracking your knitting projects</p>
           <button
             onClick={() => setShowCreateModal(true)}
             className="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
@@ -279,7 +279,7 @@ export default function Projects() {
           {visibleProjects.map((project: any) => (
             <div
               key={project.id}
-              className="bg-white rounded-lg shadow hover:shadow-lg transition p-6 relative"
+              className="bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-lg transition p-6 relative"
             >
               <button
                 onClick={(e) => {
@@ -298,7 +298,7 @@ export default function Projects() {
                 />
               </button>
               <div className="flex items-start justify-between mb-3 pr-12">
-                <h3 className="text-lg font-semibold text-gray-900 flex-1">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 flex-1">
                   {project.name}
                 </h3>
                 <span
@@ -311,32 +311,32 @@ export default function Projects() {
               </div>
 
               {project.description && (
-                <p className="text-gray-600 text-sm mb-4 line-clamp-2">
+                <p className="text-gray-600 dark:text-gray-400 text-sm mb-4 line-clamp-2">
                   {project.description}
                 </p>
               )}
 
               <div className="space-y-2 mb-4">
                 {project.project_type && (
-                  <div className="text-sm text-gray-500">
+                  <div className="text-sm text-gray-500 dark:text-gray-400">
                     <span className="font-medium">Type:</span> {formatProjectTypeLabel(project.project_type)}
                   </div>
                 )}
                 {project.start_date && (
-                  <div className="flex items-center text-sm text-gray-500">
+                  <div className="flex items-center text-sm text-gray-500 dark:text-gray-400">
                     <FiCalendar className="mr-2 h-4 w-4" />
                     Started: {formatDate(project.start_date)}
                   </div>
                 )}
                 {project.target_completion_date && (
-                  <div className="flex items-center text-sm text-gray-500">
+                  <div className="flex items-center text-sm text-gray-500 dark:text-gray-400">
                     <FiClock className="mr-2 h-4 w-4" />
                     Due: {formatDate(project.target_completion_date)}
                   </div>
                 )}
               </div>
 
-              <div className="flex items-center gap-2 pt-4 border-t border-gray-200">
+              <div className="flex items-center gap-2 pt-4 border-t border-gray-200 dark:border-gray-700">
                 <Link
                   to={`/projects/${project.id}`}
                   className="flex-1 px-3 py-2 bg-purple-50 text-purple-600 rounded-lg hover:bg-purple-100 transition text-center text-sm font-medium"
@@ -360,48 +360,48 @@ export default function Projects() {
       {/* Create Project Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-gray-200">
-              <h2 className="text-2xl font-bold text-gray-900">Create New Project</h2>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Create New Project</h2>
             </div>
 
             <form onSubmit={handleCreateProject} className="p-6 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Project Name *
                 </label>
                 <input
                   type="text"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                   placeholder="e.g., Cozy Winter Sweater"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Description
                 </label>
                 <textarea
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                   rows={3}
                   placeholder="Describe your project..."
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Project Type
                 </label>
                 <select
                   value={formData.projectType}
                   onChange={(e) => setFormData({ ...formData, projectType: e.target.value })}
                   disabled={loadingTypes}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                 >
                   {projectTypes.map((option) => (
                     <option key={option.value} value={option.value}>
@@ -413,19 +413,19 @@ export default function Projects() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Start Date
                   </label>
                   <input
                     type="date"
                     value={formData.startDate}
                     onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Target Completion
                   </label>
                   <input
@@ -434,7 +434,7 @@ export default function Projects() {
                     onChange={(e) =>
                       setFormData({ ...formData, targetCompletionDate: e.target.value })
                     }
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                   />
                 </div>
               </div>
@@ -443,7 +443,7 @@ export default function Projects() {
                 <button
                   type="button"
                   onClick={() => setShowCreateModal(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition"
+                  className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition"
                 >
                   Cancel
                 </button>

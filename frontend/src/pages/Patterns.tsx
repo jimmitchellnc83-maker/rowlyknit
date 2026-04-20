@@ -245,20 +245,20 @@ export default function Patterns() {
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {
       case 'beginner':
-        return 'bg-green-100 text-green-800';
+        return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400';
       case 'intermediate':
-        return 'bg-yellow-100 text-yellow-800';
+        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400';
       case 'advanced':
-        return 'bg-orange-100 text-orange-800';
+        return 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200';
     }
   };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-gray-500">Loading patterns...</div>
+        <div className="text-gray-500 dark:text-gray-400">Loading patterns...</div>
       </div>
     );
   }
@@ -267,8 +267,8 @@ export default function Patterns() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Patterns</h1>
-          <p className="text-gray-600 mt-1">Manage your knitting pattern library</p>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Patterns</h1>
+          <p className="text-gray-600 dark:text-gray-400 mt-1">Manage your knitting pattern library</p>
         </div>
         <div className="flex gap-3">
           <button
@@ -288,7 +288,7 @@ export default function Patterns() {
           <div className="relative" ref={moreMenuRef}>
             <button
               onClick={() => setShowMoreMenu((s) => !s)}
-              className="flex items-center justify-center w-10 h-10 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition"
+              className="flex items-center justify-center w-10 h-10 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 transition"
               aria-label="More actions"
               aria-haspopup="menu"
               aria-expanded={showMoreMenu}
@@ -298,12 +298,12 @@ export default function Patterns() {
             {showMoreMenu && (
               <div
                 role="menu"
-                className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-20"
+                className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 z-20"
               >
                 <button
                   role="menuitem"
                   onClick={() => { setShowMoreMenu(false); navigate('/ravelry/sync'); }}
-                  className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                  className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
                 >
                   <FiRefreshCw className="h-4 w-4" />
                   Sync patterns from Ravelry
@@ -311,17 +311,17 @@ export default function Patterns() {
                 <button
                   role="menuitem"
                   onClick={() => { setShowMoreMenu(false); navigate('/ravelry/favorites'); }}
-                  className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                  className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
                 >
                   <FiHeart className="h-4 w-4" />
                   Browse Ravelry favorites
                 </button>
-                <div className="border-t border-gray-100 my-1" />
+                <div className="border-t border-gray-100 dark:border-gray-700 my-1" />
                 <button
                   role="menuitem"
                   onClick={() => { setShowMoreMenu(false); setShowCollationModal(true); }}
                   disabled={patterns.length === 0}
-                  className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <FiBook className="h-4 w-4" />
                   Merge PDFs
@@ -333,10 +333,10 @@ export default function Patterns() {
       </div>
 
       {patterns.length === 0 ? (
-        <div className="bg-white rounded-lg shadow p-12 text-center">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-12 text-center">
           <FiBook className="mx-auto h-16 w-16 text-gray-400 mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No patterns yet</h3>
-          <p className="text-gray-500 mb-4">Start building your pattern library</p>
+          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No patterns yet</h3>
+          <p className="text-gray-500 dark:text-gray-400 mb-4">Start building your pattern library</p>
           <button
             onClick={() => setShowCreateModal(true)}
             className="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
@@ -362,7 +362,7 @@ export default function Patterns() {
           {visiblePatterns.map((pattern) => (
             <div
               key={pattern.id}
-              className="bg-white rounded-lg shadow hover:shadow-lg transition overflow-hidden relative"
+              className="bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-lg transition overflow-hidden relative"
             >
               <button
                 onClick={(e) => {
@@ -383,7 +383,7 @@ export default function Patterns() {
               {pattern.thumbnail_url && (
                 <div
                   onClick={() => navigate(`/patterns/${pattern.id}`)}
-                  className="w-full h-48 bg-gray-100 overflow-hidden cursor-pointer"
+                  className="w-full h-48 bg-gray-100 dark:bg-gray-700 overflow-hidden cursor-pointer"
                 >
                   <img
                     src={pattern.thumbnail_url}
@@ -398,7 +398,7 @@ export default function Patterns() {
                 className="cursor-pointer p-6 pb-4"
               >
                 <div className="flex items-start justify-between mb-3">
-                  <h3 className="text-lg font-semibold text-gray-900 flex-1 hover:text-purple-600 transition">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 flex-1 hover:text-purple-600 transition">
                     {pattern.name}
                   </h3>
                   {pattern.difficulty && (
@@ -413,17 +413,17 @@ export default function Patterns() {
                 </div>
 
                 {pattern.designer && (
-                  <p className="text-sm text-gray-600 mb-2">by {pattern.designer}</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">by {pattern.designer}</p>
                 )}
 
                 {pattern.description && (
-                  <p className="text-gray-600 text-sm mb-4 line-clamp-2">
+                  <p className="text-gray-600 dark:text-gray-400 text-sm mb-4 line-clamp-2">
                     {pattern.description}
                   </p>
                 )}
 
                 {pattern.category && (
-                  <div className="text-sm text-gray-500 mb-2">
+                  <div className="text-sm text-gray-500 dark:text-gray-400 mb-2">
                     Category: {pattern.category}
                   </div>
                 )}
@@ -431,7 +431,7 @@ export default function Patterns() {
 
               {/* Action buttons */}
               <div className="px-6 pb-6">
-                <div className="flex items-center gap-2 pt-4 border-t border-gray-200">
+                <div className="flex items-center gap-2 pt-4 border-t border-gray-200 dark:border-gray-700">
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -463,48 +463,48 @@ export default function Patterns() {
       {/* Create Pattern Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-gray-200">
-              <h2 className="text-2xl font-bold text-gray-900">Add New Pattern</h2>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Add New Pattern</h2>
             </div>
 
             <form onSubmit={handleCreatePattern} className="p-6 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Pattern Name *
                 </label>
                 <input
                   type="text"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                   placeholder="e.g., Classic Raglan Sweater"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Designer
                 </label>
                 <input
                   type="text"
                   value={formData.designer}
                   onChange={(e) => setFormData({ ...formData, designer: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                   placeholder="Pattern designer name"
                 />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Difficulty
                   </label>
                   <select
                     value={formData.difficulty}
                     onChange={(e) => setFormData({ ...formData, difficulty: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                   >
                     <option value="beginner">Beginner</option>
                     <option value="intermediate">Intermediate</option>
@@ -514,13 +514,13 @@ export default function Patterns() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Category
                   </label>
                   <select
                     value={formData.category}
                     onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                   >
                     <option value="sweater">Sweater</option>
                     <option value="scarf">Scarf</option>
@@ -535,24 +535,24 @@ export default function Patterns() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Description
                 </label>
                 <textarea
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                   rows={3}
                   placeholder="Pattern details, notes, etc."
                 />
               </div>
 
               {/* PDF Upload */}
-              <div className="border-t border-gray-200 pt-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+              <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Pattern PDF Files (Optional)
                 </label>
-                <p className="text-sm text-gray-500 mb-2">
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
                   Upload one or more PDF files for this pattern
                 </p>
                 <input
@@ -565,17 +565,17 @@ export default function Patterns() {
                     }
                   }}
                   disabled={uploadingFiles}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100 disabled:opacity-50 disabled:cursor-not-allowed"
                 />
                 {patternFiles.length > 0 && (
                   <div className="mt-3 space-y-1">
-                    <p className="text-sm font-medium text-gray-700">
+                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
                       Selected files ({patternFiles.length}):
                     </p>
                     {patternFiles.map((file, index) => (
-                      <div key={index} className="text-sm text-gray-600 flex items-center justify-between bg-gray-50 px-3 py-2 rounded">
+                      <div key={index} className="text-sm text-gray-600 dark:text-gray-400 flex items-center justify-between bg-gray-50 dark:bg-gray-900 px-3 py-2 rounded">
                         <span>{file.name}</span>
-                        <span className="text-gray-500">({(file.size / 1024 / 1024).toFixed(2)} MB)</span>
+                        <span className="text-gray-500 dark:text-gray-400">({(file.size / 1024 / 1024).toFixed(2)} MB)</span>
                       </div>
                     ))}
                   </div>
@@ -589,7 +589,7 @@ export default function Patterns() {
                     setShowCreateModal(false);
                     setPatternFiles([]);
                   }}
-                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition"
+                  className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition"
                   disabled={uploadingFiles}
                 >
                   Cancel
@@ -610,48 +610,48 @@ export default function Patterns() {
       {/* Edit Pattern Modal */}
       {showEditModal && editingPattern && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-gray-200">
-              <h2 className="text-2xl font-bold text-gray-900">Edit Pattern</h2>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Edit Pattern</h2>
             </div>
 
             <form onSubmit={handleUpdatePattern} className="p-6 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Pattern Name *
                 </label>
                 <input
                   type="text"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                   placeholder="e.g., Classic Raglan Sweater"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Designer
                 </label>
                 <input
                   type="text"
                   value={formData.designer}
                   onChange={(e) => setFormData({ ...formData, designer: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                   placeholder="Pattern designer name"
                 />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Difficulty
                   </label>
                   <select
                     value={formData.difficulty}
                     onChange={(e) => setFormData({ ...formData, difficulty: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                   >
                     <option value="beginner">Beginner</option>
                     <option value="intermediate">Intermediate</option>
@@ -661,13 +661,13 @@ export default function Patterns() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Category
                   </label>
                   <select
                     value={formData.category}
                     onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                   >
                     <option value="sweater">Sweater</option>
                     <option value="scarf">Scarf</option>
@@ -682,13 +682,13 @@ export default function Patterns() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Description
                 </label>
                 <textarea
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                   rows={3}
                   placeholder="Pattern details, notes, etc."
                 />
@@ -708,7 +708,7 @@ export default function Patterns() {
                       category: 'sweater',
                     });
                   }}
-                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition"
+                  className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition"
                 >
                   Cancel
                 </button>
@@ -727,12 +727,12 @@ export default function Patterns() {
       {/* PDF Collation Modal */}
       {showCollationModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-gray-200 flex items-center justify-between">
-              <h2 className="text-2xl font-bold text-gray-900">Merge Pattern PDFs</h2>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Merge Pattern PDFs</h2>
               <button
                 onClick={() => setShowCollationModal(false)}
-                className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-400 text-2xl font-bold"
               >
                 ×
               </button>

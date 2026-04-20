@@ -291,7 +291,7 @@ export default function Tools() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-gray-500">Loading tools...</div>
+        <div className="text-gray-500 dark:text-gray-400">Loading tools...</div>
       </div>
     );
   }
@@ -312,9 +312,9 @@ export default function Tools() {
   const StepBadge = ({ n, label }: { n: number; label: string }) => (
     <div className="flex items-center gap-2 mb-2">
       <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold ${
-        stepDone(n) ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-600'
+        stepDone(n) ? 'bg-purple-600 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
       }`}>{n}</span>
-      <span className="text-sm font-medium text-gray-700">{label}</span>
+      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{label}</span>
     </div>
   );
 
@@ -345,7 +345,7 @@ export default function Tools() {
       {showSearch ? (
         <div>
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-gray-700">Search for a tool type</span>
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Search for a tool type</span>
             <button
               type="button"
               onClick={() => setShowSearch(false)}
@@ -378,7 +378,7 @@ export default function Tools() {
             <select
               value={formData.category}
               onChange={(e) => handleCategoryChange(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
               required
             >
               <option value="">Choose a category...</option>
@@ -395,7 +395,7 @@ export default function Tools() {
               <select
                 value={formData.type}
                 onChange={(e) => handleTypeChange(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                 required
               >
                 <option value="">Choose a tool type...</option>
@@ -415,13 +415,13 @@ export default function Tools() {
           {/* Step 2b: Specific kind — appears if the type has keyword variants */}
           {selectedToolType && selectedToolType.keywords.length > 0 && (
             <div className="ml-8 border-l-2 border-purple-200 pl-4">
-              <label className="block text-sm font-medium text-gray-600 mb-2">
+              <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">
                 Narrow it down (optional)
               </label>
               <select
                 value={formData.specificKind}
                 onChange={(e) => setFormData({ ...formData, specificKind: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
               >
                 <option value="">Any / General</option>
                 {selectedToolType.keywords.map((kw) => (
@@ -440,7 +440,7 @@ export default function Tools() {
           type="text"
           value={formData.name}
           onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+          className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
           placeholder={formData.specificKind
             ? `e.g., My ${formData.specificKind}`
             : selectedToolType
@@ -452,18 +452,18 @@ export default function Tools() {
       </div>
 
       {/* Details section */}
-      <div className="border-t border-gray-200 pt-4 mt-2">
-        <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">Details (optional)</p>
+      <div className="border-t border-gray-200 dark:border-gray-700 pt-4 mt-2">
+        <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">Details (optional)</p>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Size — smart dropdown or free text */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">{primarySizeLabel}</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{primarySizeLabel}</label>
             {primarySizeOptions.length > 0 ? (
               <select
                 value={formData.sizeMm}
                 onChange={(e) => setFormData({ ...formData, sizeMm: e.target.value, size: e.target.options[e.target.selectedIndex]?.text || '' })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
               >
                 <option value="">Select size...</option>
                 {primarySizeOptions.map((s) => (
@@ -476,7 +476,7 @@ export default function Tools() {
                 type="text"
                 value={formData.size}
                 onChange={(e) => setFormData({ ...formData, size: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                 placeholder="e.g., US 7, 4.5mm"
               />
             )}
@@ -485,7 +485,7 @@ export default function Tools() {
                 type="text"
                 value=""
                 onChange={(e) => setFormData({ ...formData, size: e.target.value })}
-                className="w-full mt-2 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                className="w-full mt-2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                 placeholder="Type your custom size..."
                 autoFocus
               />
@@ -493,12 +493,12 @@ export default function Tools() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Material</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Material</label>
             <input
               type="text"
               value={formData.material}
               onChange={(e) => setFormData({ ...formData, material: e.target.value })}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
               placeholder="e.g., Bamboo, Metal, Wood"
             />
           </div>
@@ -506,22 +506,22 @@ export default function Tools() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Brand</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Brand</label>
             <input
               type="text"
               value={formData.brand}
               onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
               placeholder="e.g., ChiaoGoo, Addi, Clover"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Quantity</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Quantity</label>
             <input
               type="number"
               value={formData.quantity}
               onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
               min="1"
             />
           </div>
@@ -534,8 +534,8 @@ export default function Tools() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Tools</h1>
-          <p className="text-gray-600 mt-1">Manage your knitting and crochet tools</p>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Tools</h1>
+          <p className="text-gray-600 dark:text-gray-400 mt-1">Manage your knitting and crochet tools</p>
         </div>
         <button
           onClick={() => {
@@ -570,7 +570,7 @@ export default function Tools() {
             className={`px-3 py-1.5 rounded-full text-sm font-medium transition ${
               filterCategory === 'all'
                 ? 'bg-purple-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
             }`}
           >
             All ({tools.length})
@@ -582,7 +582,7 @@ export default function Tools() {
               className={`px-3 py-1.5 rounded-full text-sm font-medium transition ${
                 filterCategory === key
                   ? 'bg-purple-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
               }`}
             >
               {label} ({count})
@@ -592,10 +592,10 @@ export default function Tools() {
       )}
 
       {tools.length === 0 ? (
-        <div className="bg-white rounded-lg shadow p-12 text-center">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-12 text-center">
           <FiTool className="mx-auto h-16 w-16 text-gray-400 mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No tools yet</h3>
-          <p className="text-gray-500 mb-4">Start tracking your knitting and crochet tools</p>
+          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No tools yet</h3>
+          <p className="text-gray-500 dark:text-gray-400 mb-4">Start tracking your knitting and crochet tools</p>
           <button
             onClick={() => {
               setFormData({ ...EMPTY_FORM });
@@ -609,9 +609,9 @@ export default function Tools() {
           </button>
         </div>
       ) : visibleTools.length === 0 ? (
-        <div className="bg-white rounded-lg shadow p-12 text-center">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-12 text-center">
           <FiTool className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No tools match your filters</h3>
+          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No tools match your filters</h3>
           <button
             onClick={() => { setFilterCategory('all'); setListSearch(''); }}
             className="text-purple-600 hover:text-purple-700 text-sm font-medium"
@@ -622,11 +622,11 @@ export default function Tools() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {visibleTools.map((tool) => (
-            <div key={tool.id} className="bg-white rounded-lg shadow hover:shadow-lg transition p-6">
+            <div key={tool.id} className="bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-lg transition p-6">
               <div className="flex items-start justify-between mb-2">
-                <h3 className="text-lg font-semibold text-gray-900 flex-1 mr-2">{tool.name}</h3>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 flex-1 mr-2">{tool.name}</h3>
                 {tool.category && (
-                  <span className="px-2 py-1 text-xs font-medium rounded-full whitespace-nowrap bg-purple-100 text-purple-800">
+                  <span className="px-2 py-1 text-xs font-medium rounded-full whitespace-nowrap bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400">
                     {resolveCategoryLabel(tool)}
                   </span>
                 )}
@@ -634,8 +634,8 @@ export default function Tools() {
               <div className="text-sm text-purple-600 font-medium mb-3">
                 {resolveToolTypeLabel(tool)}
                 {tool.size_mm
-                  ? <span className="text-gray-500"> &middot; {fmt.needleSize(tool.size_mm)}</span>
-                  : tool.size && <span className="text-gray-500"> &middot; {tool.size}</span>
+                  ? <span className="text-gray-500 dark:text-gray-400"> &middot; {fmt.needleSize(tool.size_mm)}</span>
+                  : tool.size && <span className="text-gray-500 dark:text-gray-400"> &middot; {tool.size}</span>
                 }
               </div>
               {tool.taxonomy_subcategory_label && (
@@ -643,16 +643,16 @@ export default function Tools() {
               )}
               <div className="space-y-1 mb-4">
                 {tool.brand && (
-                  <div className="text-sm text-gray-500"><span className="font-medium">Brand:</span> {tool.brand}</div>
+                  <div className="text-sm text-gray-500 dark:text-gray-400"><span className="font-medium">Brand:</span> {tool.brand}</div>
                 )}
                 {tool.material && (
-                  <div className="text-sm text-gray-500"><span className="font-medium">Material:</span> {tool.material}</div>
+                  <div className="text-sm text-gray-500 dark:text-gray-400"><span className="font-medium">Material:</span> {tool.material}</div>
                 )}
                 {tool.quantity > 1 && (
-                  <div className="text-sm text-gray-500"><span className="font-medium">Qty:</span> {tool.quantity}</div>
+                  <div className="text-sm text-gray-500 dark:text-gray-400"><span className="font-medium">Qty:</span> {tool.quantity}</div>
                 )}
               </div>
-              <div className="flex items-center gap-2 pt-4 border-t border-gray-200">
+              <div className="flex items-center gap-2 pt-4 border-t border-gray-200 dark:border-gray-700">
                 <button
                   onClick={() => handleEditClick(tool)}
                   className="flex-1 px-3 py-2 bg-purple-50 text-purple-600 rounded-lg hover:bg-purple-100 transition flex items-center justify-center text-sm"
@@ -676,14 +676,14 @@ export default function Tools() {
       {/* Create Tool Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-gray-200">
-              <h2 className="text-2xl font-bold text-gray-900">Add Tool</h2>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Add Tool</h2>
             </div>
             <form onSubmit={handleCreateTool} className="p-6 space-y-4">
               {toolForm}
               <div className="flex gap-3 pt-4">
-                <button type="button" onClick={() => setShowCreateModal(false)} className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition">Cancel</button>
+                <button type="button" onClick={() => setShowCreateModal(false)} className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition">Cancel</button>
                 <button type="submit" className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition">Add Tool</button>
               </div>
             </form>
@@ -694,14 +694,14 @@ export default function Tools() {
       {/* Edit Tool Modal */}
       {showEditModal && editingTool && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-gray-200">
-              <h2 className="text-2xl font-bold text-gray-900">Edit Tool</h2>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Edit Tool</h2>
             </div>
             <form onSubmit={handleUpdateTool} className="p-6 space-y-4">
               {toolForm}
               <div className="flex gap-3 pt-4">
-                <button type="button" onClick={() => { setShowEditModal(false); setEditingTool(null); setFormData({ ...EMPTY_FORM }); }} className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition">Cancel</button>
+                <button type="button" onClick={() => { setShowEditModal(false); setEditingTool(null); setFormData({ ...EMPTY_FORM }); }} className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition">Cancel</button>
                 <button type="submit" className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition">Update Tool</button>
               </div>
             </form>
