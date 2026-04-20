@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { FiPlus, FiTrash2, FiCalendar, FiClock, FiMoreVertical, FiHeart, FiRefreshCw } from 'react-icons/fi';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { FiPlus, FiTrash2, FiCalendar, FiClock, FiMoreVertical, FiHeart, FiRefreshCw, FiX } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { useEscapeKey } from '../hooks/useEscapeKey';
@@ -60,12 +60,28 @@ const PROJECT_SORT_OPTIONS: SortOption<any>[] = [
   },
 ];
 
+const STATUS_LABELS: Record<string, string> = {
+  active: 'In progress',
+  completed: 'Completed',
+  paused: 'Paused',
+  planned: 'Planned',
+};
+
 export default function Projects() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const statusFilter = searchParams.get('status') || undefined;
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const { data: projects = [], isLoading: loading } = useProjects({
     favorite: showFavoritesOnly,
+    status: statusFilter,
   }) as { data: any[]; isLoading: boolean };
+
+  const clearStatusFilter = () => {
+    const next = new URLSearchParams(searchParams);
+    next.delete('status');
+    setSearchParams(next, { replace: true });
+  };
   const [search, setSearch] = useState('');
   const [sortId, setSortId] = useState<string>('recent');
   const visibleProjects = useMemo(
@@ -248,12 +264,38 @@ export default function Projects() {
         </div>
       </div>
 
+      {statusFilter && (
+        <div className="mb-4 flex items-center gap-2">
+          <span className="inline-flex items-center gap-2 px-3 py-1.5 text-sm bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-full border border-purple-200 dark:border-purple-800">
+            Status: {STATUS_LABELS[statusFilter] || statusFilter}
+            <button
+              type="button"
+              onClick={clearStatusFilter}
+              className="hover:bg-purple-100 dark:hover:bg-purple-900/50 rounded-full p-0.5"
+              aria-label="Clear status filter"
+            >
+              <FiX className="h-3.5 w-3.5" />
+            </button>
+          </span>
+        </div>
+      )}
+
       {/* Projects Grid */}
       {projects.length === 0 ? (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-12 text-center">
           <FiClock className="mx-auto h-16 w-16 text-gray-400 mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No projects yet</h3>
-          <p className="text-gray-500 dark:text-gray-400 mb-4">Start tracking your knitting projects</p>
+          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
+            {statusFilter ? `No ${(STATUS_LABELS[statusFilter] || statusFilter).toLowerCase()} projects` : 'No projects yet'}
+          </h3>
+          <p className="text-gray-500 dark:text-gray-400 mb-4">
+            {statusFilter ? (
+              <button type="button" onClick={clearStatusFilter} className="text-purple-600 hover:text-purple-700 dark:text-purple-400">
+                Clear filter
+              </button>
+            ) : (
+              'Start tracking your knitting projects'
+            )}
+          </p>
           <button
             onClick={() => setShowCreateModal(true)}
             className="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"

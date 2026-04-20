@@ -3,12 +3,13 @@ import axios from 'axios';
 
 // ==================== Projects ====================
 
-export function useProjects(params?: { favorite?: boolean }) {
+export function useProjects(params?: { favorite?: boolean; status?: string }) {
   return useQuery({
     queryKey: ['projects', params ?? {}],
     queryFn: async () => {
       const query: Record<string, string> = {};
       if (params?.favorite) query.favorite = 'true';
+      if (params?.status) query.status = params.status;
       const { data } = await axios.get('/api/projects', { params: query });
       return data.data.projects;
     },
