@@ -272,6 +272,13 @@ function mapProjectEntry(p: any) {
 
 /** Normalize a queue entry from `/people/:username/queue/list.json`. */
 function mapQueueEntry(q: any) {
+  const photoUrl =
+    q.best_photo?.medium_url ||
+    q.best_photo?.small_url ||
+    q.pattern?.first_photo?.medium_url ||
+    q.pattern?.first_photo?.small_url ||
+    null;
+
   return {
     ravelryQueueId: q.id,
     name: q.name || null,
@@ -282,6 +289,7 @@ function mapQueueEntry(q: any) {
     yarnName: q.yarn_name || null,
     skeins: q.skeins ?? null,
     position: typeof q.position === 'number' ? q.position : null,
+    photoUrl,
     notes: q.notes ? stripHtml(String(q.notes)) : null,
   };
 }

@@ -1,8 +1,13 @@
 import { Request, Response } from 'express';
 import ravelryService, { RavelryNotConfiguredError, RavelryOAuthRequiredError } from '../services/ravelryService';
+import db from '../config/database';
 import { importStashPage as importStashPageService } from '../services/stashImportService';
 import { importProjectsPage as importProjectsPageService } from '../services/projectImportService';
 import { importFavoriteYarnsPage as importFavoriteYarnsPageService } from '../services/favoriteYarnsImportService';
+import {
+  importQueuePage as importQueuePageService,
+  importLibraryPage as importLibraryPageService,
+} from '../services/bookmarksImportService';
 
 function handleRavelryError(error: unknown, res: Response) {
   if (error instanceof RavelryNotConfiguredError) {
@@ -259,6 +264,112 @@ export async function importFavoriteYarnsPage(req: Request, res: Response) {
   }
 }
 
+/**
+ * Import one page of the authenticated user's Ravelry queue into
+ * `ravelry_bookmarks` (type = 'queue'). Client-driven pagination,
+ * idempotent skip-existing — same contract as stash / projects import.
+ */
+export async function importQueuePage(req: Request, res: Response) {
+  const page = req.query.page ? Number(req.query.page) : 1;
+  const pageSize = req.query.page_size ? Number(req.query.page_size) : 50;
+
+  if (!Number.isFinite(page) || page < 1) {
+    return res.status(400).json({ success: false, message: 'Invalid page number' });
+  }
+  if (!Number.isFinite(pageSize) || pageSize < 1 || pageSize > 100) {
+    return res.status(400).json({ success: false, message: 'page_size must be 1–100' });
+  }
+
+  try {
+    const result = await importQueuePageService(req.user!.userId, page, pageSize);
+    res.json({ success: true, data: result });
+  } catch (error: any) {
+    if (error instanceof RavelryOAuthRequiredError || error instanceof RavelryNotConfiguredError) {
+      return handleRavelryError(error, res);
+    }
+    return res.status(502).json({
+      success: false,
+      message: 'Failed to import queue page. Please try again.',
+    });
+  }
+}
+
+/**
+ * Import one page of the authenticated user's Ravelry library into
+ * `ravelry_bookmarks` (type = 'library'). Same shape as queue import.
+ */
+export async function importLibraryPage(req: Request, res: Response) {
+  const page = req.query.page ? Number(req.query.page) : 1;
+  const pageSize = req.query.page_size ? Number(req.query.page_size) : 50;
+
+  if (!Number.isFinite(page) || page < 1) {
+    return res.status(400).json({ success: false, message: 'Invalid page number' });
+  }
+  if (!Number.isFinite(pageSize) || pageSize < 1 || pageSize > 100) {
+    return res.status(400).json({ success: false, message: 'page_size must be 1–100' });
+  }
+
+  try {
+    const result = await importLibraryPageService(req.user!.userId, page, pageSize);
+    res.json({ success: true, data: result });
+  } catch (error: any) {
+    if (error instanceof RavelryOAuthRequiredError || error instanceof RavelryNotConfiguredError) {
+      return handleRavelryError(error, res);
+    }
+    return res.status(502).json({
+      success: false,
+      message: 'Failed to import library page. Please try again.',
+    });
+  }
+}
+
+/**
+ * List the authenticated user's imported Ravelry bookmarks. Filter by
+ * `?type=queue` or `?type=library`; omit for both. Paginated.
+ */
+export async function listBookmarks(req: Request, res: Response) {
+  const userId = req.user!.userId;
+  const type = typeof req.query.type === 'string' ? req.query.type : undefined;
+  const page = req.query.page ? Number(req.query.page) : 1;
+  const pageSize = req.query.page_size ? Number(req.query.page_size) : 50;
+
+  if (type && type !== 'queue' && type !== 'library') {
+    return res.status(400).json({ success: false, message: "type must be 'queue' or 'library'" });
+  }
+  if (!Number.isFinite(page) || page < 1) {
+    return res.status(400).json({ success: false, message: 'Invalid page number' });
+  }
+  if (!Number.isFinite(pageSize) || pageSize < 1 || pageSize > 100) {
+    return res.status(400).json({ success: false, message: 'page_size must be 1–100' });
+  }
+
+  const baseQuery = db('ravelry_bookmarks')
+    .where({ user_id: userId })
+    .whereNull('deleted_at');
+  if (type) baseQuery.where({ type });
+
+  const [{ count }] = await baseQuery.clone().count<Array<{ count: string }>>('* as count');
+  const totalResults = Number(count);
+  const totalPages = totalResults === 0 ? 0 : Math.ceil(totalResults / pageSize);
+
+  const rows = await baseQuery
+    .clone()
+    .orderBy([
+      { column: 'type', order: 'asc' },
+      { column: 'position', order: 'asc' },
+      { column: 'created_at', order: 'desc' },
+    ])
+    .limit(pageSize)
+    .offset((page - 1) * pageSize);
+
+  res.json({
+    success: true,
+    data: {
+      bookmarks: rows,
+      pagination: { page, pageSize, totalResults, totalPages },
+    },
+  });
+}
 export async function getYarnWeights(req: Request, res: Response) {
   try {
     const weights = await ravelryService.getYarnWeights();
