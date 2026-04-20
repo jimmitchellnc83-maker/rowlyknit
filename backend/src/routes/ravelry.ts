@@ -41,6 +41,7 @@ router.delete('/oauth/disconnect', asyncHandler(ravelryOAuthController.disconnec
 // Yarn endpoints
 router.get('/yarns/search', asyncHandler(ravelryController.searchYarns));
 router.get('/yarns/:id', asyncHandler(ravelryController.getYarn));
+router.get('/yarns/:id/packs', asyncHandler(ravelryController.getYarnPacks));
 
 // Pattern endpoints
 router.get('/patterns/search', asyncHandler(ravelryController.searchPatterns));

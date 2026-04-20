@@ -509,6 +509,52 @@ class RavelryService {
   }
 
   /**
+   * Get the colorways (packs) available for a Ravelry yarn. Returns an array
+   * of normalized `{ id, name, hex, colorFamily, photoUrl }`. Returns null if
+   * the yarn id doesn't resolve on Ravelry — the `yarn.ravelry_id` column is
+   * overloaded: rows imported from stash hold a stash-entry id (which is NOT
+   * a yarn-model id), so the endpoint returns 404 and callers hide the UI.
+   */
+  async getYarnPacks(id: number, userId?: string): Promise<any[] | null> {
+    try {
+      if (!userId) throw new RavelryOAuthRequiredError();
+      const client = await this.getClientForUser(userId);
+      const response = await client.get(`/yarns/${id}/packs.json`);
+
+      const packs: any[] = response.data?.packs || [];
+      return packs
+        .map((p: any) => {
+          const hex = p.hex_color || p.rgb || p.color_hex || null;
+          const normalizedHex = hex
+            ? (hex.startsWith('#') ? hex : `#${String(hex).replace(/^0x/, '')}`)
+            : null;
+          return {
+            id: p.id,
+            name: p.name || p.color_name || null,
+            hex: normalizedHex,
+            colorFamily: p.color_family_name || p.color_family?.name || null,
+            photoUrl:
+              p.photo?.medium_url ||
+              p.photo?.small_url ||
+              p.first_photo?.medium_url ||
+              p.first_photo?.small_url ||
+              null,
+          };
+        })
+        .filter((p: any) => p.id != null);
+    } catch (error: any) {
+      if (error instanceof RavelryOAuthRequiredError) throw error;
+      if (error.response?.status === 404) return null;
+      logger.error('Ravelry get yarn packs failed', {
+        id,
+        error: error.message,
+        status: error.response?.status,
+      });
+      return null;
+    }
+  }
+
+  /**
    * Get detailed yarn information by ID (requires OAuth)
    */
   async getYarn(id: number, userId?: string): Promise<any | null> {
