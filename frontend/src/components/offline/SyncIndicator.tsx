@@ -1,7 +1,8 @@
 // @ts-nocheck
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { FiCloud, FiCloudOff, FiRefreshCw, FiAlertCircle, FiCheckCircle, FiX } from 'react-icons/fi';
 import { syncManager, SyncStatus } from '../../utils/offline/syncManager';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 
 export const SyncIndicator: React.FC = () => {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -12,6 +13,8 @@ export const SyncIndicator: React.FC = () => {
   });
   const [showDetails, setShowDetails] = useState(false);
   const [failedItems, setFailedItems] = useState<any[]>([]);
+  const modalRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(modalRef, showDetails);
 
   // Update online status
   React.useEffect(() => {
@@ -122,16 +125,22 @@ export const SyncIndicator: React.FC = () => {
 
       {/* Failed Items Modal */}
       {showDetails && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full p-6 max-h-[80vh] overflow-y-auto">
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="sync-conflicts-title"
+        >
+          <div ref={modalRef} className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full p-6 max-h-[80vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+              <h3 id="sync-conflicts-title" className="text-xl font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                 <FiAlertCircle className="w-6 h-6 text-red-600" />
                 Sync Conflicts
               </h3>
               <button
                 onClick={() => setShowDetails(false)}
                 className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                aria-label="Close"
               >
                 <FiX className="w-6 h-6" />
               </button>

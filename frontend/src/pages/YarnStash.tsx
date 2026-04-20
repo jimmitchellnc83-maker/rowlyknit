@@ -4,6 +4,7 @@ import { FiPlus, FiTrash2, FiPackage, FiEdit2, FiSearch, FiRefreshCw, FiMoreVert
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { useEscapeKey } from '../hooks/useEscapeKey';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 import ConfirmModal from '../components/ConfirmModal';
 import ListControls, { applyListControls, type SortOption } from '../components/ListControls';
 import { LoadingCardGrid, ErrorState } from '../components/LoadingSpinner';
@@ -134,6 +135,10 @@ export default function YarnStash() {
     setEditingYarn(null);
   }, []);
   useEscapeKey(closeAllModals, showCreateModal || showEditModal || showRavelrySearch);
+  const createModalRef = useRef<HTMLDivElement>(null);
+  const editModalRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(createModalRef, showCreateModal);
+  useFocusTrap(editModalRef, showEditModal && !!editingYarn);
 
   // Open edit modal if ?edit=<id> is in URL (from YarnDetail page)
   useEffect(() => {
@@ -567,10 +572,15 @@ export default function YarnStash() {
 
       {/* Create Yarn Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="create-yarn-title"
+        >
+          <div ref={createModalRef} className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Add Yarn to Stash</h2>
+              <h2 id="create-yarn-title" className="text-2xl font-bold text-gray-900 dark:text-gray-100">Add Yarn to Stash</h2>
             </div>
 
             <form onSubmit={handleCreateYarn} className="p-6 space-y-4">
@@ -753,10 +763,15 @@ export default function YarnStash() {
 
       {/* Edit Yarn Modal */}
       {showEditModal && editingYarn && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="edit-yarn-title"
+        >
+          <div ref={editModalRef} className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Edit Yarn</h2>
+              <h2 id="edit-yarn-title" className="text-2xl font-bold text-gray-900 dark:text-gray-100">Edit Yarn</h2>
             </div>
 
             <form onSubmit={handleUpdateYarn} className="p-6 space-y-4">

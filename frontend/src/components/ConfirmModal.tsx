@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { FiAlertTriangle } from 'react-icons/fi';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 interface ConfirmModalProps {
   title: string;
@@ -20,12 +21,12 @@ export default function ConfirmModal({
   onConfirm,
   onCancel,
 }: ConfirmModalProps) {
+  const dialogRef = useRef<HTMLDivElement>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
 
-  useEffect(() => {
-    // Focus cancel button by default for safety
-    cancelRef.current?.focus();
+  useFocusTrap(dialogRef, true, cancelRef);
 
+  useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onCancel();
     };
@@ -42,15 +43,18 @@ export default function ConfirmModal({
     <div
       className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4"
       onClick={(e) => { if (e.target === e.currentTarget) onCancel(); }}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="confirm-modal-title"
     >
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full">
+      <div ref={dialogRef} className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full">
         <div className="p-6">
           <div className="flex items-start gap-4">
             <div className={`flex-shrink-0 p-2 rounded-full ${variant === 'danger' ? 'bg-red-100 dark:bg-red-900/30' : 'bg-yellow-100 dark:bg-yellow-900/30'}`}>
               <FiAlertTriangle className={`h-6 w-6 ${variant === 'danger' ? 'text-red-600 dark:text-red-400' : 'text-yellow-600 dark:text-yellow-400'}`} />
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{title}</h3>
+              <h3 id="confirm-modal-title" className="text-lg font-semibold text-gray-900 dark:text-gray-100">{title}</h3>
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{message}</p>
             </div>
           </div>

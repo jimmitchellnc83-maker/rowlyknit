@@ -1,7 +1,8 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useRef } from 'react';
 import { FiPlus, FiTrash2, FiUsers, FiEdit2 } from 'react-icons/fi';
 import { toast } from 'react-toastify';
 import { useEscapeKey } from '../hooks/useEscapeKey';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 import ConfirmModal from '../components/ConfirmModal';
 import ListControls, { applyListControls, type SortOption } from '../components/ListControls';
 import { LoadingCardGrid, ErrorState } from '../components/LoadingSpinner';
@@ -67,6 +68,10 @@ export default function Recipients() {
     setEditingRecipient(null);
   }, []);
   useEscapeKey(closeAllModals, showCreateModal || showEditModal);
+  const createModalRef = useRef<HTMLDivElement>(null);
+  const editModalRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(createModalRef, showCreateModal);
+  useFocusTrap(editModalRef, showEditModal && !!editingRecipient);
 
   const handleCreateRecipient = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -259,10 +264,15 @@ export default function Recipients() {
 
       {/* Create Recipient Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="create-recipient-title"
+        >
+          <div ref={createModalRef} className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Add Recipient</h2>
+              <h2 id="create-recipient-title" className="text-2xl font-bold text-gray-900 dark:text-gray-100">Add Recipient</h2>
             </div>
 
             <form onSubmit={handleCreateRecipient} className="p-6 space-y-4">
@@ -354,10 +364,15 @@ export default function Recipients() {
 
       {/* Edit Recipient Modal */}
       {showEditModal && editingRecipient && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="edit-recipient-title"
+        >
+          <div ref={editModalRef} className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Edit Recipient</h2>
+              <h2 id="edit-recipient-title" className="text-2xl font-bold text-gray-900 dark:text-gray-100">Edit Recipient</h2>
             </div>
 
             <form onSubmit={handleUpdateRecipient} className="p-6 space-y-4">

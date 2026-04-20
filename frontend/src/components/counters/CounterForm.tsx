@@ -1,8 +1,9 @@
 // @ts-nocheck
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { FiX } from 'react-icons/fi';
 import type { Counter, IncrementPattern } from '../../types/counter.types';
 import HelpTooltip from '../HelpTooltip';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 
 interface CounterFormProps {
   projectId: string;
@@ -32,6 +33,8 @@ const INCREMENT_PATTERNS: { value: string; label: string; description: string }[
 ];
 
 export default function CounterForm({ counter, parentCounterId, existingCounters, onSave, onCancel }: CounterFormProps) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(dialogRef, true);
   const [name, setName] = useState(counter?.name || '');
   const [type, setType] = useState(counter?.type || 'rows');
   const [currentValue, setCurrentValue] = useState(counter?.current_value || 0);
@@ -112,15 +115,21 @@ export default function CounterForm({ counter, parentCounterId, existingCounters
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+    <div
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="counter-form-title"
+    >
+      <div ref={dialogRef} className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-          <h2 className="text-xl font-bold text-gray-900">
+          <h2 id="counter-form-title" className="text-xl font-bold text-gray-900">
             {counter ? 'Edit Counter' : 'Create Counter'}
           </h2>
           <button
             onClick={onCancel}
             className="p-2 hover:bg-gray-100 rounded-lg transition"
+            aria-label="Close"
           >
             <FiX className="h-5 w-5" />
           </button>

@@ -4,6 +4,7 @@ import { FiPlus, FiTrash2, FiCalendar, FiClock, FiMoreVertical, FiHeart, FiRefre
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { useEscapeKey } from '../hooks/useEscapeKey';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 import ConfirmModal from '../components/ConfirmModal';
 import ListControls, { applyListControls, type SortOption } from '../components/ListControls';
 import { LoadingCardGrid, ErrorState } from '../components/LoadingSpinner';
@@ -133,6 +134,8 @@ export default function Projects() {
   });
 
   useEscapeKey(useCallback(() => setShowCreateModal(false), []), showCreateModal);
+  const createModalRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(createModalRef, showCreateModal);
 
   useEffect(() => {
     fetchProjectTypes();
@@ -436,10 +439,15 @@ export default function Projects() {
 
       {/* Create Project Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="create-project-title"
+        >
+          <div ref={createModalRef} className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Create New Project</h2>
+              <h2 id="create-project-title" className="text-2xl font-bold text-gray-900 dark:text-gray-100">Create New Project</h2>
             </div>
 
             <form onSubmit={handleCreateProject} className="p-6 space-y-4">

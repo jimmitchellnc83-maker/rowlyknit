@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   FiArrowLeft, FiEdit2, FiTrash2, FiCalendar, FiClock, FiCheck, FiImage,
@@ -19,6 +19,7 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import PatternPreview from '../components/PatternPreview';
 import HelpTooltip from '../components/HelpTooltip';
 import ConfirmModal from '../components/ConfirmModal';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 import { useMeasurements } from '../hooks/useMeasurements';
 import { useKnittingMode } from '../contexts/KnittingModeContext';
 
@@ -213,6 +214,17 @@ export default function ProjectDetail() {
 
   const [showDeleteProjectConfirm, setShowDeleteProjectConfirm] = useState(false);
   const [removeYarnTarget, setRemoveYarnTarget] = useState<string | null>(null);
+
+  const editModalRef = useRef<HTMLDivElement>(null);
+  const addPatternModalRef = useRef<HTMLDivElement>(null);
+  const uploadPatternModalRef = useRef<HTMLDivElement>(null);
+  const addYarnModalRef = useRef<HTMLDivElement>(null);
+  const addToolModalRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(editModalRef, showEditModal);
+  useFocusTrap(addPatternModalRef, showAddPatternModal);
+  useFocusTrap(uploadPatternModalRef, showUploadPatternModal);
+  useFocusTrap(addYarnModalRef, showAddYarnModal);
+  useFocusTrap(addToolModalRef, showAddToolModal);
 
   const handleDelete = async () => {
     try {
@@ -1251,10 +1263,15 @@ export default function ProjectDetail() {
 
       {/* Edit Modal */}
       {showEditModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="edit-project-title"
+        >
+          <div ref={editModalRef} className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b border-gray-200">
-              <h2 className="text-2xl font-bold text-gray-900">Edit Project</h2>
+              <h2 id="edit-project-title" className="text-2xl font-bold text-gray-900">Edit Project</h2>
             </div>
 
             <form onSubmit={handleUpdate} className="p-6 space-y-4">
@@ -1348,10 +1365,15 @@ export default function ProjectDetail() {
 
       {/* Add Pattern Modal */}
       {showAddPatternModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="add-pattern-title"
+        >
+          <div ref={addPatternModalRef} className="bg-white rounded-lg shadow-xl max-w-md w-full">
             <div className="p-6 border-b border-gray-200">
-              <h2 className="text-xl font-bold text-gray-900">Add Pattern to Project</h2>
+              <h2 id="add-pattern-title" className="text-xl font-bold text-gray-900">Add Pattern to Project</h2>
             </div>
 
             <div className="p-6">
@@ -1398,10 +1420,15 @@ export default function ProjectDetail() {
 
       {/* Upload New Pattern Modal */}
       {showUploadPatternModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="upload-pattern-title"
+        >
+          <div ref={uploadPatternModalRef} className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b border-gray-200">
-              <h2 className="text-xl font-bold text-gray-900">Upload New Pattern</h2>
+              <h2 id="upload-pattern-title" className="text-xl font-bold text-gray-900">Upload New Pattern</h2>
               <p className="text-sm text-gray-600 mt-1">Upload a PDF pattern and add it to this project</p>
             </div>
 
@@ -1517,10 +1544,15 @@ export default function ProjectDetail() {
 
       {/* Add Yarn Modal */}
       {showAddYarnModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="add-yarn-title"
+        >
+          <div ref={addYarnModalRef} className="bg-white rounded-lg shadow-xl max-w-md w-full">
             <div className="p-6 border-b border-gray-200">
-              <h2 className="text-xl font-bold text-gray-900">Add Yarn to Project</h2>
+              <h2 id="add-yarn-title" className="text-xl font-bold text-gray-900">Add Yarn to Project</h2>
             </div>
 
             <div className="p-6 space-y-4">
@@ -1605,10 +1637,15 @@ export default function ProjectDetail() {
 
       {/* Add Tool Modal */}
       {showAddToolModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="add-tool-title"
+        >
+          <div ref={addToolModalRef} className="bg-white rounded-lg shadow-xl max-w-md w-full">
             <div className="p-6 border-b border-gray-200">
-              <h2 className="text-xl font-bold text-gray-900">Add Tool to Project</h2>
+              <h2 id="add-tool-title" className="text-xl font-bold text-gray-900">Add Tool to Project</h2>
             </div>
 
             <div className="p-6">
