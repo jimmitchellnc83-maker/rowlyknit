@@ -40,7 +40,7 @@ export async function getProjectTypes(req: Request, res: Response) {
  */
 export async function getProjects(req: Request, res: Response) {
   const userId = req.user!.userId;
-  const { status, search, page = 1, limit = 20 } = req.query;
+  const { status, search, favorite, page = 1, limit = 20 } = req.query;
 
   let query = db('projects')
     .where({ user_id: userId })
@@ -48,6 +48,10 @@ export async function getProjects(req: Request, res: Response) {
 
   if (status) {
     query = query.where({ status });
+  }
+
+  if (favorite === 'true') {
+    query = query.where({ is_favorite: true });
   }
 
   if (search) {
@@ -212,6 +216,7 @@ export async function updateProject(req: Request, res: Response) {
     notes,
     metadata,
     tags,
+    isFavorite,
   } = req.body;
 
   const updateData: any = {
@@ -239,6 +244,7 @@ export async function updateProject(req: Request, res: Response) {
   if (notes !== undefined) updateData.notes = notes;
   if (metadata !== undefined) updateData.metadata = JSON.stringify(metadata);
   if (tags !== undefined) updateData.tags = JSON.stringify(tags);
+  if (isFavorite !== undefined) updateData.is_favorite = isFavorite;
 
   const [updatedProject] = await db('projects')
     .where({ id })

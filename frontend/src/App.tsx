@@ -29,6 +29,7 @@ import VerifyEmail from './pages/auth/VerifyEmail';
 import RavelryCallback from './pages/auth/RavelryCallback';
 import RavelrySync from './pages/RavelrySync';
 import RavelryStashSync from './pages/RavelryStashSync';
+import RavelryProjectsSync from './pages/RavelryProjectsSync';
 import RavelryFavorites from './pages/RavelryFavorites';
 import NotFound from './pages/NotFound';
 
@@ -102,6 +103,7 @@ function App() {
         <Route path="/auth/ravelry/callback" element={<RavelryCallback />} />
         <Route path="/ravelry/sync" element={<RavelrySync />} />
         <Route path="/ravelry/stash/sync" element={<RavelryStashSync />} />
+        <Route path="/ravelry/projects/sync" element={<RavelryProjectsSync />} />
         <Route path="/ravelry/favorites" element={<RavelryFavorites />} />
         <Route path="/stats" element={<Stats />} />
         <Route path="/help" element={<Help />} />
