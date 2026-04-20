@@ -370,6 +370,33 @@ export async function listBookmarks(req: Request, res: Response) {
     },
   });
 }
+
+/**
+ * Colorways (packs) for a Ravelry yarn. Returns 404 if the id doesn't
+ * resolve — callers treat that as "no color cards available" and hide
+ * the section (the yarn.ravelry_id column is overloaded; stash-imported
+ * rows hold a stash entry id, not a yarn-model id).
+ */
+export async function getYarnPacks(req: Request, res: Response) {
+  const id = Number(req.params.id);
+  if (isNaN(id) || id <= 0) {
+    return res.status(400).json({ success: false, message: 'Valid yarn ID is required' });
+  }
+
+  try {
+    const packs = await ravelryService.getYarnPacks(id, req.user!.userId);
+    if (packs === null) {
+      return res.status(404).json({
+        success: false,
+        message: 'No color cards available for this yarn on Ravelry.',
+      });
+    }
+    res.json({ success: true, data: { packs } });
+  } catch (error) {
+    return handleRavelryError(error, res);
+  }
+}
+
 export async function getYarnWeights(req: Request, res: Response) {
   try {
     const weights = await ravelryService.getYarnWeights();
