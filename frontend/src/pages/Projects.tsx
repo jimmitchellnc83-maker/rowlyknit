@@ -1,11 +1,11 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
-import { FiPlus, FiTrash2, FiCalendar, FiClock } from 'react-icons/fi';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { FiPlus, FiTrash2, FiCalendar, FiClock, FiMoreVertical, FiHeart, FiRefreshCw } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import ConfirmModal from '../components/ConfirmModal';
-import { useProjects, useCreateProject, useDeleteProject } from '../hooks/useApi';
+import { useProjects, useCreateProject, useDeleteProject, useUpdateProject } from '../hooks/useApi';
 
 interface ProjectTypeOption {
   value: string;
@@ -45,9 +45,27 @@ const formatProjectTypeLabel = (value: string) => {
 };
 
 export default function Projects() {
-  const { data: projects = [], isLoading: loading } = useProjects() as { data: any[]; isLoading: boolean };
+  const navigate = useNavigate();
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+  const { data: projects = [], isLoading: loading } = useProjects({
+    favorite: showFavoritesOnly,
+  }) as { data: any[]; isLoading: boolean };
   const createProject = useCreateProject();
+  const updateProjectMutation = useUpdateProject();
   const deleteProjectMutation = useDeleteProject();
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!showMoreMenu) return;
+    const onDocClick = (e: MouseEvent) => {
+      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target as Node)) {
+        setShowMoreMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, [showMoreMenu]);
   const [projectTypes, setProjectTypes] = useState<ProjectTypeOption[]>(DEFAULT_PROJECT_TYPES);
   const [loadingTypes, setLoadingTypes] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -166,13 +184,49 @@ export default function Projects() {
           <h1 className="text-3xl font-bold text-gray-900">Projects</h1>
           <p className="text-gray-600 mt-1">Manage your knitting projects</p>
         </div>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
-        >
-          <FiPlus className="mr-2" />
-          New Project
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
+          >
+            <FiPlus className="mr-2" />
+            New Project
+          </button>
+          <div className="relative" ref={moreMenuRef}>
+            <button
+              onClick={() => setShowMoreMenu((s) => !s)}
+              className="flex items-center justify-center w-10 h-10 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition"
+              aria-label="More actions"
+              aria-haspopup="menu"
+              aria-expanded={showMoreMenu}
+            >
+              <FiMoreVertical />
+            </button>
+            {showMoreMenu && (
+              <div
+                role="menu"
+                className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-20"
+              >
+                <button
+                  role="menuitem"
+                  onClick={() => { setShowMoreMenu(false); setShowFavoritesOnly((v) => !v); }}
+                  className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                >
+                  <FiHeart className={`h-4 w-4 ${showFavoritesOnly ? 'text-red-500 fill-current' : ''}`} />
+                  {showFavoritesOnly ? 'Show all projects' : 'Show favorites only'}
+                </button>
+                <button
+                  role="menuitem"
+                  onClick={() => { setShowMoreMenu(false); navigate('/ravelry/projects/sync'); }}
+                  className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                >
+                  <FiRefreshCw className="h-4 w-4" />
+                  Sync projects from Ravelry
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Projects Grid */}
@@ -194,9 +248,25 @@ export default function Projects() {
           {projects.map((project: any) => (
             <div
               key={project.id}
-              className="bg-white rounded-lg shadow hover:shadow-lg transition p-6"
+              className="bg-white rounded-lg shadow hover:shadow-lg transition p-6 relative"
             >
-              <div className="flex items-start justify-between mb-3">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  updateProjectMutation.mutate({
+                    id: project.id,
+                    formData: { isFavorite: !project.is_favorite },
+                  });
+                }}
+                className="absolute top-2 right-2 z-10 h-9 w-9 flex items-center justify-center rounded-full bg-white/90 backdrop-blur shadow hover:bg-white transition"
+                aria-label={project.is_favorite ? 'Unfavorite project' : 'Favorite project'}
+                title={project.is_favorite ? 'Remove from favorites' : 'Add to favorites'}
+              >
+                <FiHeart
+                  className={`h-4 w-4 ${project.is_favorite ? 'text-red-500 fill-current' : 'text-gray-500'}`}
+                />
+              </button>
+              <div className="flex items-start justify-between mb-3 pr-12">
                 <h3 className="text-lg font-semibold text-gray-900 flex-1">
                   {project.name}
                 </h3>

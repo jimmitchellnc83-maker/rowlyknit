@@ -52,6 +52,9 @@ router.get('/favorites', asyncHandler(ravelryController.getFavorites));
 // Bulk stash import — one page per call, client-driven pagination
 router.post('/stash/import', asyncHandler(ravelryController.importStashPage));
 
+// Bulk projects import — one page per call, client-driven pagination
+router.post('/projects/import', asyncHandler(ravelryController.importProjectsPage));
+
 // Reference data endpoints (Basic Auth)
 router.get('/yarn-weights', asyncHandler(ravelryController.getYarnWeights));
 router.get('/color-families', asyncHandler(ravelryController.getColorFamilies));
