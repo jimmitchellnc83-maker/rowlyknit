@@ -58,6 +58,11 @@ router.post('/projects/import', asyncHandler(ravelryController.importProjectsPag
 // Bulk favorited-yarns import — mirrors favorites into yarn table as wishlist rows
 router.post('/favorites/yarns/import', asyncHandler(ravelryController.importFavoriteYarnsPage));
 
+// Bookmarks: mirrors Ravelry queue + library into a unified table
+router.post('/queue/import', asyncHandler(ravelryController.importQueuePage));
+router.post('/library/import', asyncHandler(ravelryController.importLibraryPage));
+router.get('/bookmarks', asyncHandler(ravelryController.listBookmarks));
+
 // Reference data endpoints (Basic Auth)
 router.get('/yarn-weights', asyncHandler(ravelryController.getYarnWeights));
 router.get('/color-families', asyncHandler(ravelryController.getColorFamilies));

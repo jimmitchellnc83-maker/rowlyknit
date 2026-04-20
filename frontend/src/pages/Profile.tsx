@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { FiUser, FiMail, FiLock, FiSave, FiLink, FiCheck, FiXCircle, FiSliders, FiRefreshCw, FiHeart } from 'react-icons/fi';
+import { FiUser, FiMail, FiLock, FiSave, FiLink, FiCheck, FiXCircle, FiSliders, FiRefreshCw, FiHeart, FiBookOpen } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { useAuthStore } from '../stores/authStore';
@@ -536,6 +536,20 @@ export default function Profile() {
                 >
                   <FiRefreshCw className="h-4 w-4" />
                   Sync favorited yarns
+                </button>
+                <button
+                  onClick={() => navigate('/ravelry/bookmarks/sync')}
+                  className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
+                >
+                  <FiRefreshCw className="h-4 w-4" />
+                  Sync bookmarks
+                </button>
+                <button
+                  onClick={() => navigate('/ravelry/bookmarks')}
+                  className="flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition"
+                >
+                  <FiBookOpen className="h-4 w-4" />
+                  Browse bookmarks
                 </button>
                 <button
                   onClick={() => navigate('/ravelry/favorites')}
