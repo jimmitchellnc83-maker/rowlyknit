@@ -2,6 +2,7 @@ import axios, { AxiosInstance } from 'axios';
 import sanitizeHtml from 'sanitize-html';
 import logger from '../config/logger';
 import ravelryOAuthService from './ravelryOAuthService';
+import { ravelryThrottle } from './ravelryThrottle';
 
 /** Strip all HTML tags and decode entities for plain-text storage */
 function stripHtml(html: string): string {
@@ -177,6 +178,152 @@ function mapPatternFields(p: any, isDetail: boolean = false) {
   };
 }
 
+/** Build our normalized pagination shape from a Ravelry paginator. */
+function buildPagination(
+  paginator: any,
+  fallbackPage: number,
+  fallbackPageSize: number,
+  itemCount: number
+) {
+  const p = paginator || {};
+  return {
+    page: p.page || fallbackPage,
+    pageSize: p.page_size || fallbackPageSize,
+    totalResults: p.results ?? itemCount,
+    totalPages: p.last_page || 1,
+  };
+}
+
+/**
+ * Map a stash entry from `/people/:username/stash/list.json` to our normalized shape.
+ * Returns both the stash entry id and the yarn model id so the import controller
+ * can decide dedup strategy (same yarn × different colors is a real case).
+ */
+function mapStashEntry(entry: any) {
+  const yarn = entry.yarn || {};
+  const brand = yarn.yarn_company?.name || yarn.yarn_company_name || entry.yarn_company_name || null;
+  const weight = yarn.yarn_weight?.name || entry.yarn_weight?.name || null;
+
+  let fiberContent: string | null = null;
+  const fibers = yarn.yarn_fibers || entry.yarn_fibers;
+  if (Array.isArray(fibers) && fibers.length > 0) {
+    fiberContent = fibers
+      .map((f: any) => {
+        const name = f.fiber_type?.name || f.name;
+        const pct = f.percentage;
+        return pct ? `${pct}% ${name}` : name;
+      })
+      .filter(Boolean)
+      .join(', ');
+  }
+
+  const photoUrl =
+    entry.photos?.[0]?.medium_url ||
+    entry.photos?.[0]?.small_url ||
+    entry.first_photo?.medium_url ||
+    entry.first_photo?.small_url ||
+    null;
+
+  return {
+    ravelryStashId: entry.id,
+    ravelryYarnId: yarn.id ?? entry.yarn_id ?? null,
+    name: entry.name || yarn.name || null,
+    brand,
+    color: entry.colorway || entry.color || null,
+    colorFamily: entry.color_family_name || null,
+    dyeLot: entry.dye_lot || null,
+    weight,
+    fiberContent,
+    grams: entry.grams ?? null,
+    meters: entry.meters ?? null,
+    yards: entry.yards ?? null,
+    skeins: entry.skeins ?? entry.total_skeins ?? null,
+    photoUrl,
+    notes: entry.notes ? stripHtml(String(entry.notes)) : null,
+  };
+}
+
+/** Normalize a Ravelry project list entry. */
+function mapProjectEntry(p: any) {
+  // Ravelry status_name strings: "In progress", "Finished", "Hibernating", "Frogged"
+  const rawStatus = (p.status_name || '').toLowerCase();
+  const status =
+    rawStatus.includes('finish') ? 'finished' :
+    rawStatus.includes('hibernat') ? 'hibernating' :
+    rawStatus.includes('frog') ? 'frogged' :
+    rawStatus.includes('progress') ? 'in_progress' :
+    null;
+
+  return {
+    ravelryProjectId: p.id,
+    name: p.name || null,
+    status,
+    rawStatusName: p.status_name || null,
+    patternRavelryId: p.pattern_id ?? null,
+    patternName: p.pattern_name || null,
+    startedDate: p.started || null,
+    completedDate: p.completed || null,
+    craft: p.craft?.name || null,
+    photoUrl: p.first_photo?.medium_url || p.first_photo?.small_url || null,
+    notes: p.notes ? stripHtml(String(p.notes)) : null,
+    progressPercentage: typeof p.progress === 'number' ? p.progress : null,
+  };
+}
+
+/** Normalize a queue entry from `/people/:username/queue/list.json`. */
+function mapQueueEntry(q: any) {
+  return {
+    ravelryQueueId: q.id,
+    name: q.name || null,
+    patternRavelryId: q.pattern_id ?? null,
+    patternName: q.pattern_name || null,
+    patternAuthor: q.pattern_author_name || null,
+    yarnRavelryId: q.yarn_id ?? null,
+    yarnName: q.yarn_name || null,
+    skeins: q.skeins ?? null,
+    position: typeof q.position === 'number' ? q.position : null,
+    notes: q.notes ? stripHtml(String(q.notes)) : null,
+  };
+}
+
+/**
+ * Normalize a library entry from `/people/:username/library/list.json`.
+ * Library entries are "volumes" (books or standalone patterns).
+ */
+function mapLibraryEntry(v: any) {
+  const rawType = (v.type || v.volume_type || '').toLowerCase();
+  const type = rawType.includes('book') ? 'book' : rawType.includes('pattern') ? 'pattern' : rawType || null;
+
+  const author =
+    v.author?.name ||
+    v.pattern_source?.name ||
+    v.book?.author?.name ||
+    null;
+
+  const photoUrl =
+    v.cover?.medium_url ||
+    v.cover?.small_url ||
+    v.pattern?.first_photo?.medium_url ||
+    v.first_photo?.medium_url ||
+    null;
+
+  const patternIds: number[] = Array.isArray(v.pattern_ids)
+    ? v.pattern_ids.filter((id: any) => typeof id === 'number')
+    : v.pattern?.id
+      ? [v.pattern.id]
+      : [];
+
+  return {
+    ravelryLibraryId: v.id,
+    type,
+    title: v.title || v.pattern?.name || v.book?.title || null,
+    author,
+    photoUrl,
+    addedAt: v.added_at || v.created_at || null,
+    patternIds,
+  };
+}
+
 interface RavelryYarnSearchResult {
   yarns: Array<{
     id: number;
@@ -251,10 +398,12 @@ class RavelryService {
   }
 
   /**
-   * Get OAuth client for a specific user's access token
+   * Get OAuth client for a specific user's access token. Every request is
+   * gated by the shared Ravelry throttle via an interceptor, so callers
+   * don't have to remember to acquire it manually.
    */
   private getOAuthClient(accessToken: string): AxiosInstance {
-    return axios.create({
+    const client = axios.create({
       baseURL: 'https://api.ravelry.com',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -262,6 +411,31 @@ class RavelryService {
       },
       timeout: 15000,
     });
+    client.interceptors.request.use(async (config) => {
+      await ravelryThrottle.acquire();
+      return config;
+    });
+    return client;
+  }
+
+  /**
+   * Resolve a user's Ravelry username. Stored on the tokens row during OAuth;
+   * falls back to `/current_user.json` if missing, then throws if still unknown.
+   */
+  private async resolveRavelryUsername(userId: string, client: AxiosInstance): Promise<string> {
+    const status = await ravelryOAuthService.getConnectionStatus(userId);
+    if (status.ravelryUsername) return status.ravelryUsername;
+
+    try {
+      const meResponse = await client.get('/current_user.json');
+      const username = meResponse.data?.user?.username;
+      if (username) return username;
+    } catch {
+      // fall through
+    }
+
+    logger.warn('Ravelry: no username for user', { userId });
+    throw new RavelryOAuthRequiredError();
   }
 
   /**
@@ -443,24 +617,7 @@ class RavelryService {
     try {
       if (!userId) throw new RavelryOAuthRequiredError();
       const client = await this.getClientForUser(userId);
-
-      // Resolve the user's Ravelry username — stored on the tokens row during OAuth,
-      // but fall back to /current_user.json if missing.
-      const status = await ravelryOAuthService.getConnectionStatus(userId);
-      let username = status.ravelryUsername;
-      if (!username) {
-        try {
-          const meResponse = await client.get('/current_user.json');
-          username = meResponse.data?.user?.username || null;
-        } catch {
-          // fall through to error below
-        }
-      }
-
-      if (!username) {
-        logger.warn('Ravelry favorites: no username for user', { userId });
-        throw new RavelryOAuthRequiredError();
-      }
+      const username = await this.resolveRavelryUsername(userId, client);
 
       const response = await client.get(
         `/people/${encodeURIComponent(username)}/favorites/list.json`,
@@ -482,19 +639,202 @@ class RavelryService {
         })
         .filter(Boolean);
 
-      const paginator = response.data.paginator || {};
       return {
         patterns,
-        pagination: {
-          page: paginator.page || page,
-          pageSize: paginator.page_size || pageSize,
-          totalResults: paginator.results ?? patterns.length,
-          totalPages: paginator.last_page || 1,
-        },
+        pagination: buildPagination(response.data.paginator, page, pageSize, patterns.length),
       };
     } catch (error: any) {
       if (error instanceof RavelryOAuthRequiredError) throw error;
       logger.error('Ravelry get favorites failed', {
+        userId,
+        error: error.message,
+        status: error.response?.status,
+      });
+      return null;
+    }
+  }
+
+  /**
+   * Get the current user's favorite yarns from Ravelry (requires OAuth).
+   * Same shape as `getFavorites` but with `types=yarn`; returns normalized yarns.
+   */
+  async getFavoriteYarns(
+    userId: string,
+    page: number = 1,
+    pageSize: number = 50
+  ): Promise<{ yarns: any[]; pagination: any } | null> {
+    try {
+      if (!userId) throw new RavelryOAuthRequiredError();
+      const client = await this.getClientForUser(userId);
+      const username = await this.resolveRavelryUsername(userId, client);
+
+      const response = await client.get(
+        `/people/${encodeURIComponent(username)}/favorites/list.json`,
+        {
+          params: {
+            types: 'yarn',
+            page,
+            page_size: pageSize,
+          },
+        }
+      );
+
+      const favorites: any[] = response.data.favorites || [];
+      const yarns = favorites
+        .map((f: any) => {
+          const favorited = f?.favorited;
+          if (!favorited || !favorited.id) return null;
+          return mapYarnFields(favorited);
+        })
+        .filter(Boolean);
+
+      return {
+        yarns,
+        pagination: buildPagination(response.data.paginator, page, pageSize, yarns.length),
+      };
+    } catch (error: any) {
+      if (error instanceof RavelryOAuthRequiredError) throw error;
+      logger.error('Ravelry get favorite yarns failed', {
+        userId,
+        error: error.message,
+        status: error.response?.status,
+      });
+      return null;
+    }
+  }
+
+  /**
+   * List the current user's Ravelry stash (requires OAuth). Paginated — caller
+   * is expected to loop pages and show progress. Each entry includes the
+   * stash id and the yarn model id so import controllers can decide which to
+   * persist as `yarn.ravelry_id`.
+   */
+  async listStash(
+    userId: string,
+    page: number = 1,
+    pageSize: number = 50
+  ): Promise<{ stash: any[]; pagination: any } | null> {
+    try {
+      if (!userId) throw new RavelryOAuthRequiredError();
+      const client = await this.getClientForUser(userId);
+      const username = await this.resolveRavelryUsername(userId, client);
+
+      const response = await client.get(
+        `/people/${encodeURIComponent(username)}/stash/list.json`,
+        { params: { page, page_size: pageSize } }
+      );
+
+      const stash = (response.data.stash || []).map(mapStashEntry);
+      return {
+        stash,
+        pagination: buildPagination(response.data.paginator, page, pageSize, stash.length),
+      };
+    } catch (error: any) {
+      if (error instanceof RavelryOAuthRequiredError) throw error;
+      logger.error('Ravelry list stash failed', {
+        userId,
+        error: error.message,
+        status: error.response?.status,
+      });
+      return null;
+    }
+  }
+
+  /**
+   * List the current user's Ravelry projects (requires OAuth). Uses the
+   * `/projects/:username/list.json` endpoint (note: `/projects/`, not `/people/`).
+   */
+  async listProjects(
+    userId: string,
+    page: number = 1,
+    pageSize: number = 50
+  ): Promise<{ projects: any[]; pagination: any } | null> {
+    try {
+      if (!userId) throw new RavelryOAuthRequiredError();
+      const client = await this.getClientForUser(userId);
+      const username = await this.resolveRavelryUsername(userId, client);
+
+      const response = await client.get(
+        `/projects/${encodeURIComponent(username)}/list.json`,
+        { params: { page, page_size: pageSize } }
+      );
+
+      const projects = (response.data.projects || []).map(mapProjectEntry);
+      return {
+        projects,
+        pagination: buildPagination(response.data.paginator, page, pageSize, projects.length),
+      };
+    } catch (error: any) {
+      if (error instanceof RavelryOAuthRequiredError) throw error;
+      logger.error('Ravelry list projects failed', {
+        userId,
+        error: error.message,
+        status: error.response?.status,
+      });
+      return null;
+    }
+  }
+
+  /**
+   * List the current user's Ravelry queue — the "to knit" list.
+   */
+  async listQueue(
+    userId: string,
+    page: number = 1,
+    pageSize: number = 50
+  ): Promise<{ queue: any[]; pagination: any } | null> {
+    try {
+      if (!userId) throw new RavelryOAuthRequiredError();
+      const client = await this.getClientForUser(userId);
+      const username = await this.resolveRavelryUsername(userId, client);
+
+      const response = await client.get(
+        `/people/${encodeURIComponent(username)}/queue/list.json`,
+        { params: { page, page_size: pageSize } }
+      );
+
+      const queue = (response.data.queued_projects || []).map(mapQueueEntry);
+      return {
+        queue,
+        pagination: buildPagination(response.data.paginator, page, pageSize, queue.length),
+      };
+    } catch (error: any) {
+      if (error instanceof RavelryOAuthRequiredError) throw error;
+      logger.error('Ravelry list queue failed', {
+        userId,
+        error: error.message,
+        status: error.response?.status,
+      });
+      return null;
+    }
+  }
+
+  /**
+   * List the current user's Ravelry library — purchased patterns + books.
+   */
+  async listLibrary(
+    userId: string,
+    page: number = 1,
+    pageSize: number = 50
+  ): Promise<{ library: any[]; pagination: any } | null> {
+    try {
+      if (!userId) throw new RavelryOAuthRequiredError();
+      const client = await this.getClientForUser(userId);
+      const username = await this.resolveRavelryUsername(userId, client);
+
+      const response = await client.get(
+        `/people/${encodeURIComponent(username)}/library/list.json`,
+        { params: { page, page_size: pageSize } }
+      );
+
+      const library = (response.data.volumes || response.data.library || []).map(mapLibraryEntry);
+      return {
+        library,
+        pagination: buildPagination(response.data.paginator, page, pageSize, library.length),
+      };
+    } catch (error: any) {
+      if (error instanceof RavelryOAuthRequiredError) throw error;
+      logger.error('Ravelry list library failed', {
         userId,
         error: error.message,
         status: error.response?.status,
