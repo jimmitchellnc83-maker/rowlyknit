@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FiPlus, FiTrash2, FiBook, FiEdit2, FiSearch, FiMoreVertical } from 'react-icons/fi';
+import { FiPlus, FiTrash2, FiBook, FiEdit2, FiSearch, FiMoreVertical, FiRefreshCw } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { PDFCollation } from '../components/patterns';
@@ -244,6 +244,13 @@ export default function Patterns() {
           <p className="text-gray-600 mt-1">Manage your knitting pattern library</p>
         </div>
         <div className="flex gap-3">
+          <button
+            onClick={() => navigate('/ravelry/sync')}
+            className="flex items-center px-4 py-2 border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 transition"
+          >
+            <FiRefreshCw className="mr-2" />
+            Sync from Ravelry
+          </button>
           <button
             onClick={() => setShowRavelrySearch(true)}
             className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
