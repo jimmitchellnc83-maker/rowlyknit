@@ -262,7 +262,10 @@ export async function updateProject(req: Request, res: Response) {
 }
 
 /**
- * Delete project (soft delete)
+ * Delete project (soft delete). Also restores any yarn the project was
+ * consuming back to the user's stash in the same transaction — mirrors the
+ * credit logic in removeYarnFromProject so deleted projects don't keep
+ * yarn "checked out" forever.
  */
 export async function deleteProject(req: Request, res: Response) {
   const userId = req.user!.userId;
@@ -277,12 +280,48 @@ export async function deleteProject(req: Request, res: Response) {
     throw new NotFoundError('Project not found');
   }
 
-  await db('projects')
-    .where({ id })
-    .update({
-      deleted_at: new Date(),
-      updated_at: new Date(),
-    });
+  const yarnsRestored: Array<{
+    yarnId: string;
+    yardsRestored: number;
+    skeinsRestored: number;
+  }> = [];
+
+  await db.transaction(async (trx) => {
+    // Fetch every yarn currently allocated to this project
+    const allocations = await trx('project_yarn').where({ project_id: id });
+
+    for (const allocation of allocations) {
+      const yardsUsed = allocation.yards_used || 0;
+      const skeinsUsed = allocation.skeins_used || 0;
+      const metersReturned = Math.round(yardsUsed * 0.9144 * 100) / 100;
+
+      await trx('yarn')
+        .where({ id: allocation.yarn_id })
+        .update({
+          yards_remaining: trx.raw('yards_remaining + ?', [yardsUsed]),
+          remaining_length_m: trx.raw('COALESCE(remaining_length_m, 0) + ?', [metersReturned]),
+          skeins_remaining: trx.raw('skeins_remaining + ?', [skeinsUsed]),
+          updated_at: new Date(),
+        });
+
+      yarnsRestored.push({
+        yarnId: allocation.yarn_id,
+        yardsRestored: yardsUsed,
+        skeinsRestored: skeinsUsed,
+      });
+    }
+
+    // Drop the project_yarn rows so a future restore of the project doesn't double-count.
+    // Note: if we ever introduce undelete, we'll need to snapshot these before deletion.
+    await trx('project_yarn').where({ project_id: id }).delete();
+
+    await trx('projects')
+      .where({ id })
+      .update({
+        deleted_at: new Date(),
+        updated_at: new Date(),
+      });
+  });
 
   await createAuditLog(req, {
     userId,
@@ -290,11 +329,13 @@ export async function deleteProject(req: Request, res: Response) {
     entityType: 'project',
     entityId: id,
     oldValues: project,
+    newValues: { yarnsRestored },
   });
 
   res.json({
     success: true,
     message: 'Project deleted successfully',
+    data: { yarnsRestored },
   });
 }
 
