@@ -73,7 +73,7 @@ export default function RavelryStashSync() {
       try {
         const response = await axios.post<{ success: boolean; data: PageResult }>(
           '/api/ravelry/stash/import',
-          null,
+          {},
           { params: { page, page_size: PAGE_SIZE } }
         );
         const pageResult = response.data.data;
