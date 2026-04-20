@@ -4,6 +4,7 @@ import axios from 'axios';
 import { toast } from 'react-toastify';
 import { useWebSocket } from '../../contexts/WebSocketContext';
 import { preventDoubleTap } from '../../utils/debounce';
+import ConfirmModal from '../ConfirmModal';
 import type { Counter } from '../../types/counter.types';
 
 interface CounterCardProps {
@@ -18,6 +19,8 @@ export default function CounterCard({ counter, onUpdate: _onUpdate, onEdit, onDe
   const [count, setCount] = useState(counter.current_value);
   const [isListening, setIsListening] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const recognitionRef = useRef<any>(null);
   const isListeningRef = useRef(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -179,14 +182,17 @@ export default function CounterCard({ counter, onUpdate: _onUpdate, onEdit, onDe
   };
 
   const handleResetInternal = async () => {
-    if (confirm(`Reset "${counter.name}" to ${counter.min_value}?`)) {
-      const resetValue = counter.min_value;
-      setCount(resetValue);
-      updateCountOnServer(resetValue);
-      emitCounterReset(counter.id, counter.project_id);
-      triggerHaptic('medium');
-      toast.success('Counter reset');
-    }
+    setShowResetConfirm(true);
+  };
+
+  const confirmReset = () => {
+    setShowResetConfirm(false);
+    const resetValue = counter.min_value;
+    setCount(resetValue);
+    updateCountOnServer(resetValue);
+    emitCounterReset(counter.id, counter.project_id);
+    triggerHaptic('medium');
+    toast.success('Counter reset');
   };
 
   // Debounced reset to prevent accidental double-taps
@@ -440,9 +446,7 @@ export default function CounterCard({ counter, onUpdate: _onUpdate, onEdit, onDe
                 {onDelete && (
                   <button
                     onClick={() => {
-                      if (confirm(`Delete "${counter.name}"?`)) {
-                        onDelete(counter.id);
-                      }
+                      setShowDeleteConfirm(true);
                       setShowMenu(false);
                     }}
                     className="w-full text-left px-4 py-2 hover:bg-red-50 text-red-600 text-sm border-t border-gray-100"
@@ -543,6 +547,29 @@ export default function CounterCard({ counter, onUpdate: _onUpdate, onEdit, onDe
           <span className="inline-block w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
           Live sync
         </div>
+      )}
+
+      {showResetConfirm && (
+        <ConfirmModal
+          title="Reset counter"
+          message={`Reset "${counter.name}" to ${counter.min_value}?`}
+          confirmLabel="Reset"
+          variant="warning"
+          onConfirm={confirmReset}
+          onCancel={() => setShowResetConfirm(false)}
+        />
+      )}
+
+      {showDeleteConfirm && onDelete && (
+        <ConfirmModal
+          title="Delete counter"
+          message={`Delete "${counter.name}"? This cannot be undone.`}
+          onConfirm={() => {
+            setShowDeleteConfirm(false);
+            onDelete(counter.id);
+          }}
+          onCancel={() => setShowDeleteConfirm(false)}
+        />
       )}
     </div>
   );

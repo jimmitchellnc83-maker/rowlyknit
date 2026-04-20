@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { FiCheck, FiLoader, FiEye, FiEyeOff, FiRefreshCw } from 'react-icons/fi';
+import ConfirmModal from '../ConfirmModal';
 
 interface ChartCell {
   row: number;
@@ -62,6 +63,7 @@ export const InteractiveChartProgress: React.FC<InteractiveChartProgressProps> =
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showLegend, setShowLegend] = useState(true);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
 
   const CELL_SIZE = 32;
 
@@ -173,9 +175,13 @@ export const InteractiveChartProgress: React.FC<InteractiveChartProgressProps> =
     }
   };
 
-  const clearProgress = async () => {
-    if (readOnly || !confirm('Are you sure you want to clear all progress?')) return;
+  const clearProgress = () => {
+    if (readOnly) return;
+    setShowClearConfirm(true);
+  };
 
+  const confirmClearProgress = async () => {
+    setShowClearConfirm(false);
     setSaving(true);
     try {
       const response = await axios.delete(
@@ -678,6 +684,16 @@ export const InteractiveChartProgress: React.FC<InteractiveChartProgressProps> =
           }
         }
       `}</style>
+
+      {showClearConfirm && (
+        <ConfirmModal
+          title="Clear progress"
+          message="Are you sure you want to clear all progress? This cannot be undone."
+          confirmLabel="Clear"
+          onConfirm={confirmClearProgress}
+          onCancel={() => setShowClearConfirm(false)}
+        />
+      )}
     </div>
   );
 };

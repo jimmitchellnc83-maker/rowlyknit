@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { FiBookmark, FiPlus, FiX, FiEdit2, FiTrash2, FiChevronRight } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
+import ConfirmModal from '../ConfirmModal';
 
 interface Bookmark {
   id: string;
@@ -50,6 +51,7 @@ export default function BookmarkManager({
     notes: '',
     color: '#FBBF24',
   });
+  const [deleteBookmarkId, setDeleteBookmarkId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchBookmarks();
@@ -112,8 +114,14 @@ export default function BookmarkManager({
     }
   };
 
-  const handleDeleteBookmark = async (bookmarkId: string) => {
-    if (!confirm('Delete this bookmark?')) return;
+  const handleDeleteBookmark = (bookmarkId: string) => {
+    setDeleteBookmarkId(bookmarkId);
+  };
+
+  const confirmDeleteBookmark = async () => {
+    if (!deleteBookmarkId) return;
+    const bookmarkId = deleteBookmarkId;
+    setDeleteBookmarkId(null);
 
     try {
       await axios.delete(`/api/patterns/${patternId}/bookmarks/${bookmarkId}`);
@@ -359,6 +367,15 @@ export default function BookmarkManager({
             </div>
           </div>
         </div>
+      )}
+
+      {deleteBookmarkId && (
+        <ConfirmModal
+          title="Delete bookmark"
+          message="Delete this bookmark? This cannot be undone."
+          onConfirm={confirmDeleteBookmark}
+          onCancel={() => setDeleteBookmarkId(null)}
+        />
       )}
     </div>
   );

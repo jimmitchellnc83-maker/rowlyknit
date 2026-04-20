@@ -1,6 +1,8 @@
 import { useState, useRef } from 'react';
 import { FiUpload, FiX, FiFile, FiImage, FiFileText, FiDownload, FiTrash2, FiEye } from 'react-icons/fi';
+import { toast } from 'react-toastify';
 import PatternViewer from './patterns/PatternViewer';
+import ConfirmModal from './ConfirmModal';
 
 interface PatternFile {
   id: string;
@@ -34,6 +36,7 @@ export default function PatternFileUpload({
   const [uploading, setUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
   const [viewingFile, setViewingFile] = useState<PatternFile | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<PatternFile | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const acceptedTypes = [
@@ -65,14 +68,14 @@ export default function PatternFileUpload({
 
     // Accept file if either extension or MIME type is valid (handles browser inconsistencies)
     if (!hasValidExtension && !hasValidMimeType) {
-      alert(`Invalid file type: ${file.type || 'unknown'}\n\nAccepted file types:\n- PDF documents (.pdf)\n- Images (.jpg, .png, .webp)\n- Word documents (.doc, .docx)\n- Text files (.txt)\n\nPlease make sure your file has the correct extension.`);
+      toast.error(`Invalid file type: ${file.type || 'unknown'}. Accepted: PDF, images (.jpg, .png, .webp), Word docs (.doc, .docx), text (.txt).`);
       return;
     }
 
     // Validate file size (25MB max)
     const fileSizeMB = file.size / (1024 * 1024);
     if (fileSizeMB > 25) {
-      alert(`File size (${fileSizeMB.toFixed(1)}MB) exceeds the 25MB limit.\n\nPlease choose a smaller file or compress your PDF.`);
+      toast.error(`File size (${fileSizeMB.toFixed(1)}MB) exceeds the 25MB limit. Please choose a smaller file or compress your PDF.`);
       return;
     }
 
@@ -121,7 +124,7 @@ export default function PatternFileUpload({
       }
     } catch (error) {
       console.error('Upload error:', error);
-      alert('Failed to upload file. Please try again.');
+      toast.error('Failed to upload file. Please try again.');
     } finally {
       setUploading(false);
     }
@@ -297,11 +300,7 @@ export default function PatternFileUpload({
                     <FiDownload className="w-5 h-5" />
                   </button>
                   <button
-                    onClick={() => {
-                      if (window.confirm('Are you sure you want to delete this file?')) {
-                        onDelete(file.id);
-                      }
-                    }}
+                    onClick={() => setDeleteTarget(file)}
                     className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                     title="Delete"
                   >
@@ -321,6 +320,19 @@ export default function PatternFileUpload({
           filename={viewingFile.original_filename}
           patternId={patternId}
           onClose={() => setViewingFile(null)}
+        />
+      )}
+
+      {deleteTarget && (
+        <ConfirmModal
+          title="Delete file"
+          message={`Are you sure you want to delete "${deleteTarget.original_filename}"? This cannot be undone.`}
+          onConfirm={async () => {
+            const target = deleteTarget;
+            setDeleteTarget(null);
+            await onDelete(target.id);
+          }}
+          onCancel={() => setDeleteTarget(null)}
         />
       )}
     </div>

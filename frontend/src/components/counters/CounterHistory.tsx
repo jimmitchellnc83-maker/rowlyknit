@@ -3,6 +3,7 @@ import { FiX, FiRotateCcw, FiClock } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import type { Counter, CounterHistory as CounterHistoryType } from '../../types/counter.types';
+import ConfirmModal from '../ConfirmModal';
 
 interface CounterHistoryProps {
   counter: Counter;
@@ -13,6 +14,7 @@ interface CounterHistoryProps {
 export default function CounterHistory({ counter, onClose, onUpdate }: CounterHistoryProps) {
   const [history, setHistory] = useState<CounterHistoryType[]>([]);
   const [loading, setLoading] = useState(true);
+  const [undoTarget, setUndoTarget] = useState<{ id: string; old_value: number } | null>(null);
 
   useEffect(() => {
     fetchHistory();
@@ -158,15 +160,7 @@ export default function CounterHistory({ counter, onClose, onUpdate }: CounterHi
                     </div>
 
                     <button
-                      onClick={() => {
-                        if (
-                          confirm(
-                            `Revert counter to ${entry.old_value}? This will create a new history entry.`
-                          )
-                        ) {
-                          handleUndo(entry.id);
-                        }
-                      }}
+                      onClick={() => setUndoTarget({ id: entry.id, old_value: entry.old_value })}
                       className="ml-3 p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition"
                       title="Undo to this point"
                     >
@@ -188,6 +182,21 @@ export default function CounterHistory({ counter, onClose, onUpdate }: CounterHi
           </button>
         </div>
       </div>
+
+      {undoTarget && (
+        <ConfirmModal
+          title="Revert counter"
+          message={`Revert counter to ${undoTarget.old_value}? This will create a new history entry.`}
+          confirmLabel="Revert"
+          variant="warning"
+          onConfirm={() => {
+            const target = undoTarget;
+            setUndoTarget(null);
+            handleUndo(target.id);
+          }}
+          onCancel={() => setUndoTarget(null)}
+        />
+      )}
     </div>
   );
 }
