@@ -86,7 +86,7 @@ function toDisplayString(val: any): string | null {
  */
 export async function getPatterns(req: Request, res: Response) {
   const userId = req.user!.userId;
-  const { category, difficulty, search, page = 1, limit = 20 } = req.query;
+  const { category, difficulty, search, favorite, page = 1, limit = 20 } = req.query;
 
   let query = db('patterns')
     .where({ user_id: userId })
@@ -98,6 +98,10 @@ export async function getPatterns(req: Request, res: Response) {
 
   if (difficulty) {
     query = query.where({ difficulty });
+  }
+
+  if (favorite === 'true') {
+    query = query.where({ is_favorite: true });
   }
 
   if (search) {
