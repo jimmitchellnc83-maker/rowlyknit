@@ -61,9 +61,10 @@ interface StatCardProps {
   color: string;
   loading?: boolean;
   sublabel?: string;
+  href?: string;
 }
 
-function StatCard({ value, label, icon, color, loading, sublabel }: StatCardProps) {
+function StatCard({ value, label, icon, color, loading, sublabel, href }: StatCardProps) {
   if (loading) {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 animate-pulse">
@@ -76,8 +77,8 @@ function StatCard({ value, label, icon, color, loading, sublabel }: StatCardProp
     );
   }
 
-  return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 hover:shadow-lg transition-shadow">
+  const content = (
+    <>
       <div className="flex items-center justify-between mb-4">
         <div className={`${color} p-3 rounded-lg`}>
           {icon}
@@ -91,9 +92,26 @@ function StatCard({ value, label, icon, color, loading, sublabel }: StatCardProp
       <div className="text-3xl font-bold text-gray-900 dark:text-white mb-1">
         {typeof value === 'number' ? value.toLocaleString() : value}
       </div>
-      <div className="text-sm text-gray-500 dark:text-gray-400">{label}</div>
-    </div>
+      <div className="flex items-center justify-between">
+        <div className="text-sm text-gray-500 dark:text-gray-400">{label}</div>
+        {href && (
+          <FiChevronRight className="h-4 w-4 text-gray-400 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition" />
+        )}
+      </div>
+    </>
   );
+
+  const baseClasses = 'bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 hover:shadow-lg transition-shadow';
+
+  if (href) {
+    return (
+      <Link to={href} className={`${baseClasses} group block`}>
+        {content}
+      </Link>
+    );
+  }
+
+  return <div className={baseClasses}>{content}</div>;
 }
 
 // Activity Graph Component
@@ -367,6 +385,7 @@ export default function Stats() {
           icon={<FiCheckCircle className="h-6 w-6 text-white" />}
           color="bg-green-500"
           loading={loading}
+          href="/projects?status=completed"
         />
         <StatCard
           value={stats?.totalRows || 0}
