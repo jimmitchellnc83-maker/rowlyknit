@@ -170,13 +170,11 @@ export default function CounterCard({ counter, onUpdate: _onUpdate, onEdit, onDe
 
   // Voice command handlers - NO debouncing for responsive voice control
   const handleVoiceIncrement = () => {
-    console.log('[Voice] Increment command received');
     handleIncrementInternal();
     toast.success('Row added! 🎤', { autoClose: 800 });
   };
 
   const handleVoiceDecrement = () => {
-    console.log('[Voice] Decrement command received');
     handleDecrementInternal();
     toast.info('Row removed! 🎤', { autoClose: 800 });
   };
@@ -308,13 +306,7 @@ export default function CounterCard({ counter, onUpdate: _onUpdate, onEdit, onDe
         }
       };
 
-      recognitionRef.current.onstart = () => {
-        console.log('[Voice] Recognition started');
-      };
-
       recognitionRef.current.onend = () => {
-        console.log('[Voice] Recognition ended, isListening:', isListeningRef.current);
-
         // Auto-restart if still supposed to be listening
         if (isListeningRef.current) {
           try {
@@ -322,7 +314,6 @@ export default function CounterCard({ counter, onUpdate: _onUpdate, onEdit, onDe
             setTimeout(() => {
               if (isListeningRef.current && recognitionRef.current) {
                 recognitionRef.current.start();
-                console.log('[Voice] Recognition restarted');
               }
             }, 100);
           } catch (e) {
@@ -338,7 +329,6 @@ export default function CounterCard({ counter, onUpdate: _onUpdate, onEdit, onDe
       if (recognitionRef.current) {
         try {
           recognitionRef.current.stop();
-          console.log('[Voice] Recognition stopped (cleanup)');
         } catch (e) {
           console.error('[Voice] Error stopping recognition:', e);
         }
