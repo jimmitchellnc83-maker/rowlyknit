@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import ravelryService, { RavelryNotConfiguredError, RavelryOAuthRequiredError } from '../services/ravelryService';
+import { importStashPage as importStashPageService } from '../services/stashImportService';
 
 function handleRavelryError(error: unknown, res: Response) {
   if (error instanceof RavelryNotConfiguredError) {
@@ -162,6 +163,37 @@ export async function getFavorites(req: Request, res: Response) {
     res.json({ success: true, data: result });
   } catch (error) {
     return handleRavelryError(error, res);
+  }
+}
+
+/**
+ * Import one page of the authenticated user's Ravelry stash into their yarn
+ * table. Frontend is expected to call this endpoint in a loop, paging until
+ * `pagination.page >= pagination.totalPages`, showing a progress UI.
+ * Idempotent: already-imported entries are skipped, not overwritten.
+ */
+export async function importStashPage(req: Request, res: Response) {
+  const page = req.query.page ? Number(req.query.page) : 1;
+  const pageSize = req.query.page_size ? Number(req.query.page_size) : 50;
+
+  if (!Number.isFinite(page) || page < 1) {
+    return res.status(400).json({ success: false, message: 'Invalid page number' });
+  }
+  if (!Number.isFinite(pageSize) || pageSize < 1 || pageSize > 100) {
+    return res.status(400).json({ success: false, message: 'page_size must be 1–100' });
+  }
+
+  try {
+    const result = await importStashPageService(req.user!.userId, page, pageSize);
+    res.json({ success: true, data: result });
+  } catch (error: any) {
+    if (error instanceof RavelryOAuthRequiredError || error instanceof RavelryNotConfiguredError) {
+      return handleRavelryError(error, res);
+    }
+    return res.status(502).json({
+      success: false,
+      message: 'Failed to import stash page. Please try again.',
+    });
   }
 }
 
