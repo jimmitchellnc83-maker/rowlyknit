@@ -4,6 +4,7 @@ import { FiArrowLeft, FiEdit2, FiTrash2, FiPackage, FiAlertCircle, FiFolder } fr
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import ConfirmModal from '../components/ConfirmModal';
+import LoadingSpinner from '../components/LoadingSpinner';
 import { useMeasurements } from '../hooks/useMeasurements';
 
 interface Yarn {
@@ -175,8 +176,8 @@ export default function YarnDetail() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="text-gray-500">Loading...</div>
+      <div className="flex items-center justify-center min-h-screen">
+        <LoadingSpinner size="lg" text="Loading yarn..." />
       </div>
     );
   }

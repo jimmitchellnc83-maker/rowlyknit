@@ -6,6 +6,7 @@ import { toast } from 'react-toastify';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import ConfirmModal from '../components/ConfirmModal';
 import ListControls, { applyListControls, type SortOption } from '../components/ListControls';
+import { LoadingCardGrid, ErrorState } from '../components/LoadingSpinner';
 import { useProjects, useCreateProject, useDeleteProject, useUpdateProject } from '../hooks/useApi';
 
 interface ProjectTypeOption {
@@ -72,10 +73,20 @@ export default function Projects() {
   const [searchParams, setSearchParams] = useSearchParams();
   const statusFilter = searchParams.get('status') || undefined;
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
-  const { data: projects = [], isLoading: loading } = useProjects({
+  const {
+    data: projects = [],
+    isLoading: loading,
+    isError,
+    refetch,
+  } = useProjects({
     favorite: showFavoritesOnly,
     status: statusFilter,
-  }) as { data: any[]; isLoading: boolean };
+  }) as {
+    data: any[];
+    isLoading: boolean;
+    isError: boolean;
+    refetch: () => void;
+  };
 
   const clearStatusFilter = () => {
     const next = new URLSearchParams(searchParams);
@@ -213,8 +224,32 @@ export default function Projects() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-gray-500 dark:text-gray-400">Loading projects...</div>
+      <div>
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Projects</h1>
+            <p className="text-gray-600 dark:text-gray-400 mt-1">Manage your knitting projects</p>
+          </div>
+        </div>
+        <LoadingCardGrid />
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div>
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Projects</h1>
+            <p className="text-gray-600 dark:text-gray-400 mt-1">Manage your knitting projects</p>
+          </div>
+        </div>
+        <ErrorState
+          title="Couldn't load your projects"
+          message="We hit an error fetching your projects. Check your connection and try again."
+          onRetry={() => refetch()}
+        />
       </div>
     );
   }

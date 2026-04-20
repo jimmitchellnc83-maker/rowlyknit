@@ -6,6 +6,7 @@ import { toast } from 'react-toastify';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import ConfirmModal from '../components/ConfirmModal';
 import ListControls, { applyListControls, type SortOption } from '../components/ListControls';
+import { LoadingCardGrid, ErrorState } from '../components/LoadingSpinner';
 import { useYarn, useCreateYarn, useUpdateYarn, useDeleteYarn } from '../hooks/useApi';
 import HelpTooltip from '../components/HelpTooltip';
 import RavelryYarnSearch, { type RavelryYarnImportData } from '../components/RavelryYarnSearch';
@@ -60,9 +61,19 @@ export default function YarnStash() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
-  const { data: yarn = [], isLoading: loading } = useYarn({
+  const {
+    data: yarn = [],
+    isLoading: loading,
+    isError,
+    refetch,
+  } = useYarn({
     favorite: showFavoritesOnly,
-  }) as { data: Yarn[] | undefined; isLoading: boolean };
+  }) as {
+    data: Yarn[] | undefined;
+    isLoading: boolean;
+    isError: boolean;
+    refetch: () => void;
+  };
   const [search, setSearch] = useState('');
   const [sortId, setSortId] = useState<string>('recent');
   const visibleYarn = useMemo(
@@ -335,8 +346,32 @@ export default function YarnStash() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-gray-500 dark:text-gray-400">Loading yarn stash...</div>
+      <div>
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Yarn Stash</h1>
+            <p className="text-gray-600 dark:text-gray-400 mt-1">Manage your yarn inventory</p>
+          </div>
+        </div>
+        <LoadingCardGrid />
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div>
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Yarn Stash</h1>
+            <p className="text-gray-600 dark:text-gray-400 mt-1">Manage your yarn inventory</p>
+          </div>
+        </div>
+        <ErrorState
+          title="Couldn't load your yarn stash"
+          message="We hit an error fetching your yarn. Check your connection and try again."
+          onRetry={() => refetch()}
+        />
       </div>
     );
   }
