@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import ravelryService, { RavelryNotConfiguredError, RavelryOAuthRequiredError } from '../services/ravelryService';
 import { importStashPage as importStashPageService } from '../services/stashImportService';
 import { importProjectsPage as importProjectsPageService } from '../services/projectImportService';
+import { importFavoriteYarnsPage as importFavoriteYarnsPageService } from '../services/favoriteYarnsImportService';
 
 function handleRavelryError(error: unknown, res: Response) {
   if (error instanceof RavelryNotConfiguredError) {
@@ -224,6 +225,36 @@ export async function importProjectsPage(req: Request, res: Response) {
     return res.status(502).json({
       success: false,
       message: 'Failed to import projects page. Please try again.',
+    });
+  }
+}
+
+/**
+ * Import one page of the authenticated user's Ravelry favorited yarns into
+ * their yarn table as wishlist rows (`is_favorite = true`, `is_stash = false`).
+ * Same client-driven pagination contract as stash / projects import.
+ */
+export async function importFavoriteYarnsPage(req: Request, res: Response) {
+  const page = req.query.page ? Number(req.query.page) : 1;
+  const pageSize = req.query.page_size ? Number(req.query.page_size) : 50;
+
+  if (!Number.isFinite(page) || page < 1) {
+    return res.status(400).json({ success: false, message: 'Invalid page number' });
+  }
+  if (!Number.isFinite(pageSize) || pageSize < 1 || pageSize > 100) {
+    return res.status(400).json({ success: false, message: 'page_size must be 1–100' });
+  }
+
+  try {
+    const result = await importFavoriteYarnsPageService(req.user!.userId, page, pageSize);
+    res.json({ success: true, data: result });
+  } catch (error: any) {
+    if (error instanceof RavelryOAuthRequiredError || error instanceof RavelryNotConfiguredError) {
+      return handleRavelryError(error, res);
+    }
+    return res.status(502).json({
+      success: false,
+      message: 'Failed to import favorite yarns page. Please try again.',
     });
   }
 }
