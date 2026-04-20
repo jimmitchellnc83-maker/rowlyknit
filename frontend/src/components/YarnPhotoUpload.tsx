@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react';
 import { FiUpload, FiX } from 'react-icons/fi';
+import { toast } from 'react-toastify';
 
 interface YarnPhotoUploadProps {
   onUpload: (file: File, caption?: string) => Promise<void>;
@@ -17,14 +18,14 @@ export default function YarnPhotoUpload({ onUpload }: YarnPhotoUploadProps) {
     // Validate file type
     const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
     if (!allowedTypes.includes(file.type)) {
-      alert(`Invalid file type. Only JPEG, PNG, and WebP images are allowed.`);
+      toast.error(`Invalid file type. Only JPEG, PNG, and WebP images are allowed.`);
       return;
     }
 
     // Validate file size (10MB max)
     const fileSizeMB = file.size / (1024 * 1024);
     if (fileSizeMB > 10) {
-      alert(`File size exceeds 10MB limit`);
+      toast.error(`File size exceeds 10MB limit`);
       return;
     }
 
@@ -81,7 +82,7 @@ export default function YarnPhotoUpload({ onUpload }: YarnPhotoUploadProps) {
       }
     } catch (error) {
       console.error('Upload error:', error);
-      alert('Failed to upload photo. Please try again.');
+      toast.error('Failed to upload photo. Please try again.');
     } finally {
       setUploading(false);
     }

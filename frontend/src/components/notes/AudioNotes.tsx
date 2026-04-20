@@ -3,6 +3,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { FiMic, FiSquare, FiPlay, FiPause, FiTrash2, FiDownload, FiEdit2, FiCheck, FiX } from 'react-icons/fi';
 import { formatDistanceToNow } from 'date-fns';
+import { toast } from 'react-toastify';
+import ConfirmModal from '../ConfirmModal';
 
 /**
  * Resolve a potentially-relative audio URL to an absolute URL.
@@ -72,6 +74,7 @@ export const AudioNotes: React.FC<AudioNotesProps> = ({
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editTranscription, setEditTranscription] = useState('');
   const [selectedPatternId, setSelectedPatternId] = useState<string>('');
+  const [deleteNoteId, setDeleteNoteId] = useState<string | null>(null);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -116,7 +119,7 @@ export const AudioNotes: React.FC<AudioNotesProps> = ({
     try {
       // Check if MediaRecorder API is supported
       if (!window.MediaRecorder) {
-        alert('❌ Audio recording is not supported in this browser. Please use Chrome, Firefox, Edge, or Safari.');
+        toast.info('Audio recording is not supported in this browser. Please use Chrome, Firefox, Edge, or Safari.');
         return;
       }
 
@@ -152,7 +155,7 @@ export const AudioNotes: React.FC<AudioNotesProps> = ({
         // Validate blob before saving
         if (audioBlob.size === 0) {
           console.error('❌ Audio blob is empty - no data was recorded');
-          alert('Recording failed: No audio data was captured. Please try again.');
+          toast.error('Recording failed: No audio data was captured. Please try again.');
           return;
         }
 
@@ -164,14 +167,14 @@ export const AudioNotes: React.FC<AudioNotesProps> = ({
           setSelectedPatternId('');
         } catch (error) {
           console.error('Failed to save audio note:', error);
-          alert('Failed to save audio note');
+          toast.error('Failed to save audio note');
         }
       };
 
       // Add error handler for MediaRecorder
       mediaRecorder.onerror = (event: any) => {
         console.error('🔴 MediaRecorder error:', event.error);
-        alert(`Recording error: ${event.error?.message || 'Unknown error occurred'}`);
+        toast.error(`Recording error: ${event.error?.message || 'Unknown error occurred'}`);
       };
 
       mediaRecorder.start(1000); // Request data every 1000ms for reliability
@@ -191,19 +194,19 @@ export const AudioNotes: React.FC<AudioNotesProps> = ({
       if (error instanceof DOMException) {
         switch (error.name) {
           case 'NotAllowedError':
-            alert('🎤 Microphone access denied. Please allow microphone permissions in your browser settings and try again.');
+            toast.error('Microphone access denied. Please allow microphone permissions in your browser settings and try again.');
             break;
           case 'NotFoundError':
-            alert('🎤 No microphone found. Please connect a microphone and try again.');
+            toast.error('No microphone found. Please connect a microphone and try again.');
             break;
           case 'NotReadableError':
-            alert('🎤 Microphone is already in use by another application. Please close other apps using the microphone and try again.');
+            toast.error('Microphone is already in use by another application. Please close other apps using the microphone and try again.');
             break;
           default:
-            alert(`🎤 Failed to access microphone: ${error.message}`);
+            toast.error(`Failed to access microphone: ${error.message}`);
         }
       } else {
-        alert('Failed to access microphone. Please grant microphone permissions.');
+        toast.error('Failed to access microphone. Please grant microphone permissions.');
       }
     }
   };
@@ -255,8 +258,14 @@ export const AudioNotes: React.FC<AudioNotesProps> = ({
     }
   };
 
-  const handleDeleteNote = async (noteId: string) => {
-    if (!confirm('Are you sure you want to delete this audio note?')) return;
+  const handleDeleteNote = (noteId: string) => {
+    setDeleteNoteId(noteId);
+  };
+
+  const confirmDeleteNote = async () => {
+    if (!deleteNoteId) return;
+    const noteId = deleteNoteId;
+    setDeleteNoteId(null);
 
     try {
       // Stop and cleanup audio if playing
@@ -270,7 +279,7 @@ export const AudioNotes: React.FC<AudioNotesProps> = ({
       await onDeleteNote(noteId);
     } catch (error) {
       console.error('Failed to delete note:', error);
-      alert('Failed to delete note');
+      toast.error('Failed to delete note');
     }
   };
 
@@ -288,7 +297,7 @@ export const AudioNotes: React.FC<AudioNotesProps> = ({
       setEditTranscription('');
     } catch (error) {
       console.error('Failed to update transcription:', error);
-      alert('Failed to update transcription');
+      toast.error('Failed to update transcription');
     }
   };
 
@@ -492,6 +501,15 @@ export const AudioNotes: React.FC<AudioNotesProps> = ({
       <p className="text-xs text-gray-500 dark:text-gray-400 mt-4">
         💡 Tip: Click the microphone icon to record voice notes hands-free while knitting
       </p>
+
+      {deleteNoteId && (
+        <ConfirmModal
+          title="Delete audio note"
+          message="Are you sure you want to delete this audio note? This cannot be undone."
+          onConfirm={confirmDeleteNote}
+          onCancel={() => setDeleteNoteId(null)}
+        />
+      )}
     </div>
   );
 };

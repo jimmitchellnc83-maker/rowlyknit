@@ -5,6 +5,7 @@ import { toast } from 'react-toastify';
 import type { Counter, IncrementMode, CounterUpdateResult } from '../../types/counter.types';
 import CounterForm from './CounterForm';
 import HelpTooltip from '../HelpTooltip';
+import ConfirmModal from '../ConfirmModal';
 
 interface CounterHierarchyProps {
   projectId: string;
@@ -216,6 +217,7 @@ export default function CounterHierarchy({ projectId, onCounterChange }: Counter
   const [showForm, setShowForm] = useState(false);
   const [editingCounter, setEditingCounter] = useState<Counter | null>(null);
   const [parentForNewCounter, setParentForNewCounter] = useState<string | null>(null);
+  const [deleteCounterId, setDeleteCounterId] = useState<string | null>(null);
 
   // Voice control state lives HERE (parent) so it survives child card re-renders
   const [voiceActiveCounterId, setVoiceActiveCounterId] = useState<string | null>(null);
@@ -411,8 +413,14 @@ export default function CounterHierarchy({ projectId, onCounterChange }: Counter
     }
   };
 
-  const handleDeleteCounter = async (counterId: string) => {
-    if (!confirm('Delete this counter? Any linked counters will be unlinked.')) return;
+  const handleDeleteCounter = (counterId: string) => {
+    setDeleteCounterId(counterId);
+  };
+
+  const confirmDeleteCounter = async () => {
+    if (!deleteCounterId) return;
+    const counterId = deleteCounterId;
+    setDeleteCounterId(null);
     try {
       await axios.delete(`/api/projects/${projectId}/counters/${counterId}`);
       toast.success('Counter deleted!');
@@ -565,6 +573,15 @@ export default function CounterHierarchy({ projectId, onCounterChange }: Counter
             setEditingCounter(null);
             setParentForNewCounter(null);
           }}
+        />
+      )}
+
+      {deleteCounterId && (
+        <ConfirmModal
+          title="Delete counter"
+          message="Delete this counter? Any linked counters will be unlinked. This cannot be undone."
+          onConfirm={confirmDeleteCounter}
+          onCancel={() => setDeleteCounterId(null)}
         />
       )}
     </div>

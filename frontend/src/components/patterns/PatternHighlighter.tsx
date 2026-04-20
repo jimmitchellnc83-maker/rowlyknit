@@ -3,6 +3,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import {  FiTrash2, FiEye, FiEyeOff } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
+import ConfirmModal from '../ConfirmModal';
 
 interface Highlight {
   id: string;
@@ -49,6 +50,7 @@ export default function PatternHighlighter({
   const [selectedColor, setSelectedColor] = useState(HIGHLIGHT_COLORS[0].value);
   const [opacity, setOpacity] = useState(0.3);
   const [showControls, setShowControls] = useState(true);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -178,9 +180,12 @@ export default function PatternHighlighter({
     }
   };
 
-  const handleClearAll = async () => {
-    if (!confirm('Clear all highlights on this page?')) return;
+  const handleClearAll = () => {
+    setShowClearConfirm(true);
+  };
 
+  const confirmClearAll = async () => {
+    setShowClearConfirm(false);
     try {
       // Delete all highlights for this page
       await Promise.all(
@@ -285,6 +290,16 @@ export default function PatternHighlighter({
           </>
         )}
       </div>
+
+      {showClearConfirm && (
+        <ConfirmModal
+          title="Clear highlights"
+          message="Clear all highlights on this page? This cannot be undone."
+          confirmLabel="Clear"
+          onConfirm={confirmClearAll}
+          onCancel={() => setShowClearConfirm(false)}
+        />
+      )}
     </>
   );
 }

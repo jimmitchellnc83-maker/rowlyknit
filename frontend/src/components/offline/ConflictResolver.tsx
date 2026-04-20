@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { FiAlertTriangle, FiChevronDown, FiChevronUp } from 'react-icons/fi';
+import { toast } from 'react-toastify';
+import ConfirmModal from '../ConfirmModal';
 
 export interface DataConflict {
   id: string;
@@ -25,6 +27,7 @@ export const ConflictResolver: React.FC<ConflictResolverProps> = ({
 }) => {
   const [expandedConflict, setExpandedConflict] = useState<string | null>(null);
   const [resolving, setResolving] = useState<string | null>(null);
+  const [resolveAllTarget, setResolveAllTarget] = useState<'local' | 'server' | null>(null);
 
   if (conflicts.length === 0) {
     return null;
@@ -36,26 +39,25 @@ export const ConflictResolver: React.FC<ConflictResolverProps> = ({
       await onResolve(conflictId, resolution);
     } catch (error) {
       console.error('Failed to resolve conflict:', error);
-      alert('Failed to resolve conflict');
+      toast.error('Failed to resolve conflict');
     } finally {
       setResolving(null);
     }
   };
 
-  const handleResolveAll = async (resolution: 'local' | 'server') => {
-    if (
-      !confirm(
-        `Are you sure you want to use ${resolution === 'local' ? 'local' : 'server'} version for all conflicts?`
-      )
-    ) {
-      return;
-    }
+  const handleResolveAll = (resolution: 'local' | 'server') => {
+    setResolveAllTarget(resolution);
+  };
 
+  const confirmResolveAll = async () => {
+    if (!resolveAllTarget) return;
+    const resolution = resolveAllTarget;
+    setResolveAllTarget(null);
     try {
       await onResolveAll(resolution);
     } catch (error) {
       console.error('Failed to resolve all conflicts:', error);
-      alert('Failed to resolve conflicts');
+      toast.error('Failed to resolve conflicts');
     }
   };
 
@@ -220,6 +222,17 @@ export const ConflictResolver: React.FC<ConflictResolverProps> = ({
           );
         })}
       </div>
+
+      {resolveAllTarget && (
+        <ConfirmModal
+          title="Resolve conflicts"
+          message={`Are you sure you want to use ${resolveAllTarget === 'local' ? 'local' : 'server'} version for all conflicts?`}
+          confirmLabel="Resolve"
+          variant="warning"
+          onConfirm={confirmResolveAll}
+          onCancel={() => setResolveAllTarget(null)}
+        />
+      )}
     </div>
   );
 };

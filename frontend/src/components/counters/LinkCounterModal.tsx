@@ -3,6 +3,7 @@ import { FiX, FiLink, FiTrash2 } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import type { Counter, CounterLink } from '../../types/counter.types';
+import ConfirmModal from '../ConfirmModal';
 
 interface LinkCounterModalProps {
   projectId: string;
@@ -23,6 +24,7 @@ export default function LinkCounterModal({ projectId, counters, onClose/*, onSav
   const [triggerValue, setTriggerValue] = useState('');
   const [actionType, setActionType] = useState<'reset' | 'increment' | 'set'>('reset');
   const [actionValue, setActionValue] = useState('');
+  const [deleteLinkId, setDeleteLinkId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchLinks();
@@ -303,11 +305,7 @@ export default function LinkCounterModal({ projectId, counters, onClose/*, onSav
                     </div>
 
                     <button
-                      onClick={() => {
-                        if (confirm('Delete this link?')) {
-                          handleDeleteLink(link.id);
-                        }
-                      }}
+                      onClick={() => setDeleteLinkId(link.id)}
                       className="ml-3 p-2 text-red-600 hover:bg-red-50 rounded-lg transition"
                     >
                       <FiTrash2 className="h-4 w-4" />
@@ -328,6 +326,19 @@ export default function LinkCounterModal({ projectId, counters, onClose/*, onSav
           </button>
         </div>
       </div>
+
+      {deleteLinkId && (
+        <ConfirmModal
+          title="Delete link"
+          message="Delete this link? This cannot be undone."
+          onConfirm={() => {
+            const id = deleteLinkId;
+            setDeleteLinkId(null);
+            handleDeleteLink(id);
+          }}
+          onCancel={() => setDeleteLinkId(null)}
+        />
+      )}
     </div>
   );
 }

@@ -2,7 +2,9 @@
 import React, { useState } from 'react';
 import { FiFileText, FiPlus, FiTrash2, FiDownload } from 'react-icons/fi';
 import { formatDistanceToNow } from 'date-fns';
+import { toast } from 'react-toastify';
 import HelpTooltip from '../HelpTooltip';
+import ConfirmModal from '../ConfirmModal';
 import { useMeasurements } from '../../hooks/useMeasurements';
 
 type TemplateType = 'gauge_swatch' | 'fit_adjustment' | 'yarn_substitution' | 'finishing_techniques';
@@ -94,6 +96,7 @@ export const StructuredMemoTemplates: React.FC<StructuredMemoTemplatesProps> = (
   const [showNewMemoModal, setShowNewMemoModal] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<TemplateType>('gauge_swatch');
   const [formData, setFormData] = useState<any>({});
+  const [deleteMemoId, setDeleteMemoId] = useState<string | null>(null);
 
   const handleOpenNewMemo = (templateType: TemplateType) => {
     setSelectedTemplate(templateType);
@@ -108,18 +111,23 @@ export const StructuredMemoTemplates: React.FC<StructuredMemoTemplatesProps> = (
       setFormData({});
     } catch (error) {
       console.error('Failed to save memo:', error);
-      alert('Failed to save memo');
+      toast.error('Failed to save memo');
     }
   };
 
-  const handleDeleteMemo = async (memoId: string) => {
-    if (!confirm('Are you sure you want to delete this memo?')) return;
+  const handleDeleteMemo = (memoId: string) => {
+    setDeleteMemoId(memoId);
+  };
 
+  const confirmDeleteMemo = async () => {
+    if (!deleteMemoId) return;
+    const id = deleteMemoId;
+    setDeleteMemoId(null);
     try {
-      await onDeleteMemo(memoId);
+      await onDeleteMemo(id);
     } catch (error) {
       console.error('Failed to delete memo:', error);
-      alert('Failed to delete memo');
+      toast.error('Failed to delete memo');
     }
   };
 
@@ -645,6 +653,15 @@ export const StructuredMemoTemplates: React.FC<StructuredMemoTemplatesProps> = (
             </div>
           </div>
         </div>
+      )}
+
+      {deleteMemoId && (
+        <ConfirmModal
+          title="Delete memo"
+          message="Are you sure you want to delete this memo? This cannot be undone."
+          onConfirm={confirmDeleteMemo}
+          onCancel={() => setDeleteMemoId(null)}
+        />
       )}
     </div>
   );

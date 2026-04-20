@@ -1,6 +1,7 @@
 // @ts-nocheck
 import React, { useRef, useState, useEffect } from 'react';
 import { FiEdit3, FiTrash, FiDownload, FiTrash2, FiRotateCcw, FiRotateCw, FiDroplet } from 'react-icons/fi';
+import { toast } from 'react-toastify';
 
 interface HandwrittenNotesProps {
   patternId?: string;
@@ -224,10 +225,10 @@ export const HandwrittenNotes: React.FC<HandwrittenNotesProps> = ({
     if (onSave) {
       try {
         await onSave(imageData);
-        alert('Notes saved successfully!');
+        toast.success('Notes saved successfully!');
       } catch (error) {
         console.error('Failed to save notes:', error);
-        alert('Failed to save notes');
+        toast.error('Failed to save notes');
       }
     } else {
       // Download as file
