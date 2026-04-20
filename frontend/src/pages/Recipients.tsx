@@ -4,6 +4,7 @@ import { toast } from 'react-toastify';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import ConfirmModal from '../components/ConfirmModal';
 import ListControls, { applyListControls, type SortOption } from '../components/ListControls';
+import { LoadingCardGrid, ErrorState } from '../components/LoadingSpinner';
 import { useRecipients, useCreateRecipient, useUpdateRecipient, useDeleteRecipient } from '../hooks/useApi';
 
 interface Recipient {
@@ -23,7 +24,17 @@ const SORT_OPTIONS: SortOption<Recipient>[] = [
 ];
 
 export default function Recipients() {
-  const { data: recipients = [], isLoading: loading } = useRecipients() as { data: Recipient[] | undefined; isLoading: boolean };
+  const {
+    data: recipients = [],
+    isLoading: loading,
+    isError,
+    refetch,
+  } = useRecipients() as {
+    data: Recipient[] | undefined;
+    isLoading: boolean;
+    isError: boolean;
+    refetch: () => void;
+  };
   const createRecipient = useCreateRecipient();
   const updateRecipientMutation = useUpdateRecipient();
   const deleteRecipientMutation = useDeleteRecipient();
@@ -128,8 +139,32 @@ export default function Recipients() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-gray-500 dark:text-gray-400">Loading recipients...</div>
+      <div>
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Recipients</h1>
+            <p className="text-gray-600 dark:text-gray-400 mt-1">Manage gift recipients and their preferences</p>
+          </div>
+        </div>
+        <LoadingCardGrid />
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div>
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Recipients</h1>
+            <p className="text-gray-600 dark:text-gray-400 mt-1">Manage gift recipients and their preferences</p>
+          </div>
+        </div>
+        <ErrorState
+          title="Couldn't load your recipients"
+          message="We hit an error fetching your recipients. Check your connection and try again."
+          onRetry={() => refetch()}
+        />
       </div>
     );
   }

@@ -4,6 +4,7 @@ import { toast } from 'react-toastify';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import ConfirmModal from '../components/ConfirmModal';
 import ListControls, { applyListControls, type SortOption } from '../components/ListControls';
+import { LoadingCardGrid, ErrorState } from '../components/LoadingSpinner';
 import ToolTypeAutocomplete from '../components/ToolTypeAutocomplete';
 import { useTools as useToolsQuery, useCreateTool, useUpdateTool, useDeleteTool } from '../hooks/useApi';
 import { useToolTaxonomyTree } from '../hooks/useToolTaxonomy';
@@ -67,7 +68,17 @@ const EMPTY_FORM: FormData = {
 };
 
 export default function Tools() {
-  const { data: tools = [], isLoading: loading } = useToolsQuery() as { data: Tool[] | undefined; isLoading: boolean };
+  const {
+    data: tools = [],
+    isLoading: loading,
+    isError,
+    refetch,
+  } = useToolsQuery() as {
+    data: Tool[] | undefined;
+    isLoading: boolean;
+    isError: boolean;
+    refetch: () => void;
+  };
   const { data: taxonomyTree = [] } = useToolTaxonomyTree();
   const { prefs, fmt } = useMeasurementPrefs();
   const createTool = useCreateTool();
@@ -290,8 +301,32 @@ export default function Tools() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-gray-500 dark:text-gray-400">Loading tools...</div>
+      <div>
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Tools</h1>
+            <p className="text-gray-600 dark:text-gray-400 mt-1">Manage your knitting tools and equipment</p>
+          </div>
+        </div>
+        <LoadingCardGrid />
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div>
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Tools</h1>
+            <p className="text-gray-600 dark:text-gray-400 mt-1">Manage your knitting tools and equipment</p>
+          </div>
+        </div>
+        <ErrorState
+          title="Couldn't load your tools"
+          message="We hit an error fetching your tools. Check your connection and try again."
+          onRetry={() => refetch()}
+        />
       </div>
     );
   }

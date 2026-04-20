@@ -3,6 +3,7 @@ import { FiFolder, FiBook, FiPackage, FiUsers, FiPlus, FiAlertCircle, FiHelpCirc
 import { useAuthStore } from '../stores/authStore';
 import { useDashboardStats } from '../hooks/useApi';
 import { useMeasurements } from '../hooks/useMeasurements';
+import { LoadingSkeleton, ErrorState } from '../components/LoadingSpinner';
 
 const iconMap: { [key: string]: React.ComponentType<{ className?: string }> } = {
   FiFolder,
@@ -13,7 +14,7 @@ const iconMap: { [key: string]: React.ComponentType<{ className?: string }> } = 
 
 export default function Dashboard() {
   const { user } = useAuthStore();
-  const { data: dashboardData, isLoading: loading } = useDashboardStats();
+  const { data: dashboardData, isLoading: loading, isError, refetch } = useDashboardStats();
   const { fmt } = useMeasurements();
 
   const stats = dashboardData?.stats ?? [
@@ -70,12 +71,29 @@ export default function Dashboard() {
         </Link>
       </div>
 
+      {isError && (
+        <ErrorState
+          title="Couldn't load your dashboard"
+          message="We hit an error fetching your dashboard data. Some numbers below may be stale or missing."
+          onRetry={() => refetch()}
+          className="mb-8 bg-white dark:bg-gray-800 rounded-lg shadow"
+        />
+      )}
+
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         {loading ? (
-          <div className="col-span-full text-center py-8">
-            <div className="text-gray-500 dark:text-gray-400">Loading statistics...</div>
-          </div>
+          Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+              <div className="animate-pulse flex items-center justify-between">
+                <div className="flex-1 space-y-3">
+                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-2/3" />
+                  <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/2" />
+                </div>
+                <div className="h-12 w-12 bg-gray-200 dark:bg-gray-700 rounded-lg" />
+              </div>
+            </div>
+          ))
         ) : (
           stats.map((stat) => {
             const Icon = iconMap[stat.iconName] || FiFolder;
@@ -203,9 +221,7 @@ export default function Dashboard() {
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
         <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Recent Projects</h2>
         {loading ? (
-          <div className="text-center py-12">
-            <div className="text-gray-500 dark:text-gray-400">Loading recent projects...</div>
-          </div>
+          <LoadingSkeleton lines={4} />
         ) : recentProjects.length === 0 ? (
           <div className="text-center py-12">
             <FiFolder className="mx-auto h-12 w-12 text-gray-400 mb-4" />
