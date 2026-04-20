@@ -56,10 +56,14 @@ export default function ProjectDetail() {
   const [showKnittingVoiceNotes, setShowKnittingVoiceNotes] = useState(false);
   const [showKnittingHistory, setShowKnittingHistory] = useState(false);
 
-  // Clear knitting mode when leaving this page so the sidebar comes back elsewhere.
+  // Restore per-project Knitting Mode preference on mount / id change.
+  // Clear the context flag on unmount so other pages get an un-dimmed sidebar.
   useEffect(() => {
+    if (!id) return;
+    const saved = localStorage.getItem(`rowly:knittingMode:${id}`);
+    if (saved === 'true') setKnittingMode(true);
     return () => setKnittingMode(false);
-  }, [setKnittingMode]);
+  }, [id, setKnittingMode]);
 
   // Notes state
   const [audioNotes, setAudioNotes] = useState<any[]>([]);
@@ -521,6 +525,9 @@ export default function ProjectDetail() {
   const handleToggleKnittingMode = () => {
     const next = !knittingMode;
     setKnittingMode(next);
+    if (id) {
+      localStorage.setItem(`rowly:knittingMode:${id}`, String(next));
+    }
     if (next) {
       toast.success('Knitting Mode activated! 🧶');
     } else {
