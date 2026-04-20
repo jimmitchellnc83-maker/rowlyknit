@@ -54,10 +54,10 @@ export default function Dashboard() {
       {/* Welcome Section */}
       <div className="mb-8 flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">
             Welcome back, {user?.firstName}!
           </h1>
-          <p className="text-gray-600">
+          <p className="text-gray-600 dark:text-gray-400">
             Here's what's happening with your knitting projects today.
           </p>
         </div>
@@ -74,7 +74,7 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         {loading ? (
           <div className="col-span-full text-center py-8">
-            <div className="text-gray-500">Loading statistics...</div>
+            <div className="text-gray-500 dark:text-gray-400">Loading statistics...</div>
           </div>
         ) : (
           stats.map((stat) => {
@@ -83,12 +83,12 @@ export default function Dashboard() {
               <Link
                 key={stat.name}
                 to={stat.href}
-                className="bg-white rounded-lg shadow hover:shadow-lg transition p-6"
+                className="bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-lg transition p-6"
               >
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-gray-600">{stat.name}</p>
-                    <p className="text-3xl font-bold text-gray-900 mt-2">{stat.value}</p>
+                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400">{stat.name}</p>
+                    <p className="text-3xl font-bold text-gray-900 dark:text-gray-100 mt-2">{stat.value}</p>
                   </div>
                   <div className={`${stat.color} p-3 rounded-lg`}>
                     <Icon className="h-6 w-6 text-white" />
@@ -102,7 +102,7 @@ export default function Dashboard() {
 
       {/* Quick Actions */}
       <div className="mb-8">
-        <h2 className="text-xl font-bold text-gray-900 mb-4">Quick Actions</h2>
+        <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Quick Actions</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {quickActions.map((action) => {
             const Icon = action.icon;
@@ -155,11 +155,11 @@ export default function Dashboard() {
                   <Link
                     key={yarn.id}
                     to="/yarn"
-                    className="flex items-center justify-between p-4 bg-white rounded-lg hover:shadow-md transition"
+                    className="flex items-center justify-between p-4 bg-white dark:bg-gray-800 rounded-lg hover:shadow-md transition"
                   >
                     <div className="flex-1">
                       <div className="flex items-center justify-between mb-2">
-                        <h3 className="font-semibold text-gray-900">
+                        <h3 className="font-semibold text-gray-900 dark:text-gray-100">
                           {yarn.brand} {yarn.name}
                         </h3>
                         <span className="text-sm font-medium text-orange-600">
@@ -168,14 +168,14 @@ export default function Dashboard() {
                       </div>
 
                       {/* Progress bar */}
-                      <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
+                      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 mb-2">
                         <div
                           className="bg-orange-500 h-2 rounded-full transition-all"
                           style={{ width: `${Math.min(100, percentRemaining)}%` }}
                         />
                       </div>
 
-                      <div className="flex items-center text-sm text-gray-600">
+                      <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
                         <FiPackage className="mr-2 h-4 w-4" />
                         {yarn.color && <span className="mr-3">Color: {yarn.color}</span>}
                         {yarn.weight && <span>Weight: {yarn.weight}</span>}
@@ -200,16 +200,16 @@ export default function Dashboard() {
       )}
 
       {/* Recent Activity */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-xl font-bold text-gray-900 mb-4">Recent Projects</h2>
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+        <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Recent Projects</h2>
         {loading ? (
           <div className="text-center py-12">
-            <div className="text-gray-500">Loading recent projects...</div>
+            <div className="text-gray-500 dark:text-gray-400">Loading recent projects...</div>
           </div>
         ) : recentProjects.length === 0 ? (
           <div className="text-center py-12">
             <FiFolder className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-            <p className="text-gray-500 mb-4">No projects yet</p>
+            <p className="text-gray-500 dark:text-gray-400 mb-4">No projects yet</p>
             <Link
               to="/projects"
               className="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
@@ -224,15 +224,15 @@ export default function Dashboard() {
               <Link
                 key={project.id}
                 to={`/projects/${project.id}`}
-                className="flex items-center justify-between p-4 hover:bg-gray-50 rounded-lg transition"
+                className="flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition"
               >
                 <div className="flex items-center space-x-4">
                   <div className="bg-purple-100 p-3 rounded-lg">
                     <FiFolder className="h-5 w-5 text-purple-600" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-gray-900">{project.name}</h3>
-                    <p className="text-sm text-gray-500">
+                    <h3 className="font-semibold text-gray-900 dark:text-gray-100">{project.name}</h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
                       {project.type && (
                         <span className="capitalize">{project.type}</span>
                       )}
@@ -242,7 +242,7 @@ export default function Dashboard() {
                     </p>
                   </div>
                 </div>
-                <div className="text-sm text-gray-500">
+                <div className="text-sm text-gray-500 dark:text-gray-400">
                   {new Date(project.created_at).toLocaleDateString()}
                 </div>
               </Link>

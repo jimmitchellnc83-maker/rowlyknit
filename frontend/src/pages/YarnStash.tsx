@@ -323,20 +323,20 @@ export default function YarnStash() {
 
   const getWeightColor = (weight: string) => {
     const colors: { [key: string]: string } = {
-      lace: 'bg-purple-100 text-purple-800',
-      fingering: 'bg-blue-100 text-blue-800',
-      sport: 'bg-green-100 text-green-800',
-      dk: 'bg-yellow-100 text-yellow-800',
-      worsted: 'bg-orange-100 text-orange-800',
-      bulky: 'bg-red-100 text-red-800',
+      lace: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400',
+      fingering: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
+      sport: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
+      dk: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
+      worsted: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400',
+      bulky: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
     };
-    return colors[weight?.toLowerCase()] || 'bg-gray-100 text-gray-800';
+    return colors[weight?.toLowerCase()] || 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200';
   };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-gray-500">Loading yarn stash...</div>
+        <div className="text-gray-500 dark:text-gray-400">Loading yarn stash...</div>
       </div>
     );
   }
@@ -345,8 +345,8 @@ export default function YarnStash() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Yarn Stash</h1>
-          <p className="text-gray-600 mt-1">Manage your yarn inventory</p>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Yarn Stash</h1>
+          <p className="text-gray-600 dark:text-gray-400 mt-1">Manage your yarn inventory</p>
         </div>
         <div className="flex gap-3">
           <button
@@ -366,7 +366,7 @@ export default function YarnStash() {
           <div className="relative" ref={moreMenuRef}>
             <button
               onClick={() => setShowMoreMenu((s) => !s)}
-              className="flex items-center justify-center w-10 h-10 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition"
+              className="flex items-center justify-center w-10 h-10 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 transition"
               aria-label="More actions"
               aria-haspopup="menu"
               aria-expanded={showMoreMenu}
@@ -376,12 +376,12 @@ export default function YarnStash() {
             {showMoreMenu && (
               <div
                 role="menu"
-                className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-20"
+                className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 z-20"
               >
                 <button
                   role="menuitem"
                   onClick={() => { setShowMoreMenu(false); navigate('/ravelry/stash/sync'); }}
-                  className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                  className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
                 >
                   <FiRefreshCw className="h-4 w-4" />
                   Sync stash from Ravelry
@@ -389,7 +389,7 @@ export default function YarnStash() {
                 <button
                   role="menuitem"
                   onClick={() => { setShowMoreMenu(false); navigate('/ravelry/favorites/yarns/sync'); }}
-                  className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                  className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
                 >
                   <FiRefreshCw className="h-4 w-4" />
                   Sync favorited yarns from Ravelry
@@ -401,10 +401,10 @@ export default function YarnStash() {
       </div>
 
       {yarn.length === 0 ? (
-        <div className="bg-white rounded-lg shadow p-12 text-center">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-12 text-center">
           <FiPackage className="mx-auto h-16 w-16 text-gray-400 mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No yarn in stash</h3>
-          <p className="text-gray-500 mb-4">Start tracking your yarn collection</p>
+          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No yarn in stash</h3>
+          <p className="text-gray-500 dark:text-gray-400 mb-4">Start tracking your yarn collection</p>
           <button
             onClick={() => setShowCreateModal(true)}
             className="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
@@ -430,7 +430,7 @@ export default function YarnStash() {
           {visibleYarn.map((y) => (
             <div
               key={y.id}
-              className="bg-white rounded-lg shadow hover:shadow-lg transition overflow-hidden flex flex-col relative"
+              className="bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-lg transition overflow-hidden flex flex-col relative"
             >
               <button
                 onClick={(e) => {
@@ -451,7 +451,7 @@ export default function YarnStash() {
               {y.thumbnail_path && (
                 <div
                   onClick={() => navigate(`/yarn/${y.id}`)}
-                  className="w-full h-48 bg-gray-100 overflow-hidden cursor-pointer"
+                  className="w-full h-48 bg-gray-100 dark:bg-gray-700 overflow-hidden cursor-pointer"
                 >
                   <img
                     src={y.thumbnail_path}
@@ -466,11 +466,11 @@ export default function YarnStash() {
               >
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-gray-900 hover:text-purple-600 transition">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 hover:text-purple-600 transition">
                       {y.brand && `${y.brand} `}{y.name}
                     </h3>
                     {y.color && (
-                      <p className="text-sm text-gray-600 mt-1">{y.color}</p>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{y.color}</p>
                     )}
                   </div>
                   {y.weight && (
@@ -485,20 +485,20 @@ export default function YarnStash() {
                 </div>
 
                 {y.fiber_content && (
-                  <p className="text-sm text-gray-500 mb-3">{y.fiber_content}</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">{y.fiber_content}</p>
                 )}
 
                 <div className="space-y-2">
                   {y.skeins_remaining !== undefined && (
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Skeins:</span>
-                      <span className="font-medium text-gray-900">{y.skeins_remaining}</span>
+                      <span className="text-gray-600 dark:text-gray-400">Skeins:</span>
+                      <span className="font-medium text-gray-900 dark:text-gray-100">{y.skeins_remaining}</span>
                     </div>
                   )}
                   {(y.yards_remaining !== undefined || y.remaining_length_m != null) && (
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Length:</span>
-                      <span className="font-medium text-gray-900">
+                      <span className="text-gray-600 dark:text-gray-400">Length:</span>
+                      <span className="font-medium text-gray-900 dark:text-gray-100">
                         {fmt.yarnLength(y.remaining_length_m, y.yards_remaining)}
                       </span>
                     </div>
@@ -507,7 +507,7 @@ export default function YarnStash() {
               </div>
 
               <div className="px-6 pb-6">
-                <div className="flex items-center gap-2 pt-4 border-t border-gray-200">
+                <div className="flex items-center gap-2 pt-4 border-t border-gray-200 dark:border-gray-700">
                   <button
                     onClick={() => handleEditClick(y)}
                     className="flex-1 px-3 py-2 bg-purple-50 text-purple-600 rounded-lg hover:bg-purple-100 transition flex items-center justify-center text-sm"
@@ -533,35 +533,35 @@ export default function YarnStash() {
       {/* Create Yarn Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-gray-200">
-              <h2 className="text-2xl font-bold text-gray-900">Add Yarn to Stash</h2>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Add Yarn to Stash</h2>
             </div>
 
             <form onSubmit={handleCreateYarn} className="p-6 space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Brand
                   </label>
                   <input
                     type="text"
                     value={formData.brand}
                     onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                     placeholder="e.g., Lion Brand"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Yarn Name *
                   </label>
                   <input
                     type="text"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                     placeholder="e.g., Wool-Ease"
                     required
                   />
@@ -570,26 +570,26 @@ export default function YarnStash() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Color
                   </label>
                   <input
                     type="text"
                     value={formData.color}
                     onChange={(e) => setFormData({ ...formData, color: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                     placeholder="e.g., Navy Blue"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Weight
                   </label>
                   <select
                     value={formData.weight}
                     onChange={(e) => setFormData({ ...formData, weight: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                   >
                     <option value="lace">Lace</option>
                     <option value="fingering">Fingering</option>
@@ -603,41 +603,41 @@ export default function YarnStash() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Fiber Content
                 </label>
                 <input
                   type="text"
                   value={formData.fiberContent}
                   onChange={(e) => setFormData({ ...formData, fiberContent: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                   placeholder="e.g., 100% Wool, 80% Acrylic 20% Wool"
                 />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Number of Skeins
                   </label>
                   <input
                     type="number"
                     value={formData.skeinsTotal}
                     onChange={(e) => setFormData({ ...formData, skeinsTotal: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                     min="1"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     {fmt.yarnLengthUnit() === 'm' ? 'Meters' : 'Yards'} per Skein
                   </label>
                   <input
                     type="number"
                     value={formData.yardsTotal}
                     onChange={(e) => setFormData({ ...formData, yardsTotal: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                     placeholder="e.g., 364"
                   />
                 </div>
@@ -645,52 +645,52 @@ export default function YarnStash() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Gauge
                   </label>
                   <input
                     type="text"
                     value={formData.gauge}
                     onChange={(e) => setFormData({ ...formData, gauge: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                     placeholder="e.g., 20 sts over 4 inches"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Needle Sizes
                   </label>
                   <input
                     type="text"
                     value={formData.needleSizes}
                     onChange={(e) => setFormData({ ...formData, needleSizes: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                     placeholder="e.g., US 5 / 3.75 mm"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Description
                 </label>
                 <textarea
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                   placeholder="Marketing description, fiber notes, etc."
                   rows={3}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Notes
                 </label>
                 <textarea
                   value={formData.notes}
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                   placeholder="Personal notes about this yarn"
                   rows={3}
                 />
@@ -700,7 +700,7 @@ export default function YarnStash() {
                 <button
                   type="button"
                   onClick={() => setShowCreateModal(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition"
+                  className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition"
                 >
                   Cancel
                 </button>
@@ -719,35 +719,35 @@ export default function YarnStash() {
       {/* Edit Yarn Modal */}
       {showEditModal && editingYarn && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-gray-200">
-              <h2 className="text-2xl font-bold text-gray-900">Edit Yarn</h2>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Edit Yarn</h2>
             </div>
 
             <form onSubmit={handleUpdateYarn} className="p-6 space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Brand
                   </label>
                   <input
                     type="text"
                     value={formData.brand}
                     onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                     placeholder="e.g., Lion Brand"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Yarn Name *
                   </label>
                   <input
                     type="text"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                     placeholder="e.g., Wool-Ease"
                     required
                   />
@@ -756,26 +756,26 @@ export default function YarnStash() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Color
                   </label>
                   <input
                     type="text"
                     value={formData.color}
                     onChange={(e) => setFormData({ ...formData, color: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                     placeholder="e.g., Navy Blue"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Weight
                   </label>
                   <select
                     value={formData.weight}
                     onChange={(e) => setFormData({ ...formData, weight: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                   >
                     <option value="lace">Lace</option>
                     <option value="fingering">Fingering</option>
@@ -789,41 +789,41 @@ export default function YarnStash() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Fiber Content
                 </label>
                 <input
                   type="text"
                   value={formData.fiberContent}
                   onChange={(e) => setFormData({ ...formData, fiberContent: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                   placeholder="e.g., 100% Wool, 80% Acrylic 20% Wool"
                 />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Number of Skeins
                   </label>
                   <input
                     type="number"
                     value={formData.skeinsTotal}
                     onChange={(e) => setFormData({ ...formData, skeinsTotal: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                     min="1"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     {fmt.yarnLengthUnit() === 'm' ? 'Meters' : 'Yards'} per Skein
                   </label>
                   <input
                     type="number"
                     value={formData.yardsTotal}
                     onChange={(e) => setFormData({ ...formData, yardsTotal: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                     placeholder="e.g., 364"
                   />
                 </div>
@@ -831,64 +831,64 @@ export default function YarnStash() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Gauge
                   </label>
                   <input
                     type="text"
                     value={formData.gauge}
                     onChange={(e) => setFormData({ ...formData, gauge: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                     placeholder="e.g., 20 sts over 4 inches"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Needle Sizes
                   </label>
                   <input
                     type="text"
                     value={formData.needleSizes}
                     onChange={(e) => setFormData({ ...formData, needleSizes: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                     placeholder="e.g., US 5 / 3.75 mm"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Description
                 </label>
                 <textarea
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                   placeholder="Marketing description, fiber notes, etc."
                   rows={3}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Notes
                 </label>
                 <textarea
                   value={formData.notes}
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                   placeholder="Personal notes about this yarn"
                   rows={3}
                 />
               </div>
 
               {/* Photo Gallery Section */}
-              <div className="border-t border-gray-200 pt-4">
-                <h3 className="text-sm font-medium text-gray-900 mb-3">Photos</h3>
+              <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+                <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">Photos</h3>
 
                 {/* Photo Upload */}
                 <div className="mb-4">
-                  <label className="block text-sm text-gray-600 mb-2">
+                  <label className="block text-sm text-gray-600 dark:text-gray-400 mb-2">
                     Add photo to visualize your yarn
                   </label>
                   <input
@@ -896,10 +896,10 @@ export default function YarnStash() {
                     accept="image/*"
                     onChange={handlePhotoUpload}
                     disabled={uploadingPhoto}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100 disabled:opacity-50 disabled:cursor-not-allowed"
                   />
                   {uploadingPhoto && (
-                    <p className="text-sm text-gray-500 mt-2">Uploading...</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">Uploading...</p>
                   )}
                 </div>
 
@@ -911,7 +911,7 @@ export default function YarnStash() {
                         <img
                           src={photo.thumbnail_path}
                           alt={photo.original_filename}
-                          className="w-full h-24 object-cover rounded-lg border border-gray-200"
+                          className="w-full h-24 object-cover rounded-lg border border-gray-200 dark:border-gray-700"
                         />
                         <button
                           type="button"
@@ -927,28 +927,28 @@ export default function YarnStash() {
                 )}
 
                 {yarnPhotos.length === 0 && (
-                  <p className="text-sm text-gray-500 text-center py-4 bg-gray-50 rounded-lg">
+                  <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
                     No photos yet. Upload a photo to see what your yarn looks like!
                   </p>
                 )}
               </div>
 
-              <div className="border-t border-gray-200 pt-4">
-                <h3 className="text-sm font-medium text-gray-900 mb-3">Low Stock Alerts <HelpTooltip text="Get notified on your dashboard when your remaining yards drop below this threshold." /></h3>
+              <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+                <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">Low Stock Alerts <HelpTooltip text="Get notified on your dashboard when your remaining yards drop below this threshold." /></h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       Low Stock Threshold ({fmt.yarnLengthUnit()})
                     </label>
                     <input
                       type="number"
                       value={formData.lowStockThreshold}
                       onChange={(e) => setFormData({ ...formData, lowStockThreshold: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                       placeholder="e.g., 100"
                       min="0"
                     />
-                    <p className="text-xs text-gray-500 mt-1">Get notified when yards drop below this amount</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Get notified when yards drop below this amount</p>
                   </div>
 
                   <div className="flex items-center">
@@ -957,9 +957,9 @@ export default function YarnStash() {
                         type="checkbox"
                         checked={formData.lowStockAlert}
                         onChange={(e) => setFormData({ ...formData, lowStockAlert: e.target.checked })}
-                        className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
+                        className="w-4 h-4 text-purple-600 border-gray-300 dark:border-gray-600 rounded focus:ring-purple-500"
                       />
-                      <span className="ml-2 text-sm text-gray-700">Enable low stock alerts</span>
+                      <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">Enable low stock alerts</span>
                     </label>
                   </div>
                 </div>
@@ -974,7 +974,7 @@ export default function YarnStash() {
                     setYarnPhotos([]);
                     setFormData(emptyFormData);
                   }}
-                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition"
+                  className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition"
                 >
                   Cancel
                 </button>
