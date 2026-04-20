@@ -58,6 +58,14 @@ interface LinkedProject {
   skeins_used: number | null;
 }
 
+interface RavelryPack {
+  id: number;
+  name: string | null;
+  hex: string | null;
+  colorFamily: string | null;
+  photoUrl: string | null;
+}
+
 const getWeightColor = (weight: string): string => {
   const colors: Record<string, string> = {
     lace: 'bg-pink-100 text-pink-800',
@@ -79,6 +87,8 @@ export default function YarnDetail() {
   const [photos, setPhotos] = useState<YarnPhoto[]>([]);
   const [projects, setProjects] = useState<LinkedProject[]>([]);
   const [projectsLoading, setProjectsLoading] = useState(true);
+  const [packs, setPacks] = useState<RavelryPack[] | null>(null);
+  const [packsLoading, setPacksLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [activePhotoIndex, setActivePhotoIndex] = useState(0);
@@ -123,6 +133,35 @@ export default function YarnDetail() {
       setProjectsLoading(false);
     }
   };
+
+  // Fetch Ravelry colorways when this yarn is linked to a Ravelry yarn model.
+  // The ravelry_id column is overloaded: stash-imported rows hold a stash
+  // entry id (not a yarn-model id), so the /packs endpoint returns 404 and
+  // we silently hide the section.
+  useEffect(() => {
+    if (!yarn?.ravelry_id) {
+      setPacks(null);
+      return;
+    }
+    let cancelled = false;
+    setPacksLoading(true);
+    axios
+      .get<{ success: boolean; data: { packs: RavelryPack[] } }>(
+        `/api/ravelry/yarns/${yarn.ravelry_id}/packs`
+      )
+      .then((response) => {
+        if (!cancelled) setPacks(response.data.data.packs);
+      })
+      .catch(() => {
+        if (!cancelled) setPacks(null);
+      })
+      .finally(() => {
+        if (!cancelled) setPacksLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [yarn?.ravelry_id]);
 
   const handleDelete = async () => {
     try {
@@ -314,6 +353,54 @@ export default function YarnDetail() {
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Description</h2>
               <div className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{yarn.description}</div>
+            </div>
+          )}
+
+          {/* Color cards (Ravelry packs) */}
+          {yarn.ravelry_id && (packsLoading || (packs && packs.length > 0)) && (
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+              <div className="flex items-baseline justify-between mb-4">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Color cards</h2>
+                {packs && (
+                  <span className="text-sm text-gray-500 dark:text-gray-400">
+                    {packs.length} colorway{packs.length === 1 ? '' : 's'} on Ravelry
+                  </span>
+                )}
+              </div>
+              {packsLoading ? (
+                <p className="text-sm text-gray-500 dark:text-gray-400">Loading colorways…</p>
+              ) : (
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
+                  {packs!.map((pack) => (
+                    <div key={pack.id} className="flex flex-col items-center text-center">
+                      <div
+                        className="w-full aspect-square rounded-lg border border-gray-200 dark:border-gray-600 overflow-hidden flex items-center justify-center"
+                        style={pack.hex ? { backgroundColor: pack.hex } : undefined}
+                        title={pack.name || ''}
+                      >
+                        {pack.photoUrl ? (
+                          <img
+                            src={pack.photoUrl}
+                            alt={pack.name || ''}
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                          />
+                        ) : null}
+                      </div>
+                      {pack.name && (
+                        <span className="mt-1 text-xs text-gray-700 dark:text-gray-300 line-clamp-2">
+                          {pack.name}
+                        </span>
+                      )}
+                      {pack.colorFamily && !pack.name && (
+                        <span className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                          {pack.colorFamily}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
