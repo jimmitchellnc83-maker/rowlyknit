@@ -531,6 +531,13 @@ export default function Profile() {
                   Sync projects
                 </button>
                 <button
+                  onClick={() => navigate('/ravelry/favorites/yarns/sync')}
+                  className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
+                >
+                  <FiRefreshCw className="h-4 w-4" />
+                  Sync favorited yarns
+                </button>
+                <button
                   onClick={() => navigate('/ravelry/favorites')}
                   className="flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition"
                 >
