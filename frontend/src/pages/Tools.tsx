@@ -3,6 +3,7 @@ import { FiPlus, FiTrash2, FiTool, FiEdit2, FiSearch, FiChevronRight } from 'rea
 import { toast } from 'react-toastify';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import ConfirmModal from '../components/ConfirmModal';
+import ListControls, { applyListControls, type SortOption } from '../components/ListControls';
 import ToolTypeAutocomplete from '../components/ToolTypeAutocomplete';
 import { useTools as useToolsQuery, useCreateTool, useUpdateTool, useDeleteTool } from '../hooks/useApi';
 import { useToolTaxonomyTree } from '../hooks/useToolTaxonomy';
@@ -42,6 +43,13 @@ interface FormData {
   quantity: string;
 }
 
+const TOOL_SORT_OPTIONS: SortOption<Tool>[] = [
+  { id: 'recent', label: 'Recently added', compare: () => 0 },
+  { id: 'name_asc', label: 'Name (A–Z)', compare: (a, b) => (a.name || '').localeCompare(b.name || '') },
+  { id: 'category', label: 'Category', compare: (a, b) => (a.category || '').localeCompare(b.category || '') },
+  { id: 'size_asc', label: 'Size (smallest first)', compare: (a, b) => (a.size_mm ?? 99) - (b.size_mm ?? 99) },
+];
+
 const EMPTY_FORM: FormData = {
   name: '',
   category: '',
@@ -70,6 +78,8 @@ export default function Tools() {
   const [editingTool, setEditingTool] = useState<Tool | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [filterCategory, setFilterCategory] = useState<string>('all');
+  const [listSearch, setListSearch] = useState('');
+  const [listSortId, setListSortId] = useState<string>('recent');
   const [formData, setFormData] = useState<FormData>({ ...EMPTY_FORM });
   const [showSearch, setShowSearch] = useState(false);
 
@@ -271,6 +281,12 @@ export default function Tools() {
   const filteredTools = filterCategory === 'all'
     ? tools
     : tools.filter((t) => (t.category || 'other') === filterCategory);
+
+  const visibleTools = applyListControls(filteredTools, {
+    search: listSearch,
+    searchFields: (t) => [t.name, t.brand, t.material, t.type, t.size],
+    sort: TOOL_SORT_OPTIONS.find((s) => s.id === listSortId),
+  });
 
   if (loading) {
     return (
@@ -534,6 +550,18 @@ export default function Tools() {
         </button>
       </div>
 
+      {tools.length > 0 && (
+        <ListControls
+          searchValue={listSearch}
+          onSearchChange={setListSearch}
+          searchPlaceholder="Search tools…"
+          sortOptions={TOOL_SORT_OPTIONS}
+          sortValue={listSortId}
+          onSortChange={setListSortId}
+          resultCount={visibleTools.length}
+        />
+      )}
+
       {/* Category filter pills */}
       {tools.length > 0 && categoryCounts.size > 0 && (
         <div className="flex flex-wrap gap-2 mb-6">
@@ -580,20 +608,20 @@ export default function Tools() {
             Add Your First Tool
           </button>
         </div>
-      ) : filteredTools.length === 0 ? (
+      ) : visibleTools.length === 0 ? (
         <div className="bg-white rounded-lg shadow p-12 text-center">
           <FiTool className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No tools in this category</h3>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">No tools match your filters</h3>
           <button
-            onClick={() => setFilterCategory('all')}
+            onClick={() => { setFilterCategory('all'); setListSearch(''); }}
             className="text-purple-600 hover:text-purple-700 text-sm font-medium"
           >
-            Show all tools
+            Clear filters
           </button>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredTools.map((tool) => (
+          {visibleTools.map((tool) => (
             <div key={tool.id} className="bg-white rounded-lg shadow hover:shadow-lg transition p-6">
               <div className="flex items-start justify-between mb-2">
                 <h3 className="text-lg font-semibold text-gray-900 flex-1 mr-2">{tool.name}</h3>

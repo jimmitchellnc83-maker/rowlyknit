@@ -1,10 +1,11 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FiPlus, FiTrash2, FiCalendar, FiClock, FiMoreVertical, FiHeart, FiRefreshCw } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import ConfirmModal from '../components/ConfirmModal';
+import ListControls, { applyListControls, type SortOption } from '../components/ListControls';
 import { useProjects, useCreateProject, useDeleteProject, useUpdateProject } from '../hooks/useApi';
 
 interface ProjectTypeOption {
@@ -44,12 +45,38 @@ const formatProjectTypeLabel = (value: string) => {
     .join(' ');
 };
 
+const PROJECT_SORT_OPTIONS: SortOption<any>[] = [
+  {
+    id: 'recent',
+    label: 'Recently added',
+    compare: (a, b) => (b.created_at || '').localeCompare(a.created_at || ''),
+  },
+  { id: 'name_asc', label: 'Name (A–Z)', compare: (a, b) => (a.name || '').localeCompare(b.name || '') },
+  { id: 'status', label: 'Status', compare: (a, b) => (a.status || '').localeCompare(b.status || '') },
+  {
+    id: 'target_date',
+    label: 'Target date (soonest)',
+    compare: (a, b) => (a.target_completion_date || '9999').localeCompare(b.target_completion_date || '9999'),
+  },
+];
+
 export default function Projects() {
   const navigate = useNavigate();
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const { data: projects = [], isLoading: loading } = useProjects({
     favorite: showFavoritesOnly,
   }) as { data: any[]; isLoading: boolean };
+  const [search, setSearch] = useState('');
+  const [sortId, setSortId] = useState<string>('recent');
+  const visibleProjects = useMemo(
+    () =>
+      applyListControls(projects, {
+        search,
+        searchFields: (p: any) => [p.name, p.description, p.project_type, p.status],
+        sort: PROJECT_SORT_OPTIONS.find((s) => s.id === sortId),
+      }),
+    [projects, search, sortId],
+  );
   const createProject = useCreateProject();
   const updateProjectMutation = useUpdateProject();
   const deleteProjectMutation = useDeleteProject();
@@ -209,14 +236,6 @@ export default function Projects() {
               >
                 <button
                   role="menuitem"
-                  onClick={() => { setShowMoreMenu(false); setShowFavoritesOnly((v) => !v); }}
-                  className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                >
-                  <FiHeart className={`h-4 w-4 ${showFavoritesOnly ? 'text-red-500 fill-current' : ''}`} />
-                  {showFavoritesOnly ? 'Show all projects' : 'Show favorites only'}
-                </button>
-                <button
-                  role="menuitem"
                   onClick={() => { setShowMoreMenu(false); navigate('/ravelry/projects/sync'); }}
                   className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
                 >
@@ -244,8 +263,20 @@ export default function Projects() {
           </button>
         </div>
       ) : (
+        <>
+        <ListControls
+          searchValue={search}
+          onSearchChange={setSearch}
+          searchPlaceholder="Search projects…"
+          sortOptions={PROJECT_SORT_OPTIONS}
+          sortValue={sortId}
+          onSortChange={setSortId}
+          showFavorites={showFavoritesOnly}
+          onShowFavoritesChange={setShowFavoritesOnly}
+          resultCount={visibleProjects.length}
+        />
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {projects.map((project: any) => (
+          {visibleProjects.map((project: any) => (
             <div
               key={project.id}
               className="bg-white rounded-lg shadow hover:shadow-lg transition p-6 relative"
@@ -323,6 +354,7 @@ export default function Projects() {
             </div>
           ))}
         </div>
+        </>
       )}
 
       {/* Create Project Modal */}
