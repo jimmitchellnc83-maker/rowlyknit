@@ -1,4 +1,5 @@
 import { Knex } from 'knex';
+import { randomBytes } from 'crypto';
 import { hashPassword } from '../src/utils/password';
 
 export async function seed(knex: Knex): Promise<void> {
@@ -20,8 +21,15 @@ export async function seed(knex: Knex): Promise<void> {
   await knex('audit_logs').del();
   await knex('users').del();
 
-  // Create demo user
-  const passwordHash = await hashPassword('Demo123!@#');
+  // Create demo user.
+  // The demo account is publicly accessible via the "Try Demo" button
+  // (POST /api/auth/demo-login), which is passwordless. The password below is
+  // intentionally unguessable so the standard /api/auth/login path cannot be
+  // abused by anyone who learned the old public credential. Set DEMO_PASSWORD
+  // in the environment if you need a known password (e.g., for CI/tests);
+  // otherwise a random 32-byte secret is generated per seed run and discarded.
+  const demoPassword = process.env.DEMO_PASSWORD || randomBytes(32).toString('hex');
+  const passwordHash = await hashPassword(demoPassword);
   const [demoUser] = await knex('users')
     .insert({
       email: 'demo@rowlyknit.com',
@@ -379,7 +387,10 @@ export async function seed(knex: Knex): Promise<void> {
   console.log('✓ Created recipients and gifts');
 
   console.log('\n✅ Sample data seeded successfully!');
-  console.log('\nDemo account credentials:');
-  console.log('Email: demo@rowlyknit.com');
-  console.log('Password: Demo123!@#');
+  console.log('\nDemo account: demo@rowlyknit.com');
+  if (process.env.DEMO_PASSWORD) {
+    console.log('Password:     (from DEMO_PASSWORD env var)');
+  } else {
+    console.log('Password:     (random — use the "Try Demo" button on /login)');
+  }
 }

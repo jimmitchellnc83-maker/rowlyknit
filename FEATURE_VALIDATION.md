@@ -4,16 +4,20 @@ Use this smoke script to quickly verify the core features that were previously f
 
 ## Prerequisites
 - API server running and reachable (default: `http://localhost:5000`).
-- Demo credentials or a valid user. Defaults are:
-  - `demo@rowlyknit.com`
-  - `Demo123!@#`
 - `jq` installed locally for response parsing.
+
+The script authenticates via the passwordless `/api/auth/demo-login`
+endpoint by default, so no credentials are needed. To authenticate as a
+specific user instead, set `LOGIN_EMAIL` and `LOGIN_PASSWORD`.
 
 ## Run the smoke checks
 ```bash
+API_URL="https://rowlyknit.com" ./scripts/feature-smoke.sh
+
+# Or against a non-demo account:
 API_URL="https://rowlyknit.com" \
-LOGIN_EMAIL="demo@rowlyknit.com" \
-LOGIN_PASSWORD="Demo123!@#" \
+LOGIN_EMAIL="you@example.com" \
+LOGIN_PASSWORD="..." \
 ./scripts/feature-smoke.sh
 ```
 

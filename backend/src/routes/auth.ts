@@ -45,6 +45,19 @@ router.post(
 );
 
 /**
+ * @route   POST /api/auth/demo-login
+ * @desc    Passwordless login for the seeded demo user (Try Demo button).
+ *          Keeps demo credentials out of client HTML / search-engine results.
+ * @access  Public
+ */
+router.post(
+  '/demo-login',
+  requireSameOrigin,
+  authLimiter,
+  asyncHandler(authController.demoLogin)
+);
+
+/**
  * @route   POST /api/auth/refresh
  * @desc    Refresh access token
  * @access  Public

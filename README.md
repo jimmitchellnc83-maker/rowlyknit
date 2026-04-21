@@ -383,11 +383,9 @@ Coming soon!
 
 ---
 
-**Demo Account**
-- Email: demo@rowlyknit.com
-- Password: Demo123!@#
+**Try the Demo**
+Visit the login page and click **"Try the demo"** — no sign-up or credentials required. You'll land in a sandboxed demo account pre-loaded with sample projects, patterns, and yarn.
 
 **Production URL**: https://rowlyknit.com
-**Server IP**: 165.227.97.4
 
 Made with ❤️ and 🧶 by knitters, for knitters.

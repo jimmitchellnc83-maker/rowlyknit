@@ -29,6 +29,7 @@ interface AuthState {
   accessToken: string | null;
   isAuthenticated: boolean;
   login: (email: string, password: string, rememberMe?: boolean) => Promise<void>;
+  demoLogin: () => Promise<void>;
   register: (data: any) => Promise<void>;
   logout: () => Promise<void>;
   setUser: (user: User) => void;
@@ -59,6 +60,13 @@ export const useAuthStore = create<AuthState>()(
         });
 
         // Set axios default header
+        axios.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
+      },
+
+      demoLogin: async () => {
+        const response = await axios.post('/api/auth/demo-login');
+        const { user, accessToken } = response.data.data;
+        set({ user, accessToken, isAuthenticated: true });
         axios.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
       },
 
