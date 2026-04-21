@@ -8,6 +8,7 @@ import axios from 'axios';
 import fs from 'fs';
 import path from 'path';
 import { sanitizeSearchQuery } from '../utils/inputSanitizer';
+import { assertPublicUrl } from '../utils/ssrfGuard';
 
 /**
  * Serialize pattern fields for frontend.
@@ -461,9 +462,12 @@ export async function collatePatterns(req: Request, res: Response) {
       // Load the PDF file
       let pdfBytes: Uint8Array;
       if (pdfFile.file_path.startsWith('http')) {
-        // Remote file
+        // Remote file — guard against SSRF (private IPs, cloud metadata, etc.)
+        await assertPublicUrl(pdfFile.file_path);
         const response = await axios.get(pdfFile.file_path, {
           responseType: 'arraybuffer',
+          timeout: 15000,
+          maxRedirects: 3,
         });
         pdfBytes = new Uint8Array(response.data);
       } else {
