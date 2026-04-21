@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   FiArrowLeft, FiEdit2, FiTrash2, FiCalendar, FiClock, FiCheck, FiImage,
@@ -19,7 +19,18 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import PatternPreview from '../components/PatternPreview';
 import HelpTooltip from '../components/HelpTooltip';
 import ConfirmModal from '../components/ConfirmModal';
-import { useFocusTrap } from '../hooks/useFocusTrap';
+import {
+  EditProjectModal,
+  AddPatternModal,
+  UploadPatternModal,
+  AddYarnModal,
+  AddToolModal,
+} from '../components/project-detail/modals';
+import type {
+  EditProjectFormData,
+  NewPatternData,
+  AddYarnData,
+} from '../components/project-detail/modals';
 import { useMeasurements } from '../hooks/useMeasurements';
 import { useKnittingMode } from '../contexts/KnittingModeContext';
 
@@ -85,30 +96,6 @@ export default function ProjectDetail() {
   const [availableTools, setAvailableTools] = useState<any[]>([]);
   const [availableRecipients, setAvailableRecipients] = useState<any[]>([]);
 
-  // Selected items for adding
-  const [selectedPatternId, setSelectedPatternId] = useState('');
-  const [selectedYarnId, setSelectedYarnId] = useState('');
-  const [yarnQuantity, setYarnQuantity] = useState({ skeins: '', yards: '' });
-  const [selectedToolId, setSelectedToolId] = useState('');
-
-  // Pattern upload form
-  const [uploadingPattern, setUploadingPattern] = useState(false);
-  const [newPatternData, setNewPatternData] = useState({
-    name: '',
-    description: '',
-    designer: '',
-    difficulty: 'intermediate',
-  });
-  const [patternFile, setPatternFile] = useState<File | null>(null);
-
-  const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    status: 'active',
-    notes: '',
-    recipientId: '',
-  });
-
   useEffect(() => {
     fetchProject();
     fetchPhotos();
@@ -163,15 +150,7 @@ export default function ProjectDetail() {
   const fetchProject = async () => {
     try {
       const response = await axios.get(`/api/projects/${id}`);
-      const projectData = response.data.data.project;
-      setProject(projectData);
-      setFormData({
-        name: projectData.name,
-        description: projectData.description || '',
-        status: projectData.status || 'active',
-        notes: projectData.notes || '',
-        recipientId: projectData.recipient_id || '',
-      });
+      setProject(response.data.data.project);
     } catch (error: any) {
       console.error('Error fetching project:', error);
       toast.error('Failed to load project');
@@ -198,37 +177,20 @@ export default function ProjectDetail() {
     }
   };
 
-  const [updatingProject, setUpdatingProject] = useState(false);
-  const handleUpdate = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    setUpdatingProject(true);
+  const handleUpdateProject = async (data: EditProjectFormData) => {
     try {
-      await axios.put(`/api/projects/${id}`, formData);
+      await axios.put(`/api/projects/${id}`, data);
       toast.success('Project updated successfully!');
-      setShowEditModal(false);
-      fetchProject();
+      await fetchProject();
     } catch (error: any) {
       console.error('Error updating project:', error);
       toast.error('Failed to update project');
-    } finally {
-      setUpdatingProject(false);
+      throw error;
     }
   };
 
   const [showDeleteProjectConfirm, setShowDeleteProjectConfirm] = useState(false);
   const [removeYarnTarget, setRemoveYarnTarget] = useState<string | null>(null);
-
-  const editModalRef = useRef<HTMLDivElement>(null);
-  const addPatternModalRef = useRef<HTMLDivElement>(null);
-  const uploadPatternModalRef = useRef<HTMLDivElement>(null);
-  const addYarnModalRef = useRef<HTMLDivElement>(null);
-  const addToolModalRef = useRef<HTMLDivElement>(null);
-  useFocusTrap(editModalRef, showEditModal);
-  useFocusTrap(addPatternModalRef, showAddPatternModal);
-  useFocusTrap(uploadPatternModalRef, showUploadPatternModal);
-  useFocusTrap(addYarnModalRef, showAddYarnModal);
-  useFocusTrap(addToolModalRef, showAddToolModal);
 
   const handleDelete = async () => {
     try {
@@ -271,23 +233,15 @@ export default function ProjectDetail() {
   };
 
   // Pattern management
-  const handleAddPattern = async () => {
-    if (!selectedPatternId) {
-      toast.error('Please select a pattern');
-      return;
-    }
-
+  const handleAddPattern = async (patternId: string) => {
     try {
-      await axios.post(`/api/projects/${id}/patterns`, {
-        patternId: selectedPatternId,
-      });
+      await axios.post(`/api/projects/${id}/patterns`, { patternId });
       toast.success('Pattern added to project!');
-      setShowAddPatternModal(false);
-      setSelectedPatternId('');
-      fetchProject();
+      await fetchProject();
     } catch (error: any) {
       console.error('Error adding pattern:', error);
       toast.error(error.response?.data?.message || 'Failed to add pattern');
+      throw error;
     }
   };
 
@@ -303,30 +257,16 @@ export default function ProjectDetail() {
   };
 
   // Upload new pattern directly from project
-  const handleUploadPattern = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!patternFile) {
-      toast.error('Please select a pattern file to upload');
-      return;
-    }
-
-    if (!newPatternData.name.trim()) {
-      toast.error('Please enter a pattern name');
-      return;
-    }
-
-    setUploadingPattern(true);
-
+  const handleUploadAndAddPattern = async (data: NewPatternData, file: File) => {
     try {
       // Step 1: Create the pattern
-      const createResponse = await axios.post('/api/patterns', newPatternData);
+      const createResponse = await axios.post('/api/patterns', data);
       const newPattern = createResponse.data.data.pattern;
       toast.success('Pattern created!');
 
       // Step 2: Upload the file to the pattern
       const fileFormData = new FormData();
-      fileFormData.append('file', patternFile);
+      fileFormData.append('file', file);
       fileFormData.append('description', 'Pattern file');
 
       await axios.post(`/api/uploads/patterns/${newPattern.id}/files`, fileFormData, {
@@ -342,47 +282,24 @@ export default function ProjectDetail() {
       });
       toast.success('Pattern added to project!');
 
-      // Reset form and close modal
-      setShowUploadPatternModal(false);
-      setNewPatternData({
-        name: '',
-        description: '',
-        designer: '',
-        difficulty: 'intermediate',
-      });
-      setPatternFile(null);
-      fetchProject();
-      fetchAvailableItems();
+      await Promise.all([fetchProject(), fetchAvailableItems()]);
     } catch (error: any) {
       console.error('Error uploading pattern:', error);
       toast.error(error.response?.data?.message || 'Failed to upload pattern');
-    } finally {
-      setUploadingPattern(false);
+      throw error;
     }
   };
 
   // Yarn management
-  const handleAddYarn = async () => {
-    if (!selectedYarnId) {
-      toast.error('Please select yarn');
-      return;
-    }
-
+  const handleAddYarn = async (data: AddYarnData) => {
     try {
-      await axios.post(`/api/projects/${id}/yarn`, {
-        yarnId: selectedYarnId,
-        skeinsUsed: yarnQuantity.skeins ? parseFloat(yarnQuantity.skeins) : undefined,
-        yardsUsed: yarnQuantity.yards ? parseFloat(yarnQuantity.yards) : undefined,
-      });
+      await axios.post(`/api/projects/${id}/yarn`, data);
       toast.success('Yarn added to project! Stash has been updated.');
-      setShowAddYarnModal(false);
-      setSelectedYarnId('');
-      setYarnQuantity({ skeins: '', yards: '' });
-      fetchProject();
-      fetchAvailableItems(); // Refresh to show updated yarn quantities
+      await Promise.all([fetchProject(), fetchAvailableItems()]);
     } catch (error: any) {
       console.error('Error adding yarn:', error);
       toast.error(error.response?.data?.message || 'Failed to add yarn');
+      throw error;
     }
   };
 
@@ -401,23 +318,15 @@ export default function ProjectDetail() {
   };
 
   // Tool management
-  const handleAddTool = async () => {
-    if (!selectedToolId) {
-      toast.error('Please select a tool');
-      return;
-    }
-
+  const handleAddTool = async (toolId: string) => {
     try {
-      await axios.post(`/api/projects/${id}/tools`, {
-        toolId: selectedToolId,
-      });
+      await axios.post(`/api/projects/${id}/tools`, { toolId });
       toast.success('Tool added to project!');
-      setShowAddToolModal(false);
-      setSelectedToolId('');
-      fetchProject();
+      await fetchProject();
     } catch (error: any) {
       console.error('Error adding tool:', error);
       toast.error(error.response?.data?.message || 'Failed to add tool');
+      throw error;
     }
   };
 
@@ -685,7 +594,7 @@ export default function ProjectDetail() {
     );
   }
 
-  const selectedRecipient = availableRecipients.find(r => r.id === formData.recipientId);
+  const selectedRecipient = availableRecipients.find(r => r.id === project.recipient_id);
 
   return (
     <div>
@@ -1265,436 +1174,46 @@ export default function ProjectDetail() {
         </>
       )}
 
-      {/* Edit Modal */}
       {showEditModal && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="edit-project-title"
-        >
-          <div ref={editModalRef} className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-gray-200">
-              <h2 id="edit-project-title" className="text-2xl font-bold text-gray-900">Edit Project</h2>
-            </div>
-
-            <form onSubmit={handleUpdate} className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Project Name
-                </label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
-                <textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  rows={3}
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
-                  <select
-                    value={formData.status}
-                    onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  >
-                    <option value="planned">Planned</option>
-                    <option value="active">Active</option>
-                    <option value="paused">Paused</option>
-                    <option value="completed">Completed</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Gift Recipient (Optional)
-                  </label>
-                  <select
-                    value={formData.recipientId}
-                    onChange={(e) => setFormData({ ...formData, recipientId: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  >
-                    <option value="">None</option>
-                    {availableRecipients.map((r) => (
-                      <option key={r.id} value={r.id}>
-                        {r.first_name} {r.last_name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Notes</label>
-                <textarea
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  rows={5}
-                  placeholder="Add notes about your project..."
-                />
-              </div>
-
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowEditModal(false)}
-                  disabled={updatingProject}
-                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={updatingProject}
-                  className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed"
-                >
-                  {updatingProject ? 'Saving…' : 'Save Changes'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <EditProjectModal
+          project={project}
+          availableRecipients={availableRecipients}
+          onClose={() => setShowEditModal(false)}
+          onSubmit={handleUpdateProject}
+        />
       )}
 
-      {/* Add Pattern Modal */}
       {showAddPatternModal && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="add-pattern-title"
-        >
-          <div ref={addPatternModalRef} className="bg-white rounded-lg shadow-xl max-w-md w-full">
-            <div className="p-6 border-b border-gray-200">
-              <h2 id="add-pattern-title" className="text-xl font-bold text-gray-900">Add Pattern to Project</h2>
-            </div>
-
-            <div className="p-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Select Pattern
-              </label>
-              <select
-                value={selectedPatternId}
-                onChange={(e) => setSelectedPatternId(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent mb-4"
-              >
-                <option value="">Choose a pattern...</option>
-                {availablePatterns
-                  .filter(p => !project?.patterns?.some((pp: any) => pp.id === p.id))
-                  .map((pattern) => (
-                    <option key={pattern.id} value={pattern.id}>
-                      {pattern.name}
-                      {pattern.designer && ` by ${pattern.designer}`}
-                    </option>
-                  ))}
-              </select>
-
-              <div className="flex gap-3">
-                <button
-                  onClick={() => {
-                    setShowAddPatternModal(false);
-                    setSelectedPatternId('');
-                  }}
-                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleAddPattern}
-                  className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
-                >
-                  Add Pattern
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <AddPatternModal
+          availablePatterns={availablePatterns}
+          existingPatternIds={(project.patterns || []).map((p: any) => p.id)}
+          onClose={() => setShowAddPatternModal(false)}
+          onSubmit={handleAddPattern}
+        />
       )}
 
-      {/* Upload New Pattern Modal */}
       {showUploadPatternModal && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="upload-pattern-title"
-        >
-          <div ref={uploadPatternModalRef} className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-gray-200">
-              <h2 id="upload-pattern-title" className="text-xl font-bold text-gray-900">Upload New Pattern</h2>
-              <p className="text-sm text-gray-600 mt-1">Upload a PDF pattern and add it to this project</p>
-            </div>
-
-            <form onSubmit={handleUploadPattern} className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Pattern Name *
-                </label>
-                <input
-                  type="text"
-                  value={newPatternData.name}
-                  onChange={(e) => setNewPatternData({ ...newPatternData, name: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  placeholder="e.g., Cable Knit Sweater"
-                  required
-                  disabled={uploadingPattern}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Designer
-                </label>
-                <input
-                  type="text"
-                  value={newPatternData.designer}
-                  onChange={(e) => setNewPatternData({ ...newPatternData, designer: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  placeholder="e.g., Jane Doe"
-                  disabled={uploadingPattern}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Difficulty
-                </label>
-                <select
-                  value={newPatternData.difficulty}
-                  onChange={(e) => setNewPatternData({ ...newPatternData, difficulty: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  disabled={uploadingPattern}
-                >
-                  <option value="beginner">Beginner</option>
-                  <option value="intermediate">Intermediate</option>
-                  <option value="advanced">Advanced</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Description
-                </label>
-                <textarea
-                  value={newPatternData.description}
-                  onChange={(e) => setNewPatternData({ ...newPatternData, description: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  rows={3}
-                  placeholder="Brief description of the pattern..."
-                  disabled={uploadingPattern}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Pattern File (PDF) *
-                </label>
-                <input
-                  type="file"
-                  accept=".pdf,application/pdf"
-                  onChange={(e) => setPatternFile(e.target.files?.[0] || null)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100"
-                  required
-                  disabled={uploadingPattern}
-                />
-                {patternFile && (
-                  <p className="text-sm text-gray-600 mt-2">
-                    Selected: {patternFile.name} ({(patternFile.size / 1024 / 1024).toFixed(2)} MB)
-                  </p>
-                )}
-              </div>
-
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowUploadPatternModal(false);
-                    setNewPatternData({
-                      name: '',
-                      description: '',
-                      designer: '',
-                      difficulty: 'intermediate',
-                    });
-                    setPatternFile(null);
-                  }}
-                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition"
-                  disabled={uploadingPattern}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed"
-                  disabled={uploadingPattern}
-                >
-                  {uploadingPattern ? 'Uploading...' : 'Upload & Add to Project'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <UploadPatternModal
+          onClose={() => setShowUploadPatternModal(false)}
+          onSubmit={handleUploadAndAddPattern}
+        />
       )}
 
-      {/* Add Yarn Modal */}
       {showAddYarnModal && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="add-yarn-title"
-        >
-          <div ref={addYarnModalRef} className="bg-white rounded-lg shadow-xl max-w-md w-full">
-            <div className="p-6 border-b border-gray-200">
-              <h2 id="add-yarn-title" className="text-xl font-bold text-gray-900">Add Yarn to Project</h2>
-            </div>
-
-            <div className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Select Yarn
-                </label>
-                <select
-                  value={selectedYarnId}
-                  onChange={(e) => setSelectedYarnId(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                >
-                  <option value="">Choose yarn...</option>
-                  {availableYarn
-                    .filter(y => y.skeins_remaining > 0)
-                    .map((yarn) => (
-                      <option key={yarn.id} value={yarn.id}>
-                        {yarn.brand} {yarn.name} - {yarn.color}
-                        ({yarn.skeins_remaining} skeins, {fmt.yarnLength(yarn.remaining_length_m, yarn.yards_remaining)} available)
-                      </option>
-                    ))}
-                </select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Skeins to Use
-                  </label>
-                  <input
-                    type="number"
-                    value={yarnQuantity.skeins}
-                    onChange={(e) => setYarnQuantity({ ...yarnQuantity, skeins: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                    placeholder="0"
-                    min="0"
-                    step="0.1"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    {fmt.yarnLengthUnit() === 'm' ? 'Meters' : 'Yards'} to Use
-                  </label>
-                  <input
-                    type="number"
-                    value={yarnQuantity.yards}
-                    onChange={(e) => setYarnQuantity({ ...yarnQuantity, yards: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                    placeholder="0"
-                    min="0"
-                    step="1"
-                  />
-                </div>
-              </div>
-
-              <p className="text-sm text-gray-500">
-                The specified amount will be deducted from your stash automatically.
-              </p>
-
-              <div className="flex gap-3 pt-2">
-                <button
-                  onClick={() => {
-                    setShowAddYarnModal(false);
-                    setSelectedYarnId('');
-                    setYarnQuantity({ skeins: '', yards: '' });
-                  }}
-                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleAddYarn}
-                  className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
-                >
-                  Add Yarn
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <AddYarnModal
+          availableYarn={availableYarn}
+          onClose={() => setShowAddYarnModal(false)}
+          onSubmit={handleAddYarn}
+        />
       )}
 
-      {/* Add Tool Modal */}
       {showAddToolModal && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="add-tool-title"
-        >
-          <div ref={addToolModalRef} className="bg-white rounded-lg shadow-xl max-w-md w-full">
-            <div className="p-6 border-b border-gray-200">
-              <h2 id="add-tool-title" className="text-xl font-bold text-gray-900">Add Tool to Project</h2>
-            </div>
-
-            <div className="p-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Select Tool
-              </label>
-              <select
-                value={selectedToolId}
-                onChange={(e) => setSelectedToolId(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent mb-4"
-              >
-                <option value="">Choose a tool...</option>
-                {availableTools
-                  .filter(t => !project?.tools?.some((pt: any) => pt.id === t.id))
-                  .map((tool) => (
-                    <option key={tool.id} value={tool.id}>
-                      {tool.name}
-                      {tool.size && ` (${tool.size})`}
-                      {tool.type && ` - ${tool.type}`}
-                    </option>
-                  ))}
-              </select>
-
-              <div className="flex gap-3">
-                <button
-                  onClick={() => {
-                    setShowAddToolModal(false);
-                    setSelectedToolId('');
-                  }}
-                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleAddTool}
-                  className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
-                >
-                  Add Tool
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <AddToolModal
+          availableTools={availableTools}
+          existingToolIds={(project.tools || []).map((t: any) => t.id)}
+          onClose={() => setShowAddToolModal(false)}
+          onSubmit={handleAddTool}
+        />
       )}
 
       {showDeleteProjectConfirm && project && (
