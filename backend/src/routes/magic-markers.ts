@@ -92,7 +92,25 @@ router.post(
  */
 router.put(
   '/projects/:id/magic-markers/:markerId',
-  [validateUUID('id'), validateUUID('markerId')],
+  [
+    validateUUID('id'),
+    validateUUID('markerId'),
+    body('name').optional().trim().isLength({ max: 255 }),
+    body('triggerType').optional({ values: 'null' }).isIn(['counter_value', 'row_interval', 'row_range', 'stitch_count', 'time_based', 'custom', 'at_same_time']),
+    body('triggerCondition').optional({ values: 'null' }).isObject(),
+    body('alertMessage').optional({ values: 'null' }).isString(),
+    body('alertType').optional({ values: 'null' }).isIn(['notification', 'sound', 'vibration', 'visual']),
+    body('isActive').optional({ values: 'falsy' }).isBoolean(),
+    body('startRow').optional({ values: 'falsy' }).isNumeric(),
+    body('endRow').optional({ values: 'falsy' }).isNumeric(),
+    body('repeatInterval').optional({ values: 'falsy' }).isNumeric(),
+    body('repeatOffset').optional({ values: 'falsy' }).isNumeric(),
+    body('isRepeating').optional({ values: 'falsy' }).isBoolean(),
+    body('priority').optional({ values: 'null' }).isIn(['low', 'normal', 'high', 'critical']),
+    body('displayStyle').optional({ values: 'null' }).isIn(['banner', 'popup', 'toast', 'inline']),
+    body('color').optional({ values: 'null' }).isString(),
+    body('category').optional({ values: 'null' }).isIn(['reminder', 'at_same_time', 'milestone', 'shaping', 'note']),
+  ],
   validate,
   asyncHandler(magicMarkersController.updateMagicMarker)
 );

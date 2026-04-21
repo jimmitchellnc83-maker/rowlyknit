@@ -101,7 +101,23 @@ router.post(
  */
 router.put(
   '/projects/:id/counters/:counterId',
-  [validateUUID('id'), validateUUID('counterId')],
+  [
+    validateUUID('id'),
+    validateUUID('counterId'),
+    body('name').optional().trim().isLength({ max: 255 }),
+    body('type').optional({ values: 'null' }).isIn(['rows', 'stitches', 'repeats', 'custom']),
+    body('currentValue').optional({ values: 'falsy' }).isNumeric(),
+    body('targetValue').optional({ values: 'falsy' }).isNumeric(),
+    body('incrementBy').optional({ values: 'falsy' }).isNumeric(),
+    body('minValue').optional({ values: 'falsy' }).isNumeric(),
+    body('maxValue').optional({ values: 'falsy' }).isNumeric(),
+    body('displayColor').optional({ values: 'null' }).isString(),
+    body('isVisible').optional({ values: 'falsy' }).isBoolean(),
+    body('incrementPattern').optional({ values: 'null' }).isObject(),
+    body('sortOrder').optional({ values: 'falsy' }).isNumeric(),
+    body('notes').optional({ values: 'null' }).isString(),
+    body('action').optional({ values: 'null' }).isString().isLength({ max: 50 }),
+  ],
   validate,
   asyncHandler(countersController.updateCounter)
 );
@@ -208,7 +224,14 @@ router.post(
  */
 router.put(
   '/projects/:id/counter-links/:linkId',
-  [validateUUID('id'), validateUUID('linkId')],
+  [
+    validateUUID('id'),
+    validateUUID('linkId'),
+    body('linkType').optional({ values: 'null' }).isString(),
+    body('triggerCondition').optional({ values: 'null' }).isObject(),
+    body('action').optional({ values: 'null' }).isObject(),
+    body('isActive').optional({ values: 'falsy' }).isBoolean(),
+  ],
   validate,
   asyncHandler(counterLinksController.updateCounterLink)
 );

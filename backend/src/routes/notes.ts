@@ -65,7 +65,12 @@ router.post(
  */
 router.put(
   '/projects/:id/audio-notes/:noteId',
-  [validateUUID('id'), validateUUID('noteId')],
+  [
+    validateUUID('id'),
+    validateUUID('noteId'),
+    body('transcription').optional({ values: 'null' }).isString().isLength({ max: 50000 }),
+    body('patternId').optional({ values: 'null' }).isUUID(),
+  ],
   validate,
   asyncHandler(notesController.updateAudioNote)
 );
@@ -149,7 +154,11 @@ router.post(
  */
 router.put(
   '/projects/:id/memos/:memoId',
-  [validateUUID('id'), validateUUID('memoId')],
+  [
+    validateUUID('id'),
+    validateUUID('memoId'),
+    body('data').optional({ values: 'null' }).isObject(),
+  ],
   validate,
   asyncHandler(notesController.updateStructuredMemo)
 );
@@ -225,7 +234,15 @@ router.post(
  */
 router.put(
   '/projects/:id/text-notes/:noteId',
-  [validateUUID('id'), validateUUID('noteId')],
+  [
+    validateUUID('id'),
+    validateUUID('noteId'),
+    body('title').optional({ values: 'null' }).isString().isLength({ max: 500 }),
+    body('content').optional({ values: 'null' }).isString().isLength({ max: 50000 }),
+    body('tags').optional({ values: 'null' }).isArray(),
+    body('isPinned').optional({ values: 'falsy' }).isBoolean(),
+    body('patternId').optional({ values: 'null' }).isUUID(),
+  ],
   validate,
   asyncHandler(notesController.updateTextNote)
 );
