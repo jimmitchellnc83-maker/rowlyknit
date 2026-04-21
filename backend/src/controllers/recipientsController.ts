@@ -232,3 +232,39 @@ export async function getRecipientStats(req: Request, res: Response) {
     data: { stats },
   });
 }
+
+export async function getProjectsForRecipient(req: Request, res: Response) {
+  const userId = req.user!.userId;
+  const { id } = req.params;
+
+  const recipient = await db('recipients')
+    .where({ id, user_id: userId })
+    .whereNull('deleted_at')
+    .first();
+
+  if (!recipient) {
+    throw new NotFoundError('Recipient not found');
+  }
+
+  const projects = await db('gifts as g')
+    .join('projects as p', 'p.id', 'g.project_id')
+    .where('g.recipient_id', id)
+    .andWhere('p.user_id', userId)
+    .whereNull('p.deleted_at')
+    .orderBy('p.created_at', 'desc')
+    .select(
+      'p.id',
+      'p.name',
+      'p.status',
+      'p.project_type',
+      'p.actual_completion_date as completion_date',
+      'g.occasion',
+      'g.date_given',
+      'g.notes as gift_notes'
+    );
+
+  res.json({
+    success: true,
+    data: { projects },
+  });
+}

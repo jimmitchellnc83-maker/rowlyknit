@@ -24,6 +24,12 @@ router.get(
   asyncHandler(recipientsController.getRecipient)
 );
 
+router.get(
+  '/:id/projects',
+  validateUUID('id'),
+  asyncHandler(recipientsController.getProjectsForRecipient)
+);
+
 router.post(
   '/',
   [
