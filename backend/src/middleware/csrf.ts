@@ -67,6 +67,7 @@ export function conditionalCsrf(req: Request, res: Response, next: NextFunction)
     '/metrics',
     '/api/webhooks',
     '/api/auth/login',
+    '/api/auth/demo-login',
     '/api/auth/register',
     '/api/auth/refresh',
     '/api/auth/forgot-password',
