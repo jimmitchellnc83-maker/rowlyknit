@@ -2,14 +2,18 @@ import { useState, FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { toast } from 'react-toastify';
+import { useNoIndex } from '../../hooks/useNoIndex';
 
 export default function Login() {
+  useNoIndex();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isDemoLoading, setIsDemoLoading] = useState(false);
   const navigate = useNavigate();
   const login = useAuthStore((state) => state.login);
+  const demoLogin = useAuthStore((state) => state.demoLogin);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -31,6 +35,21 @@ export default function Login() {
       toast.error(message);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleDemoLogin = async () => {
+    setIsDemoLoading(true);
+    try {
+      await demoLogin();
+      toast.success('Welcome to the demo!');
+      navigate('/dashboard');
+    } catch (error: any) {
+      console.error('Demo login error:', error);
+      const message = error.response?.data?.message || 'Demo login failed. Please try again.';
+      toast.error(message);
+    } finally {
+      setIsDemoLoading(false);
     }
   };
 
@@ -113,8 +132,16 @@ export default function Login() {
         </div>
 
         <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
-          <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
-            Demo account: <span className="font-mono">demo@rowlyknit.com</span> / <span className="font-mono">Demo123!@#</span>
+          <button
+            type="button"
+            onClick={handleDemoLogin}
+            disabled={isDemoLoading || isLoading}
+            className="w-full border border-purple-300 dark:border-purple-700 text-purple-700 dark:text-purple-300 bg-white dark:bg-gray-800 py-2 px-4 rounded-lg hover:bg-purple-50 dark:hover:bg-gray-700 focus:ring-4 focus:ring-purple-200 dark:focus:ring-purple-900 transition disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm"
+          >
+            {isDemoLoading ? 'Loading demo…' : 'Try the demo'}
+          </button>
+          <p className="mt-2 text-xs text-gray-500 dark:text-gray-400 text-center">
+            Explore with sample data — no sign-up required.
           </p>
         </div>
       </div>

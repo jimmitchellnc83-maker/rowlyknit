@@ -96,6 +96,81 @@ export async function register(req: Request, res: Response) {
 }
 
 /**
+ * Issue a logged-in session for a given user (create session row, sign tokens,
+ * set cookies, write audit log). Shared by password login and demo login.
+ */
+async function issueSession(
+  req: Request,
+  res: Response,
+  user: any,
+  rememberMe: boolean,
+  auditAction: string,
+) {
+  const sessionDays = rememberMe ? 30 : 7;
+  const sessionExpires = new Date(Date.now() + sessionDays * 24 * 60 * 60 * 1000);
+
+  const [session] = await db('sessions')
+    .insert({
+      user_id: user.id,
+      refresh_token: '',
+      ip_address: req.ip,
+      user_agent: req.headers['user-agent'],
+      expires_at: sessionExpires,
+      created_at: new Date(),
+      updated_at: new Date(),
+    })
+    .returning('*');
+
+  const accessToken = generateAccessToken({
+    userId: user.id,
+    email: user.email,
+  });
+
+  const refreshToken = generateRefreshToken({
+    userId: user.id,
+    sessionId: session.id,
+  });
+
+  await db('sessions').where({ id: session.id }).update({ refresh_token: refreshToken });
+
+  await db('users').where({ id: user.id }).update({
+    last_login: new Date(),
+    updated_at: new Date(),
+  });
+
+  const isProduction = process.env.NODE_ENV === 'production';
+  const sameSite = (process.env.COOKIE_SAMESITE as 'lax' | 'none' | 'strict' | undefined)
+    || (isProduction ? 'none' : 'lax');
+  const cookieDomain = process.env.COOKIE_DOMAIN;
+  const cookieOptions = {
+    httpOnly: true,
+    secure: isProduction || sameSite === 'none',
+    sameSite,
+    ...(cookieDomain ? { domain: cookieDomain } : {}),
+    path: '/',
+  } as const;
+
+  res.cookie('accessToken', accessToken, {
+    ...cookieOptions,
+    maxAge: 15 * 60 * 1000,
+  });
+
+  res.cookie('refreshToken', refreshToken, {
+    ...cookieOptions,
+    maxAge: sessionDays * 24 * 60 * 60 * 1000,
+  });
+
+  await createAuditLog(req, {
+    userId: user.id,
+    action: auditAction,
+    entityType: 'user',
+    entityId: user.id,
+  });
+
+  return { accessToken, refreshToken };
+}
+
+/**
  * Login user
  */
 export async function login(req: Request, res: Response) {
@@ -122,80 +197,48 @@ export async function login(req: Request, res: Response) {
     throw new UnauthorizedError('Invalid email or password');
   }
 
-  // Set session expiry based on "Remember Me"
-  // Remember Me: 30 days, Regular: 7 days
-  const sessionDays = rememberMe ? 30 : 7;
-  const sessionExpires = new Date(Date.now() + sessionDays * 24 * 60 * 60 * 1000);
-
-  // Create session first to get the real session ID
-  const [session] = await db('sessions')
-    .insert({
-      user_id: user.id,
-      refresh_token: '', // placeholder, updated below
-      ip_address: req.ip,
-      user_agent: req.headers['user-agent'],
-      expires_at: sessionExpires,
-      created_at: new Date(),
-      updated_at: new Date(),
-    })
-    .returning('*');
-
-  // Generate tokens with the real session ID
-  const accessToken = generateAccessToken({
-    userId: user.id,
-    email: user.email,
-  });
-
-  const refreshToken = generateRefreshToken({
-    userId: user.id,
-    sessionId: session.id,
-  });
-
-  // Update session with the actual refresh token
-  await db('sessions')
-    .where({ id: session.id })
-    .update({ refresh_token: refreshToken });
-
-  // Update last login
-  await db('users').where({ id: user.id }).update({
-    last_login: new Date(),
-    updated_at: new Date(),
-  });
-
-  // Set cookies
-  const isProduction = process.env.NODE_ENV === 'production';
-  const sameSite = (process.env.COOKIE_SAMESITE as 'lax' | 'none' | 'strict' | undefined)
-    || (isProduction ? 'none' : 'lax');
-  const cookieDomain = process.env.COOKIE_DOMAIN;
-  const cookieOptions = {
-    httpOnly: true,
-    secure: isProduction || sameSite === 'none',
-    sameSite,
-    ...(cookieDomain ? { domain: cookieDomain } : {}),
-    path: '/',
-  } as const;
-
-  res.cookie('accessToken', accessToken, {
-    ...cookieOptions,
-    maxAge: 15 * 60 * 1000, // 15 minutes
-  });
-
-  res.cookie('refreshToken', refreshToken, {
-    ...cookieOptions,
-    maxAge: sessionDays * 24 * 60 * 60 * 1000, // 7 or 30 days based on Remember Me
-  });
-
-  // Log audit
-  await createAuditLog(req, {
-    userId: user.id,
-    action: 'user_login',
-    entityType: 'user',
-    entityId: user.id,
-  });
+  const { accessToken, refreshToken } = await issueSession(req, res, user, !!rememberMe, 'user_login');
 
   res.json({
     success: true,
     message: 'Login successful',
+    data: {
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.first_name,
+        lastName: user.last_name,
+        emailVerified: user.email_verified,
+        preferences: user.preferences,
+      },
+      accessToken,
+      refreshToken,
+    },
+  });
+}
+
+/**
+ * Passwordless demo login — issues a session for the seeded demo user without
+ * exposing credentials in client HTML. Intended for the "Try Demo" button.
+ * Safe because the demo user holds only seeded sample data.
+ */
+export async function demoLogin(req: Request, res: Response) {
+  const demoEmail = process.env.DEMO_EMAIL || 'demo@rowlyknit.com';
+
+  const user = await db('users')
+    .where({ email: demoEmail })
+    .whereNull('deleted_at')
+    .first();
+
+  if (!user || !user.is_active) {
+    throw new NotFoundError('Demo account not available');
+  }
+
+  const { accessToken, refreshToken } = await issueSession(req, res, user, false, 'demo_login');
+
+  res.json({
+    success: true,
+    message: 'Demo login successful',
     data: {
       user: {
         id: user.id,
