@@ -222,7 +222,23 @@ router.post(
  */
 router.put(
   '/:id',
-  validateUUID('id'),
+  [
+    validateUUID('id'),
+    body('name').optional().trim().isLength({ max: 255 }),
+    body('description').optional({ values: 'null' }).isString(),
+    body('designer').optional({ values: 'null' }).trim().isLength({ max: 255 }),
+    body('source').optional({ values: 'null' }).trim().isLength({ max: 255 }),
+    body('sourceUrl')
+      .optional({ values: 'falsy' })
+      .isURL({ protocols: ['http', 'https'], require_protocol: true }),
+    body('difficulty').optional({ values: 'falsy' }).isString().isLength({ max: 50 }),
+    body('category').optional({ values: 'falsy' }).isString().isLength({ max: 100 }),
+    body('estimatedYardage').optional({ values: 'falsy' }).isNumeric(),
+    body('notes').optional({ values: 'null' }).isString(),
+    body('tags').optional({ values: 'null' }).isArray(),
+    body('isFavorite').optional().isBoolean(),
+  ],
+  validate,
   asyncHandler(patternsController.updatePattern)
 );
 

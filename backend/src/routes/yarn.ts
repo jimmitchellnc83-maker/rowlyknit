@@ -43,7 +43,35 @@ router.post(
 
 router.put(
   '/:id',
-  validateUUID('id'),
+  [
+    validateUUID('id'),
+    body('brand').optional({ values: 'null' }).trim().isLength({ max: 255 }),
+    body('line').optional({ values: 'null' }).trim().isLength({ max: 255 }),
+    body('name').optional({ values: 'null' }).trim().isLength({ max: 255 }),
+    body('color').optional({ values: 'null' }).trim().isLength({ max: 100 }),
+    body('colorCode').optional({ values: 'null' }).trim().isLength({ max: 50 }),
+    body('weight').optional({ values: 'null' }).trim().isLength({ max: 50 }),
+    body('fiberContent').optional({ values: 'null' }).isString(),
+    body('yardsTotal').optional({ values: 'falsy' }).isNumeric(),
+    body('gramsTotal').optional({ values: 'falsy' }).isNumeric(),
+    body('skeinsTotal').optional({ values: 'falsy' }).isNumeric(),
+    body('pricePerSkein').optional({ values: 'falsy' }).isNumeric(),
+    body('purchaseDate').optional({ values: 'falsy' }).isISO8601(),
+    body('purchaseLocation').optional({ values: 'null' }).isString(),
+    body('dyeLot').optional({ values: 'null' }).isString(),
+    body('notes').optional({ values: 'null' }).isString(),
+    body('tags').optional({ values: 'null' }),
+    body('lowStockThreshold').optional({ values: 'falsy' }).isNumeric(),
+    body('lowStockAlert').optional().isBoolean(),
+    body('gauge').optional({ values: 'null' }).isString(),
+    body('needleSizes').optional({ values: 'null' }).isString(),
+    body('machineWashable').optional().isBoolean(),
+    body('discontinued').optional().isBoolean(),
+    body('ravelryRating').optional({ values: 'falsy' }).isNumeric(),
+    body('description').optional({ values: 'null' }).isString(),
+    body('isFavorite').optional().isBoolean(),
+  ],
+  validate,
   asyncHandler(yarnController.updateYarn)
 );
 

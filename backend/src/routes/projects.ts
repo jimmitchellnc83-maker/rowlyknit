@@ -75,7 +75,21 @@ router.post(
  */
 router.put(
   '/:id',
-  validateUUID('id'),
+  [
+    validateUUID('id'),
+    body('name').optional().trim().isLength({ max: 255 }),
+    body('description').optional({ values: 'null' }).isString(),
+    body('projectType').optional({ values: 'falsy' }).trim().isLength({ max: 100 }),
+    body('startDate').optional({ values: 'falsy' }).isISO8601(),
+    body('targetCompletionDate').optional({ values: 'falsy' }).isISO8601(),
+    body('completedDate').optional({ values: 'falsy' }).isISO8601(),
+    body('status').optional({ values: 'falsy' }).isString().isLength({ max: 50 }),
+    body('notes').optional({ values: 'null' }).isString(),
+    body('metadata').optional({ values: 'null' }).isObject(),
+    body('tags').optional({ values: 'null' }).isArray(),
+    body('isFavorite').optional().isBoolean(),
+  ],
+  validate,
   asyncHandler(projectsController.updateProject)
 );
 
