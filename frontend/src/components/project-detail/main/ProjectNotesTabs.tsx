@@ -13,7 +13,7 @@ interface Props {
   onSaveAudioNote: (audioBlob: Blob, durationSeconds: number, transcription?: string, patternId?: string) => Promise<void>;
   onDeleteAudioNote: (noteId: string) => Promise<void>;
   onUpdateAudioTranscription: (noteId: string, transcription: string) => Promise<void>;
-  onSaveHandwrittenNote: (imageData: string) => Promise<void>;
+  onSaveHandwrittenNote: (blob: Blob) => Promise<void>;
   onSaveStructuredMemo: (templateType: string, data: any) => Promise<void>;
   onDeleteStructuredMemo: (memoId: string) => Promise<void>;
 }

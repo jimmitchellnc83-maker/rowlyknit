@@ -427,12 +427,8 @@ export default function ProjectDetail() {
     }
   };
 
-  const handleSaveHandwrittenNote = async (imageData: string) => {
+  const handleSaveHandwrittenNote = async (blob: Blob) => {
     try {
-      // Convert base64 to blob
-      const response = await fetch(imageData);
-      const blob = await response.blob();
-
       const formData = new FormData();
       formData.append('image', blob, 'handwritten-note.png');
 

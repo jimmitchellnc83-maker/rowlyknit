@@ -7,7 +7,7 @@ interface HandwrittenNotesProps {
   patternId?: string;
   projectId: string;
   pageNumber?: number;
-  onSave?: (imageData: string) => Promise<void>;
+  onSave?: (blob: Blob) => Promise<void>;
   initialData?: string; // Base64 image data
 }
 
@@ -220,21 +220,25 @@ export const HandwrittenNotes: React.FC<HandwrittenNotesProps> = ({
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const imageData = canvas.toDataURL('image/png');
-
     if (onSave) {
-      try {
-        await onSave(imageData);
-        toast.success('Notes saved successfully!');
-      } catch (error) {
-        console.error('Failed to save notes:', error);
-        toast.error('Failed to save notes');
-      }
+      // canvas.toBlob avoids a data: URL fetch round-trip blocked by CSP connect-src.
+      canvas.toBlob(async (blob) => {
+        if (!blob) {
+          toast.error('Failed to generate image');
+          return;
+        }
+        try {
+          await onSave(blob);
+        } catch (error) {
+          console.error('Failed to save notes:', error);
+          toast.error('Failed to save notes');
+        }
+      }, 'image/png');
     } else {
       // Download as file
       const link = document.createElement('a');
       link.download = `notes-${Date.now()}.png`;
-      link.href = imageData;
+      link.href = canvas.toDataURL('image/png');
       link.click();
     }
   };
