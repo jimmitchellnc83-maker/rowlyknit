@@ -1,9 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import {
-  FiArrowLeft, FiEdit2, FiTrash2, FiClock, FiImage,
-  FiUser, FiMic, FiEye, FiEyeOff
-} from 'react-icons/fi';
+import { FiClock, FiImage, FiMic } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import PhotoGallery from '../components/PhotoGallery';
@@ -17,7 +14,6 @@ import { StructuredMemoTemplates } from '../components/notes/StructuredMemoTempl
 import MagicMarkerManager from '../components/magic-markers/MagicMarkerManager';
 import LoadingSpinner from '../components/LoadingSpinner';
 import PatternPreview from '../components/PatternPreview';
-import HelpTooltip from '../components/HelpTooltip';
 import ConfirmModal from '../components/ConfirmModal';
 import {
   EditProjectModal,
@@ -31,6 +27,7 @@ import type {
   NewPatternData,
   AddYarnData,
 } from '../components/project-detail/modals';
+import ProjectHeader from '../components/project-detail/ProjectHeader';
 import {
   ProjectTimeline,
   ProjectQuickNotes,
@@ -39,6 +36,7 @@ import {
   ProjectYarnUsage,
 } from '../components/project-detail/sidebar';
 import { useKnittingMode } from '../contexts/KnittingModeContext';
+import { readKnittingMode } from '../utils/knittingModeStorage';
 
 interface Project {
   id: string;
@@ -77,8 +75,7 @@ export default function ProjectDetail() {
   // Clear the context flag on unmount so other pages get an un-dimmed sidebar.
   useEffect(() => {
     if (!id) return;
-    const saved = localStorage.getItem(`rowly:knittingMode:${id}`);
-    if (saved === 'true') setKnittingMode(true);
+    if (readKnittingMode(id)) setKnittingMode(true);
     return () => setKnittingMode(false);
   }, [id, setKnittingMode]);
 
@@ -430,19 +427,6 @@ export default function ProjectDetail() {
     }
   };
 
-  const handleToggleKnittingMode = () => {
-    const next = !knittingMode;
-    setKnittingMode(next);
-    if (id) {
-      localStorage.setItem(`rowly:knittingMode:${id}`, String(next));
-    }
-    if (next) {
-      toast.success('Knitting Mode activated! 🧶');
-    } else {
-      toast.info('Knitting Mode deactivated');
-    }
-  };
-
   // Get current counter values for session tracking
   const getCurrentCounterValues = () => {
     const counterValues: Record<string, number> = {};
@@ -532,21 +516,6 @@ export default function ProjectDetail() {
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'active':
-        return 'bg-green-100 text-green-800';
-      case 'completed':
-        return 'bg-blue-100 text-blue-800';
-      case 'paused':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'planned':
-        return 'bg-gray-100 text-gray-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
-
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -570,69 +539,13 @@ export default function ProjectDetail() {
 
   return (
     <div>
-      {/* Header */}
-      <div className="mb-6">
-        <Link
-          to="/projects"
-          className="inline-flex items-center text-purple-600 hover:text-purple-700 mb-4"
-        >
-          <FiArrowLeft className="mr-2" />
-          Back to Projects
-        </Link>
-
-        <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <div className="flex items-center gap-3 mb-2">
-              <h1 className="text-3xl font-bold text-gray-900">{project.name}</h1>
-              <span
-                className={`px-3 py-1 text-sm font-medium rounded-full ${getStatusColor(
-                  project.status
-                )}`}
-              >
-                {project.status}
-              </span>
-            </div>
-            {project.project_type && (
-              <p className="text-gray-600">Type: {project.project_type}</p>
-            )}
-            {selectedRecipient && (
-              <p className="text-gray-600 flex items-center mt-1">
-                <FiUser className="mr-2 h-4 w-4" />
-                Gift for: {selectedRecipient.first_name} {selectedRecipient.last_name}
-              </p>
-            )}
-          </div>
-
-          <div className="flex gap-2 flex-wrap">
-            <button
-              onClick={handleToggleKnittingMode}
-              className={`px-4 py-3 md:py-2 rounded-lg transition flex items-center min-h-[48px] md:min-h-0 ${
-                knittingMode
-                  ? 'bg-green-600 text-white hover:bg-green-700'
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-              }`}
-            >
-              {knittingMode ? <FiEyeOff className="mr-2 h-5 w-5 md:h-4 md:w-4" /> : <FiEye className="mr-2 h-5 w-5 md:h-4 md:w-4" />}
-              <span className="text-base md:text-sm">{knittingMode ? 'Exit Knitting Mode' : 'Knitting Mode'}</span>
-            </button>
-            <HelpTooltip text="A focused view with just your pattern, counters, and timer. Great for active knitting sessions." />
-            <button
-              onClick={() => setShowEditModal(true)}
-              className="px-4 py-3 md:py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition flex items-center min-h-[48px] md:min-h-0"
-            >
-              <FiEdit2 className="mr-2 h-5 w-5 md:h-4 md:w-4" />
-              <span className="text-base md:text-sm">Edit</span>
-            </button>
-            <button
-              onClick={() => setShowDeleteProjectConfirm(true)}
-              className="px-4 py-3 md:py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition flex items-center min-h-[48px] md:min-h-0"
-            >
-              <FiTrash2 className="mr-2 h-5 w-5 md:h-4 md:w-4" />
-              <span className="text-base md:text-sm">Delete</span>
-            </button>
-          </div>
-        </div>
-      </div>
+      <ProjectHeader
+        projectId={id!}
+        project={project}
+        selectedRecipient={selectedRecipient}
+        onEdit={() => setShowEditModal(true)}
+        onDelete={() => setShowDeleteProjectConfirm(true)}
+      />
 
       {/* Knitting Mode - Full Featured UI */}
       {knittingMode ? (
