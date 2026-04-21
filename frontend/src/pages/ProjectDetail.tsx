@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
-  FiArrowLeft, FiEdit2, FiTrash2, FiCalendar, FiClock, FiCheck, FiImage,
-  FiPlus, FiX, FiUser, FiAlertCircle, FiMic, FiEye, FiEyeOff
+  FiArrowLeft, FiEdit2, FiTrash2, FiClock, FiImage,
+  FiUser, FiMic, FiEye, FiEyeOff
 } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
@@ -31,7 +31,13 @@ import type {
   NewPatternData,
   AddYarnData,
 } from '../components/project-detail/modals';
-import { useMeasurements } from '../hooks/useMeasurements';
+import {
+  ProjectTimeline,
+  ProjectQuickNotes,
+  ProjectPatternsList,
+  ProjectToolsList,
+  ProjectYarnUsage,
+} from '../components/project-detail/sidebar';
 import { useKnittingMode } from '../contexts/KnittingModeContext';
 
 interface Project {
@@ -56,7 +62,6 @@ export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { joinProject, leaveProject } = useWebSocket();
-  const { fmt } = useMeasurements();
 
   const [project, setProject] = useState<Project | null>(null);
   const [photos, setPhotos] = useState<any[]>([]);
@@ -81,8 +86,6 @@ export default function ProjectDetail() {
   const [audioNotes, setAudioNotes] = useState<any[]>([]);
   const [structuredMemos, setStructuredMemos] = useState<any[]>([]);
   const [notesTab, setNotesTab] = useState<'audio' | 'handwritten' | 'memos'>('audio');
-  const [editingNotes, setEditingNotes] = useState(false);
-  const [notesText, setNotesText] = useState('');
 
   // Modal states for adding items
   const [showAddPatternModal, setShowAddPatternModal] = useState(false);
@@ -190,7 +193,6 @@ export default function ProjectDetail() {
   };
 
   const [showDeleteProjectConfirm, setShowDeleteProjectConfirm] = useState(false);
-  const [removeYarnTarget, setRemoveYarnTarget] = useState<string | null>(null);
 
   const handleDelete = async () => {
     try {
@@ -205,31 +207,14 @@ export default function ProjectDetail() {
     }
   };
 
-  const handleEditNotes = () => {
-    setNotesText(project?.notes || '');
-    setEditingNotes(true);
-  };
-
-  const handleSaveNotes = async () => {
-    try {
-      await axios.put(`/api/projects/${id}`, {
-        name: project?.name,
-        description: project?.description,
-        status: project?.status,
-        notes: notesText,
-      });
-      toast.success('Notes saved successfully!');
-      setEditingNotes(false);
-      fetchProject();
-    } catch (error: any) {
-      console.error('Error saving notes:', error);
-      toast.error('Failed to save notes');
-    }
-  };
-
-  const handleCancelNotes = () => {
-    setNotesText('');
-    setEditingNotes(false);
+  const handleSaveProjectNotes = async (notes: string) => {
+    await axios.put(`/api/projects/${id}`, {
+      name: project?.name,
+      description: project?.description,
+      status: project?.status,
+      notes,
+    });
+    await fetchProject();
   };
 
   // Pattern management
@@ -308,12 +293,10 @@ export default function ProjectDetail() {
       await axios.delete(`/api/projects/${id}/yarn/${yarnId}`);
       toast.success('Yarn removed and restored to stash');
       fetchProject();
-      fetchAvailableItems(); // Refresh to show updated yarn quantities
+      fetchAvailableItems();
     } catch (error: any) {
       console.error('Error removing yarn:', error);
       toast.error('Failed to remove yarn');
-    } finally {
-      setRemoveYarnTarget(null);
     }
   };
 
@@ -549,11 +532,6 @@ export default function ProjectDetail() {
     }
   };
 
-  const formatDate = (dateString: string) => {
-    if (!dateString) return 'Not set';
-    return new Date(dateString).toLocaleDateString();
-  };
-
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active':
@@ -567,12 +545,6 @@ export default function ProjectDetail() {
       default:
         return 'bg-gray-100 text-gray-800';
     }
-  };
-
-  const getYarnPercentage = (y: any) => {
-    const remaining = y.yarn_remaining || 0;
-    const total = y.yarn_total || 1;
-    return Math.max(0, Math.min(100, (remaining / total) * 100));
   };
 
   if (loading) {
@@ -895,280 +867,31 @@ export default function ProjectDetail() {
 
         {/* Sidebar - Right Column (sticky so it follows scroll) */}
         <div className="space-y-6 lg:sticky lg:top-6 lg:self-start">
-          {/* Timeline */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Timeline</h2>
-            <div className="space-y-3">
-              {project.start_date && (
-                <div className="flex items-start">
-                  <FiCalendar className="mt-1 mr-3 h-5 w-5 text-gray-400" />
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">Started</p>
-                    <p className="text-sm text-gray-600">{formatDate(project.start_date)}</p>
-                  </div>
-                </div>
-              )}
-              {project.target_completion_date && (
-                <div className="flex items-start">
-                  <FiClock className="mt-1 mr-3 h-5 w-5 text-gray-400" />
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">Target Completion</p>
-                    <p className="text-sm text-gray-600">
-                      {formatDate(project.target_completion_date)}
-                    </p>
-                  </div>
-                </div>
-              )}
-              {project.completion_date && (
-                <div className="flex items-start">
-                  <FiCheck className="mt-1 mr-3 h-5 w-5 text-green-600" />
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">Completed</p>
-                    <p className="text-sm text-gray-600">{formatDate(project.completion_date)}</p>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Notes */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-lg font-semibold text-gray-900">Notes</h2>
-              {!editingNotes && (
-                <button
-                  onClick={handleEditNotes}
-                  className="text-purple-600 hover:text-purple-700"
-                  title="Edit notes"
-                >
-                  <FiEdit2 className="h-4 w-4" />
-                </button>
-              )}
-            </div>
-
-            {editingNotes ? (
-              <div className="space-y-3">
-                <textarea
-                  value={notesText}
-                  onChange={(e) => setNotesText(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm"
-                  rows={6}
-                  placeholder="Add notes about your project..."
-                />
-                <div className="flex gap-2">
-                  <button
-                    onClick={handleSaveNotes}
-                    className="flex-1 px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition text-sm flex items-center justify-center gap-2"
-                  >
-                    <FiCheck className="h-4 w-4" />
-                    Save
-                  </button>
-                  <button
-                    onClick={handleCancelNotes}
-                    className="flex-1 px-3 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition text-sm flex items-center justify-center gap-2"
-                  >
-                    <FiX className="h-4 w-4" />
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div>
-                {project.notes ? (
-                  <p className="text-sm text-gray-700 whitespace-pre-wrap">{project.notes}</p>
-                ) : (
-                  <p className="text-sm text-gray-500 italic">No notes added yet</p>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Patterns */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-lg font-semibold text-gray-900">Patterns</h2>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setShowAddPatternModal(true)}
-                  className="text-purple-600 hover:text-purple-700 text-xs flex items-center gap-1"
-                  title="Select existing pattern"
-                >
-                  <FiPlus className="h-4 w-4" />
-                  Select
-                </button>
-                <button
-                  onClick={() => setShowUploadPatternModal(true)}
-                  className="px-2 py-1 bg-purple-600 text-white rounded text-xs hover:bg-purple-700 flex items-center gap-1"
-                  title="Upload new pattern"
-                >
-                  <FiPlus className="h-3 w-3" />
-                  Upload
-                </button>
-              </div>
-            </div>
-
-            {project.patterns && project.patterns.length > 0 ? (
-              <ul className="space-y-2">
-                {project.patterns.map((pattern: any) => (
-                  <li key={pattern.id} className="flex items-center justify-between text-sm">
-                    <Link
-                      to={`/patterns/${pattern.id}`}
-                      className="text-purple-600 hover:text-purple-700 flex-1"
-                    >
-                      {pattern.name}
-                    </Link>
-                    <button
-                      onClick={() => handleRemovePattern(pattern.id)}
-                      className="text-red-600 hover:text-red-700 ml-2"
-                      title="Remove pattern"
-                    >
-                      <FiX className="h-4 w-4" />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-sm text-gray-500">No patterns added</p>
-            )}
-          </div>
-
-          {/* Tools */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-lg font-semibold text-gray-900">Tools</h2>
-              <button
-                onClick={() => setShowAddToolModal(true)}
-                className="text-purple-600 hover:text-purple-700"
-                title="Add tool"
-              >
-                <FiPlus className="h-5 w-5" />
-              </button>
-            </div>
-
-            {project.tools && project.tools.length > 0 ? (
-              <ul className="space-y-2">
-                {project.tools.map((tool: any) => (
-                  <li key={tool.id} className="flex items-center justify-between text-sm">
-                    <span className="text-gray-700 flex-1">
-                      {tool.name}
-                      {tool.size && <span className="text-gray-500"> ({tool.size})</span>}
-                    </span>
-                    <button
-                      onClick={() => handleRemoveTool(tool.id)}
-                      className="text-red-600 hover:text-red-700 ml-2"
-                      title="Remove tool"
-                    >
-                      <FiX className="h-4 w-4" />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-sm text-gray-500">No tools added</p>
-            )}
-          </div>
-
-          {/* Yarn Usage */}
-          {project.yarn && project.yarn.length > 0 ? (
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-gray-900">Yarn Usage <HelpTooltip text="Track which yarn from your stash you're using in this project and how much." /></h2>
-                <button
-                  onClick={() => setShowAddYarnModal(true)}
-                  className="text-purple-600 hover:text-purple-700"
-                  title="Add yarn"
-                >
-                  <FiPlus className="h-5 w-5" />
-                </button>
-              </div>
-
-              <div className="space-y-4">
-                {project.yarn.map((y: any) => {
-                  const percentage = getYarnPercentage(y);
-                  const yardsFallback = y.remaining_length_m != null ? Math.round(y.remaining_length_m * 1.09361) : (y.yards_remaining || 0);
-                  const isLowStock = y.low_stock_alert && yardsFallback <= (y.low_stock_threshold || 0);
-
-                  return (
-                    <div key={y.id} className="border border-gray-200 rounded-lg p-3">
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex-1">
-                          <Link
-                            to={`/yarn/${y.id}`}
-                            className="text-sm font-medium text-purple-600 hover:text-purple-700 hover:underline"
-                          >
-                            {y.brand} {y.name}
-                            {y.color && <span className="text-gray-600"> - {y.color}</span>}
-                          </Link>
-                          <p className="text-xs text-gray-500">{y.weight}</p>
-                        </div>
-                        <button
-                          onClick={() => setRemoveYarnTarget(y.id)}
-                          className="text-red-600 hover:text-red-700 p-1"
-                          title="Remove yarn"
-                        >
-                          <FiX className="h-4 w-4" />
-                        </button>
-                      </div>
-
-                      {/* Usage Stats */}
-                      <div className="space-y-2 mb-3">
-                        <div>
-                          <p className="text-xs text-gray-500">Used in Project</p>
-                          <p className="text-xs font-medium text-gray-900">
-                            {y.skeins_used || 0} skeins, {fmt.yarnLength(null, y.yards_used || 0)}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-gray-500">Remaining in Stash</p>
-                          <p className="text-xs font-medium text-gray-900">
-                            {y.skeins_remaining || 0} skeins, {fmt.yarnLength(y.remaining_length_m, y.yards_remaining)}
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Progress Bar */}
-                      <div className="mb-2">
-                        <div className="flex items-center justify-between text-xs text-gray-600 mb-1">
-                          <span>Stash Level</span>
-                          <span>{percentage.toFixed(0)}%</span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                          <div
-                            className={`h-2 rounded-full transition-all ${
-                              percentage < 20 ? 'bg-red-500' : percentage < 50 ? 'bg-yellow-500' : 'bg-green-500'
-                            }`}
-                            style={{ width: `${percentage}%` }}
-                          />
-                        </div>
-                      </div>
-
-                      {/* Low Stock Warning */}
-                      {isLowStock && (
-                        <div className="flex items-center text-orange-600 text-xs mt-2">
-                          <FiAlertCircle className="mr-1 h-3 w-3" />
-                          Low stock! Only {fmt.yarnLength(y.remaining_length_m, y.yards_remaining)} remaining
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          ) : (
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-lg font-semibold text-gray-900">Yarn Usage <HelpTooltip text="Track which yarn from your stash you're using in this project and how much." /></h2>
-                <button
-                  onClick={() => setShowAddYarnModal(true)}
-                  className="text-purple-600 hover:text-purple-700"
-                  title="Add yarn"
-                >
-                  <FiPlus className="h-5 w-5" />
-                </button>
-              </div>
-              <p className="text-sm text-gray-500">No yarn added</p>
-            </div>
-          )}
+          <ProjectTimeline
+            startDate={project.start_date}
+            targetCompletionDate={project.target_completion_date}
+            completionDate={project.completion_date}
+          />
+          <ProjectQuickNotes
+            currentNotes={project.notes}
+            onSave={handleSaveProjectNotes}
+          />
+          <ProjectPatternsList
+            patterns={project.patterns || []}
+            onRemove={handleRemovePattern}
+            onSelectClick={() => setShowAddPatternModal(true)}
+            onUploadClick={() => setShowUploadPatternModal(true)}
+          />
+          <ProjectToolsList
+            tools={project.tools || []}
+            onRemove={handleRemoveTool}
+            onAddClick={() => setShowAddToolModal(true)}
+          />
+          <ProjectYarnUsage
+            yarn={project.yarn || []}
+            onRemove={handleRemoveYarn}
+            onAddClick={() => setShowAddYarnModal(true)}
+          />
         </div>
       </div>
         </>
@@ -1224,17 +947,6 @@ export default function ProjectDetail() {
           variant="danger"
           onConfirm={handleDelete}
           onCancel={() => setShowDeleteProjectConfirm(false)}
-        />
-      )}
-
-      {removeYarnTarget && (
-        <ConfirmModal
-          title="Remove yarn from project?"
-          message="The used amount will be restored to your stash."
-          confirmLabel="Remove"
-          variant="warning"
-          onConfirm={() => handleRemoveYarn(removeYarnTarget)}
-          onCancel={() => setRemoveYarnTarget(null)}
         />
       )}
     </div>
