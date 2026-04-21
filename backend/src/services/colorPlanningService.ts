@@ -4,6 +4,7 @@
  */
 
 import sharp from 'sharp';
+import logger from '../config/logger';
 
 export interface ColorInput {
   id: string;
@@ -221,7 +222,7 @@ export const extractColorsFromImage = async (
       name: getColorName(hex),
     }));
   } catch (error) {
-    console.error('Color extraction error:', error);
+    logger.error('Color extraction error:', error);
     // Return fallback colors
     return [
       { hex: '#2C3E50', percentage: 25, name: 'Dark Blue' },

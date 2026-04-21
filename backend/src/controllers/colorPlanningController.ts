@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import db from '../config/database';
+import logger from '../config/logger';
 import {
   generateGradientSequence,
   calculateColorYardage,
@@ -62,7 +63,7 @@ export const designGradient = async (req: Request, res: Response) => {
       transition_style: config.transition_style,
     });
   } catch (error) {
-    console.error('Error designing gradient:', error);
+    logger.error('Error designing gradient:', error);
     return res.status(500).json({ error: 'Failed to design gradient' });
   }
 };
@@ -102,7 +103,7 @@ export const saveColorTransition = async (req: Request, res: Response) => {
 
     return res.status(201).json(transition);
   } catch (error) {
-    console.error('Error saving color transition:', error);
+    logger.error('Error saving color transition:', error);
     return res.status(500).json({ error: 'Failed to save color transition' });
   }
 };
@@ -134,7 +135,7 @@ export const getColorTransitions = async (req: Request, res: Response) => {
 
     return res.json({ transitions });
   } catch (error) {
-    console.error('Error getting color transitions:', error);
+    logger.error('Error getting color transitions:', error);
     return res.status(500).json({ error: 'Failed to get color transitions' });
   }
 };
@@ -186,7 +187,7 @@ export const extractColors = async (req: Request, res: Response) => {
 
     return res.json({ colors });
   } catch (error) {
-    console.error('Error extracting colors:', error);
+    logger.error('Error extracting colors:', error);
     return res.status(500).json({ error: 'Failed to extract colors' });
   }
 };
@@ -238,7 +239,7 @@ export const generatePalette = async (req: Request, res: Response) => {
       colors: palette,
     });
   } catch (error) {
-    console.error('Error generating palette:', error);
+    logger.error('Error generating palette:', error);
     return res.status(500).json({ error: 'Failed to generate palette' });
   }
 };
@@ -298,7 +299,7 @@ export const getColorRequirements = async (req: Request, res: Response) => {
       colors,
     });
   } catch (error) {
-    console.error('Error getting color requirements:', error);
+    logger.error('Error getting color requirements:', error);
     return res.status(500).json({ error: 'Failed to get color requirements' });
   }
 };
@@ -344,7 +345,7 @@ export const addProjectColor = async (req: Request, res: Response) => {
 
     return res.status(201).json(color);
   } catch (error) {
-    console.error('Error adding project color:', error);
+    logger.error('Error adding project color:', error);
     return res.status(500).json({ error: 'Failed to add color' });
   }
 };
@@ -383,7 +384,7 @@ export const getProjectColors = async (req: Request, res: Response) => {
 
     return res.json({ colors });
   } catch (error) {
-    console.error('Error getting project colors:', error);
+    logger.error('Error getting project colors:', error);
     return res.status(500).json({ error: 'Failed to get colors' });
   }
 };
@@ -411,7 +412,7 @@ export const getSavedPalettes = async (req: Request, res: Response) => {
 
     return res.json({ palettes });
   } catch (error) {
-    console.error('Error getting palettes:', error);
+    logger.error('Error getting palettes:', error);
     return res.status(500).json({ error: 'Failed to get palettes' });
   }
 };
