@@ -328,15 +328,11 @@ export function useDashboardStats() {
 
       const recentProjects = recentProjectsRes.data.data.projects || [];
 
-      // Fetch low-stock yarn
+      // Fetch low-stock yarn (server filters by low_stock_alert + threshold)
       let lowStockYarn: any[] = [];
       try {
-        const lowStockRes = await axios.get('/api/yarn?limit=100');
-        const allYarn = lowStockRes.data.data.yarn || [];
-        lowStockYarn = allYarn.filter((y: any) => {
-          if (!y.low_stock_alert || !y.low_stock_threshold) return false;
-          return (y.yards_remaining || 0) <= y.low_stock_threshold;
-        });
+        const lowStockRes = await axios.get('/api/yarn?lowStock=true&limit=50');
+        lowStockYarn = lowStockRes.data.data.yarn || [];
       } catch {
         // Non-critical
       }

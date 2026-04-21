@@ -6,7 +6,7 @@ import { sanitizeSearchQuery } from '../utils/inputSanitizer';
 
 export async function getYarn(req: Request, res: Response) {
   const userId = req.user!.userId;
-  const { weight, brand, search, favorite, page = 1, limit = 20 } = req.query;
+  const { weight, brand, search, favorite, lowStock, page = 1, limit = 20 } = req.query;
 
   let query = db('yarn')
     .where({ user_id: userId })
@@ -22,6 +22,16 @@ export async function getYarn(req: Request, res: Response) {
 
   if (favorite === 'true') {
     query = query.where({ is_favorite: true });
+  }
+
+  // Low-stock filter: alert enabled, threshold set, and remaining at/below it.
+  // Lets the dashboard request just the low-stock rows instead of pulling all
+  // yarn down and filtering client-side.
+  if (lowStock === 'true') {
+    query = query
+      .where({ low_stock_alert: true })
+      .whereNotNull('low_stock_threshold')
+      .whereRaw('yards_remaining <= low_stock_threshold');
   }
 
   if (search) {
