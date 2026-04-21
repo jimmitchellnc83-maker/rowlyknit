@@ -1,12 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { FiClock, FiMic } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import CounterHierarchy from '../components/counters/CounterHierarchy';
-import { SessionManager, SessionTimer, SessionHistory } from '../components/sessions';
+import { SessionManager } from '../components/sessions';
 import { useWebSocket } from '../contexts/WebSocketContext';
-import { AudioNotes } from '../components/notes/AudioNotes';
 import MagicMarkerManager from '../components/magic-markers/MagicMarkerManager';
 import LoadingSpinner from '../components/LoadingSpinner';
 import PatternPreview from '../components/PatternPreview';
@@ -35,6 +33,7 @@ import {
   ProjectDescription,
   ProjectPhotosSection,
   ProjectNotesTabs,
+  KnittingModeLayout,
 } from '../components/project-detail/main';
 import { useKnittingMode } from '../contexts/KnittingModeContext';
 import { readKnittingMode } from '../utils/knittingModeStorage';
@@ -69,8 +68,6 @@ export default function ProjectDetail() {
 
   // Knitting Mode state (sourced from context so MainLayout can dim the sidebar)
   const { knittingMode, setKnittingMode } = useKnittingMode();
-  const [showKnittingVoiceNotes, setShowKnittingVoiceNotes] = useState(false);
-  const [showKnittingHistory, setShowKnittingHistory] = useState(false);
 
   // Restore per-project Knitting Mode preference on mount / id change.
   // Clear the context flag on unmount so other pages get an un-dimmed sidebar.
@@ -113,39 +110,6 @@ export default function ProjectDetail() {
       }
     };
   }, [id, joinProject, leaveProject]);
-
-  // Session and counter state for knitting mode integration
-  const [currentSession, setCurrentSession] = useState<any>(null);
-  const [sessions, setSessions] = useState<any[]>([]);
-
-  useEffect(() => {
-    if (knittingMode) {
-      fetchSessions();
-      checkActiveSession();
-    }
-  }, [knittingMode]);
-
-  const checkActiveSession = async () => {
-    try {
-      const response = await axios.get(`/api/projects/${id}/sessions/active`);
-      if (response.data.success && response.data.data) {
-        setCurrentSession(response.data.data);
-      }
-    } catch (error) {
-      // No active session
-      setCurrentSession(null);
-    }
-  };
-
-  const fetchSessions = async () => {
-    try {
-      const response = await axios.get(`/api/projects/${id}/sessions`);
-      setSessions(response.data.success ? response.data.data.sessions || [] : []);
-    } catch (error) {
-      console.error('Failed to fetch sessions:', error);
-      setSessions([]);
-    }
-  };
 
   const fetchProject = async () => {
     try {
@@ -444,66 +408,6 @@ export default function ProjectDetail() {
     }
   };
 
-
-  // Get current counter values for session tracking
-  const getCurrentCounterValues = () => {
-    const counterValues: Record<string, number> = {};
-    if (project?.counters) {
-      project.counters.forEach((counter: any) => {
-        counterValues[counter.id] = counter.current_count || 0;
-      });
-    }
-    return counterValues;
-  };
-
-  const handleStartSession = async (): Promise<any> => {
-    try {
-      const response = await axios.post(`/api/projects/${id}/sessions/start`, {
-        mood: undefined,
-        location: undefined,
-        notes: 'Knitting session',
-      });
-      const newSession = response.data.success ? response.data.data.session : response.data;
-      setCurrentSession(newSession);
-      await fetchSessions();
-      toast.success('Knitting session started! 🎉');
-      return newSession;
-    } catch (error) {
-      console.error('Failed to start session:', error);
-      toast.error('Failed to start session');
-      throw error;
-    }
-  };
-
-  const handleEndSession = async (notes?: string, mood?: string) => {
-    if (!currentSession) return;
-
-    try {
-      await axios.post(`/api/projects/${id}/sessions/${currentSession.id}/end`, {
-        notes,
-        mood,
-      });
-      setCurrentSession(null);
-      await fetchSessions();
-      toast.success('Session ended and saved!');
-    } catch (error) {
-      console.error('Failed to end session:', error);
-      toast.error('Failed to end session');
-      throw error;
-    }
-  };
-
-  const handleDeleteSession = async (sessionId: string) => {
-    try {
-      await axios.delete(`/api/projects/${id}/sessions/${sessionId}`);
-      await fetchSessions();
-      toast.success('Session deleted');
-    } catch (error) {
-      console.error('Failed to delete session:', error);
-      toast.error('Failed to delete session');
-    }
-  };
-
   const handlePhotoUpload = async (file: File) => {
     const formData = new FormData();
     formData.append('photo', file);
@@ -565,177 +469,100 @@ export default function ProjectDetail() {
         onDelete={() => setShowDeleteProjectConfirm(true)}
       />
 
-      {/* Knitting Mode - Full Featured UI */}
       {knittingMode ? (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
+        <KnittingModeLayout
+          projectId={id!}
+          patterns={project.patterns || []}
+          counters={project.counters || []}
+          audioNotes={audioNotes}
+          onSaveAudioNote={handleSaveAudioNote}
+          onDeleteAudioNote={handleDeleteAudioNote}
+          onUpdateAudioTranscription={handleUpdateAudioTranscription}
+        />
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
           {/* Main Content - Left Column */}
-          <div className="lg:col-span-2 space-y-4 md:space-y-6">
-            {/* Pattern Preview - Knitting Mode */}
+          <div className="lg:col-span-2 space-y-6">
+            <ProjectDescription description={project.description} />
+
             {project.patterns && project.patterns.length > 0 && (
               <PatternPreview
                 patterns={project.patterns}
-                mode="knitting"
+                mode="normal"
               />
             )}
 
-            {/* Counters - Large Display */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 md:p-6">
+            <ProjectPhotosSection
+              photos={photos}
+              onUpload={handlePhotoUpload}
+              onDelete={handlePhotoDelete}
+            />
+
+            {/* Counters */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
               <CounterHierarchy projectId={id!} />
             </div>
-          </div>
 
-          {/* Sidebar - Right Column */}
-          <div className="space-y-4 md:space-y-6">
-            {/* Session Timer with Row Tracking */}
-            <div className="bg-white rounded-lg shadow-lg p-4 md:p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg md:text-xl font-bold text-gray-900">Session Timer</h2>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setShowKnittingVoiceNotes(!showKnittingVoiceNotes)}
-                    className={`p-2 rounded-lg transition ${
-                      showKnittingVoiceNotes
-                        ? 'bg-purple-600 text-white'
-                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                    }`}
-                    title="Voice Notes"
-                  >
-                    <FiMic className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={() => setShowKnittingHistory(!showKnittingHistory)}
-                    className={`p-2 rounded-lg transition ${
-                      showKnittingHistory
-                        ? 'bg-purple-600 text-white'
-                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                    }`}
-                    title="History"
-                  >
-                    <FiClock className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-              <SessionTimer
+            {/* Magic Markers */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <MagicMarkerManager
                 projectId={id!}
-                currentSession={currentSession}
-                onStartSession={handleStartSession}
-                onEndSession={handleEndSession}
-                getCurrentCounterValues={getCurrentCounterValues}
+                counters={project?.counters || []}
               />
             </div>
 
-            {/* Voice Notes - Embedded in Knitting Mode */}
-            {showKnittingVoiceNotes && (
-              <div className="bg-white rounded-lg shadow-lg p-4 md:p-6">
-                <h2 className="text-lg md:text-xl font-bold text-gray-900 mb-4">Voice Notes</h2>
-                <AudioNotes
-                  projectId={id!}
-                  patterns={project?.patterns || []}
-                  notes={audioNotes}
-                  onSaveNote={handleSaveAudioNote}
-                  onDeleteNote={handleDeleteAudioNote}
-                  onUpdateTranscription={handleUpdateAudioTranscription}
-                />
-              </div>
-            )}
-
-            {/* Session History - Embedded in Knitting Mode */}
-            {showKnittingHistory && sessions.length > 0 && (
-              <div className="bg-white rounded-lg shadow-lg p-4 md:p-6">
-                <h2 className="text-lg md:text-xl font-bold text-gray-900 mb-4">Session History</h2>
-                <SessionHistory sessions={sessions} onDeleteSession={handleDeleteSession} />
-              </div>
-            )}
-          </div>
-        </div>
-      ) : (
-        <>
-          {/* Normal Mode - Project Details Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-        {/* Main Content - Left Column */}
-        <div className="lg:col-span-2 space-y-6">
-          <ProjectDescription description={project.description} />
-
-          {/* Pattern Preview Section - Normal Mode */}
-          {project.patterns && project.patterns.length > 0 && (
-            <PatternPreview
-              patterns={project.patterns}
-              mode="normal"
-            />
-          )}
-
-          <ProjectPhotosSection
-            photos={photos}
-            onUpload={handlePhotoUpload}
-            onDelete={handlePhotoDelete}
-          />
-
-          {/* Counters */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-            <CounterHierarchy projectId={id!} />
-          </div>
-
-          {/* Magic Markers */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <MagicMarkerManager
+            {/* Session Management */}
+            <SessionManager
               projectId={id!}
-              counters={project?.counters || []}
+              totalRows={0}
+              getCurrentCounterValues={() => {
+                return {};
+              }}
+            />
+
+            <ProjectNotesTabs
+              projectId={id!}
+              patterns={project?.patterns || []}
+              audioNotes={audioNotes}
+              structuredMemos={structuredMemos}
+              onSaveAudioNote={handleSaveAudioNote}
+              onDeleteAudioNote={handleDeleteAudioNote}
+              onUpdateAudioTranscription={handleUpdateAudioTranscription}
+              onSaveHandwrittenNote={handleSaveHandwrittenNote}
+              onSaveStructuredMemo={handleSaveStructuredMemo}
+              onDeleteStructuredMemo={handleDeleteStructuredMemo}
             />
           </div>
 
-          {/* Session Management */}
-          <SessionManager
-            projectId={id!}
-            totalRows={0}
-            getCurrentCounterValues={() => {
-              return {};
-            }}
-          />
-
-          <ProjectNotesTabs
-            projectId={id!}
-            patterns={project?.patterns || []}
-            audioNotes={audioNotes}
-            structuredMemos={structuredMemos}
-            onSaveAudioNote={handleSaveAudioNote}
-            onDeleteAudioNote={handleDeleteAudioNote}
-            onUpdateAudioTranscription={handleUpdateAudioTranscription}
-            onSaveHandwrittenNote={handleSaveHandwrittenNote}
-            onSaveStructuredMemo={handleSaveStructuredMemo}
-            onDeleteStructuredMemo={handleDeleteStructuredMemo}
-          />
+          {/* Sidebar - Right Column (sticky so it follows scroll) */}
+          <div className="space-y-6 lg:sticky lg:top-6 lg:self-start">
+            <ProjectTimeline
+              startDate={project.start_date}
+              targetCompletionDate={project.target_completion_date}
+              completionDate={project.completion_date}
+            />
+            <ProjectQuickNotes
+              currentNotes={project.notes}
+              onSave={handleSaveProjectNotes}
+            />
+            <ProjectPatternsList
+              patterns={project.patterns || []}
+              onRemove={handleRemovePattern}
+              onSelectClick={() => setShowAddPatternModal(true)}
+              onUploadClick={() => setShowUploadPatternModal(true)}
+            />
+            <ProjectToolsList
+              tools={project.tools || []}
+              onRemove={handleRemoveTool}
+              onAddClick={() => setShowAddToolModal(true)}
+            />
+            <ProjectYarnUsage
+              yarn={project.yarn || []}
+              onRemove={handleRemoveYarn}
+              onAddClick={() => setShowAddYarnModal(true)}
+            />
+          </div>
         </div>
-
-        {/* Sidebar - Right Column (sticky so it follows scroll) */}
-        <div className="space-y-6 lg:sticky lg:top-6 lg:self-start">
-          <ProjectTimeline
-            startDate={project.start_date}
-            targetCompletionDate={project.target_completion_date}
-            completionDate={project.completion_date}
-          />
-          <ProjectQuickNotes
-            currentNotes={project.notes}
-            onSave={handleSaveProjectNotes}
-          />
-          <ProjectPatternsList
-            patterns={project.patterns || []}
-            onRemove={handleRemovePattern}
-            onSelectClick={() => setShowAddPatternModal(true)}
-            onUploadClick={() => setShowUploadPatternModal(true)}
-          />
-          <ProjectToolsList
-            tools={project.tools || []}
-            onRemove={handleRemoveTool}
-            onAddClick={() => setShowAddToolModal(true)}
-          />
-          <ProjectYarnUsage
-            yarn={project.yarn || []}
-            onRemove={handleRemoveYarn}
-            onAddClick={() => setShowAddYarnModal(true)}
-          />
-        </div>
-      </div>
-        </>
       )}
 
       {showEditModal && (
