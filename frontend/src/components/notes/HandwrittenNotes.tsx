@@ -1,6 +1,6 @@
 // @ts-nocheck
 import React, { useRef, useState, useEffect } from 'react';
-import { FiEdit3, FiTrash, FiDownload, FiTrash2, FiRotateCcw, FiRotateCw, FiDroplet } from 'react-icons/fi';
+import { FiEdit3, FiTrash, FiSave, FiTrash2, FiRotateCcw, FiRotateCw, FiDroplet } from 'react-icons/fi';
 import { toast } from 'react-toastify';
 
 interface HandwrittenNotesProps {
@@ -271,10 +271,11 @@ export const HandwrittenNotes: React.FC<HandwrittenNotesProps> = ({
           </button>
           <button
             onClick={handleExport}
-            className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded"
-            title="Save/Export"
+            disabled={paths.length === 0}
+            className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition font-medium disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            <FiDownload className="w-5 h-5" />
+            <FiSave className="w-4 h-4" />
+            Save
           </button>
         </div>
       </div>
