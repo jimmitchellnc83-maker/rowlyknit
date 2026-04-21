@@ -1,16 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { FiClock, FiImage, FiMic } from 'react-icons/fi';
+import { FiClock, FiMic } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
-import PhotoGallery from '../components/PhotoGallery';
-import FileUpload from '../components/FileUpload';
 import CounterHierarchy from '../components/counters/CounterHierarchy';
 import { SessionManager, SessionTimer, SessionHistory } from '../components/sessions';
 import { useWebSocket } from '../contexts/WebSocketContext';
 import { AudioNotes } from '../components/notes/AudioNotes';
-import { HandwrittenNotes } from '../components/notes/HandwrittenNotes';
-import { StructuredMemoTemplates } from '../components/notes/StructuredMemoTemplates';
 import MagicMarkerManager from '../components/magic-markers/MagicMarkerManager';
 import LoadingSpinner from '../components/LoadingSpinner';
 import PatternPreview from '../components/PatternPreview';
@@ -35,6 +31,11 @@ import {
   ProjectToolsList,
   ProjectYarnUsage,
 } from '../components/project-detail/sidebar';
+import {
+  ProjectDescription,
+  ProjectPhotosSection,
+  ProjectNotesTabs,
+} from '../components/project-detail/main';
 import { useKnittingMode } from '../contexts/KnittingModeContext';
 import { readKnittingMode } from '../utils/knittingModeStorage';
 
@@ -82,7 +83,6 @@ export default function ProjectDetail() {
   // Notes state
   const [audioNotes, setAudioNotes] = useState<any[]>([]);
   const [structuredMemos, setStructuredMemos] = useState<any[]>([]);
-  const [notesTab, setNotesTab] = useState<'audio' | 'handwritten' | 'memos'>('audio');
 
   // Modal states for adding items
   const [showAddPatternModal, setShowAddPatternModal] = useState(false);
@@ -427,6 +427,28 @@ export default function ProjectDetail() {
     }
   };
 
+  const handleSaveHandwrittenNote = async (imageData: string) => {
+    try {
+      // Convert base64 to blob
+      const response = await fetch(imageData);
+      const blob = await response.blob();
+
+      const formData = new FormData();
+      formData.append('image', blob, 'handwritten-note.png');
+
+      await axios.post(`/api/projects/${id}/handwritten-notes`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      toast.success('Handwritten note saved!');
+    } catch (error) {
+      console.error('Error saving handwritten note:', error);
+      throw error;
+    }
+  };
+
+
   // Get current counter values for session tracking
   const getCurrentCounterValues = () => {
     const counterValues: Record<string, number> = {};
@@ -636,13 +658,7 @@ export default function ProjectDetail() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
         {/* Main Content - Left Column */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Description */}
-          {project.description && (
-            <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-3">Description</h2>
-              <p className="text-gray-700 whitespace-pre-wrap">{project.description}</p>
-            </div>
-          )}
+          <ProjectDescription description={project.description} />
 
           {/* Pattern Preview Section - Normal Mode */}
           {project.patterns && project.patterns.length > 0 && (
@@ -652,21 +668,11 @@ export default function ProjectDetail() {
             />
           )}
 
-          {/* Photos */}
-          <details className="bg-white rounded-lg shadow" open={photos.length > 0 || undefined}>
-            <summary className="flex items-center p-6 cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden">
-              <FiImage className="h-5 w-5 text-purple-600 mr-2" />
-              <h2 className="text-lg font-semibold text-gray-900">Project Photos</h2>
-              <span className="ml-2 text-sm text-gray-500">({photos.length})</span>
-              <span className="ml-auto text-sm text-purple-600">{photos.length === 0 ? 'Click to add photos' : ''}</span>
-            </summary>
-            <div className="px-6 pb-6">
-              <div className="mb-4">
-                <FileUpload onUpload={handlePhotoUpload} />
-              </div>
-              <PhotoGallery photos={photos} onDelete={handlePhotoDelete} />
-            </div>
-          </details>
+          <ProjectPhotosSection
+            photos={photos}
+            onUpload={handlePhotoUpload}
+            onDelete={handlePhotoDelete}
+          />
 
           {/* Counters */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
@@ -690,92 +696,18 @@ export default function ProjectDetail() {
             }}
           />
 
-          {/* Notes Section with Tabs */}
-          <div id="notes-section" className="bg-white rounded-lg shadow">
-            <div className="border-b border-gray-200 px-6 pt-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Notes</h2>
-              <nav className="flex -mb-px gap-6">
-                <button
-                  onClick={() => setNotesTab('audio')}
-                  className={`pb-3 text-sm font-medium border-b-2 ${
-                    notesTab === 'audio'
-                      ? 'border-purple-600 text-purple-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  Audio Notes
-                </button>
-                <button
-                  onClick={() => setNotesTab('handwritten')}
-                  className={`pb-3 text-sm font-medium border-b-2 ${
-                    notesTab === 'handwritten'
-                      ? 'border-purple-600 text-purple-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  Handwritten
-                </button>
-                <button
-                  onClick={() => setNotesTab('memos')}
-                  className={`pb-3 text-sm font-medium border-b-2 ${
-                    notesTab === 'memos'
-                      ? 'border-purple-600 text-purple-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  Structured Memos
-                </button>
-              </nav>
-            </div>
-
-            <div className="p-6">
-              {notesTab === 'audio' && (
-                <AudioNotes
-                  projectId={id!}
-                  patterns={project?.patterns || []}
-                  notes={audioNotes}
-                  onSaveNote={handleSaveAudioNote}
-                  onDeleteNote={handleDeleteAudioNote}
-                  onUpdateTranscription={handleUpdateAudioTranscription}
-                />
-              )}
-
-              {notesTab === 'handwritten' && (
-                <HandwrittenNotes
-                  projectId={id!}
-                  onSave={async (imageData) => {
-                    try {
-                      // Convert base64 to blob
-                      const response = await fetch(imageData);
-                      const blob = await response.blob();
-
-                      const formData = new FormData();
-                      formData.append('image', blob, 'handwritten-note.png');
-
-                      await axios.post(`/api/projects/${id}/handwritten-notes`, formData, {
-                        headers: {
-                          'Content-Type': 'multipart/form-data',
-                        },
-                      });
-                      toast.success('Handwritten note saved!');
-                    } catch (error) {
-                      console.error('Error saving handwritten note:', error);
-                      throw error;
-                    }
-                  }}
-                />
-              )}
-
-              {notesTab === 'memos' && (
-                <StructuredMemoTemplates
-                  projectId={id!}
-                  memos={structuredMemos}
-                  onSaveMemo={handleSaveStructuredMemo}
-                  onDeleteMemo={handleDeleteStructuredMemo}
-                />
-              )}
-            </div>
-          </div>
+          <ProjectNotesTabs
+            projectId={id!}
+            patterns={project?.patterns || []}
+            audioNotes={audioNotes}
+            structuredMemos={structuredMemos}
+            onSaveAudioNote={handleSaveAudioNote}
+            onDeleteAudioNote={handleDeleteAudioNote}
+            onUpdateAudioTranscription={handleUpdateAudioTranscription}
+            onSaveHandwrittenNote={handleSaveHandwrittenNote}
+            onSaveStructuredMemo={handleSaveStructuredMemo}
+            onDeleteStructuredMemo={handleDeleteStructuredMemo}
+          />
         </div>
 
         {/* Sidebar - Right Column (sticky so it follows scroll) */}
