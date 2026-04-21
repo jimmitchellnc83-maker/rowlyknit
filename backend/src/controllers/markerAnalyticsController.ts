@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import db from '../config/database';
+import logger from '../config/logger';
 import {
   analyzePatternForMarkers,
   calculateMarkerAnalytics,
@@ -72,7 +73,7 @@ export const analyzeMarkersForProject = async (req: Request, res: Response) => {
       summary: analysis.analysis_summary,
     });
   } catch (error) {
-    console.error('Error analyzing markers:', error);
+    logger.error('Error analyzing markers:', error);
     return res.status(500).json({ error: 'Failed to analyze pattern' });
   }
 };
@@ -126,7 +127,7 @@ export const acceptMarkerSuggestion = async (req: Request, res: Response) => {
 
     return res.status(201).json(newMarker);
   } catch (error) {
-    console.error('Error accepting marker suggestion:', error);
+    logger.error('Error accepting marker suggestion:', error);
     return res.status(500).json({ error: 'Failed to create marker' });
   }
 };
@@ -186,7 +187,7 @@ export const getMarkerTimeline = async (req: Request, res: Response) => {
       markers: timeline,
     });
   } catch (error) {
-    console.error('Error getting marker timeline:', error);
+    logger.error('Error getting marker timeline:', error);
     return res.status(500).json({ error: 'Failed to get timeline' });
   }
 };
@@ -223,7 +224,7 @@ export const getMarkerAnalytics = async (req: Request, res: Response) => {
 
     return res.json(analytics);
   } catch (error) {
-    console.error('Error getting marker analytics:', error);
+    logger.error('Error getting marker analytics:', error);
     return res.status(500).json({ error: 'Failed to get analytics' });
   }
 };
@@ -288,7 +289,7 @@ export const recordMarkerEvent = async (req: Request, res: Response) => {
 
     return res.json(updatedMarker);
   } catch (error) {
-    console.error('Error recording marker event:', error);
+    logger.error('Error recording marker event:', error);
     return res.status(500).json({ error: 'Failed to record event' });
   }
 };
@@ -338,7 +339,7 @@ export const updateMarkerPosition = async (req: Request, res: Response) => {
 
     return res.json(updatedMarker);
   } catch (error) {
-    console.error('Error updating marker position:', error);
+    logger.error('Error updating marker position:', error);
     return res.status(500).json({ error: 'Failed to update position' });
   }
 };
@@ -381,7 +382,7 @@ export const updateMarkerColor = async (req: Request, res: Response) => {
 
     return res.json(updatedMarker);
   } catch (error) {
-    console.error('Error updating marker color:', error);
+    logger.error('Error updating marker color:', error);
     return res.status(500).json({ error: 'Failed to update color' });
   }
 };
@@ -465,7 +466,7 @@ export const getUpcomingMarkers = async (req: Request, res: Response) => {
       count: allUpcoming.length,
     });
   } catch (error) {
-    console.error('Error getting upcoming markers:', error);
+    logger.error('Error getting upcoming markers:', error);
     return res.status(500).json({ error: 'Failed to get upcoming markers' });
   }
 };

@@ -826,7 +826,7 @@ export async function incrementWithChildren(req: Request, res: Response) {
       });
     });
   } catch (socketError) {
-    console.error('[Counter Hierarchy] Failed to emit WebSocket events:', socketError);
+    logger.error('[Counter Hierarchy] Failed to emit WebSocket events:', socketError);
   }
 
   // Audit log

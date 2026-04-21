@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import db from '../config/database';
+import logger from '../config/logger';
 
 /**
  * Stats Response Types
@@ -302,7 +303,7 @@ export async function getStats(req: Request, res: Response) {
       data: { stats }
     });
   } catch (error) {
-    console.error('Error fetching stats:', error);
+    logger.error('Error fetching stats:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch statistics'
@@ -347,7 +348,7 @@ export async function getStatsSummary(req: Request, res: Response) {
       }
     });
   } catch (error) {
-    console.error('Error fetching stats summary:', error);
+    logger.error('Error fetching stats summary:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch statistics summary'

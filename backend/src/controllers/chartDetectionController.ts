@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import db from '../config/database';
+import logger from '../config/logger';
 import {
   detectChartFromImage,
   applyCorrections,
@@ -97,7 +98,7 @@ export const detectFromImage = async (req: Request, res: Response) => {
       });
     }
   } catch (error) {
-    console.error('Error in chart detection:', error);
+    logger.error('Error in chart detection:', error);
     return res.status(500).json({ error: 'Failed to process image' });
   }
 };
@@ -141,7 +142,7 @@ export const getDetectionResult = async (req: Request, res: Response) => {
       created_at: detection.created_at,
     });
   } catch (error) {
-    console.error('Error getting detection:', error);
+    logger.error('Error getting detection:', error);
     return res.status(500).json({ error: 'Failed to get detection' });
   }
 };
@@ -223,7 +224,7 @@ export const applyDetectionCorrections = async (req: Request, res: Response) => 
       remaining_unrecognized: remainingUnrecognized.length,
     });
   } catch (error) {
-    console.error('Error applying corrections:', error);
+    logger.error('Error applying corrections:', error);
     return res.status(500).json({ error: 'Failed to apply corrections' });
   }
 };
@@ -308,7 +309,7 @@ export const saveDetectedChart = async (req: Request, res: Response) => {
       message: 'Chart saved successfully',
     });
   } catch (error) {
-    console.error('Error saving chart:', error);
+    logger.error('Error saving chart:', error);
     return res.status(500).json({ error: 'Failed to save chart' });
   }
 };
@@ -328,7 +329,7 @@ export const getSymbols = async (req: Request, res: Response) => {
       data: symbols,
     });
   } catch (error) {
-    console.error('Error getting symbols:', error);
+    logger.error('Error getting symbols:', error);
     return res.status(500).json({ error: 'Failed to get symbols' });
   }
 };
@@ -374,7 +375,7 @@ export const getDetectionHistory = async (req: Request, res: Response) => {
       offset: Number(offset),
     });
   } catch (error) {
-    console.error('Error getting detection history:', error);
+    logger.error('Error getting detection history:', error);
     return res.status(500).json({ error: 'Failed to get history' });
   }
 };
@@ -417,7 +418,7 @@ export const deleteDetection = async (req: Request, res: Response) => {
 
     return res.json({ message: 'Detection deleted successfully' });
   } catch (error) {
-    console.error('Error deleting detection:', error);
+    logger.error('Error deleting detection:', error);
     return res.status(500).json({ error: 'Failed to delete detection' });
   }
 };

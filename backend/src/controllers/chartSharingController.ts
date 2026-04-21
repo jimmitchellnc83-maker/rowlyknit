@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import db from '../config/database';
+import logger from '../config/logger';
 import {
   createChartShareLink,
   getSharedChart,
@@ -45,7 +46,7 @@ export const shareChart = async (req: Request, res: Response) => {
 
     return res.status(201).json(result);
   } catch (error) {
-    console.error('Error sharing chart:', error);
+    logger.error('Error sharing chart:', error);
     return res.status(500).json({ error: 'Failed to create share link' });
   }
 };
@@ -91,7 +92,7 @@ export const viewSharedChart = async (req: Request, res: Response) => {
     if (error.message === 'Password required') {
       return res.status(401).json({ error: 'Password required', password_protected: true });
     }
-    console.error('Error viewing shared chart:', error);
+    logger.error('Error viewing shared chart:', error);
     return res.status(500).json({ error: 'Failed to load chart' });
   }
 };
@@ -146,7 +147,7 @@ export const copySharedChart = async (req: Request, res: Response) => {
     if (error.message === 'Password required') {
       return res.status(401).json({ error: 'Password required' });
     }
-    console.error('Error copying chart:', error);
+    logger.error('Error copying chart:', error);
     return res.status(500).json({ error: 'Failed to copy chart' });
   }
 };
@@ -199,7 +200,7 @@ export const exportChartHandler = async (req: Request, res: Response) => {
 
     return res.send(result.buffer);
   } catch (error) {
-    console.error('Error exporting chart:', error);
+    logger.error('Error exporting chart:', error);
     return res.status(500).json({ error: 'Failed to export chart' });
   }
 };
@@ -243,7 +244,7 @@ export const downloadSharedChart = async (req: Request, res: Response) => {
     if (error.message === 'Password required') {
       return res.status(401).json({ error: 'Password required' });
     }
-    console.error('Error downloading chart:', error);
+    logger.error('Error downloading chart:', error);
     return res.status(500).json({ error: 'Failed to download chart' });
   }
 };
@@ -264,7 +265,7 @@ export const getShareStatistics = async (req: Request, res: Response) => {
 
     return res.json(stats);
   } catch (error) {
-    console.error('Error getting share stats:', error);
+    logger.error('Error getting share stats:', error);
     return res.status(500).json({ error: 'Failed to get statistics' });
   }
 };
@@ -285,7 +286,7 @@ export const getMySharedItems = async (req: Request, res: Response) => {
 
     return res.json(items);
   } catch (error) {
-    console.error('Error getting shared items:', error);
+    logger.error('Error getting shared items:', error);
     return res.status(500).json({ error: 'Failed to get shared items' });
   }
 };
@@ -315,7 +316,7 @@ export const revokeShare = async (req: Request, res: Response) => {
 
     return res.json({ message: 'Share link revoked successfully' });
   } catch (error) {
-    console.error('Error revoking share:', error);
+    logger.error('Error revoking share:', error);
     return res.status(500).json({ error: 'Failed to revoke share link' });
   }
 };
@@ -341,7 +342,7 @@ export const getExportHistory = async (req: Request, res: Response) => {
 
     return res.json({ exports });
   } catch (error) {
-    console.error('Error getting export history:', error);
+    logger.error('Error getting export history:', error);
     return res.status(500).json({ error: 'Failed to get export history' });
   }
 };

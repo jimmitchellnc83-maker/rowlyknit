@@ -8,6 +8,7 @@
 
 import sharp from 'sharp';
 import db from '../config/database';
+import logger from '../config/logger';
 
 export interface DetectedCell {
   symbol: string;
@@ -133,7 +134,7 @@ export async function detectGrid(
       },
     };
   } catch (error) {
-    console.error('Grid detection error:', error);
+    logger.error('Grid detection error:', error);
     return null;
   }
 }
@@ -227,7 +228,7 @@ export async function recognizeSymbol(
     // Default to knit with low confidence
     return { symbol: 'k', confidence: 0.4 };
   } catch (error) {
-    console.error('Symbol recognition error:', error);
+    logger.error('Symbol recognition error:', error);
     return { symbol: 'k', confidence: 0.3 };
   }
 }
