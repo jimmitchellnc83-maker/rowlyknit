@@ -55,17 +55,16 @@ const app: Application = express();
 app.set('trust proxy', 1);
 
 // Security middleware
+//
+// CSP is owned by nginx (see deployment/nginx/conf.d/rowlyknit.conf), not here.
+// In prod the frontend HTML is served by nginx — the browser never sees this
+// Express response for the page, so a Helmet CSP on API JSON is dead weight
+// and the two drifted over time (Helmet blocked unsafe-eval, nginx allowed it
+// for PDF.js; Helmet blocked wss:, nginx allowed it for WebSockets). Keeping
+// Helmet for the rest (X-Frame-Options, X-Content-Type-Options, HSTS, etc.)
+// and turning CSP off here so nginx is the single source of truth.
 app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
-      scriptSrc: ["'self'"],
-      imgSrc: ["'self'", 'data:', 'https:'],
-      fontSrc: ["'self'", 'https://fonts.gstatic.com', 'data:'],
-      connectSrc: ["'self'"],
-    },
-  },
+  contentSecurityPolicy: false,
   hsts: {
     maxAge: 31536000,
     includeSubDomains: true,
