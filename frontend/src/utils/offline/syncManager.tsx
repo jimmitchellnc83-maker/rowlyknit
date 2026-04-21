@@ -6,6 +6,7 @@ import {
   incrementSyncRetry,
   deleteSyncItem,
   getSyncQueue,
+  getDB,
 } from './db';
 
 const MAX_RETRIES = 3;
@@ -172,7 +173,7 @@ class SyncManager {
     for (const item of failed) {
       if (item.id) {
         // Reset retries to 0
-        const db = await import('./db').then((m) => m.getDB());
+        const db = await getDB();
         await db.put('sync-queue', { ...item, retries: 0 });
       }
     }
