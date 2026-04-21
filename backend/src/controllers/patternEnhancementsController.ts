@@ -364,6 +364,41 @@ export async function deletePatternBookmark(req: Request, res: Response) {
 }
 
 /**
+ * Reorder pattern bookmarks (bulk sort_order update)
+ */
+export async function reorderPatternBookmarks(req: Request, res: Response) {
+  const userId = req.user!.userId;
+  const { patternId } = req.params;
+  const { bookmarks } = req.body;
+
+  if (!Array.isArray(bookmarks)) {
+    throw new ValidationError('Bookmarks must be an array');
+  }
+
+  const pattern = await db('patterns')
+    .where({ id: patternId, user_id: userId })
+    .whereNull('deleted_at')
+    .first();
+
+  if (!pattern) {
+    throw new NotFoundError('Pattern not found');
+  }
+
+  await db.transaction(async (trx) => {
+    for (const item of bookmarks) {
+      await trx('pattern_bookmarks')
+        .where({ id: item.id, pattern_id: patternId })
+        .update({ sort_order: item.sortOrder });
+    }
+  });
+
+  res.json({
+    success: true,
+    message: 'Bookmarks reordered successfully',
+  });
+}
+
+/**
  * Pattern Highlights
  */
 

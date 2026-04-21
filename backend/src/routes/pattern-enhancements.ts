@@ -143,6 +143,18 @@ router.delete(
 );
 
 /**
+ * @route   PATCH /api/patterns/:patternId/bookmarks/reorder
+ * @desc    Reorder pattern bookmarks (bulk sort_order update)
+ * @access  Private
+ */
+router.patch(
+  '/patterns/:patternId/bookmarks/reorder',
+  [validateUUID('patternId'), body('bookmarks').isArray()],
+  validate,
+  asyncHandler(patternEnhancementsController.reorderPatternBookmarks)
+);
+
+/**
  * Pattern Highlights Routes
  */
 
