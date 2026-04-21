@@ -101,7 +101,13 @@ router.post(
  */
 router.put(
   '/projects/:id/sessions/:sessionId',
-  [validateUUID('id'), validateUUID('sessionId')],
+  [
+    validateUUID('id'),
+    validateUUID('sessionId'),
+    body('mood').optional({ values: 'null' }).isString().isLength({ max: 50 }),
+    body('location').optional({ values: 'null' }).isString().isLength({ max: 255 }),
+    body('notes').optional({ values: 'null' }).isString(),
+  ],
   validate,
   asyncHandler(sessionsController.updateSession)
 );
@@ -157,7 +163,15 @@ router.post(
  */
 router.put(
   '/projects/:id/milestones/:milestoneId',
-  [validateUUID('id'), validateUUID('milestoneId')],
+  [
+    validateUUID('id'),
+    validateUUID('milestoneId'),
+    body('name').optional().trim().isLength({ max: 255 }),
+    body('targetRows').optional({ values: 'falsy' }).isInt({ min: 0 }),
+    body('actualRows').optional({ values: 'falsy' }).isInt({ min: 0 }),
+    body('timeSpentSeconds').optional({ values: 'falsy' }).isInt({ min: 0 }),
+    body('completedAt').optional({ values: 'falsy' }).isISO8601(),
+  ],
   validate,
   asyncHandler(sessionsController.updateMilestone)
 );

@@ -42,7 +42,28 @@ router.post(
 
 router.put(
   '/:id',
-  validateUUID('id'),
+  [
+    validateUUID('id'),
+    body('name').optional().trim().isLength({ max: 255 }),
+    body('type').optional({ values: 'null' }).trim().isLength({ max: 100 }),
+    body('category').optional({ values: 'null' }).trim().isLength({ max: 100 }),
+    body('size').optional({ values: 'null' }).trim().isLength({ max: 50 }),
+    body('sizeMm').optional({ values: 'falsy' }).isNumeric(),
+    body('material').optional({ values: 'null' }).trim().isLength({ max: 100 }),
+    body('brand').optional({ values: 'null' }).trim().isLength({ max: 255 }),
+    body('quantity').optional({ values: 'falsy' }).isInt({ min: 0 }),
+    body('craftType').optional({ values: 'null' }).trim().isLength({ max: 50 }),
+    body('toolCategory').optional({ values: 'null' }).trim().isLength({ max: 100 }),
+    body('cableLengthMm').optional({ values: 'falsy' }).isNumeric(),
+    body('purchaseDate').optional({ values: 'falsy' }).isISO8601(),
+    body('purchasePrice').optional({ values: 'falsy' }).isNumeric(),
+    body('notes').optional({ values: 'null' }).isString(),
+    body('taxonomyTypeId').optional({ values: 'falsy' }).isUUID(),
+    body('taxonomyLabel').optional({ values: 'null' }).isString(),
+    body('taxonomyCategoryLabel').optional({ values: 'null' }).isString(),
+    body('taxonomySubcategoryLabel').optional({ values: 'null' }).isString(),
+  ],
+  validate,
   asyncHandler(toolsController.updateTool)
 );
 

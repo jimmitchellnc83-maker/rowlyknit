@@ -37,7 +37,19 @@ router.post(
 
 router.put(
   '/:id',
-  validateUUID('id'),
+  [
+    validateUUID('id'),
+    body('firstName').optional().trim().isLength({ max: 100 }),
+    body('lastName').optional({ values: 'null' }).trim().isLength({ max: 100 }),
+    body('relationship').optional({ values: 'null' }).trim().isLength({ max: 100 }),
+    body('birthday').optional({ values: 'falsy' }).isISO8601(),
+    body('measurements').optional({ values: 'null' }).isObject(),
+    body('preferences').optional({ values: 'null' }).isObject(),
+    body('clothingSize').optional({ values: 'null' }).trim().isLength({ max: 50 }),
+    body('shoeSize').optional({ values: 'null' }).trim().isLength({ max: 50 }),
+    body('notes').optional({ values: 'null' }).isString(),
+  ],
+  validate,
   asyncHandler(recipientsController.updateRecipient)
 );
 
