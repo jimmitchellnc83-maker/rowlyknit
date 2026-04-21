@@ -4,6 +4,7 @@ import { useAuthStore } from '../stores/authStore';
 import { useDashboardStats } from '../hooks/useApi';
 import { useMeasurements } from '../hooks/useMeasurements';
 import { LoadingSkeleton, ErrorState } from '../components/LoadingSpinner';
+import { metersToYards } from '../utils/yarnUnits';
 
 const iconMap: { [key: string]: React.ComponentType<{ className?: string }> } = {
   FiFolder,
@@ -164,7 +165,7 @@ export default function Dashboard() {
             <div className="space-y-3">
               {lowStockYarn.map((yarn) => {
                 const currentQty = yarn.remaining_length_m != null
-                  ? Math.round(yarn.remaining_length_m * 1.09361)
+                  ? metersToYards(yarn.remaining_length_m)
                   : (yarn.yards_remaining || 0);
                 const threshold = yarn.low_stock_threshold || 0;
                 const percentRemaining = threshold > 0 ? (currentQty / threshold) * 100 : 0;

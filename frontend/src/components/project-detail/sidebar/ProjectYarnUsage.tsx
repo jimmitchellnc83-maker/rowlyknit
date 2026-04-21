@@ -4,6 +4,7 @@ import { FiPlus, FiX, FiAlertCircle } from 'react-icons/fi';
 import HelpTooltip from '../../HelpTooltip';
 import ConfirmModal from '../../ConfirmModal';
 import { useMeasurements } from '../../../hooks/useMeasurements';
+import { metersToYards } from '../../../utils/yarnUnits';
 
 interface Props {
   yarn: any[];
@@ -50,7 +51,7 @@ export default function ProjectYarnUsage({ yarn, onRemove, onAddClick }: Props) 
           <div className="space-y-4">
             {yarn.map((y: any) => {
               const percentage = getYarnPercentage(y);
-              const yardsFallback = y.remaining_length_m != null ? Math.round(y.remaining_length_m * 1.09361) : (y.yards_remaining || 0);
+              const yardsFallback = y.remaining_length_m != null ? metersToYards(y.remaining_length_m) : (y.yards_remaining || 0);
               const isLowStock = y.low_stock_alert && yardsFallback <= (y.low_stock_threshold || 0);
 
               return (
