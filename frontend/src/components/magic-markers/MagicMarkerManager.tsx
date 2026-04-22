@@ -83,6 +83,66 @@ const DISPLAY_STYLES = [
   { value: 'inline', label: 'Inline (always visible)' },
 ];
 
+// Quick-start templates — each patches a subset of formData so users
+// can build common markers in one click instead of from a blank form.
+const MARKER_TEMPLATES = [
+  {
+    id: 'repeat_section',
+    label: 'Repeat section',
+    hint: 'Every N rows (pattern repeats, lace rows, etc.)',
+    patch: {
+      triggerType: 'row_interval',
+      isRepeating: true,
+      category: 'shaping',
+      priority: 'normal',
+      displayStyle: 'toast',
+      alertMessage: 'Repeat section reached',
+      repeatInterval: '4',
+    },
+  },
+  {
+    id: 'shaping_interval',
+    label: 'Shaping interval',
+    hint: 'Decrease / increase every N rows starting at row X',
+    patch: {
+      triggerType: 'row_range',
+      isRepeating: true,
+      category: 'shaping',
+      priority: 'high',
+      displayStyle: 'banner',
+      alertMessage: 'Shaping row — work decrease/increase',
+      startRow: '1',
+      repeatInterval: '4',
+    },
+  },
+  {
+    id: 'milestone',
+    label: 'Milestone',
+    hint: 'Single alert at a specific row (check fit, split for front/back)',
+    patch: {
+      triggerType: 'row_range',
+      isRepeating: false,
+      category: 'milestone',
+      priority: 'high',
+      displayStyle: 'banner',
+      alertMessage: 'Milestone reached',
+    },
+  },
+  {
+    id: 'counter_target',
+    label: 'Counter target',
+    hint: 'Fires when a specific counter reaches a value',
+    patch: {
+      triggerType: 'counter_value',
+      operator: 'equals',
+      category: 'reminder',
+      priority: 'normal',
+      displayStyle: 'banner',
+      alertMessage: 'Counter target reached',
+    },
+  },
+];
+
 export default function MagicMarkerManager({ projectId, counters, currentRow }: MagicMarkerManagerProps) {
   const modalRef = useRef<HTMLDivElement>(null);
   const [markers, setMarkers] = useState<MagicMarker[]>([]);
@@ -624,6 +684,29 @@ export default function MagicMarkerManager({ projectId, counters, currentRow }: 
             </div>
 
             <div className="p-4 space-y-4">
+              {/* Quick-start templates */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Quick start
+                  <span className="ml-2 text-xs font-normal text-gray-500">
+                    (pick a preset, then fine-tune below)
+                  </span>
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  {MARKER_TEMPLATES.map((t) => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => setFormData((prev) => ({ ...prev, ...t.patch }))}
+                      className="text-left p-2 border border-gray-200 dark:border-gray-600 rounded hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition"
+                    >
+                      <div className="text-sm font-medium text-gray-900 dark:text-white">{t.label}</div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">{t.hint}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* Name & Category */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
