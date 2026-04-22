@@ -123,6 +123,7 @@ export default function YarnStash() {
     fiberContent: '',
     yardsTotal: '',
     skeinsTotal: '1',
+    pricePerSkein: '',
     dyeLot: '',
     lowStockThreshold: '',
     lowStockAlert: false,
@@ -198,6 +199,7 @@ export default function YarnStash() {
     fiberContent: '',
     yardsTotal: '',
     skeinsTotal: '1',
+    pricePerSkein: '',
     dyeLot: '',
     lowStockThreshold: '',
     lowStockAlert: false,
@@ -281,6 +283,7 @@ export default function YarnStash() {
       fiberContent: y.fiber_content || '',
       yardsTotal: y.yards_total?.toString() || '',
       skeinsTotal: y.skeins_total?.toString() || '1',
+      pricePerSkein: (y as unknown as { price_per_skein?: number | string }).price_per_skein?.toString() || '',
       dyeLot: (y as unknown as { dye_lot?: string }).dye_lot || '',
       lowStockThreshold: y.low_stock_threshold?.toString() || '',
       lowStockAlert: y.low_stock_alert || false,
@@ -765,6 +768,24 @@ export default function YarnStash() {
                 </div>
               </div>
 
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Price per Skein <span className="text-xs font-normal text-gray-400">(optional, for stash value tracking)</span>
+                </label>
+                <div className="relative">
+                  <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">$</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={formData.pricePerSkein}
+                    onChange={(e) => setFormData({ ...formData, pricePerSkein: e.target.value })}
+                    className="w-full pl-7 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    placeholder="e.g., 12.00"
+                  />
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -989,6 +1010,24 @@ export default function YarnStash() {
                     onChange={(e) => setFormData({ ...formData, yardsTotal: e.target.value })}
                     className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                     placeholder="e.g., 364"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Price per Skein <span className="text-xs font-normal text-gray-400">(optional, for stash value tracking)</span>
+                </label>
+                <div className="relative">
+                  <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">$</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={formData.pricePerSkein}
+                    onChange={(e) => setFormData({ ...formData, pricePerSkein: e.target.value })}
+                    className="w-full pl-7 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    placeholder="e.g., 12.00"
                   />
                 </div>
               </div>
