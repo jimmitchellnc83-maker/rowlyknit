@@ -36,5 +36,17 @@ export const PIECE_TYPE_SUGGESTIONS = [
   'pocket',
   'panel',
   'edging',
+  'assembly',
   'other',
+];
+
+// Standard finishing/assembly steps surfaced once at least one garment
+// piece is complete. Users get the full set in one click.
+export const ASSEMBLY_STEP_TEMPLATES: Array<{ name: string }> = [
+  { name: 'Block pieces' },
+  { name: 'Seam shoulders' },
+  { name: 'Sew in sleeves' },
+  { name: 'Sew side seams' },
+  { name: 'Weave in ends' },
+  { name: 'Add buttons / closures' },
 ];
