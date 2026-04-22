@@ -27,6 +27,24 @@ export interface DesignerGauge {
   rowsPer4in: number;
 }
 
+export interface ArmholeInput {
+  /** Vertical distance from underarm bind-off row to shoulder seam (inches).
+   *  Typical adult sweater: 7–9 in. */
+  armholeDepth: number;
+  /** Width across each shoulder, one side (inches). Shoulder ends at the
+   *  neck opening on the body side and at the sleeve seam on the outer side.
+   *  Typical adult: 4–6 in. */
+  shoulderWidth: number;
+}
+
+export interface NecklineInput {
+  /** How far the scoop drops from the shoulder seam (inches). Crew neck is
+   *  usually 2–3 in; scoop / U-neck 4–6 in. */
+  necklineDepth: number;
+  /** Width of the bound-off base of the neck opening (inches). Crew: 6–8 in. */
+  neckOpeningWidth: number;
+}
+
 export interface BodyBlockInput {
   gauge: DesignerGauge;
   /** Body circumference at the fullest chest/bust measurement (inches). */
@@ -48,6 +66,19 @@ export interface BodyBlockInput {
     /** Distance from cast-on edge to the narrowest point (inches). */
     waistHeightFromHem: number;
   };
+  /**
+   * Optional set-in-sleeve armhole shaping. When present, the top
+   * `armholeDepth` inches of the piece narrow from chest width to shoulder
+   * width via an initial underarm bind-off + tapered decreases. Pairs with
+   * a matching sleeve cap (see SleeveInput.cap).
+   */
+  armhole?: ArmholeInput;
+  /**
+   * Optional crew-style neckline on the front panel. Only meaningful when
+   * `armhole` is also set (the neckline happens within the armhole section
+   * above the taper). If you're designing the back panel, leave this out.
+   */
+  neckline?: NecklineInput;
 }
 
 export type ShapingDirection = 'decrease' | 'increase' | 'none';
@@ -78,6 +109,13 @@ export interface BodyBlockOutput {
   finishedChest: number;
   /** Waist + easeAtWaist, when waist shaping is present. */
   finishedWaist: number | null;
+  /** When armhole shaping is present: initial bind-off per side (each
+   *  armhole edge). Used by the sleeve-cap math to keep the underarm seam
+   *  aligned. Null when no armhole shaping is requested. */
+  armholeInitialBindOffPerSide: number | null;
+  /** Total stitches at the shoulder seam (2 × shoulderStitches + neckOpeningStitches)
+   *  when armhole is present. Null otherwise. */
+  shoulderSeamStitches: number | null;
   /** Section-by-section shaping, top-of-piece first is NOT guaranteed;
    *  steps are listed in knitting order (cast-on upward). */
   steps: ShapingStep[];
@@ -203,13 +241,15 @@ export function buildShapingFormula(
 // ---------------------------------------------------------------------------
 
 /**
- * A body block is one panel of a torso (either front or back — the math is
- * symmetric). v1 computes stitches at cast-on, stitches at the waist (if
- * shaped), and rows per section. The output is designed to feed both the
- * SVG schematic and the instructions card without further math.
+ * A body block is one panel of a torso. Back panel: leave `neckline` unset.
+ * Front panel: provide `neckline` to shape the crew / scoop neckline above
+ * the armhole. Set-in-sleeve armholes are optional — when omitted the panel
+ * is a simple rectangle to the shoulder (drop-shoulder / modified-drop construction).
+ *
+ * The output feeds both the SVG schematic and the instructions card.
  */
 export function computeBodyBlock(input: BodyBlockInput): BodyBlockOutput {
-  const { gauge, chestCircumference, easeAtChest, totalLength, hemDepth, waist } = input;
+  const { gauge, chestCircumference, easeAtChest, totalLength, hemDepth, waist, armhole, neckline } = input;
 
   // Each panel is half the circumference. Cast-on is a front-or-back panel,
   // which is where we size for.
@@ -222,14 +262,14 @@ export function computeBodyBlock(input: BodyBlockInput): BodyBlockOutput {
   const chestStitches = stitchesForWidth(panelChestWidth, gauge);
   const waistStitches =
     panelWaistWidth !== null ? stitchesForWidth(panelWaistWidth, gauge) : null;
-  // Without waist shaping the cast-on matches the chest; with waist shaping
-  // we cast on the chest width, taper to the waist, then increase back up.
-  // (This is the common "A-line from hem" pattern; alternative constructions
-  // can be added in a follow-up PR.)
   const castOnStitches = chestStitches;
 
   const hemRows = rowsForLength(hemDepth, gauge);
   const totalRows = rowsForLength(totalLength, gauge);
+  const armholeDepthRows = armhole ? rowsForLength(armhole.armholeDepth, gauge) : 0;
+  // bodyCoreRows = hem→armhole section (includes optional waist shaping).
+  // When no armhole, this covers the full cast-on → shoulder span.
+  const bodyCoreRows = Math.max(0, totalRows - hemRows - armholeDepthRows);
 
   const steps: ShapingStep[] = [];
 
@@ -247,10 +287,12 @@ export function computeBodyBlock(input: BodyBlockInput): BodyBlockOutput {
     });
   }
 
+  // Body core — hem up to where the armhole shaping starts (or the shoulder
+  // seam, if no armhole shaping is requested).
   if (waist && waistStitches !== null) {
     const waistRowTotal = rowsForLength(waist.waistHeightFromHem, gauge);
     const belowWaistRows = Math.max(0, waistRowTotal - hemRows);
-    const aboveWaistRows = Math.max(0, totalRows - hemRows - belowWaistRows);
+    const aboveWaistRows = Math.max(0, bodyCoreRows - belowWaistRows);
 
     if (belowWaistRows > 0) {
       const f = buildShapingFormula(castOnStitches, waistStitches, belowWaistRows, 'waist decreases');
@@ -275,30 +317,127 @@ export function computeBodyBlock(input: BodyBlockInput): BodyBlockOutput {
         instruction: f.instruction,
       });
     }
-  } else {
-    const bodyRows = Math.max(0, totalRows - hemRows);
-    if (bodyRows > 0) {
-      steps.push({
-        label: 'Hem to shoulder',
-        startStitches: castOnStitches,
-        endStitches: chestStitches,
-        rows: bodyRows,
-        direction: 'none',
-        instruction: `Work straight for ${bodyRows} row${bodyRows === 1 ? '' : 's'}.`,
-      });
-    }
+  } else if (bodyCoreRows > 0) {
+    steps.push({
+      label: armhole ? 'Hem to armhole' : 'Hem to shoulder',
+      startStitches: castOnStitches,
+      endStitches: chestStitches,
+      rows: bodyCoreRows,
+      direction: 'none',
+      instruction: `Work straight for ${bodyCoreRows} row${bodyCoreRows === 1 ? '' : 's'}.`,
+    });
   }
 
-  // Bind-off
-  const bindOffStitches = waistStitches !== null ? chestStitches : castOnStitches;
-  steps.push({
-    label: 'Bind off',
-    startStitches: bindOffStitches,
-    endStitches: 0,
-    rows: 1,
-    direction: 'none',
-    instruction: `Bind off all ${bindOffStitches} sts loosely.`,
-  });
+  // Armhole + neckline + shoulder (if armhole shaping is requested).
+  let armholeInitialBindOffPerSide: number | null = null;
+  let shoulderSeamStitches: number | null = null;
+
+  if (armhole) {
+    // Initial underarm bind-off: ~10% of the panel width per side, minimum 2,
+    // rounded to an even number so bind-offs match on front/back.
+    const rawBindOff = chestStitches * 0.1;
+    armholeInitialBindOffPerSide = Math.max(2, roundToEven(rawBindOff / 2));
+
+    const afterInitialBindOff = chestStitches - 2 * armholeInitialBindOffPerSide;
+
+    const shoulderStitches = stitchesForWidth(armhole.shoulderWidth, gauge);
+    const neckOpeningStitches = neckline ? stitchesForWidth(neckline.neckOpeningWidth, gauge) : 0;
+    shoulderSeamStitches = 2 * shoulderStitches + neckOpeningStitches;
+
+    // Step: the 2 initial-bind-off rows (RS, then WS).
+    steps.push({
+      label: 'Armhole — initial bind-off',
+      startStitches: chestStitches,
+      endStitches: afterInitialBindOff,
+      rows: 2,
+      direction: 'decrease',
+      instruction:
+        `Bind off ${armholeInitialBindOffPerSide} sts at the beginning of the next 2 rows ` +
+        `(one each armhole edge). ${2 * armholeInitialBindOffPerSide} sts removed total.`,
+    });
+
+    const necklineDepthRows = neckline ? rowsForLength(neckline.necklineDepth, gauge) : 0;
+    // Tapered decreases happen between the initial bind-off and the start of
+    // the neckline (or the shoulder seam if no neckline).
+    const taperRows = Math.max(0, armholeDepthRows - 2 - necklineDepthRows);
+    if (taperRows > 0 && afterInitialBindOff !== shoulderSeamStitches) {
+      const f = buildShapingFormula(afterInitialBindOff, shoulderSeamStitches, taperRows, 'armhole taper');
+      steps.push({
+        label: 'Armhole — taper',
+        startStitches: afterInitialBindOff,
+        endStitches: shoulderSeamStitches,
+        rows: taperRows,
+        direction: f.direction,
+        instruction: f.instruction,
+      });
+    }
+
+    // Neckline: bind off center, then work each shoulder separately.
+    if (neckline && necklineDepthRows > 0 && neckOpeningStitches > 0) {
+      steps.push({
+        label: 'Neckline — center bind-off',
+        startStitches: shoulderSeamStitches,
+        endStitches: shoulderSeamStitches - neckOpeningStitches,
+        rows: 1,
+        direction: 'decrease',
+        instruction:
+          `Work to center ${neckOpeningStitches} sts, bind off those sts, then continue each ` +
+          `shoulder separately. Each shoulder starts with ${shoulderStitches} sts.`,
+      });
+      // Optional neckline curve — decrease 1 st at neck edge every RS row a
+      // few times to round the scoop. For a crew neck: 2–4 decreases per side
+      // over necklineDepthRows. Keep it terse at this level; knitters adjust.
+      const curveEvents = Math.min(4, Math.floor(necklineDepthRows / 4));
+      if (curveEvents > 0) {
+        steps.push({
+          label: 'Neckline — shape each shoulder',
+          startStitches: shoulderStitches,
+          endStitches: shoulderStitches - curveEvents,
+          rows: necklineDepthRows - 1,
+          direction: 'decrease',
+          instruction:
+            `On each shoulder: dec 1 st at neck edge every other row × ${curveEvents}, ` +
+            `then work even until the piece measures ${round025(armhole.armholeDepth)} in ` +
+            `from the underarm bind-off.`,
+        });
+      }
+    }
+
+    // Shoulder bind-off.
+    if (neckline && neckOpeningStitches > 0) {
+      const finalPerShoulder = Math.max(
+        0,
+        shoulderStitches - Math.min(4, Math.floor(necklineDepthRows / 4)),
+      );
+      steps.push({
+        label: 'Shoulder bind-off',
+        startStitches: finalPerShoulder,
+        endStitches: 0,
+        rows: 1,
+        direction: 'none',
+        instruction: `Bind off remaining ${finalPerShoulder} sts on each shoulder.`,
+      });
+    } else {
+      steps.push({
+        label: 'Shoulder bind-off',
+        startStitches: shoulderSeamStitches,
+        endStitches: 0,
+        rows: 1,
+        direction: 'none',
+        instruction: `Bind off all ${shoulderSeamStitches} sts loosely across the shoulder.`,
+      });
+    }
+  } else {
+    // No armhole shaping — straight bind-off at the top.
+    steps.push({
+      label: 'Bind off',
+      startStitches: chestStitches,
+      endStitches: 0,
+      rows: 1,
+      direction: 'none',
+      instruction: `Bind off all ${chestStitches} sts loosely.`,
+    });
+  }
 
   return {
     castOnStitches,
@@ -307,6 +446,8 @@ export function computeBodyBlock(input: BodyBlockInput): BodyBlockOutput {
     finishedLength: round025(totalLength),
     finishedChest: round025(finishedChest),
     finishedWaist: finishedWaist !== null ? round025(finishedWaist) : null,
+    armholeInitialBindOffPerSide,
+    shoulderSeamStitches,
     steps,
   };
 }
@@ -314,6 +455,15 @@ export function computeBodyBlock(input: BodyBlockInput): BodyBlockOutput {
 // ---------------------------------------------------------------------------
 // Sleeve
 // ---------------------------------------------------------------------------
+
+export interface SleeveCapInput {
+  /** The body's armhole depth — cap matches this (inches). */
+  matchingArmholeDepth: number;
+  /** The body's initial armhole bind-off per side (stitches). Keeping these
+   *  equal means the underarm seam stays aligned. Read from
+   *  `BodyBlockOutput.armholeInitialBindOffPerSide`. */
+  matchingArmholeInitialBindOff: number;
+}
 
 export interface SleeveInput {
   gauge: DesignerGauge;
@@ -329,6 +479,12 @@ export interface SleeveInput {
   cuffToUnderarmLength: number;
   /** Ribbing / cuff depth where no shaping happens (inches). */
   cuffDepth: number;
+  /**
+   * Optional set-in-sleeve cap shaping. When set, the cap sits above the
+   * bicep and tapers to a narrow top edge ready to seam into the body's
+   * armhole. Pair with a body that has matching `armhole` shaping.
+   */
+  cap?: SleeveCapInput;
 }
 
 export interface SleeveOutput {
@@ -339,7 +495,12 @@ export interface SleeveOutput {
   finishedCuff: number;
   finishedBicep: number;
   finishedLength: number;
-  /** Knit-order: cuff cast-on → cuff ribbing → taper → bicep bind-off. */
+  /** Total sleeve length including cap (inches), when cap is present. */
+  finishedTotalLength: number;
+  /** Stitches remaining at the top of the cap (what gets bound off last).
+   *  Null when no cap shaping is requested. */
+  capTopStitches: number | null;
+  /** Knit-order: cuff cast-on → cuff ribbing → taper → bicep → optional cap. */
   steps: ShapingStep[];
 }
 
@@ -363,6 +524,7 @@ export function computeSleeve(input: SleeveInput): SleeveOutput {
     easeAtBicep,
     cuffToUnderarmLength,
     cuffDepth,
+    cap,
   } = input;
 
   const finishedCuff = cuffCircumference + easeAtCuff;
@@ -402,26 +564,84 @@ export function computeSleeve(input: SleeveInput): SleeveOutput {
     });
   }
 
-  steps.push({
-    label: 'Underarm',
-    startStitches: bicepStitches,
-    endStitches: 0,
-    rows: 1,
-    direction: 'none',
-    instruction:
-      taperRows > 0
-        ? `Bind off all ${bicepStitches} sts (or place on a holder if joining to the body for a seamless yoke).`
-        : `Bind off all ${bicepStitches} sts.`,
-  });
+  // Optional set-in sleeve cap. Structure: initial bind-off at each underarm
+  // edge that matches the body's armhole bind-off → tapered decreases up
+  // through ~80% of the armhole depth → narrow top bind-off.
+  let capTopStitches: number | null = null;
+  let capRowsTotal = 0;
+
+  if (cap) {
+    // Cap height is typically 80% of the armhole depth (the curved bell
+    // eats some length versus a straight top).
+    capRowsTotal = rowsForLength(cap.matchingArmholeDepth * 0.8, gauge);
+    const capInitial = cap.matchingArmholeInitialBindOff;
+    const afterCapInitial = Math.max(0, bicepStitches - 2 * capInitial);
+
+    // Top of cap is typically 2 in wide — the "neck" that gets seamed at
+    // the very top of the shoulder.
+    const capTopTarget = stitchesForWidth(2, gauge);
+    capTopStitches = Math.min(afterCapInitial, capTopTarget);
+
+    const capTaperRows = Math.max(0, capRowsTotal - 2 - 1); // 2 initial bind-off rows, 1 final
+    steps.push({
+      label: 'Cap — initial bind-off',
+      startStitches: bicepStitches,
+      endStitches: afterCapInitial,
+      rows: 2,
+      direction: 'decrease',
+      instruction:
+        `Bind off ${capInitial} sts at the beginning of the next 2 rows (matches the body's ` +
+        `armhole bind-off). ${2 * capInitial} sts removed total.`,
+    });
+
+    if (capTaperRows > 0 && afterCapInitial !== capTopStitches) {
+      const f = buildShapingFormula(afterCapInitial, capTopStitches, capTaperRows, 'cap taper');
+      steps.push({
+        label: 'Cap — taper',
+        startStitches: afterCapInitial,
+        endStitches: capTopStitches,
+        rows: capTaperRows,
+        direction: f.direction,
+        instruction: f.instruction,
+      });
+    }
+
+    steps.push({
+      label: 'Cap — top bind-off',
+      startStitches: capTopStitches,
+      endStitches: 0,
+      rows: 1,
+      direction: 'none',
+      instruction: `Bind off remaining ${capTopStitches} sts loosely across the top of the cap.`,
+    });
+  } else {
+    steps.push({
+      label: 'Underarm',
+      startStitches: bicepStitches,
+      endStitches: 0,
+      rows: 1,
+      direction: 'none',
+      instruction:
+        taperRows > 0
+          ? `Bind off all ${bicepStitches} sts (or place on a holder if joining to the body for a seamless yoke).`
+          : `Bind off all ${bicepStitches} sts.`,
+    });
+  }
+
+  const finishedTotalLength = cap
+    ? round025(cuffToUnderarmLength + cap.matchingArmholeDepth * 0.8)
+    : round025(cuffToUnderarmLength);
 
   return {
     castOnStitches,
     bicepStitches,
-    totalRows,
+    totalRows: totalRows + capRowsTotal,
     cuffRows,
     finishedCuff: round025(finishedCuff),
     finishedBicep: round025(finishedBicep),
     finishedLength: round025(cuffToUnderarmLength),
+    finishedTotalLength,
+    capTopStitches,
     steps,
   };
 }

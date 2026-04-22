@@ -32,6 +32,18 @@ interface DesignerForm {
   waistCircumference: NumField;
   easeAtWaist: NumField;
   waistHeightFromHem: NumField;
+  /**
+   * Set-in-sleeve armhole + matching sleeve cap. When enabled, the body
+   * panel narrows for the armhole, and (separately) the sleeve grows a
+   * matching cap above the bicep. Drop-shoulder construction leaves this off.
+   */
+  useArmhole: boolean;
+  armholeDepth: NumField;
+  shoulderWidth: NumField;
+  /** 'front' renders neckline shaping; 'back' leaves a straight shoulder seam. */
+  panelType: 'front' | 'back';
+  necklineDepth: NumField;
+  neckOpeningWidth: NumField;
 
   // Sleeve
   cuffCircumference: NumField;
@@ -57,6 +69,12 @@ const DEFAULT_FORM: DesignerForm = {
   waistCircumference: 30,
   easeAtWaist: 2,
   waistHeightFromHem: 8,
+  useArmhole: false,
+  armholeDepth: 8,
+  shoulderWidth: 5,
+  panelType: 'back',
+  necklineDepth: 2.5,
+  neckOpeningWidth: 7,
 
   cuffCircumference: 7,
   easeAtCuff: 1,
@@ -104,6 +122,12 @@ function bodyReady(f: DesignerForm): boolean {
     if (!isPositive(f.waistCircumference) || !isPositive(f.waistHeightFromHem)) return false;
     if (!isFiniteNum(f.easeAtWaist)) return false;
   }
+  if (f.useArmhole) {
+    if (!isPositive(f.armholeDepth) || !isPositive(f.shoulderWidth)) return false;
+    if (f.panelType === 'front') {
+      if (!isPositive(f.necklineDepth) || !isPositive(f.neckOpeningWidth)) return false;
+    }
+  }
   return true;
 }
 
@@ -142,10 +166,28 @@ function buildBodyInput(f: DesignerForm): BodyBlockInput {
           waistHeightFromHem: toInches(f.waistHeightFromHem as number, f.unit),
         }
       : undefined,
+    armhole: f.useArmhole
+      ? {
+          armholeDepth: toInches(f.armholeDepth as number, f.unit),
+          shoulderWidth: toInches(f.shoulderWidth as number, f.unit),
+        }
+      : undefined,
+    neckline:
+      f.useArmhole && f.panelType === 'front'
+        ? {
+            necklineDepth: toInches(f.necklineDepth as number, f.unit),
+            neckOpeningWidth: toInches(f.neckOpeningWidth as number, f.unit),
+          }
+        : undefined,
   };
 }
 
-function buildSleeveInput(f: DesignerForm): SleeveInput {
+/**
+ * Build the sleeve input, optionally pulling the cap config from the body's
+ * armhole so the underarm seams and depths line up. Users don't see a separate
+ * "cap" toggle — enabling body armhole automatically grows a matching cap.
+ */
+function buildSleeveInput(f: DesignerForm, bodyArmholeInitialBindOff: number | null): SleeveInput {
   return {
     gauge: normalizedGauge(f),
     cuffCircumference: toInches(f.cuffCircumference as number, f.unit),
@@ -154,6 +196,13 @@ function buildSleeveInput(f: DesignerForm): SleeveInput {
     easeAtBicep: toInches(f.easeAtBicep as number, f.unit),
     cuffToUnderarmLength: toInches(f.cuffToUnderarmLength as number, f.unit),
     cuffDepth: toInches(f.cuffDepth as number, f.unit),
+    cap:
+      f.useArmhole && bodyArmholeInitialBindOff !== null
+        ? {
+            matchingArmholeDepth: toInches(f.armholeDepth as number, f.unit),
+            matchingArmholeInitialBindOff: bodyArmholeInitialBindOff,
+          }
+        : undefined,
   };
 }
 
@@ -253,12 +302,16 @@ export default function PatternDesigner() {
   const sleeveOutput = useMemo(() => {
     if (!sleeveReady(form)) return null;
     try {
-      return computeSleeve(buildSleeveInput(form));
+      // Cap auto-matches the body's armhole so the seam lines up. When the
+      // body has no armhole shaping, pass null and the sleeve renders
+      // drop-shoulder style (straight underarm bind-off).
+      const bodyInitialBindOff = bodyOutput?.armholeInitialBindOffPerSide ?? null;
+      return computeSleeve(buildSleeveInput(form, bodyInitialBindOff));
     } catch (e) {
       console.error('[Designer] sleeve compute error:', e);
       return null;
     }
-  }, [form]);
+  }, [form, bodyOutput]);
 
   const update = <K extends keyof DesignerForm>(key: K, value: DesignerForm[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -446,6 +499,87 @@ export default function PatternDesigner() {
                   />
                 </div>
               )}
+
+              <label className="mt-4 flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={form.useArmhole}
+                  onChange={(e) => update('useArmhole', e.target.checked)}
+                  className="mt-1 h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                />
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Set-in sleeve armhole
+                  <span className="block text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                    Narrows the top of the body for a fitted armhole, and grows a matching cap on the
+                    sleeve. Leave off for drop-shoulder construction.
+                  </span>
+                </span>
+              </label>
+
+              {form.useArmhole && (
+                <div className="mt-4 space-y-3 rounded-lg border border-purple-100 bg-purple-50/50 p-3 dark:border-purple-900/30 dark:bg-purple-900/10">
+                  <div className="grid grid-cols-2 gap-3">
+                    <NumberInput
+                      label="Armhole depth"
+                      value={form.armholeDepth}
+                      onChange={(v) => update('armholeDepth', v)}
+                      step={0.5}
+                      suffix={unitLabel}
+                    />
+                    <NumberInput
+                      label="Shoulder width (each)"
+                      value={form.shoulderWidth}
+                      onChange={(v) => update('shoulderWidth', v)}
+                      step={0.25}
+                      suffix={unitLabel}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Panel
+                    </label>
+                    <div className="flex gap-2">
+                      {(['back', 'front'] as const).map((p) => (
+                        <button
+                          key={p}
+                          type="button"
+                          onClick={() => update('panelType', p)}
+                          className={`flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition ${
+                            form.panelType === p
+                              ? 'border-purple-600 bg-purple-600 text-white'
+                              : 'border-gray-300 bg-white text-gray-700 hover:border-purple-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200'
+                          }`}
+                        >
+                          {p === 'back' ? 'Back (no neckline)' : 'Front (with neckline)'}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      Design each panel separately. Switch to "Front" to add neckline shaping.
+                    </p>
+                  </div>
+
+                  {form.panelType === 'front' && (
+                    <div className="grid grid-cols-2 gap-3 pt-1">
+                      <NumberInput
+                        label="Neckline depth"
+                        value={form.necklineDepth}
+                        onChange={(v) => update('necklineDepth', v)}
+                        step={0.25}
+                        suffix={unitLabel}
+                      />
+                      <NumberInput
+                        label="Neck opening width"
+                        value={form.neckOpeningWidth}
+                        onChange={(v) => update('neckOpeningWidth', v)}
+                        step={0.25}
+                        suffix={unitLabel}
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
             </section>
           )}
 
@@ -515,7 +649,10 @@ export default function PatternDesigner() {
             {form.activeSection === 'body' && bodyOutput ? (
               <BodySchematic input={buildBodyInput(form)} output={bodyOutput} />
             ) : form.activeSection === 'sleeve' && sleeveOutput ? (
-              <SleeveSchematic input={buildSleeveInput(form)} output={sleeveOutput} />
+              <SleeveSchematic
+                input={buildSleeveInput(form, bodyOutput?.armholeInitialBindOffPerSide ?? null)}
+                output={sleeveOutput}
+              />
             ) : (
               <div className="flex min-h-[280px] items-center justify-center rounded-lg border border-dashed border-gray-300 bg-gray-50 p-6 text-center text-sm italic text-gray-500">
                 Fill in gauge and section measurements to see the schematic.

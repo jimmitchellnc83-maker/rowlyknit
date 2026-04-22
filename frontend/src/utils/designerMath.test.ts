@@ -274,3 +274,150 @@ describe('computeSleeve', () => {
     expect(underarm.instruction).toContain('holder');
   });
 });
+
+describe('computeBodyBlock with armhole shaping', () => {
+  const base: BodyBlockInput = {
+    gauge: STANDARD_GAUGE,
+    chestCircumference: 36,
+    easeAtChest: 4,
+    totalLength: 24,
+    hemDepth: 2,
+    armhole: {
+      armholeDepth: 8,
+      shoulderWidth: 5,
+    },
+  };
+
+  it('splits body core and armhole rows correctly', () => {
+    const out = computeBodyBlock(base);
+    // totalRows = 168, hemRows = 14, armholeRows = 8 × 7 = 56
+    // bodyCoreRows = 168 - 14 - 56 = 98
+    const hemToArmhole = out.steps.find((s) => s.label === 'Hem to armhole')!;
+    expect(hemToArmhole).toBeTruthy();
+    expect(hemToArmhole.rows).toBe(98);
+  });
+
+  it('emits initial armhole bind-off with an even stitch count', () => {
+    const out = computeBodyBlock(base);
+    expect(out.armholeInitialBindOffPerSide).toBeGreaterThanOrEqual(2);
+    expect((out.armholeInitialBindOffPerSide ?? 0) % 2).toBe(0);
+    const init = out.steps.find((s) => s.label === 'Armhole — initial bind-off')!;
+    expect(init.rows).toBe(2);
+    expect(init.instruction).toContain('next 2 rows');
+  });
+
+  it('tapers from post-bind-off to shoulder seam stitches', () => {
+    const out = computeBodyBlock(base);
+    const taper = out.steps.find((s) => s.label === 'Armhole — taper')!;
+    expect(taper.direction).toBe('decrease');
+    expect(out.shoulderSeamStitches).toBe(taper.endStitches);
+  });
+
+  it('uses a single shoulder bind-off step when no neckline is requested', () => {
+    const out = computeBodyBlock(base);
+    const finalStep = out.steps[out.steps.length - 1];
+    expect(finalStep.label).toBe('Shoulder bind-off');
+    expect(finalStep.instruction).toMatch(/bind off all/i);
+  });
+});
+
+describe('computeBodyBlock with armhole + crew neckline (front panel)', () => {
+  const frontInput: BodyBlockInput = {
+    gauge: STANDARD_GAUGE,
+    chestCircumference: 36,
+    easeAtChest: 4,
+    totalLength: 24,
+    hemDepth: 2,
+    armhole: {
+      armholeDepth: 8,
+      shoulderWidth: 5,
+    },
+    neckline: {
+      necklineDepth: 2.5,
+      neckOpeningWidth: 7,
+    },
+  };
+
+  it('reserves neck-opening stitches in the shoulder seam total', () => {
+    const out = computeBodyBlock(frontInput);
+    // 2 × 5-in shoulder + 7-in neck opening = 17 in across shoulders × 5 sts/in = ~85 sts
+    expect(out.shoulderSeamStitches).toBeGreaterThan(60);
+    expect(out.shoulderSeamStitches).toBeLessThan(100);
+  });
+
+  it('emits a neckline center bind-off step', () => {
+    const out = computeBodyBlock(frontInput);
+    const center = out.steps.find((s) => s.label === 'Neckline — center bind-off')!;
+    expect(center).toBeTruthy();
+    expect(center.instruction).toContain('each shoulder separately');
+  });
+
+  it('curves each shoulder with a few neck-edge decreases', () => {
+    const out = computeBodyBlock(frontInput);
+    const curve = out.steps.find((s) => s.label === 'Neckline — shape each shoulder')!;
+    expect(curve).toBeTruthy();
+    expect(curve.instruction).toMatch(/dec 1 st at neck edge/i);
+  });
+
+  it('finishes with per-shoulder bind-off when neckline is present', () => {
+    const out = computeBodyBlock(frontInput);
+    const finalStep = out.steps[out.steps.length - 1];
+    expect(finalStep.label).toBe('Shoulder bind-off');
+    expect(finalStep.instruction).toMatch(/each shoulder/i);
+  });
+});
+
+describe('computeSleeve with cap shaping', () => {
+  const capInput: SleeveInput = {
+    gauge: STANDARD_GAUGE,
+    cuffCircumference: 7,
+    easeAtCuff: 1,
+    bicepCircumference: 12,
+    easeAtBicep: 2,
+    cuffToUnderarmLength: 18,
+    cuffDepth: 2,
+    cap: {
+      matchingArmholeDepth: 8,
+      matchingArmholeInitialBindOff: 4,
+    },
+  };
+
+  it('adds three cap steps (initial bind-off, taper, top bind-off)', () => {
+    const out = computeSleeve(capInput);
+    const capLabels = out.steps.filter((s) => s.label.startsWith('Cap')).map((s) => s.label);
+    expect(capLabels).toEqual([
+      'Cap — initial bind-off',
+      'Cap — taper',
+      'Cap — top bind-off',
+    ]);
+  });
+
+  it('matches the body armhole initial bind-off for seam alignment', () => {
+    const out = computeSleeve(capInput);
+    const init = out.steps.find((s) => s.label === 'Cap — initial bind-off')!;
+    // 70 bicep - 8 (2 × 4) = 62 post-bind-off
+    expect(init.startStitches).toBe(70);
+    expect(init.endStitches).toBe(62);
+    expect(init.instruction).toContain('4 sts');
+  });
+
+  it('tapers to a narrow top edge (~2 in wide)', () => {
+    const out = computeSleeve(capInput);
+    // 2 in × 5 sts/in = 10 sts, rounded to even
+    expect(out.capTopStitches).toBe(10);
+  });
+
+  it('reports total sleeve length including cap', () => {
+    const out = computeSleeve(capInput);
+    // cuffToUnderarmLength (18) + 0.8 × armholeDepth (6.4) = 24.4
+    expect(out.finishedTotalLength).toBeCloseTo(24.5, 1);
+  });
+
+  it('omits cap steps when no cap is configured', () => {
+    const out = computeSleeve({ ...capInput, cap: undefined });
+    expect(out.capTopStitches).toBeNull();
+    expect(out.steps.some((s) => s.label.startsWith('Cap'))).toBe(false);
+    const underarm = out.steps.find((s) => s.label === 'Underarm')!;
+    expect(underarm.instruction).toContain('holder');
+  });
+});
