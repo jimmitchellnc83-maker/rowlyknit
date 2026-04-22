@@ -383,13 +383,23 @@ export async function deleteYarn(req: Request, res: Response) {
 export async function getYarnStats(req: Request, res: Response) {
   const userId = req.user!.userId;
 
+  // Cost aggregates use COALESCE so yarn without a price still counts toward
+  // skein / yardage totals; only the money columns drop it. `priced_count`
+  // tells the UI how many yarns contributed to the value — useful because
+  // users with some unpriced yarn should know the figure is a lower bound.
   const stats = await db('yarn')
     .where({ user_id: userId })
     .whereNull('deleted_at')
     .select(
       db.raw('COUNT(*) as total_count'),
-      db.raw('SUM(skeins_remaining) as total_skeins'),
-      db.raw('SUM(yards_remaining) as total_yards')
+      db.raw('COALESCE(SUM(skeins_remaining), 0) as total_skeins'),
+      db.raw('COALESCE(SUM(yards_remaining), 0) as total_yards'),
+      db.raw(
+        'COALESCE(SUM(price_per_skein * skeins_remaining), 0) as total_value_current'
+      ),
+      db.raw('COALESCE(SUM(price_per_skein * skeins_total), 0) as total_value_all_time'),
+      db.raw("COUNT(*) FILTER (WHERE price_per_skein IS NOT NULL) as priced_count"),
+      db.raw("COUNT(*) FILTER (WHERE price_per_skein IS NULL) as unpriced_count")
     )
     .first();
 

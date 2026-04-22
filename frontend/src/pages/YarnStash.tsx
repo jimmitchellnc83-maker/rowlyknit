@@ -12,6 +12,7 @@ import { useYarn, useCreateYarn, useUpdateYarn, useDeleteYarn } from '../hooks/u
 import HelpTooltip from '../components/HelpTooltip';
 import RavelryYarnSearch, { type RavelryYarnImportData } from '../components/RavelryYarnSearch';
 import { useMeasurements } from '../hooks/useMeasurements';
+import StashValueCard from '../components/yarn/StashValueCard';
 
 interface Yarn {
   id: string;
@@ -439,6 +440,8 @@ export default function YarnStash() {
           </div>
         </div>
       </div>
+
+      {yarn.length > 0 ? <StashValueCard /> : null}
 
       {yarn.length === 0 ? (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-12 text-center">
