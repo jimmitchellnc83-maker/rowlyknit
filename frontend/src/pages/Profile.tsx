@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { FiUser, FiMail, FiLock, FiSave, FiLink, FiCheck, FiXCircle, FiSliders, FiRefreshCw, FiHeart, FiBookOpen } from 'react-icons/fi';
+import { FiUser, FiMail, FiLock, FiSave, FiLink, FiCheck, FiXCircle, FiSliders, FiRefreshCw, FiHeart, FiBookOpen, FiMic } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { useAuthStore } from '../stores/authStore';
+import VoicePreferences from '../components/VoicePreferences';
 
-type ProfileTab = 'profile' | 'password' | 'units' | 'integrations';
+type ProfileTab = 'profile' | 'password' | 'units' | 'voice' | 'integrations';
 
 export default function Profile() {
   const { user, setUser } = useAuthStore();
@@ -54,7 +55,13 @@ export default function Profile() {
   // Handle URL params for tab selection and Ravelry status
   useEffect(() => {
     const tab = searchParams.get('tab');
-    if (tab === 'integrations' || tab === 'password' || tab === 'units' || tab === 'profile') {
+    if (
+      tab === 'integrations' ||
+      tab === 'password' ||
+      tab === 'units' ||
+      tab === 'voice' ||
+      tab === 'profile'
+    ) {
       setActiveTab(tab);
     }
 
@@ -237,6 +244,17 @@ export default function Profile() {
         >
           <FiSliders className="h-4 w-4" />
           Units
+        </button>
+        <button
+          onClick={() => changeTab('voice')}
+          className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-md text-sm font-medium transition ${
+            activeTab === 'voice'
+              ? 'bg-white dark:bg-gray-800 text-purple-600 shadow'
+              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+          }`}
+        >
+          <FiMic className="h-4 w-4" />
+          Voice
         </button>
         <button
           onClick={() => changeTab('integrations')}
@@ -479,6 +497,9 @@ export default function Profile() {
           </div>
         </div>
       )}
+
+      {/* Voice Tab */}
+      {activeTab === 'voice' && <VoicePreferences />}
 
       {/* Integrations Tab */}
       {activeTab === 'integrations' && (
