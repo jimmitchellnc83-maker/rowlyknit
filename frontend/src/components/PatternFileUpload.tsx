@@ -230,13 +230,50 @@ export default function PatternFileUpload({
             {/* Description input */}
             <div className="mb-3">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Description (optional)
+                Label (optional)
               </label>
+
+              {/* Quick-pick chips for common pattern-document types.
+                  Useful for MKAL workflows where each upload is a clue. */}
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {(() => {
+                  const existingClueNumbers = files
+                    .map((f) => /clue\s*(\d+)/i.exec(f.description || ''))
+                    .filter(Boolean)
+                    .map((m) => parseInt((m as RegExpExecArray)[1], 10));
+                  const nextClue = existingClueNumbers.length
+                    ? Math.max(...existingClueNumbers) + 1
+                    : files.length + 1;
+                  const suggestions = [
+                    `Clue ${nextClue}`,
+                    'Update',
+                    'Errata',
+                    'Schematic',
+                    'Tutorial',
+                    'Chart',
+                  ];
+                  return suggestions.map((label) => (
+                    <button
+                      key={label}
+                      type="button"
+                      onClick={() => setDescription(label)}
+                      className={`px-2 py-1 text-xs rounded-full border ${
+                        description === label
+                          ? 'bg-pink-600 text-white border-pink-600'
+                          : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:border-pink-400'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ));
+                })()}
+              </div>
+
               <input
                 type="text"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="E.g., Main pattern, Size chart, Assembly instructions..."
+                placeholder="E.g., Clue 2, Main pattern, Size chart, Assembly instructions…"
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
               />
             </div>
@@ -268,14 +305,16 @@ export default function PatternFileUpload({
                 <div className="flex items-center space-x-3 flex-1">
                   {getFileIcon(file.file_type)}
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-gray-900 dark:text-white truncate">
-                      {file.original_filename}
-                    </p>
-                    {file.description && (
-                      <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
-                        {file.description}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-medium text-gray-900 dark:text-white truncate">
+                        {file.original_filename}
                       </p>
-                    )}
+                      {file.description && (
+                        <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-pink-100 text-pink-800 dark:bg-pink-900/40 dark:text-pink-200 whitespace-nowrap">
+                          {file.description}
+                        </span>
+                      )}
+                    </div>
                     <p className="text-xs text-gray-500 dark:text-gray-500">
                       {formatFileSize(file.size)} • {new Date(file.created_at).toLocaleDateString()}
                     </p>
