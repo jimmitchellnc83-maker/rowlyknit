@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FiPlus, FiTrash2, FiBook, FiEdit2, FiSearch, FiMoreVertical, FiRefreshCw, FiHeart } from 'react-icons/fi';
+import { FiPlus, FiTrash2, FiBook, FiEdit2, FiSearch, FiMoreVertical, FiRefreshCw, FiHeart, FiCheckCircle } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { PDFCollation } from '../components/patterns';
@@ -474,6 +474,17 @@ export default function Patterns() {
               {/* Action buttons */}
               <div className="px-6 pb-6">
                 <div className="flex items-center gap-2 pt-4 border-t border-gray-200 dark:border-gray-700">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/patterns/${pattern.id}?tab=feasibility`);
+                    }}
+                    className="flex-1 px-3 py-2 bg-green-50 text-green-700 rounded-lg hover:bg-green-100 transition flex items-center justify-center text-sm"
+                    title="Check feasibility against your stash"
+                  >
+                    <FiCheckCircle className="mr-2 h-4 w-4" />
+                    Feasibility
+                  </button>
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
