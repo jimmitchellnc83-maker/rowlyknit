@@ -21,6 +21,7 @@ import Calculators from './pages/Calculators';
 import GaugeCalculator from './pages/GaugeCalculator';
 import YarnSubstitutionCalculator from './pages/YarnSubstitutionCalculator';
 import GiftSizeCalculator from './pages/GiftSizeCalculator';
+import PatternDesigner from './pages/PatternDesigner';
 import Recipients from './pages/Recipients';
 import Profile from './pages/Profile';
 import Stats from './pages/Stats';
@@ -109,6 +110,7 @@ function App() {
         <Route path="/calculators/gauge" element={<ErrorBoundary><GaugeCalculator /></ErrorBoundary>} />
         <Route path="/calculators/yarn-sub" element={<ErrorBoundary><YarnSubstitutionCalculator /></ErrorBoundary>} />
         <Route path="/calculators/gift-size" element={<ErrorBoundary><GiftSizeCalculator /></ErrorBoundary>} />
+        <Route path="/designer" element={<ErrorBoundary><PatternDesigner /></ErrorBoundary>} />
         <Route path="/recipients" element={<Recipients />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/auth/ravelry/callback" element={<RavelryCallback />} />
