@@ -1083,3 +1083,368 @@ export function computeShawl(input: ShawlInput): ShawlOutput {
     steps,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Mittens
+// ---------------------------------------------------------------------------
+
+export interface MittenInput {
+  gauge: DesignerGauge;
+  /** Hand circumference at the fullest point, across the knuckles (inches). */
+  handCircumference: number;
+  /** Negative ease at cuff — typical 0.5–1 in for snug fit. */
+  negativeEaseAtCuff: number;
+  /** Thumb circumference (inches). */
+  thumbCircumference: number;
+  /** Cuff ribbing depth (inches). */
+  cuffDepth: number;
+  /** Distance from top of cuff to base of thumb (inches). */
+  cuffToThumbLength: number;
+  /** Thumb gusset length — how tall the gusset grows before you set thumb
+   *  stitches aside. Typically matches thumb circumference × 0.6. */
+  thumbGussetLength: number;
+  /** Distance from base of thumb to top of little finger (inches). */
+  thumbToTipLength: number;
+  /** Thumb length from gusset base to tip (inches). */
+  thumbLength: number;
+}
+
+export interface MittenOutput {
+  castOnStitches: number;
+  handStitches: number;
+  thumbStitches: number;
+  totalRows: number;
+  finishedHandCircumference: number;
+  finishedThumbCircumference: number;
+  finishedLength: number;
+  steps: ShapingStep[];
+}
+
+/**
+ * A bottom-up mitten worked in the round. Simplified v1: afterthought-style
+ * thumb gusset (increase on both sides of a central stitch every few rounds,
+ * transfer to a holder when the right width is reached, continue hand
+ * straight, then pick up thumb stitches and work the thumb separately).
+ *
+ * This isn't a full knit-along — it's a section-by-section plan with
+ * stitch counts and row counts. Pair with a stitch-by-stitch reference
+ * pattern for the exact decrease cadence.
+ */
+export function computeMittens(input: MittenInput): MittenOutput {
+  const {
+    gauge,
+    handCircumference,
+    negativeEaseAtCuff,
+    thumbCircumference,
+    cuffDepth,
+    cuffToThumbLength,
+    thumbGussetLength,
+    thumbToTipLength,
+    thumbLength,
+  } = input;
+
+  const finishedHandCirc = Math.max(1, handCircumference - negativeEaseAtCuff);
+  const handStitches = stitchesForWidth(finishedHandCirc, gauge);
+  const thumbStitches = stitchesForWidth(thumbCircumference, gauge);
+  const castOnStitches = handStitches;
+
+  const cuffRows = rowsForLength(cuffDepth, gauge);
+  const cuffToThumbRows = rowsForLength(cuffToThumbLength, gauge);
+  const gussetRows = rowsForLength(thumbGussetLength, gauge);
+  const thumbToTipRows = rowsForLength(thumbToTipLength, gauge);
+  const topDecRows = rowsForLength(1.5, gauge); // ~1.5 in to close the tip
+  const thumbRows = rowsForLength(thumbLength, gauge);
+
+  const totalRows = cuffRows + cuffToThumbRows + gussetRows + thumbToTipRows + topDecRows;
+
+  const steps: ShapingStep[] = [];
+
+  steps.push({
+    label: 'Cuff',
+    startStitches: castOnStitches,
+    endStitches: castOnStitches,
+    rows: cuffRows,
+    direction: 'none',
+    instruction:
+      `Cast on ${castOnStitches} sts and join in the round. Work 2×2 rib for ` +
+      `${cuffRows} round${cuffRows === 1 ? '' : 's'} (~${round025(cuffDepth)} in).`,
+  });
+
+  if (cuffToThumbRows > 0) {
+    steps.push({
+      label: 'Hand to thumb',
+      startStitches: castOnStitches,
+      endStitches: castOnStitches,
+      rows: cuffToThumbRows,
+      direction: 'none',
+      instruction:
+        `Switch to stockinette (or pattern of choice). Work straight for ` +
+        `${cuffToThumbRows} rounds (~${round025(cuffToThumbLength)} in) until you reach the base ` +
+        `of the thumb.`,
+    });
+  }
+
+  // Gusset: increase both sides of a central thumb st until thumb width reached.
+  // Starts at 1 central st, grows to thumbStitches. Events = (thumbStitches - 1) / 2.
+  const gussetEvents = Math.max(1, Math.floor((thumbStitches - 1) / 2));
+  const gussetCadence = Math.max(2, Math.floor(gussetRows / gussetEvents));
+  steps.push({
+    label: 'Thumb gusset',
+    startStitches: castOnStitches,
+    endStitches: castOnStitches + thumbStitches - 1,
+    rows: gussetRows,
+    direction: 'increase',
+    instruction:
+      `Mark 1 central gusset st at the side of the mitten (palm seam line). ` +
+      `Inc 1 st each side of the marker every ${gussetCadence} rounds × ${gussetEvents} ` +
+      `until you have ${thumbStitches} sts between the markers. ` +
+      `Total rounds: ${gussetRows} (~${round025(thumbGussetLength)} in).`,
+  });
+
+  steps.push({
+    label: 'Set aside thumb',
+    startStitches: castOnStitches + thumbStitches - 1,
+    endStitches: castOnStitches,
+    rows: 1,
+    direction: 'decrease',
+    instruction:
+      `Place the ${thumbStitches} thumb gusset sts on a holder. Cast on 1 st over the gap ` +
+      `to re-close the hand tube. Back to ${castOnStitches} hand sts.`,
+  });
+
+  if (thumbToTipRows > 0) {
+    steps.push({
+      label: 'Hand above thumb',
+      startStitches: castOnStitches,
+      endStitches: castOnStitches,
+      rows: thumbToTipRows,
+      direction: 'none',
+      instruction:
+        `Work straight for ${thumbToTipRows} rounds (~${round025(thumbToTipLength)} in) until ` +
+        `the mitten just covers the tip of your little finger.`,
+    });
+  }
+
+  // Top decreases: paired k2tog at each side, 4 dec per RS round, until ~8 sts.
+  const topDecEvents = Math.max(1, Math.floor((castOnStitches - 8) / 4));
+  steps.push({
+    label: 'Top decreases',
+    startStitches: castOnStitches,
+    endStitches: 8,
+    rows: topDecRows,
+    direction: 'decrease',
+    instruction:
+      `Place a marker at each side (front / back halves). Dec 4 sts every RS round: ` +
+      `ssk after each marker, k2tog before each marker. Work ${topDecEvents} decrease rounds ` +
+      `with a plain round between. End with ~8 sts. Cut yarn, thread through remaining sts, ` +
+      `pull tight, weave in.`,
+  });
+
+  steps.push({
+    label: 'Thumb',
+    startStitches: 0,
+    endStitches: thumbStitches,
+    rows: thumbRows + Math.round(thumbRows * 0.2),
+    direction: 'none',
+    instruction:
+      `Pick up ${thumbStitches} sts from the holder + 1 or 2 sts from the gap (for a neat join). ` +
+      `Work straight for ${thumbRows} rounds (~${round025(thumbLength)} in), then decrease to ~6 ` +
+      `sts over ~${Math.round(thumbRows * 0.2)} rounds. Thread yarn through, pull tight.`,
+  });
+
+  return {
+    castOnStitches,
+    handStitches,
+    thumbStitches,
+    totalRows,
+    finishedHandCircumference: round025(finishedHandCirc),
+    finishedThumbCircumference: round025(thumbCircumference),
+    finishedLength: round025(cuffDepth + cuffToThumbLength + thumbGussetLength + thumbToTipLength + 1.5),
+    steps,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Socks
+// ---------------------------------------------------------------------------
+
+export interface SockInput {
+  gauge: DesignerGauge;
+  /** Ankle circumference at the narrowest point (inches). */
+  ankleCircumference: number;
+  /** Negative ease at cuff — typical 0.5–1 in for snug fit. */
+  negativeEaseAtCuff: number;
+  /** Foot circumference at the widest (ball of foot) (inches). */
+  footCircumference: number;
+  /** Cuff ribbing depth (inches). */
+  cuffDepth: number;
+  /** Leg length from top of cuff to top of heel (inches). */
+  legLength: number;
+  /** Foot length from heel to start of toe (inches). Toe adds ~1.5 in. */
+  footLength: number;
+}
+
+export interface SockOutput {
+  castOnStitches: number;
+  heelFlapRows: number;
+  heelTurnStitchesMiddle: number;
+  footStitches: number;
+  totalRows: number;
+  finishedAnkleCircumference: number;
+  finishedFootCircumference: number;
+  finishedTotalLength: number;
+  steps: ShapingStep[];
+}
+
+/**
+ * Top-down sock with a standard heel-flap + heel-turn + gusset + toe. v1
+ * provides the stitch-count scaffolding and knitter-readable instructions
+ * for each section; exact row-by-row heel-turn numbers depend on the
+ * knitter's preferred slip-stitch heel ratio, which we describe in prose
+ * rather than prescribe.
+ */
+export function computeSocks(input: SockInput): SockOutput {
+  const {
+    gauge,
+    ankleCircumference,
+    negativeEaseAtCuff,
+    footCircumference,
+    cuffDepth,
+    legLength,
+    footLength,
+  } = input;
+
+  const finishedAnkleCirc = Math.max(1, ankleCircumference - negativeEaseAtCuff);
+  // Cast-on is usually a multiple of 4 for easy ribbing and heel-flap split.
+  let castOnStitches = stitchesForWidth(finishedAnkleCirc, gauge);
+  castOnStitches = Math.max(castOnStitches, 4);
+  if (castOnStitches % 4 !== 0) castOnStitches += 4 - (castOnStitches % 4);
+  const footStitches = castOnStitches; // stays constant after gusset closes
+  const heelFlapStitches = castOnStitches / 2;
+  const heelFlapRows = heelFlapStitches; // common rule of thumb: rows = sts
+
+  // Heel turn leaves ~ one-third of the heel flap stitches across the base.
+  const heelTurnStitchesMiddle = Math.max(4, Math.round(heelFlapStitches / 3));
+
+  const cuffRows = rowsForLength(cuffDepth, gauge);
+  const legRows = rowsForLength(legLength, gauge);
+  const footRows = rowsForLength(footLength, gauge);
+  const toeRows = rowsForLength(1.5, gauge);
+
+  const totalRows = cuffRows + legRows + heelFlapRows + footRows + toeRows;
+
+  const steps: ShapingStep[] = [];
+
+  steps.push({
+    label: 'Cuff',
+    startStitches: castOnStitches,
+    endStitches: castOnStitches,
+    rows: cuffRows,
+    direction: 'none',
+    instruction:
+      `Cast on ${castOnStitches} sts (a multiple of 4 for a clean rib). Join in the round ` +
+      `and work 2×2 rib for ${cuffRows} rounds (~${round025(cuffDepth)} in).`,
+  });
+
+  if (legRows > 0) {
+    steps.push({
+      label: 'Leg',
+      startStitches: castOnStitches,
+      endStitches: castOnStitches,
+      rows: legRows,
+      direction: 'none',
+      instruction:
+        `Switch to stockinette (or keep ribbing). Work straight for ${legRows} rounds ` +
+        `(~${round025(legLength)} in) until the leg reaches the top of the heel.`,
+    });
+  }
+
+  steps.push({
+    label: 'Heel flap',
+    startStitches: heelFlapStitches,
+    endStitches: heelFlapStitches,
+    rows: heelFlapRows,
+    direction: 'none',
+    instruction:
+      `Work the heel flap flat on ${heelFlapStitches} sts (half the total) for ${heelFlapRows} ` +
+      `rows. Classic slip-stitch heel: RS "sl 1, k1" across; WS "sl 1, p to end". Keeps ` +
+      `other ${heelFlapStitches} sts (instep) on hold.`,
+  });
+
+  steps.push({
+    label: 'Heel turn',
+    startStitches: heelFlapStitches,
+    endStitches: heelTurnStitchesMiddle,
+    rows: Math.max(6, Math.round(heelFlapRows * 0.4)),
+    direction: 'decrease',
+    instruction:
+      `Short-row heel turn: work across to center, knit a few past center, ssk, k1, turn. ` +
+      `Work back across, p to center, p a few past, p2tog, p1, turn. Continue turning at ` +
+      `one stitch closer each time until ${heelTurnStitchesMiddle} sts remain across the ` +
+      `base of the heel cup.`,
+  });
+
+  // Gusset: pick up ~heelFlapRows/2 sts along each heel-flap side, then
+  // decrease back down to castOnStitches.
+  const gusset = Math.max(1, Math.round(heelFlapRows / 2));
+  steps.push({
+    label: 'Gusset',
+    startStitches: heelTurnStitchesMiddle + heelFlapStitches + 2 * gusset,
+    endStitches: footStitches,
+    rows: 2 * gusset,
+    direction: 'decrease',
+    instruction:
+      `Pick up ${gusset} sts along each side of the heel flap and resume knitting in the round ` +
+      `(${heelTurnStitchesMiddle + heelFlapStitches + 2 * gusset} sts total). Dec 2 sts every ` +
+      `other round at each side of the instep (k2tog before, ssk after) until you're back to ` +
+      `${footStitches} sts.`,
+  });
+
+  if (footRows > 0) {
+    steps.push({
+      label: 'Foot',
+      startStitches: footStitches,
+      endStitches: footStitches,
+      rows: footRows,
+      direction: 'none',
+      instruction:
+        `Work straight for ${footRows} rounds (~${round025(footLength)} in) until the sock just ` +
+        `covers the base of the little toe.`,
+    });
+  }
+
+  steps.push({
+    label: 'Toe decreases',
+    startStitches: footStitches,
+    endStitches: Math.max(8, footStitches - Math.floor(footStitches * 0.6)),
+    rows: toeRows,
+    direction: 'decrease',
+    instruction:
+      `Mark sides (top of foot vs sole). Dec 4 sts every other round: ssk and k2tog at each ` +
+      `side of the top, same on the sole. Work ~${Math.max(4, Math.round(toeRows / 2))} decrease ` +
+      `rounds. End with ~12 sts.`,
+  });
+
+  steps.push({
+    label: 'Graft toe',
+    startStitches: Math.max(8, footStitches - Math.floor(footStitches * 0.6)),
+    endStitches: 0,
+    rows: 1,
+    direction: 'none',
+    instruction:
+      `Split the remaining sts evenly onto 2 needles (top + sole). Kitchener stitch graft ` +
+      `closed for an invisible seam.`,
+  });
+
+  return {
+    castOnStitches,
+    heelFlapRows,
+    heelTurnStitchesMiddle,
+    footStitches,
+    totalRows,
+    finishedAnkleCircumference: round025(finishedAnkleCirc),
+    finishedFootCircumference: round025(footCircumference),
+    finishedTotalLength: round025(cuffDepth + legLength + footLength + 1.5),
+    steps,
+  };
+}
