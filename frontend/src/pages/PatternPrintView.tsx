@@ -30,6 +30,7 @@ import ShawlSchematic from '../components/designer/ShawlSchematic';
 import SleeveSchematic from '../components/designer/SleeveSchematic';
 import SockSchematic from '../components/designer/SockSchematic';
 import type { ColorSwatch } from '../components/designer/ColorPalette';
+import ChartGrid, { type ChartData } from '../components/designer/ChartGrid';
 import { estimateYardageFromArea, formatYardage, type YardageRange } from '../utils/yardageEstimate';
 
 /**
@@ -120,6 +121,7 @@ interface DesignerFormSnapshot {
   footLength: number | '';
 
   colors: ColorSwatch[];
+  chart: ChartData | null;
 }
 
 function readForm(): DesignerFormSnapshot | null {
@@ -268,6 +270,19 @@ export default function PatternPrintView() {
       {form.itemType === 'shawl' && <ShawlPrint form={form} gauge={gauge} />}
       {form.itemType === 'mittens' && <MittensPrint form={form} gauge={gauge} />}
       {form.itemType === 'socks' && <SocksPrint form={form} gauge={gauge} />}
+
+      {form.chart && (
+        <div className="print-page-break mt-8">
+          <Section title="Chart">
+            <p className="mb-2 text-xs text-gray-500">
+              Read the chart from the bottom up. RS rows read right-to-left; WS rows left-to-right.
+            </p>
+            {/* Non-interactive render — tool is "erase" but the grid itself
+                doesn't matter since we don't care about interactions here. */}
+            <ChartGrid chart={form.chart} onChange={() => {}} tool={{ type: 'erase' }} />
+          </Section>
+        </div>
+      )}
     </div>
   );
 }
