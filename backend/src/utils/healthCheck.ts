@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import v8 from 'v8';
 import db from '../config/database';
 import { redisClient } from '../config/redis';
 import logger from '../config/logger';
@@ -17,7 +18,7 @@ interface HealthStatus {
     database: CheckResult;
     redis: CheckResult;
     memory: CheckResult;
-    disk: CheckResult;
+    nodeHeap: CheckResult;
   };
 }
 
@@ -132,27 +133,61 @@ function checkMemory(): CheckResult {
 }
 
 /**
- * Check disk usage (using process info)
+ * Snapshot of Node.js memory state, factored out so the threshold logic is
+ * testable without actually running a V8 process.
  */
-function checkDisk(): CheckResult {
-  const heapTotal = process.memoryUsage().heapTotal;
-  const heapUsed = process.memoryUsage().heapUsed;
-  const heapPercent = (heapUsed / heapTotal) * 100;
+export interface HeapSnapshot {
+  heapUsed: number;      // bytes — v8.used_heap_size
+  heapLimit: number;     // bytes — v8.heap_size_limit (≈ max-old-space-size)
+  heapCommitted: number; // bytes — process.memoryUsage().heapTotal
+  rss: number;
+  external: number;
+}
 
-  // Warn if heap usage is above 85%
-  const status = heapPercent > 90 ? 'fail' : heapPercent > 85 ? 'warn' : 'pass';
+/** Pure threshold evaluator — 85% warns, 90%+ fails against the limit. */
+export function evaluateNodeHeap(snap: HeapSnapshot): CheckResult {
+  const heapPercent = snap.heapLimit > 0 ? (snap.heapUsed / snap.heapLimit) * 100 : 0;
+  const status: CheckResult['status'] =
+    heapPercent > 90 ? 'fail' : heapPercent > 85 ? 'warn' : 'pass';
 
   return {
     status,
     message: heapPercent > 85 ? `High heap usage: ${heapPercent.toFixed(2)}%` : undefined,
     details: {
-      heapTotal: `${(heapTotal / 1024 / 1024).toFixed(2)} MB`,
-      heapUsed: `${(heapUsed / 1024 / 1024).toFixed(2)} MB`,
+      heapUsed: `${(snap.heapUsed / 1024 / 1024).toFixed(2)} MB`,
+      heapLimit: `${(snap.heapLimit / 1024 / 1024).toFixed(2)} MB`,
       heapPercent: `${heapPercent.toFixed(2)}%`,
-      rss: `${(process.memoryUsage().rss / 1024 / 1024).toFixed(2)} MB`,
-      external: `${(process.memoryUsage().external / 1024 / 1024).toFixed(2)} MB`,
+      heapCommitted: `${(snap.heapCommitted / 1024 / 1024).toFixed(2)} MB`,
+      rss: `${(snap.rss / 1024 / 1024).toFixed(2)} MB`,
+      external: `${(snap.external / 1024 / 1024).toFixed(2)} MB`,
     },
   };
+}
+
+/**
+ * Check Node.js V8 heap usage against its configured ceiling.
+ *
+ * `process.memoryUsage().heapTotal` is the currently-committed heap size,
+ * which V8 grows adaptively up to `--max-old-space-size` as allocation
+ * demand increases. Ratios against heapTotal routinely sit at 90%+ during
+ * normal operation because that's exactly when V8 is about to grow the
+ * heap further — so that ratio is useless as a pressure signal. The actual
+ * ceiling is `v8.getHeapStatistics().heap_size_limit`, which reflects the
+ * max-old-space-size (default ~2 GB on 64-bit, lower if constrained).
+ *
+ * Previously exposed as `disk` — misnamed since it never measured disk.
+ * Key renamed to `nodeHeap` so the output matches what's being measured.
+ */
+export function checkNodeHeap(): CheckResult {
+  const heapStats = v8.getHeapStatistics();
+  const mem = process.memoryUsage();
+  return evaluateNodeHeap({
+    heapUsed: heapStats.used_heap_size,
+    heapLimit: heapStats.heap_size_limit,
+    heapCommitted: mem.heapTotal,
+    rss: mem.rss,
+    external: mem.external,
+  });
 }
 
 /**
@@ -163,14 +198,14 @@ export async function healthCheckHandler(req: Request, res: Response): Promise<v
 
   try {
     // Run all health checks in parallel
-    const [database, redis, memory, disk] = await Promise.all([
+    const [database, redis, memory, nodeHeap] = await Promise.all([
       checkDatabase(),
       checkRedis(),
       Promise.resolve(checkMemory()),
-      Promise.resolve(checkDisk()),
+      Promise.resolve(checkNodeHeap()),
     ]);
 
-    const checks = { database, redis, memory, disk };
+    const checks = { database, redis, memory, nodeHeap };
 
     // Determine overall status
     // Only database and Redis failures should make the service unhealthy (503)
