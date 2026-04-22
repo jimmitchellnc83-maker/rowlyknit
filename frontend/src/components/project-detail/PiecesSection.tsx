@@ -8,6 +8,7 @@ import {
   PIECE_STATUS_LABEL,
   PIECE_STATUS_COLOR,
   PIECE_TYPE_SUGGESTIONS,
+  ASSEMBLY_STEP_TEMPLATES,
 } from '../../types/piece.types';
 
 interface Props {
@@ -98,6 +99,29 @@ export default function PiecesSection({ projectId, initialPieces }: Props) {
   };
 
   const completedCount = pieces.filter((p) => p.status === 'completed').length;
+  const garmentPieces = pieces.filter((p) => p.type !== 'assembly');
+  const garmentDone = garmentPieces.length > 0 && garmentPieces.every((p) => p.status === 'completed');
+  const hasAssembly = pieces.some((p) => p.type === 'assembly');
+
+  const handleSuggestAssembly = async () => {
+    try {
+      const baseSort = pieces.length;
+      const created = await Promise.all(
+        ASSEMBLY_STEP_TEMPLATES.map((step, i) =>
+          axios.post(`/api/projects/${projectId}/pieces`, {
+            name: step.name,
+            type: 'assembly',
+            sortOrder: baseSort + i,
+          }),
+        ),
+      );
+      setPieces((prev) => [...prev, ...created.map((r) => r.data.data.piece)]);
+      toast.success('Assembly steps added');
+    } catch (err) {
+      console.error('Suggest assembly failed', err);
+      toast.error('Could not add assembly steps');
+    }
+  };
 
   return (
     <details className="bg-white rounded-lg shadow" open={pieces.length > 0 || undefined}>
@@ -164,12 +188,24 @@ export default function PiecesSection({ projectId, initialPieces }: Props) {
             </button>
           </form>
         ) : (
-          <button
-            onClick={() => setAdding(true)}
-            className="inline-flex items-center gap-2 px-3 py-1.5 text-sm text-purple-700 hover:bg-purple-50 rounded"
-          >
-            <FiPlus className="h-4 w-4" /> Add piece
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => setAdding(true)}
+              className="inline-flex items-center gap-2 px-3 py-1.5 text-sm text-purple-700 hover:bg-purple-50 rounded"
+            >
+              <FiPlus className="h-4 w-4" /> Add piece
+            </button>
+
+            {garmentDone && !hasAssembly && (
+              <button
+                onClick={handleSuggestAssembly}
+                className="inline-flex items-center gap-2 px-3 py-1.5 text-sm text-pink-700 hover:bg-pink-50 rounded border border-pink-200"
+                title="Adds blocking, seaming, weaving ends, and finishing as assembly tasks"
+              >
+                <FiPlus className="h-4 w-4" /> Suggest assembly steps
+              </button>
+            )}
+          </div>
         )}
       </div>
     </details>
