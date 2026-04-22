@@ -122,10 +122,10 @@ export default function GiftSizeCalculator() {
           className="inline-flex items-center text-purple-600 hover:text-purple-700"
         >
           <FiArrowLeft className="mr-2 h-4 w-4" />
-          Back to AI Helpers
+          Back to Calculators
         </Link>
         <h1 className="mt-2 text-2xl font-bold text-gray-900 dark:text-gray-100 md:text-3xl">
-          Gift Size Helper
+          Gift Size Calculator
         </h1>
         <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
           Your smart sizing helper. Enter the recipient&apos;s chest/bust measurement and pick a

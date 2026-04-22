@@ -193,7 +193,7 @@ export default function GaugeCalculator() {
           className="inline-flex items-center text-purple-600 hover:text-purple-700"
         >
           <FiArrowLeft className="mr-2 h-4 w-4" />
-          Back to AI Helpers
+          Back to Calculators
         </Link>
         <h1 className="mt-2 text-2xl font-bold text-gray-900 dark:text-gray-100 md:text-3xl">
           Gauge Calculator
