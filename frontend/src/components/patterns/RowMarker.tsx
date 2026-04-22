@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { useState, useEffect, useCallback } from 'react';
-import { FiMove, FiX, FiEye, FiEyeOff } from 'react-icons/fi';
+import { FiMove, FiX, FiEye, FiEyeOff, FiSun, FiMoon } from 'react-icons/fi';
 
 interface RowMarkerProps {
   pageNumber: number;
@@ -13,6 +13,7 @@ const MARKER_COLORS = [
   { name: 'Blue', value: '#3B82F6', opacity: 0.3 },
   { name: 'Green', value: '#10B981', opacity: 0.3 },
   { name: 'Purple', value: '#8B5CF6', opacity: 0.3 },
+  { name: 'Dim', value: '#1F2937', opacity: 0.5 },
 ];
 
 export default function RowMarker({ pageNumber, onPositionChange }: RowMarkerProps) {
@@ -24,6 +25,7 @@ export default function RowMarker({ pageNumber, onPositionChange }: RowMarkerPro
   const [opacity, setOpacity] = useState(0.3);
   const [isLocked, setIsLocked] = useState(false);
   const [isVisible, setIsVisible] = useState(true);
+  const [isInverted, setIsInverted] = useState(false);
   const [showControls, setShowControls] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 
@@ -150,19 +152,43 @@ export default function RowMarker({ pageNumber, onPositionChange }: RowMarkerPro
 
   return (
     <>
-      {/* Row Marker */}
+      {/* Inverted mode: dim everything except the active row */}
+      {isInverted && (
+        <>
+          <div
+            className="fixed left-0 right-0 top-0 z-40 pointer-events-none"
+            style={{
+              height: `${position.y}%`,
+              backgroundColor: color,
+              opacity: opacity,
+            }}
+          />
+          <div
+            className="fixed left-0 right-0 bottom-0 z-40 pointer-events-none"
+            style={{
+              top: `${position.y + height}%`,
+              backgroundColor: color,
+              opacity: opacity,
+            }}
+          />
+        </>
+      )}
+
+      {/* Row Marker (band mode) / Spotlight handle (inverted mode) */}
       <div
         className={`fixed z-40 transition-opacity ${isDragging ? 'cursor-move' : ''} ${
           isLocked ? 'pointer-events-none' : 'cursor-move'
         }`}
         style={{
-          left: `${position.x}%`,
+          left: isInverted ? '0%' : `${position.x}%`,
           top: `${position.y}%`,
-          width: '90%',
+          width: isInverted ? '100%' : '90%',
           height: `${height}%`,
-          backgroundColor: color,
-          opacity: opacity,
-          transform: 'translate(-50%, 0)',
+          backgroundColor: isInverted ? 'transparent' : color,
+          opacity: isInverted ? 1 : opacity,
+          transform: isInverted ? 'none' : 'translate(-50%, 0)',
+          borderTop: isInverted ? '2px solid rgba(255,255,255,0.5)' : undefined,
+          borderBottom: isInverted ? '2px solid rgba(255,255,255,0.5)' : undefined,
         }}
         onMouseDown={handleMouseDown}
         onMouseEnter={() => !isLocked && setShowControls(true)}
@@ -208,9 +234,46 @@ export default function RowMarker({ pageNumber, onPositionChange }: RowMarkerPro
           </button>
         </div>
 
+        {/* Mode Toggle: Band vs Inverted */}
+        <div>
+          <label className="block text-xs font-medium text-gray-300 mb-2">Mode</label>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setIsInverted(false)}
+              className={`flex-1 px-2 py-1.5 rounded text-xs font-medium flex items-center justify-center gap-1 ${
+                !isInverted
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+              }`}
+              title="Highlight the active row with color"
+            >
+              <FiSun className="h-3 w-3" /> Band
+            </button>
+            <button
+              onClick={() => {
+                setIsInverted(true);
+                if (color !== '#1F2937') {
+                  setColor('#1F2937');
+                  setOpacity(0.5);
+                }
+              }}
+              className={`flex-1 px-2 py-1.5 rounded text-xs font-medium flex items-center justify-center gap-1 ${
+                isInverted
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+              }`}
+              title="Dim everything except the active row"
+            >
+              <FiMoon className="h-3 w-3" /> Inverted
+            </button>
+          </div>
+        </div>
+
         {/* Color Selection */}
         <div>
-          <label className="block text-xs font-medium text-gray-300 mb-2">Color</label>
+          <label className="block text-xs font-medium text-gray-300 mb-2">
+            {isInverted ? 'Dim color' : 'Color'}
+          </label>
           <div className="flex gap-2">
             {MARKER_COLORS.map((c) => (
               <button
