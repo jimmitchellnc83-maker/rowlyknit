@@ -6,72 +6,108 @@ interface BodySchematicProps {
 }
 
 /**
- * Simple SVG schematic for a single body panel (front or back). Draws a
- * hourglass outline when waist shaping is present, a rectangle otherwise,
- * and labels stitch counts at each seam transition plus the finished
- * width/length outside the piece.
+ * SVG schematic for a single body panel. Renders four possible outlines
+ * depending on which shaping is active:
+ *   - straight rectangle (cast-on = chest, no waist, no armhole)
+ *   - hourglass (waist shaping — narrows at the waist then widens to bust)
+ *   - armhole-notched (top narrows to shoulder seam via a step at armhole start)
+ *   - armhole-notched + neckline (front panel: scoop cut out of the top)
  *
- * Deliberately minimalist: no colorized zones, no gauge swatch overlay, no
- * shaping tick marks. Those can layer in once the basic rendering feels
- * right. The component is pure — no state, reads from the precomputed
- * `output` — so it rerenders instantly as the user tweaks inputs.
+ * Compose cleanly: any combination of the above is supported. The component
+ * is pure — it reads everything from the precomputed `output` struct and
+ * rerenders instantly when inputs change.
  */
 export default function BodySchematic({ input, output }: BodySchematicProps) {
   const viewW = 320;
   const viewH = 420;
 
-  // Drawable area, leaving margins for outside labels.
   const marginX = 60;
   const marginY = 40;
   const areaW = viewW - marginX * 2;
   const areaH = viewH - marginY * 2;
   const cx = viewW / 2;
 
-  // Stitch → x-width scale, based on the widest point (chest) so the chest
-  // line touches the drawable area edges.
+  // Scale to the widest point (chest / cast-on).
   const maxStitches = output.castOnStitches;
-  const stitchToPx = areaW / maxStitches;
+  const stitchToPx = areaW / Math.max(1, maxStitches);
 
-  const castOnWidth = output.castOnStitches * stitchToPx;
-  const chestWidth = castOnWidth; // same — both use chest panel sizing
   const hasWaist = output.finishedWaist !== null && input.waist !== undefined;
-  // When shaped, the "waist" step gives us the waist stitch count.
-  const waistStep = output.steps.find((s) => s.label === 'Hem to waist');
-  const waistStitches = waistStep ? waistStep.endStitches : output.castOnStitches;
+  const hasArmhole =
+    output.shoulderSeamStitches !== null && input.armhole !== undefined;
+  const hasNeckline = hasArmhole && input.neckline !== undefined;
+
+  // Stitch counts at each horizontal band (from bottom to top):
+  //   castOn → waist? → chest → shoulderSeam (if armhole) → (neckline cut-out)
+  const castOnStitches = output.castOnStitches;
+  const chestStitches = castOnStitches; // same — panel width doesn't change between cast-on and chest
+  const waistStitches =
+    output.steps.find((s) => s.label === 'Hem to waist')?.endStitches ?? castOnStitches;
+  const shoulderSeamStitches = output.shoulderSeamStitches ?? chestStitches;
+  const neckOpeningStitches =
+    hasNeckline && input.neckline
+      ? Math.max(
+          0,
+          shoulderSeamStitches -
+            2 * (hasArmhole && input.armhole
+              ? Math.round((input.armhole.shoulderWidth * 5) / 4) // rough; overridden below
+              : 0),
+        )
+      : 0;
+
+  const castOnWidth = castOnStitches * stitchToPx;
   const waistWidth = waistStitches * stitchToPx;
+  const chestWidth = chestStitches * stitchToPx;
+  const shoulderSeamWidth = shoulderSeamStitches * stitchToPx;
+  // Neck opening width: derive directly from input.neckline.neckOpeningWidth
+  // × stitches/in so the geometry matches the math output.
+  const neckOpeningWidth = hasNeckline && input.neckline
+    ? Math.round((input.neckline.neckOpeningWidth / 4) * (output.castOnStitches / (output.finishedChest / 2)) * 4) * stitchToPx
+    : 0;
 
-  // Y positions (0 = top of piece, higher = further toward cast-on edge at
-  // the bottom of the SVG).
-  const topY = marginY;
+  // Vertical bands (from cast-on at bottom to top).
   const bottomY = marginY + areaH;
+  const topY = marginY;
+  const totalRows = Math.max(1, output.totalRows);
+  const rowToPx = areaH / totalRows;
 
-  // Row-to-Y scale (from cast-on at bottom to bind-off at top).
-  const rowToPx = areaH / Math.max(1, output.totalRows);
-
-  // Waist Y: input.waist.waistHeightFromHem is measured from cast-on edge up.
-  const waistY = hasWaist && input.waist
-    ? bottomY - rowsAtLength(input.waist.waistHeightFromHem, output.totalRows, output.finishedLength) * rowToPx
-    : null;
-
-  // Hem Y (top of hem, above which the body shaping starts).
   const hemY = bottomY - output.hemRows * rowToPx;
+  const waistY =
+    hasWaist && input.waist
+      ? bottomY - rowsAt(input.waist.waistHeightFromHem, output.totalRows, output.finishedLength) * rowToPx
+      : null;
+  const armholeY =
+    hasArmhole && input.armhole
+      ? bottomY - (output.totalRows - rowsAt(input.armhole.armholeDepth, output.totalRows, output.finishedLength)) * rowToPx
+      : null;
+  const necklineY =
+    hasNeckline && input.neckline
+      ? topY + rowsAt(input.neckline.necklineDepth, output.totalRows, output.finishedLength) * rowToPx
+      : null;
 
-  // Build the outline path. Coordinates are all x-from-center then computed
-  // via cx ± half-width.
+  // Suppress the stale "neckOpeningStitches" inline estimate from above —
+  // we derive the width from input.neckline directly.
+  void neckOpeningStitches;
+
   const half = {
     castOn: castOnWidth / 2,
     waist: waistWidth / 2,
     chest: chestWidth / 2,
+    shoulderSeam: shoulderSeamWidth / 2,
+    neck: neckOpeningWidth / 2,
   };
 
-  const outline =
-    hasWaist && waistY !== null
-      ? buildWaistPath(cx, half, topY, hemY, waistY, bottomY)
-      : buildRectPath(cx, half.castOn, topY, bottomY);
-
-  // Inch labels — finishedChest is full-body circumference-with-ease; the
-  // panel itself is half of that, but knitters mostly want to see the
-  // finished garment width in the schematic so we keep the circumference number.
+  const outline = buildPath({
+    cx,
+    bottomY,
+    topY,
+    half,
+    waistY,
+    armholeY,
+    necklineY,
+    hasWaist,
+    hasArmhole,
+    hasNeckline,
+  });
 
   return (
     <svg
@@ -80,7 +116,6 @@ export default function BodySchematic({ input, output }: BodySchematicProps) {
       aria-label="Body block schematic"
       className="w-full max-w-sm mx-auto"
     >
-      {/* Outline */}
       <path
         d={outline}
         fill="#F5F3FF"
@@ -89,7 +124,7 @@ export default function BodySchematic({ input, output }: BodySchematicProps) {
         strokeLinejoin="round"
       />
 
-      {/* Hem fill — slightly darker */}
+      {/* Hem fill — slightly darker band at cast-on edge */}
       <rect
         x={cx - half.castOn}
         y={hemY}
@@ -108,18 +143,27 @@ export default function BodySchematic({ input, output }: BodySchematicProps) {
         strokeDasharray="3 2"
       />
 
-      {/* Top (bind-off) stitch count */}
+      {/* Armhole marker line — dashed across the body at the underarm */}
+      {hasArmhole && armholeY !== null && (
+        <line
+          x1={cx - half.chest}
+          y1={armholeY}
+          x2={cx + half.chest}
+          y2={armholeY}
+          stroke="#8B5CF6"
+          strokeWidth="1"
+          strokeDasharray="2 3"
+        />
+      )}
+
+      {/* Top (bind-off) stitch count — shoulder seam when armhole present */}
       <text x={cx} y={topY - 12} textAnchor="middle" className="fill-gray-700 text-[13px] font-semibold">
-        ← {output.steps[output.steps.length - 1].startStitches} sts (bind off) →
+        ← {hasArmhole ? shoulderSeamStitches : output.steps[output.steps.length - 1].startStitches} sts
+        {hasNeckline ? ' (incl. neck opening)' : ''} →
       </text>
 
       {/* Bottom (cast-on) stitch count */}
-      <text
-        x={cx}
-        y={bottomY + 20}
-        textAnchor="middle"
-        className="fill-gray-700 text-[13px] font-semibold"
-      >
+      <text x={cx} y={bottomY + 20} textAnchor="middle" className="fill-gray-700 text-[13px] font-semibold">
         ← {output.castOnStitches} sts (cast on) →
       </text>
 
@@ -146,17 +190,29 @@ export default function BodySchematic({ input, output }: BodySchematicProps) {
         </>
       )}
 
-      {/* Finished chest label — right side, middle */}
+      {/* Armhole label */}
+      {hasArmhole && armholeY !== null && (
+        <text
+          x={cx + half.chest + 8}
+          y={armholeY + 4}
+          textAnchor="start"
+          className="fill-gray-600 text-[11px]"
+        >
+          armhole
+        </text>
+      )}
+
+      {/* Finished chest label */}
       <text
         x={cx + half.chest + 8}
-        y={(topY + (waistY ?? hemY)) / 2 + 4}
+        y={(armholeY ?? topY) - 6}
         textAnchor="start"
         className="fill-gray-600 text-[11px]"
       >
         chest: {output.finishedChest} in
       </text>
 
-      {/* Finished length label — vertical, right-most */}
+      {/* Finished length */}
       <text
         x={viewW - 10}
         y={viewH / 2}
@@ -167,7 +223,6 @@ export default function BodySchematic({ input, output }: BodySchematicProps) {
         {output.finishedLength} in total
       </text>
 
-      {/* Hem depth label — bottom-left */}
       <text
         x={marginX - 8}
         y={(hemY + bottomY) / 2 + 4}
@@ -181,44 +236,96 @@ export default function BodySchematic({ input, output }: BodySchematicProps) {
 }
 
 // ---------------------------------------------------------------------------
-// Path builders
+// Path builder (handles all combinations of waist / armhole / neckline)
 // ---------------------------------------------------------------------------
 
-function buildRectPath(cx: number, halfWidth: number, topY: number, bottomY: number): string {
-  const left = cx - halfWidth;
-  const right = cx + halfWidth;
-  return `M ${left} ${bottomY} L ${left} ${topY} L ${right} ${topY} L ${right} ${bottomY} Z`;
+interface PathParams {
+  cx: number;
+  bottomY: number;
+  topY: number;
+  half: {
+    castOn: number;
+    waist: number;
+    chest: number;
+    shoulderSeam: number;
+    neck: number;
+  };
+  waistY: number | null;
+  armholeY: number | null;
+  necklineY: number | null;
+  hasWaist: boolean;
+  hasArmhole: boolean;
+  hasNeckline: boolean;
 }
 
-function buildWaistPath(
-  cx: number,
-  half: { castOn: number; waist: number; chest: number },
-  topY: number,
-  _hemY: number,
-  waistY: number,
-  bottomY: number,
-): string {
-  // Walk the outline counter-clockwise from bottom-left: up-left edge with
-  // waist narrowing, across top, down-right edge with the mirror narrowing.
-  const bottomLeft = cx - half.castOn;
-  const bottomRight = cx + half.castOn;
-  const topLeft = cx - half.chest;
-  const topRight = cx + half.chest;
-  const waistLeft = cx - half.waist;
-  const waistRight = cx + half.waist;
+function buildPath(p: PathParams): string {
+  const { cx, bottomY, topY, half, waistY, armholeY, necklineY, hasWaist, hasArmhole, hasNeckline } = p;
 
-  return [
-    `M ${bottomLeft} ${bottomY}`,
-    `L ${waistLeft} ${waistY}`,
-    `L ${topLeft} ${topY}`,
-    `L ${topRight} ${topY}`,
-    `L ${waistRight} ${waistY}`,
-    `L ${bottomRight} ${bottomY}`,
-    'Z',
-  ].join(' ');
+  // Walk counter-clockwise from bottom-left. Key points up the left side:
+  //   castOn-left (bottom)
+  //   waist-left (if waist)
+  //   chest-left (just below armhole start, or at top if no armhole)
+  //   shoulderSeam-left (armhole step, if armhole)
+  //   top-left (at shoulder, continuing across top)
+  //
+  // Neckline (if present) carves a notch out of the top line.
+
+  const parts: string[] = [];
+
+  // Start at cast-on bottom-left
+  parts.push(`M ${cx - half.castOn} ${bottomY}`);
+
+  // Up left side — waist narrowing first, then chest
+  if (hasWaist && waistY !== null) {
+    parts.push(`L ${cx - half.waist} ${waistY}`);
+  }
+  // Chest line — just below the armhole (or at top if no armhole)
+  if (hasArmhole && armholeY !== null) {
+    parts.push(`L ${cx - half.chest} ${armholeY}`);
+    // Step inward to shoulder seam at armhole Y
+    parts.push(`L ${cx - half.shoulderSeam} ${armholeY}`);
+    // Up the inner edge to the top
+    parts.push(`L ${cx - half.shoulderSeam} ${topY}`);
+  } else {
+    parts.push(`L ${cx - half.chest} ${topY}`);
+  }
+
+  // Across the top — with neckline carve-out if present
+  if (hasNeckline && necklineY !== null && half.neck > 0) {
+    // Left shoulder flat: from shoulder seam edge inward to neck-left
+    parts.push(`L ${cx - half.neck} ${topY}`);
+    // Down into the neck scoop (flat-bottom U for v1)
+    parts.push(`L ${cx - half.neck} ${necklineY}`);
+    // Across bottom of neck
+    parts.push(`L ${cx + half.neck} ${necklineY}`);
+    // Back up
+    parts.push(`L ${cx + half.neck} ${topY}`);
+  }
+
+  // Right shoulder / top-right (mirror of left)
+  if (hasArmhole && armholeY !== null) {
+    parts.push(`L ${cx + half.shoulderSeam} ${topY}`);
+    parts.push(`L ${cx + half.shoulderSeam} ${armholeY}`);
+    parts.push(`L ${cx + half.chest} ${armholeY}`);
+  } else {
+    parts.push(`L ${cx + half.chest} ${topY}`);
+  }
+  // Down right side
+  if (hasWaist && waistY !== null) {
+    parts.push(`L ${cx + half.waist} ${waistY}`);
+  }
+  parts.push(`L ${cx + half.castOn} ${bottomY}`);
+  parts.push('Z');
+
+  return parts.join(' ');
 }
 
-function rowsAtLength(lengthInches: number, totalRows: number, totalLength: number): number {
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/** Convert an inch distance along the piece into a row count via proportion. */
+function rowsAt(lengthInches: number, totalRows: number, totalLength: number): number {
   if (totalLength <= 0) return 0;
   return (lengthInches / totalLength) * totalRows;
 }
