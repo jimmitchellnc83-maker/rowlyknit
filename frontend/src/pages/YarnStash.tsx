@@ -14,6 +14,7 @@ import RavelryYarnSearch, { type RavelryYarnImportData } from '../components/Rav
 import { useMeasurements } from '../hooks/useMeasurements';
 import StashValueCard from '../components/yarn/StashValueCard';
 import YarnLabelCapture, { type ExtractedLabelData } from '../components/yarn/YarnLabelCapture';
+import PageHelpButton from '../components/PageHelpButton';
 
 interface Yarn {
   id: string;
@@ -431,7 +432,8 @@ export default function YarnStash() {
           <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Yarn Stash</h1>
           <p className="text-gray-600 dark:text-gray-400 mt-1">Manage your yarn inventory</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex gap-3 items-center">
+          <PageHelpButton label="Yarn Stash help" />
           <button
             onClick={() => setShowRavelrySearch(true)}
             className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
@@ -549,8 +551,13 @@ export default function YarnStash() {
                 onClick={() => navigate(`/yarn/${y.id}`)}
                 className="p-6 cursor-pointer flex-1"
               >
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex-1">
+                {/*
+                  pr-12 keeps the title/weight row clear of the absolute-positioned
+                  favorite button above — needed on cards without a thumbnail where
+                  the heart sits directly over the content top-right.
+                */}
+                <div className={`flex items-start justify-between mb-3 ${y.thumbnail_path ? '' : 'pr-12'}`}>
+                  <div className="flex-1 min-w-0">
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 hover:text-purple-600 transition">
                       {y.brand && `${y.brand} `}{y.name}
                     </h3>
@@ -560,7 +567,7 @@ export default function YarnStash() {
                   </div>
                   {y.weight && (
                     <span
-                      className={`px-2 py-1 text-xs font-medium rounded-full ${getWeightColor(
+                      className={`ml-2 shrink-0 px-2 py-1 text-xs font-medium rounded-full ${getWeightColor(
                         y.weight
                       )}`}
                     >

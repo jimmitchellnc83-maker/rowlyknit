@@ -11,6 +11,7 @@ import ListControls, { applyListControls, type SortOption } from '../components/
 import { LoadingCardGrid, ErrorState } from '../components/LoadingSpinner';
 import { usePatterns, useCreatePattern, useUpdatePattern, useDeletePattern } from '../hooks/useApi';
 import RavelryPatternSearch, { type RavelryPatternImportData } from '../components/RavelryPatternSearch';
+import PageHelpButton from '../components/PageHelpButton';
 
 interface Pattern {
   id: string;
@@ -312,7 +313,8 @@ export default function Patterns() {
           <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Patterns</h1>
           <p className="text-gray-600 dark:text-gray-400 mt-1">Manage your knitting pattern library</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex gap-3 items-center">
+          <PageHelpButton label="Patterns help" />
           <button
             onClick={() => setShowRavelrySearch(true)}
             className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
