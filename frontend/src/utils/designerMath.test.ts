@@ -2,9 +2,11 @@ import { describe, it, expect } from 'vitest';
 import {
   buildShapingFormula,
   computeBodyBlock,
+  computeSleeve,
   toInches,
   type BodyBlockInput,
   type DesignerGauge,
+  type SleeveInput,
 } from './designerMath';
 
 const STANDARD_GAUGE: DesignerGauge = {
@@ -185,5 +187,90 @@ describe('computeBodyBlock — with waist shaping', () => {
     // 100 → 80 = 20 st diff = 10 events over 42 rows → 4 rows between, 2 trailing
     expect(below.instruction).toContain('DEC 1 st each end every 4 rows × 10');
     expect(below.instruction).toContain('then work 2 rows straight');
+  });
+});
+
+describe('computeSleeve', () => {
+  const baseInput: SleeveInput = {
+    gauge: STANDARD_GAUGE,
+    cuffCircumference: 7,
+    easeAtCuff: 1,
+    bicepCircumference: 12,
+    easeAtBicep: 2,
+    cuffToUnderarmLength: 18,
+    cuffDepth: 2,
+  };
+
+  it('casts on cuff stitches rounded to even', () => {
+    const out = computeSleeve(baseInput);
+    // Cuff = 8 in circumference → 8 × 5 = 40 sts (already even)
+    expect(out.castOnStitches).toBe(40);
+  });
+
+  it('computes bicep stitches for end of taper', () => {
+    const out = computeSleeve(baseInput);
+    // Bicep = 14 in → 14 × 5 = 70 sts
+    expect(out.bicepStitches).toBe(70);
+  });
+
+  it('generates cuff / taper / underarm steps', () => {
+    const out = computeSleeve(baseInput);
+    const labels = out.steps.map((s) => s.label);
+    expect(labels).toEqual(['Cuff', 'Taper to bicep', 'Underarm']);
+  });
+
+  it('rounds row counts correctly from length + gauge', () => {
+    const out = computeSleeve(baseInput);
+    // 18 in × 7 rows/in = 126 total rows; 2 in hem × 7 = 14 cuff rows
+    expect(out.totalRows).toBe(126);
+    expect(out.cuffRows).toBe(14);
+    expect(out.steps[1].rows).toBe(112);
+  });
+
+  it('produces an increase formula for the taper', () => {
+    const out = computeSleeve(baseInput);
+    const taper = out.steps.find((s) => s.label === 'Taper to bicep')!;
+    // 40 → 70 = 30 st diff = 15 events over 112 rows → 7 between, 7 trailing
+    expect(taper.direction).toBe('increase');
+    expect(taper.instruction).toContain('INC 1 st each end every 7 rows × 15');
+    expect(taper.instruction).toContain('then work 7 rows straight');
+  });
+
+  it('reports finished measurements for the schematic', () => {
+    const out = computeSleeve(baseInput);
+    expect(out.finishedCuff).toBe(8);
+    expect(out.finishedBicep).toBe(14);
+    expect(out.finishedLength).toBe(18);
+  });
+
+  it('handles a no-taper straight sleeve (cuff equals bicep)', () => {
+    const out = computeSleeve({
+      ...baseInput,
+      cuffCircumference: 12,
+      bicepCircumference: 12,
+      easeAtCuff: 2,
+      easeAtBicep: 2,
+    });
+    const taper = out.steps.find((s) => s.label === 'Taper to bicep')!;
+    expect(taper.startStitches).toBe(taper.endStitches);
+    expect(taper.direction).toBe('none');
+    expect(taper.instruction).toContain('straight');
+  });
+
+  it('skips the taper step when cuff depth equals total length', () => {
+    const out = computeSleeve({
+      ...baseInput,
+      cuffToUnderarmLength: 2,
+      cuffDepth: 2,
+    });
+    // With cuffRows === totalRows, taperRows is 0 → no "Taper to bicep" step
+    const labels = out.steps.map((s) => s.label);
+    expect(labels).toEqual(['Cuff', 'Underarm']);
+  });
+
+  it('mentions holding stitches when the sleeve will join a yoke', () => {
+    const out = computeSleeve(baseInput);
+    const underarm = out.steps.find((s) => s.label === 'Underarm')!;
+    expect(underarm.instruction).toContain('holder');
   });
 });
