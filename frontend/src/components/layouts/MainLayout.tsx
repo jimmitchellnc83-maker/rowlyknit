@@ -15,7 +15,8 @@ import {
   FiUsers,
   FiUser,
   FiLogOut,
-  FiBarChart2
+  FiBarChart2,
+  FiGrid
 } from 'react-icons/fi';
 
 export default function MainLayout() {
@@ -55,6 +56,7 @@ function MainLayoutInner() {
     { name: 'Patterns', href: '/patterns', icon: FiBook, shortName: 'Patterns' },
     { name: 'Yarn Stash', href: '/yarn', icon: FiPackage, shortName: 'Stash' },
     { name: 'Tools', href: '/tools', icon: FiTool, shortName: 'Tools' },
+    { name: 'Calculators', href: '/calculators', icon: FiGrid, shortName: 'Calc' },
     { name: 'Recipients', href: '/recipients', icon: FiUsers, shortName: 'Recipients' },
   ];
 
