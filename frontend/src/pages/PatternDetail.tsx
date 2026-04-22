@@ -422,7 +422,7 @@ export default function PatternDetail() {
             >
               <div className="flex items-center gap-2">
                 <FiCheckCircle className="h-5 w-5 md:h-4 md:w-4" />
-                <span className="hidden sm:inline">Feasibility</span>
+                <span className="hidden sm:inline">AI Feasibility</span>
               </div>
             </button>
           </nav>

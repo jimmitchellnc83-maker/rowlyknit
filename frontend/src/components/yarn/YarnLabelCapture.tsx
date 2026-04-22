@@ -50,7 +50,7 @@ export default function YarnLabelCapture({ onClose, onExtracted }: YarnLabelCapt
       >
         <header className="flex items-center justify-between border-b border-gray-200 p-4 dark:border-gray-700 md:p-6">
           <h2 id="scan-label-title" className="text-xl font-bold text-gray-900 dark:text-gray-100">
-            Scan Yarn Label
+            AI Label Scanner
           </h2>
           <button
             onClick={onClose}
@@ -86,7 +86,7 @@ export default function YarnLabelCapture({ onClose, onExtracted }: YarnLabelCapt
             }`}
           >
             <FiFileText className="h-4 w-4" />
-            Photo + OCR
+            AI photo scan
           </button>
         </nav>
 

@@ -46,9 +46,9 @@ export default defineConfig({
         enabled: false,
       },
       manifest: {
-        name: 'Rowly - Knitting Project Manager',
+        name: 'Rowly - AI Knitting Helpers',
         short_name: 'Rowly',
-        description: 'The complete knitting project management app',
+        description: 'AI-powered knitting helpers: feasibility, yarn substitution, gauge, sizing, and label scanning',
         theme_color: '#8b5cf6',
         background_color: '#ffffff',
         display: 'standalone',
