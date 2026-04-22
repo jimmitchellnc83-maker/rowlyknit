@@ -10,6 +10,7 @@ import {
 } from '../utils/designerMath';
 import BodySchematic from '../components/designer/BodySchematic';
 import SleeveSchematic from '../components/designer/SleeveSchematic';
+import PageHelpButton from '../components/PageHelpButton';
 
 type NumField = number | '';
 type DesignerSection = 'body' | 'sleeve';
@@ -275,6 +276,7 @@ export default function PatternDesigner() {
           <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium uppercase tracking-wide text-purple-700">
             Beta
           </span>
+          <PageHelpButton label="Designer help" className="ml-auto" />
         </div>
         <p className="mt-1 max-w-2xl text-sm text-gray-600 dark:text-gray-400">
           Draft garment sections from body measurements and your swatch gauge. v1 covers the body

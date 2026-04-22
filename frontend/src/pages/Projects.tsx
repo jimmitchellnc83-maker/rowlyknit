@@ -9,6 +9,7 @@ import ConfirmModal from '../components/ConfirmModal';
 import ListControls, { applyListControls, type SortOption } from '../components/ListControls';
 import { LoadingCardGrid, ErrorState } from '../components/LoadingSpinner';
 import { useProjects, useCreateProject, useDeleteProject, useUpdateProject } from '../hooks/useApi';
+import PageHelpButton from '../components/PageHelpButton';
 
 interface ProjectTypeOption {
   value: string;
@@ -265,7 +266,8 @@ export default function Projects() {
           <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Projects</h1>
           <p className="text-gray-600 dark:text-gray-400 mt-1">Manage your knitting projects</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex gap-3 items-center">
+          <PageHelpButton label="Projects help" />
           <button
             onClick={() => setShowCreateModal(true)}
             className="flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"

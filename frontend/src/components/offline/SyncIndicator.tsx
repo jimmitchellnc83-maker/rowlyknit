@@ -95,20 +95,34 @@ export const SyncIndicator: React.FC = () => {
     return 'Synced';
   };
 
+  // "All clear" state — online, nothing syncing, nothing pending, nothing failed.
+  // Hide the indicator entirely in this case so it doesn't hover over every page
+  // shouting "Synced" when there's nothing to act on. It'll reappear the moment
+  // the user goes offline, queues work, or something fails.
+  const allClear =
+    isOnline &&
+    !syncStatus.isSyncing &&
+    syncStatus.pendingCount === 0 &&
+    syncStatus.failedCount === 0;
+
+  if (allClear) return null;
+
   return (
     <>
       {/* Sync Indicator Button */}
       <button
         onClick={isOnline ? handleManualSync : undefined}
-        className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
+        className={`flex items-center gap-2 px-3 py-2 rounded-lg bg-white/90 dark:bg-gray-800/90 backdrop-blur shadow-sm border border-gray-200 dark:border-gray-700 transition-colors ${
           isOnline
-            ? 'hover:bg-gray-100 dark:hover:bg-gray-700'
-            : 'cursor-not-allowed opacity-70'
+            ? 'hover:bg-white dark:hover:bg-gray-800'
+            : 'cursor-not-allowed opacity-80'
         }`}
         title={isOnline ? 'Click to sync now' : 'Device is offline'}
       >
         <span className={getStatusColor()}>{getStatusIcon()}</span>
-        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+        {/* Label is hidden on narrow viewports so the pill doesn't crowd
+            page-level action buttons like "New Project" on small screens. */}
+        <span className="hidden sm:inline text-sm font-medium text-gray-700 dark:text-gray-300">
           {getStatusText()}
         </span>
       </button>
