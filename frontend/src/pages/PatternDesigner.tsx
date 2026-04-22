@@ -22,6 +22,12 @@ import {
   type MeasurementUnit,
 } from '../utils/designerMath';
 import BodySchematic from '../components/designer/BodySchematic';
+import ChartGrid, {
+  emptyChart,
+  resizeChart,
+  type ChartData,
+  type ChartTool,
+} from '../components/designer/ChartGrid';
 import ColorPalette, { type ColorSwatch } from '../components/designer/ColorPalette';
 import HatSchematic from '../components/designer/HatSchematic';
 import MittenSchematic from '../components/designer/MittenSchematic';
@@ -29,6 +35,7 @@ import RectSchematic from '../components/designer/RectSchematic';
 import ShawlSchematic from '../components/designer/ShawlSchematic';
 import SleeveSchematic from '../components/designer/SleeveSchematic';
 import SockSchematic from '../components/designer/SockSchematic';
+import StitchPalette from '../components/designer/StitchPalette';
 import PageHelpButton from '../components/PageHelpButton';
 
 type NumField = number | '';
@@ -106,6 +113,11 @@ interface DesignerForm {
   // becomes the main color; additional colors can be referenced by stripe /
   // colorwork extensions in later PRs.
   colors: ColorSwatch[];
+
+  // Chart — optional stitch / colorwork grid attached to this design.
+  // Null means "no chart yet"; when the user opens the Chart section the
+  // first time we initialize a small default grid.
+  chart: ChartData | null;
 
   // Body block
   chestCircumference: NumField;
@@ -202,6 +214,7 @@ const DEFAULT_FORM: DesignerForm = {
   cuffDepth: 2,
 
   colors: [],
+  chart: null,
 };
 
 const LS_KEY = 'rowly:designer:current';
@@ -521,6 +534,122 @@ function StepCard({
 }
 
 // ---------------------------------------------------------------------------
+// Chart section — optional stitch/colorwork grid attached to any design.
+// Width/height are editable as numbers; resizing preserves the overlapping
+// area. The StitchPalette feeds an active tool (symbol / palette color /
+// erase) that ChartGrid applies on click and drag.
+// ---------------------------------------------------------------------------
+
+function ChartSection({
+  chart,
+  onChange,
+  paletteColors,
+}: {
+  chart: ChartData | null;
+  onChange: (next: ChartData | null) => void;
+  paletteColors: ColorSwatch[];
+}) {
+  const [tool, setTool] = useState<ChartTool>({ type: 'symbol', symbolId: 'knit' });
+
+  if (!chart) {
+    return (
+      <section className="rounded-lg bg-white p-4 shadow dark:bg-gray-800 md:p-6">
+        <h2 className="mb-2 text-lg font-semibold text-gray-900 dark:text-gray-100">
+          Chart <span className="text-xs font-normal text-gray-500">(optional)</span>
+        </h2>
+        <p className="mb-3 text-sm text-gray-600 dark:text-gray-400">
+          Design a stitch or colorwork chart to attach to this pattern. Click or drag on the grid
+          to place symbols (knit, purl, yarn-over, decreases) or colors from your palette. The
+          chart rides along with the rest of the design in the print view.
+        </p>
+        <button
+          type="button"
+          onClick={() => onChange(emptyChart(12, 10))}
+          className="rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700"
+        >
+          Add chart
+        </button>
+      </section>
+    );
+  }
+
+  return (
+    <section className="rounded-lg bg-white p-4 shadow dark:bg-gray-800 md:p-6">
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Chart</h2>
+        <button
+          type="button"
+          onClick={() => {
+            if (confirm('Remove the chart entirely? This clears the grid.')) onChange(null);
+          }}
+          className="text-xs text-red-600 hover:underline"
+        >
+          Remove chart
+        </button>
+      </div>
+
+      <div className="mb-3 grid grid-cols-2 gap-3">
+        <label className="block">
+          <span className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+            Width (stitches)
+          </span>
+          <input
+            type="number"
+            min={1}
+            max={60}
+            value={chart.width}
+            onChange={(e) => {
+              const w = parseInt(e.target.value || '0', 10);
+              if (Number.isFinite(w) && w > 0 && w <= 60) {
+                onChange(resizeChart(chart, w, chart.height));
+              }
+            }}
+            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+          />
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+            Height (rows)
+          </span>
+          <input
+            type="number"
+            min={1}
+            max={60}
+            value={chart.height}
+            onChange={(e) => {
+              const h = parseInt(e.target.value || '0', 10);
+              if (Number.isFinite(h) && h > 0 && h <= 60) {
+                onChange(resizeChart(chart, chart.width, h));
+              }
+            }}
+            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+          />
+        </label>
+      </div>
+
+      <StitchPalette tool={tool} onChange={setTool} paletteColors={paletteColors} />
+
+      <div className="mt-4">
+        <ChartGrid chart={chart} onChange={onChange} tool={tool} />
+      </div>
+
+      <div className="mt-3 flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => onChange(emptyChart(chart.width, chart.height))}
+          className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+        >
+          Clear all cells
+        </button>
+        <span className="text-xs text-gray-500">
+          Max 60×60. Row 1 (bottom, RS) is the first row you knit.
+        </span>
+      </div>
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
@@ -734,6 +863,12 @@ export default function PatternDesigner() {
           {/* Color palette — shared across all item types. First color
               becomes MC and is shown alongside the schematic as a preview. */}
           <ColorPalette colors={form.colors} onChange={(next) => update('colors', next)} />
+
+          <ChartSection
+            chart={form.chart}
+            onChange={(next) => update('chart', next)}
+            paletteColors={form.colors}
+          />
 
           {form.itemType === 'sweater' && (
             <>
