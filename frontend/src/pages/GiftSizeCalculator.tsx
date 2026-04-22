@@ -125,12 +125,13 @@ export default function GiftSizeCalculator() {
           Back to Calculators
         </Link>
         <h1 className="mt-2 text-2xl font-bold text-gray-900 dark:text-gray-100 md:text-3xl">
-          Gift Size Calculator
+          Size Calculator
         </h1>
         <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-          Your smart sizing helper. Enter the recipient&apos;s chest/bust measurement and pick a
-          fit style — we recommend a size across common pattern sizing schemes and show how the
-          finished garment will measure.
+          Enter a chest or bust measurement and pick a fit style — we&apos;ll recommend a size
+          across common pattern sizing schemes (women, men, children, baby) and show how the
+          finished garment will measure. Works for gifts, your own projects, or anyone
+          you&apos;re knitting for.
         </p>
       </div>
 

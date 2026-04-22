@@ -24,9 +24,9 @@ const CALCULATORS: CalculatorLink[] = [
     available: true,
   },
   {
-    title: 'Gift Size Calculator',
+    title: 'Size Calculator',
     description:
-      'Enter a chest or bust measurement and a fit style; get a recommended size across common women, men, children, and baby sizing schemes.',
+      'Enter a chest or bust measurement and a fit style; get a recommended size across common women, men, children, and baby sizing schemes. Works for gifts, your own projects, or anyone you’re knitting for.',
     href: '/calculators/gift-size',
     available: true,
   },

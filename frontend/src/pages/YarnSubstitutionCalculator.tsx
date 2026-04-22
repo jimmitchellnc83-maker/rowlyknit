@@ -189,8 +189,8 @@ export default function YarnSubstitutionCalculator() {
           Yarn Substitution Calculator
         </h1>
         <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-          Describe the yarn a pattern calls for, and our smart matcher ranks your stash by how
-          well each option could stand in for it — weight, fiber, and yardage all scored.
+          Describe the yarn a pattern calls for, and we&apos;ll rank your stash by how well each
+          option could stand in for it — weight, fiber, and yardage all scored.
         </p>
       </div>
 

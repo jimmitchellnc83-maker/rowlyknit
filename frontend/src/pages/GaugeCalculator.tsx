@@ -199,9 +199,8 @@ export default function GaugeCalculator() {
           Gauge Calculator
         </h1>
         <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-          Your smart gauge helper. Enter the pattern&apos;s target gauge and your swatch
-          measurements — we&apos;ll call the needle change, row/stitch drift, and finished-dimension
-          delta.
+          Enter your pattern&apos;s target gauge and your swatch measurements to see whether
+          you&apos;re on-gauge, and how much your finished piece will drift if you aren&apos;t.
         </p>
       </div>
 

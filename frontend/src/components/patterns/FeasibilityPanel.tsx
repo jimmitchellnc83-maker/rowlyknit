@@ -373,7 +373,7 @@ export default function FeasibilityPanel({ patternId }: FeasibilityPanelProps) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <LoadingSpinner text="AI is analyzing feasibility…" />
+        <LoadingSpinner text="Analyzing feasibility…" />
       </div>
     );
   }
