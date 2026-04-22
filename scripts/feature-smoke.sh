@@ -2,9 +2,6 @@
 set -euo pipefail
 
 API_URL=${API_URL:-"http://localhost:5000"}
-# Smoke tests use the passwordless demo-login endpoint so no secrets live in
-# this script. Override LOGIN_EMAIL/LOGIN_PASSWORD to fall back to a real login
-# against a non-demo account (e.g., in CI against a test user).
 LOGIN_EMAIL=${LOGIN_EMAIL:-""}
 LOGIN_PASSWORD=${LOGIN_PASSWORD:-""}
 CURL_OPTS=(--silent --show-error --fail)
@@ -14,18 +11,15 @@ function header() {
 }
 
 function login() {
-  local response
-  if [[ -n "${LOGIN_EMAIL}" && -n "${LOGIN_PASSWORD}" ]]; then
-    header "Logging in as ${LOGIN_EMAIL}"
-    response=$(curl "${CURL_OPTS[@]}" -X POST "${API_URL}/api/auth/login" \
-      -H "Content-Type: application/json" \
-      -d "{\"email\":\"${LOGIN_EMAIL}\",\"password\":\"${LOGIN_PASSWORD}\"}")
-  else
-    header "Logging in via demo-login (passwordless)"
-    response=$(curl "${CURL_OPTS[@]}" -X POST "${API_URL}/api/auth/demo-login" \
-      -H "Content-Type: application/json" \
-      -d "{}")
+  if [[ -z "${LOGIN_EMAIL}" || -z "${LOGIN_PASSWORD}" ]]; then
+    echo "LOGIN_EMAIL and LOGIN_PASSWORD env vars are required." >&2
+    exit 1
   fi
+  header "Logging in as ${LOGIN_EMAIL}"
+  local response
+  response=$(curl "${CURL_OPTS[@]}" -X POST "${API_URL}/api/auth/login" \
+    -H "Content-Type: application/json" \
+    -d "{\"email\":\"${LOGIN_EMAIL}\",\"password\":\"${LOGIN_PASSWORD}\"}")
   token=$(echo "$response" | jq -r '.data.accessToken // .token // empty')
   if [[ -z "${token}" ]]; then
     echo "Login failed; no token returned" >&2
