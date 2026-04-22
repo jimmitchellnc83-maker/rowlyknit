@@ -1,19 +1,23 @@
 import { useEffect, useMemo, useState } from 'react';
-import { FiTool, FiInfo, FiGrid, FiSquare } from 'react-icons/fi';
+import { FiTool, FiInfo, FiGrid, FiSquare, FiCircle } from 'react-icons/fi';
 import {
   computeBodyBlock,
+  computeHat,
   computeSleeve,
   toInches,
   type BodyBlockInput,
+  type HatInput,
   type SleeveInput,
   type MeasurementUnit,
 } from '../utils/designerMath';
 import BodySchematic from '../components/designer/BodySchematic';
+import HatSchematic from '../components/designer/HatSchematic';
 import SleeveSchematic from '../components/designer/SleeveSchematic';
 import PageHelpButton from '../components/PageHelpButton';
 
 type NumField = number | '';
 type DesignerSection = 'body' | 'sleeve';
+type ItemType = 'sweater' | 'hat';
 
 interface DesignerForm {
   // Shared
@@ -21,7 +25,15 @@ interface DesignerForm {
   gaugeStitches: NumField;
   gaugeRows: NumField;
   gaugeMeasurement: NumField;
+  itemType: ItemType;
   activeSection: DesignerSection;
+
+  // Hat
+  headCircumference: NumField;
+  negativeEaseAtBrim: NumField;
+  hatTotalHeight: NumField;
+  hatBrimDepth: NumField;
+  hatCrownHeight: NumField;
 
   // Body block
   chestCircumference: NumField;
@@ -59,7 +71,14 @@ const DEFAULT_FORM: DesignerForm = {
   gaugeStitches: 20,
   gaugeRows: 28,
   gaugeMeasurement: 4,
+  itemType: 'sweater',
   activeSection: 'body',
+
+  headCircumference: 22,
+  negativeEaseAtBrim: 1.5,
+  hatTotalHeight: 9,
+  hatBrimDepth: 2,
+  hatCrownHeight: 2.5,
 
   chestCircumference: 36,
   easeAtChest: 4,
@@ -129,6 +148,30 @@ function bodyReady(f: DesignerForm): boolean {
     }
   }
   return true;
+}
+
+function hatReady(f: DesignerForm): boolean {
+  if (!gaugeReady(f)) return false;
+  if (
+    !isPositive(f.headCircumference) ||
+    !isPositive(f.hatTotalHeight) ||
+    !isPositive(f.hatBrimDepth) ||
+    !isPositive(f.hatCrownHeight)
+  )
+    return false;
+  if (!isFiniteNum(f.negativeEaseAtBrim)) return false;
+  return true;
+}
+
+function buildHatInput(f: DesignerForm): HatInput {
+  return {
+    gauge: normalizedGauge(f),
+    headCircumference: toInches(f.headCircumference as number, f.unit),
+    negativeEaseAtBrim: toInches(f.negativeEaseAtBrim as number, f.unit),
+    totalHeight: toInches(f.hatTotalHeight as number, f.unit),
+    brimDepth: toInches(f.hatBrimDepth as number, f.unit),
+    crownHeight: toInches(f.hatCrownHeight as number, f.unit),
+  };
 }
 
 function sleeveReady(f: DesignerForm): boolean {
@@ -313,6 +356,16 @@ export default function PatternDesigner() {
     }
   }, [form, bodyOutput]);
 
+  const hatOutput = useMemo(() => {
+    if (!hatReady(form)) return null;
+    try {
+      return computeHat(buildHatInput(form));
+    } catch (e) {
+      console.error('[Designer] hat compute error:', e);
+      return null;
+    }
+  }, [form]);
+
   const update = <K extends keyof DesignerForm>(key: K, value: DesignerForm[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }));
 
@@ -388,6 +441,40 @@ export default function PatternDesigner() {
             </div>
           </section>
 
+          {/* Item type selector */}
+          <section className="rounded-lg bg-white p-2 shadow dark:bg-gray-800">
+            <div className="flex gap-1" role="tablist" aria-label="Item type">
+              <button
+                role="tab"
+                aria-selected={form.itemType === 'sweater'}
+                onClick={() => update('itemType', 'sweater')}
+                className={`flex-1 flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition ${
+                  form.itemType === 'sweater'
+                    ? 'bg-purple-600 text-white'
+                    : 'text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700'
+                }`}
+              >
+                <FiSquare className="h-4 w-4" />
+                Sweater
+              </button>
+              <button
+                role="tab"
+                aria-selected={form.itemType === 'hat'}
+                onClick={() => update('itemType', 'hat')}
+                className={`flex-1 flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition ${
+                  form.itemType === 'hat'
+                    ? 'bg-purple-600 text-white'
+                    : 'text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700'
+                }`}
+              >
+                <FiCircle className="h-4 w-4" />
+                Hat
+              </button>
+            </div>
+          </section>
+
+          {form.itemType === 'sweater' && (
+            <>
           {/* Section tabs */}
           <section className="rounded-lg bg-white p-2 shadow dark:bg-gray-800">
             <div className="flex gap-1" role="tablist" aria-label="Garment section">
@@ -633,8 +720,58 @@ export default function PatternDesigner() {
                 />
               </div>
               <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
-                v1 sleeve stops at the underarm — sleeve cap shaping joins when the yoke/neckline
-                PR lands.
+                Enable "Set-in sleeve armhole" on the Body tab to grow a matching cap here
+                automatically.
+              </p>
+            </section>
+          )}
+            </>
+          )}
+
+          {form.itemType === 'hat' && (
+            <section className="rounded-lg bg-white p-4 shadow dark:bg-gray-800 md:p-6">
+              <h2 className="mb-3 text-lg font-semibold text-gray-900 dark:text-gray-100">Hat</h2>
+              <div className="grid grid-cols-2 gap-3">
+                <NumberInput
+                  label="Head circumference"
+                  value={form.headCircumference}
+                  onChange={(v) => update('headCircumference', v)}
+                  step={0.25}
+                  suffix={unitLabel}
+                />
+                <NumberInput
+                  label="Negative ease at brim"
+                  value={form.negativeEaseAtBrim}
+                  onChange={(v) => update('negativeEaseAtBrim', v)}
+                  step={0.25}
+                  suffix={unitLabel}
+                />
+                <NumberInput
+                  label="Total height"
+                  value={form.hatTotalHeight}
+                  onChange={(v) => update('hatTotalHeight', v)}
+                  step={0.25}
+                  suffix={unitLabel}
+                />
+                <NumberInput
+                  label="Brim depth"
+                  value={form.hatBrimDepth}
+                  onChange={(v) => update('hatBrimDepth', v)}
+                  step={0.25}
+                  suffix={unitLabel}
+                />
+                <NumberInput
+                  label="Crown shaping height"
+                  value={form.hatCrownHeight}
+                  onChange={(v) => update('hatCrownHeight', v)}
+                  step={0.25}
+                  suffix={unitLabel}
+                />
+              </div>
+              <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+                Designed to work in the round. Negative ease (typically 1–2 in) gives a snug fit
+                since ribbed fabric stretches. Crown shaping guidance is general — 8 decrease
+                points spaced equally around is the common cadence.
               </p>
             </section>
           )}
@@ -644,11 +781,18 @@ export default function PatternDesigner() {
         <div className="space-y-4 lg:col-span-3">
           <section className="rounded-lg bg-white p-4 shadow dark:bg-gray-800 md:p-6">
             <h2 className="mb-3 text-lg font-semibold text-gray-900 dark:text-gray-100">
-              Schematic — {form.activeSection === 'body' ? 'Body block' : 'Sleeve'}
+              Schematic —{' '}
+              {form.itemType === 'hat'
+                ? 'Hat'
+                : form.activeSection === 'body'
+                  ? 'Body block'
+                  : 'Sleeve'}
             </h2>
-            {form.activeSection === 'body' && bodyOutput ? (
+            {form.itemType === 'hat' && hatOutput ? (
+              <HatSchematic output={hatOutput} />
+            ) : form.itemType === 'sweater' && form.activeSection === 'body' && bodyOutput ? (
               <BodySchematic input={buildBodyInput(form)} output={bodyOutput} />
-            ) : form.activeSection === 'sleeve' && sleeveOutput ? (
+            ) : form.itemType === 'sweater' && form.activeSection === 'sleeve' && sleeveOutput ? (
               <SleeveSchematic
                 input={buildSleeveInput(form, bodyOutput?.armholeInitialBindOffPerSide ?? null)}
                 output={sleeveOutput}
@@ -664,13 +808,19 @@ export default function PatternDesigner() {
             <h2 className="mb-3 text-lg font-semibold text-gray-900 dark:text-gray-100">
               Shaping schedule
             </h2>
-            {form.activeSection === 'body' && bodyOutput ? (
+            {form.itemType === 'hat' && hatOutput ? (
+              <div className="space-y-3">
+                {hatOutput.steps.map((step, i) => (
+                  <StepCard key={`hat-${i}`} step={step} />
+                ))}
+              </div>
+            ) : form.itemType === 'sweater' && form.activeSection === 'body' && bodyOutput ? (
               <div className="space-y-3">
                 {bodyOutput.steps.map((step, i) => (
                   <StepCard key={`body-${i}`} step={step} />
                 ))}
               </div>
-            ) : form.activeSection === 'sleeve' && sleeveOutput ? (
+            ) : form.itemType === 'sweater' && form.activeSection === 'sleeve' && sleeveOutput ? (
               <div className="space-y-3">
                 {sleeveOutput.steps.map((step, i) => (
                   <StepCard key={`sleeve-${i}`} step={step} />
@@ -683,8 +833,8 @@ export default function PatternDesigner() {
 
           <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs text-blue-800 dark:border-blue-900/30 dark:bg-blue-900/20 dark:text-blue-200">
             <FiInfo className="mr-1 inline h-3 w-3" />
-            v1 scope: body panel with optional waist shaping, tapered sleeve to underarm. Yoke,
-            neckline, stitch-grid authoring, and PDF export are in the roadmap.
+            Supported item types so far: sweater (body, sleeve, armhole, neckline, cap) and hat
+            (brim, body, crown). Scarf, mittens, socks, shawl, blanket coming in follow-up PRs.
           </div>
         </div>
       </div>

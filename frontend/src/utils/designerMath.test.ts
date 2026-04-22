@@ -2,10 +2,12 @@ import { describe, it, expect } from 'vitest';
 import {
   buildShapingFormula,
   computeBodyBlock,
+  computeHat,
   computeSleeve,
   toInches,
   type BodyBlockInput,
   type DesignerGauge,
+  type HatInput,
   type SleeveInput,
 } from './designerMath';
 
@@ -419,5 +421,60 @@ describe('computeSleeve with cap shaping', () => {
     expect(out.steps.some((s) => s.label.startsWith('Cap'))).toBe(false);
     const underarm = out.steps.find((s) => s.label === 'Underarm')!;
     expect(underarm.instruction).toContain('holder');
+  });
+});
+
+describe('computeHat', () => {
+  const baseInput: HatInput = {
+    gauge: STANDARD_GAUGE,
+    headCircumference: 22,
+    negativeEaseAtBrim: 1.5,
+    totalHeight: 9,
+    brimDepth: 2,
+    crownHeight: 2.5,
+  };
+
+  it('casts on the right number of stitches with negative ease', () => {
+    const out = computeHat(baseInput);
+    // finishedCirc = 22 - 1.5 = 20.5 in × 5 sts/in = 102.5 → Math.round = 103
+    // then stepped up to even = 104
+    expect(out.castOnStitches).toBe(104);
+  });
+
+  it('produces brim / body / crown / close steps in order', () => {
+    const out = computeHat(baseInput);
+    expect(out.steps.map((s) => s.label)).toEqual([
+      'Brim',
+      'Body',
+      'Crown decreases',
+      'Close crown',
+    ]);
+  });
+
+  it('splits rows correctly across sections', () => {
+    const out = computeHat(baseInput);
+    // totalRows at 7 rows/in × 9 in = 63; brim 14, crown 18 (rounded), body = 31
+    expect(out.brimRows).toBe(14);
+    expect(out.crownRows).toBe(18);
+    expect(out.bodyRows).toBe(31);
+  });
+
+  it('ends the crown at the canonical 8-stitch closing count', () => {
+    const out = computeHat(baseInput);
+    expect(out.crownEndStitches).toBe(8);
+    const close = out.steps.find((s) => s.label === 'Close crown')!;
+    expect(close.instruction).toMatch(/thread through/i);
+  });
+
+  it('reports finished dimensions rounded to a quarter inch', () => {
+    const out = computeHat(baseInput);
+    expect(out.finishedCircumference).toBe(20.5);
+    expect(out.finishedHeight).toBe(9);
+  });
+
+  it('degrades gracefully when head circumference is barely over ease', () => {
+    const out = computeHat({ ...baseInput, headCircumference: 2, negativeEaseAtBrim: 1 });
+    // finishedCirc = 1 in → very small but positive, doesn't throw
+    expect(out.castOnStitches).toBeGreaterThan(0);
   });
 });
