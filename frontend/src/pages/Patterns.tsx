@@ -480,10 +480,10 @@ export default function Patterns() {
                       navigate(`/patterns/${pattern.id}?tab=feasibility`);
                     }}
                     className="flex-1 px-3 py-2 bg-green-50 text-green-700 rounded-lg hover:bg-green-100 transition flex items-center justify-center text-sm"
-                    title="Run AI feasibility check against your stash"
+                    title="Check feasibility against your stash"
                   >
                     <FiCheckCircle className="mr-2 h-4 w-4" />
-                    AI Check
+                    Feasibility
                   </button>
                   <button
                     onClick={(e) => {

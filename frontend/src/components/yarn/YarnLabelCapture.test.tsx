@@ -22,9 +22,9 @@ describe('YarnLabelCapture', () => {
 
   it('renders the modal with two tabs', () => {
     render(<YarnLabelCapture onClose={vi.fn()} onExtracted={vi.fn()} />);
-    expect(screen.getByRole('dialog', { name: /ai label scanner/i })).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: /scan yarn label/i })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /scan barcode/i })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /ai photo scan/i })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /photo \+ ocr/i })).toBeInTheDocument();
   });
 
   it('defaults to the Barcode tab', () => {
@@ -37,8 +37,8 @@ describe('YarnLabelCapture', () => {
 
   it('switches to the OCR tab on click', () => {
     render(<YarnLabelCapture onClose={vi.fn()} onExtracted={vi.fn()} />);
-    fireEvent.click(screen.getByRole('tab', { name: /ai photo scan/i }));
-    expect(screen.getByRole('tab', { name: /ai photo scan/i })).toHaveAttribute(
+    fireEvent.click(screen.getByRole('tab', { name: /photo \+ ocr/i }));
+    expect(screen.getByRole('tab', { name: /photo \+ ocr/i })).toHaveAttribute(
       'aria-selected',
       'true',
     );
@@ -60,7 +60,7 @@ describe('YarnLabelCapture', () => {
 
   it('disables "Use extracted fields" until OCR yields data', () => {
     render(<YarnLabelCapture onClose={vi.fn()} onExtracted={vi.fn()} />);
-    fireEvent.click(screen.getByRole('tab', { name: /ai photo scan/i }));
+    fireEvent.click(screen.getByRole('tab', { name: /photo \+ ocr/i }));
     expect(screen.getByRole('button', { name: /use extracted fields/i })).toBeDisabled();
   });
 });
