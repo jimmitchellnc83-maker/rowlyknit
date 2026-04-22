@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { FiPlus, FiX, FiAlertCircle } from 'react-icons/fi';
+import { FiPlus, FiX, FiAlertCircle, FiDollarSign } from 'react-icons/fi';
 import HelpTooltip from '../../HelpTooltip';
 import ConfirmModal from '../../ConfirmModal';
 import { useMeasurements } from '../../../hooks/useMeasurements';
@@ -18,6 +18,25 @@ const getYarnPercentage = (y: any) => {
   return Math.max(0, Math.min(100, (remaining / total) * 100));
 };
 
+const toNumber = (v: unknown): number => {
+  if (v == null) return 0;
+  if (typeof v === 'number') return v;
+  const parsed = parseFloat(String(v));
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const formatCurrency = (v: number): string =>
+  v.toLocaleString(undefined, { style: 'currency', currency: 'USD' });
+
+/** Cost of one yarn in this project. Null when price_per_skein is unset. */
+const yarnCost = (y: any): number | null => {
+  const price = y.price_per_skein;
+  if (price == null) return null;
+  const parsed = toNumber(price);
+  if (parsed <= 0) return null;
+  return parsed * toNumber(y.skeins_used);
+};
+
 export default function ProjectYarnUsage({ yarn, onRemove, onAddClick }: Props) {
   const { fmt } = useMeasurements();
   const [removeYarnTarget, setRemoveYarnTarget] = useState<string | null>(null);
@@ -30,6 +49,11 @@ export default function ProjectYarnUsage({ yarn, onRemove, onAddClick }: Props) 
       setRemoveYarnTarget(null);
     }
   };
+
+  const costEntries = yarn.map(yarnCost);
+  const pricedCount = costEntries.filter((c): c is number => c != null).length;
+  const unpricedCount = yarn.length - pricedCount;
+  const totalCost = costEntries.reduce<number>((sum, c) => sum + (c ?? 0), 0);
 
   return (
     <>
@@ -47,12 +71,31 @@ export default function ProjectYarnUsage({ yarn, onRemove, onAddClick }: Props) 
           </button>
         </div>
 
+        {yarn.length > 0 && pricedCount > 0 ? (
+          <div
+            className="mb-4 flex items-start gap-3 rounded-lg border border-purple-200 bg-purple-50 p-3"
+            aria-label="Project yarn cost"
+          >
+            <FiDollarSign className="mt-0.5 h-4 w-4 flex-shrink-0 text-purple-600" />
+            <div className="flex-1">
+              <p className="text-xs uppercase tracking-wide text-purple-700">Project yarn cost</p>
+              <p className="text-xl font-bold text-purple-900">{formatCurrency(totalCost)}</p>
+              {unpricedCount > 0 ? (
+                <p className="mt-0.5 text-xs text-amber-700">
+                  {unpricedCount} yarn{unpricedCount === 1 ? '' : 's'} without a price — total is a lower bound
+                </p>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+
         {yarn.length > 0 ? (
           <div className="space-y-4">
             {yarn.map((y: any) => {
               const percentage = getYarnPercentage(y);
               const yardsFallback = y.remaining_length_m != null ? metersToYards(y.remaining_length_m) : (y.yards_remaining || 0);
               const isLowStock = y.low_stock_alert && yardsFallback <= (y.low_stock_threshold || 0);
+              const entryCost = yarnCost(y);
 
               return (
                 <div key={y.id} className="border border-gray-200 rounded-lg p-3">
@@ -81,6 +124,9 @@ export default function ProjectYarnUsage({ yarn, onRemove, onAddClick }: Props) 
                       <p className="text-xs text-gray-500">Used in Project</p>
                       <p className="text-xs font-medium text-gray-900">
                         {y.skeins_used || 0} skeins, {fmt.yarnLength(null, y.yards_used || 0)}
+                        {entryCost != null ? (
+                          <span className="ml-2 text-purple-700">{formatCurrency(entryCost)}</span>
+                        ) : null}
                       </p>
                     </div>
                     <div>
