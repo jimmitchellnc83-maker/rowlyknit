@@ -42,6 +42,7 @@ export default function PatternViewer({ fileUrl, filename, patternId, projectId,
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [zoomIndex, setZoomIndex] = useState<number>(2); // Start at 1.0
   const rotationStorageKey = patternId ? `rowly:pageRotations:${patternId}:${filename}` : null;
+  const mirrorStorageKey = patternId ? `rowly:pageMirrors:${patternId}:${filename}` : null;
   const [pageRotations, setPageRotations] = useState<Record<number, number>>(() => {
     if (!rotationStorageKey) return {};
     try {
@@ -51,7 +52,17 @@ export default function PatternViewer({ fileUrl, filename, patternId, projectId,
       return {};
     }
   });
+  const [pageMirrors, setPageMirrors] = useState<Record<number, boolean>>(() => {
+    if (!mirrorStorageKey) return {};
+    try {
+      const raw = localStorage.getItem(mirrorStorageKey);
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  });
   const rotation = pageRotations[currentPage] ?? 0;
+  const isMirrored = pageMirrors[currentPage] ?? false;
   const [searchText, setSearchText] = useState<string>('');
   const [showSearch, setShowSearch] = useState<boolean>(false);
   const [_isFullscreen, setIsFullscreen] = useState<boolean>(false);
@@ -99,6 +110,20 @@ export default function PatternViewer({ fileUrl, filename, patternId, projectId,
       return next;
     });
   }, [currentPage, rotationStorageKey]);
+
+  const handleMirror = useCallback(() => {
+    setPageMirrors(prev => {
+      const next = { ...prev, [currentPage]: !(prev[currentPage] ?? false) };
+      if (mirrorStorageKey) {
+        try {
+          localStorage.setItem(mirrorStorageKey, JSON.stringify(next));
+        } catch {
+          // localStorage unavailable — fall back to in-memory only
+        }
+      }
+      return next;
+    });
+  }, [currentPage, mirrorStorageKey]);
 
   const handleNextPage = useCallback(() => {
     if (currentPage < numPages) {
@@ -277,6 +302,14 @@ export default function PatternViewer({ fileUrl, filename, patternId, projectId,
           </button>
 
           <button
+            onClick={handleMirror}
+            className={`p-2 hover:bg-gray-700 rounded-lg text-xl leading-none font-semibold w-9 ${isMirrored ? 'bg-gray-700' : ''}`}
+            title={isMirrored ? `Unmirror page ${currentPage}` : 'Mirror horizontally'}
+          >
+            ⇋
+          </button>
+
+          <button
             onClick={() => setShowSearch(!showSearch)}
             className={`p-2 hover:bg-gray-700 rounded-lg ${showSearch ? 'bg-gray-700' : ''}`}
             title="Search (Ctrl+F)"
@@ -397,7 +430,7 @@ export default function PatternViewer({ fileUrl, filename, patternId, projectId,
                 rotate={rotation}
                 renderTextLayer={true}
                 renderAnnotationLayer={true}
-                className="shadow-2xl"
+                className={`shadow-2xl ${isMirrored ? '-scale-x-100' : ''}`}
                 loading={
                   <div className="flex items-center justify-center min-h-screen">
                     <div className="text-white">Loading page...</div>
