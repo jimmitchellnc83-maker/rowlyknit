@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { FiArrowLeft, FiEdit2, FiTrash2, FiFileText, FiGrid, FiTool, FiBook, FiCheckCircle } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
@@ -12,6 +12,7 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import ConfirmModal from '../components/ConfirmModal';
 import { ChartImageUpload } from '../components/charts';
 import { useFocusTrap } from '../hooks/useFocusTrap';
+import { parsePatternDetailTab, type PatternDetailTab } from './patternDetailTabs';
 
 interface Pattern {
   id: string;
@@ -81,7 +82,27 @@ export default function PatternDetail() {
   const [annotations, setAnnotations] = useState<any[]>([]);
   const [newSectionName, setNewSectionName] = useState('');
   const [newAnnotationText, setNewAnnotationText] = useState('');
-  const [activeTab, setActiveTab] = useState<'overview' | 'viewer' | 'charts' | 'tools' | 'feasibility'>('overview');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState<PatternDetailTab>(
+    parsePatternDetailTab(searchParams.get('tab')),
+  );
+
+  // Keep the URL in sync with the active tab so the current view is
+  // shareable and the browser back button restores prior tabs. `replace`
+  // avoids a history entry per click.
+  useEffect(() => {
+    const current = searchParams.get('tab');
+    if (activeTab === 'overview') {
+      if (current) {
+        searchParams.delete('tab');
+        setSearchParams(searchParams, { replace: true });
+      }
+    } else if (current !== activeTab) {
+      searchParams.set('tab', activeTab);
+      setSearchParams(searchParams, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
   const [selectedPdfFile, setSelectedPdfFile] = useState<PatternFile | null>(null);
   const [formData, setFormData] = useState({
     name: '',
