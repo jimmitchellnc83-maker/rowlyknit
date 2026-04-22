@@ -19,7 +19,11 @@ process.env.ALLOWED_ORIGINS = 'http://localhost:3000';
 
 import request from 'supertest';
 import app from '../app';
-import testDb from './setup';
+import testDb, { ensureMigrated } from './setup';
+
+beforeAll(async () => {
+  await ensureMigrated();
+});
 
 // ---------------------------------------------------------------------------
 // Unique email per test run to avoid conflicts with existing data.

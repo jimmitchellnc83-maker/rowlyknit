@@ -198,6 +198,18 @@ router.get(
 );
 
 /**
+ * @route   GET /api/patterns/:id/feasibility
+ * @desc    Score a pattern against the user's stash + tools — traffic-light
+ *          verdicts per requirement plus a shopping list for missing items.
+ * @access  Private
+ */
+router.get(
+  '/:id/feasibility',
+  validateUUID('id'),
+  asyncHandler(patternsController.getPatternFeasibility)
+);
+
+/**
  * @route   POST /api/patterns
  * @desc    Create new pattern
  * @access  Private

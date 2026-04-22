@@ -9,6 +9,7 @@ import fs from 'fs';
 import path from 'path';
 import { sanitizeSearchQuery } from '../utils/inputSanitizer';
 import { assertPublicUrl } from '../utils/ssrfGuard';
+import { getFeasibility } from '../services/feasibilityService';
 
 /**
  * Serialize pattern fields for frontend.
@@ -412,6 +413,23 @@ export async function getPatternStats(req: Request, res: Response) {
   res.json({
     success: true,
     data: { stats },
+  });
+}
+
+/**
+ * Get a feasibility report for a pattern against the user's stash + tools.
+ * Returns traffic-light verdicts per requirement and an aggregate shopping
+ * list for missing items.
+ */
+export async function getPatternFeasibility(req: Request, res: Response) {
+  const userId = req.user!.userId;
+  const { id } = req.params;
+
+  const report = await getFeasibility(userId, id);
+
+  res.json({
+    success: true,
+    data: { feasibility: report },
   });
 }
 
