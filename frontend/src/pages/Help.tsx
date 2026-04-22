@@ -119,6 +119,25 @@ export default function Help() {
             <li>First use prompts for microphone access. If you deny it, revoke the block in your browser's site settings to re-enable.</li>
             <li>Some OSes also require a system-level mic permission (macOS: System Settings → Privacy → Microphone).</li>
           </ul>
+          <h3 className="mt-4 font-semibold">Settings</h3>
+          <p>
+            Voice preferences live under <strong>Profile → Voice</strong>. You can:
+          </p>
+          <ul className="list-disc pl-6 space-y-1">
+            <li>
+              <strong>Speak the counter value</strong> — when enabled, Rowly reads the new count
+              out loud (&ldquo;sixteen&rdquo;) after every voice command, so you can keep your
+              eyes on your stitches.
+            </li>
+            <li>
+              <strong>Auto-stop after silence</strong> — the mic shuts off after a chosen idle
+              period (default 2 min) to save battery. Tap the mic icon to resume.
+            </li>
+            <li>
+              <strong>Recognition language</strong> — the default vocabulary is English. Non-English
+              support depends on your browser's speech engine.
+            </li>
+          </ul>
         </section>
 
         <section id="ravelry" className="scroll-mt-8">

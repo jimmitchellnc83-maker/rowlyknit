@@ -4,6 +4,7 @@ import axios from 'axios';
 import { toast } from 'react-toastify';
 import { useWebSocket } from '../../contexts/WebSocketContext';
 import { preventDoubleTap } from '../../utils/debounce';
+import { useVoiceControl, speakIfEnabled, type VoiceCommand } from '../../hooks/useVoiceControl';
 import ConfirmModal from '../ConfirmModal';
 import type { Counter } from '../../types/counter.types';
 
@@ -17,12 +18,9 @@ interface CounterCardProps {
 
 export default function CounterCard({ counter, onUpdate: _onUpdate, onEdit, onDelete, onToggleVisibility }: CounterCardProps) {
   const [count, setCount] = useState(counter.current_value);
-  const [isListening, setIsListening] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const recognitionRef = useRef<any>(null);
-  const isListeningRef = useRef(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
 
@@ -116,7 +114,10 @@ export default function CounterCard({ counter, onUpdate: _onUpdate, onEdit, onDe
     }
   };
 
-  const handleIncrementInternal = () => {
+  // Pass an optional `onCommit` to observe the actual post-update value — it
+  // fires only on successful updates (not when a min/max clamp vetoed the
+  // change), so callers (e.g. TTS) speak the committed count, not the attempted one.
+  const handleIncrementInternal = (onCommit?: (newCount: number) => void) => {
     const increment = calculateIncrement();
 
     // Use functional setState to avoid stale closure issues with rapid voice commands
@@ -132,6 +133,7 @@ export default function CounterCard({ counter, onUpdate: _onUpdate, onEdit, onDe
       // Update server and emit WebSocket event with new value
       updateCountOnServer(newCount);
       emitCounterIncrement(counter.id, counter.project_id, newCount);
+      onCommit?.(newCount);
 
       return newCount;
     });
@@ -140,7 +142,7 @@ export default function CounterCard({ counter, onUpdate: _onUpdate, onEdit, onDe
     triggerHaptic('light');
   };
 
-  const handleDecrementInternal = () => {
+  const handleDecrementInternal = (onCommit?: (newCount: number) => void) => {
     const increment = calculateIncrement();
 
     // Use functional setState to avoid stale closure issues
@@ -156,6 +158,7 @@ export default function CounterCard({ counter, onUpdate: _onUpdate, onEdit, onDe
       // Update server and emit WebSocket event with new value
       updateCountOnServer(newCount);
       emitCounterDecrement(counter.id, counter.project_id, newCount);
+      onCommit?.(newCount);
 
       return newCount;
     });
@@ -165,17 +168,18 @@ export default function CounterCard({ counter, onUpdate: _onUpdate, onEdit, onDe
   };
 
   // Debounced versions to prevent double-taps (button clicks only)
-  const handleIncrement = useCallback(preventDoubleTap(handleIncrementInternal, 500), [count, counter]);
-  const handleDecrement = useCallback(preventDoubleTap(handleDecrementInternal, 500), [count, counter]);
+  const handleIncrement = useCallback(preventDoubleTap(() => handleIncrementInternal(), 500), [count, counter]);
+  const handleDecrement = useCallback(preventDoubleTap(() => handleDecrementInternal(), 500), [count, counter]);
 
-  // Voice command handlers - NO debouncing for responsive voice control
+  // Voice command handlers - NO debouncing for responsive voice control.
+  // TTS speaks only when the pref is enabled (handled inside speakIfEnabled).
   const handleVoiceIncrement = () => {
-    handleIncrementInternal();
+    handleIncrementInternal((newCount) => speakIfEnabled(String(newCount)));
     toast.success('Row added! 🎤', { autoClose: 800 });
   };
 
   const handleVoiceDecrement = () => {
-    handleDecrementInternal();
+    handleDecrementInternal((newCount) => speakIfEnabled(String(newCount)));
     toast.info('Row removed! 🎤', { autoClose: 800 });
   };
 
@@ -246,119 +250,19 @@ export default function CounterCard({ counter, onUpdate: _onUpdate, onEdit, onDe
     }
   };
 
-  // Voice control with improved responsiveness
-  useEffect(() => {
-    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      recognitionRef.current = new SpeechRecognition();
-
-      // Optimized settings for knitting counter voice control
-      recognitionRef.current.continuous = true;
-      recognitionRef.current.interimResults = false;
-      recognitionRef.current.lang = 'en-US';
-      // Consider multiple alternative transcriptions so fuzzy speech ("neck"
-      // vs "next", "bag" vs "back") still triggers the right command.
-      recognitionRef.current.maxAlternatives = 3;
-
-      // Word-boundary regex so "backpack" doesn't trigger "back" etc.
-      // Vocabulary kept deliberately wide so natural phrasing works:
-      // "one more", "tick it", "another", "oops" etc.
-      const INCREMENT_RE = /\b(next|plus|add|up|increment|forward|more|another|mark|tick|count|advance|go)\b/;
-      const DECREMENT_RE = /\b(back|minus|undo|down|decrement|previous|oops|mistake|return|rewind|last)\b/;
-      const RESET_RE = /\b(reset|clear|restart|zero)\b/;
-
-      recognitionRef.current.onresult = (event: any) => {
-        const last = event.results.length - 1;
-        const alternatives = event.results[last];
-
-        // Check every alternative transcription, not just the top one. If the
-        // user said "next" but the top guess is "neck" with "next" as alt #2,
-        // we still catch it.
-        for (let i = 0; i < alternatives.length; i++) {
-          const command = alternatives[i].transcript.toLowerCase().trim();
-          if (INCREMENT_RE.test(command)) {
-            handleVoiceIncrement();
-            return;
-          }
-          if (DECREMENT_RE.test(command)) {
-            handleVoiceDecrement();
-            return;
-          }
-          if (RESET_RE.test(command)) {
-            handleReset();
-            return;
-          }
-        }
-      };
-
-      recognitionRef.current.onerror = (event: any) => {
-        console.error('[Voice] Recognition error:', event.error);
-
-        // Only show error toast for actual errors, not normal events
-        if (event.error !== 'no-speech' && event.error !== 'aborted') {
-          toast.error(`Voice error: ${event.error}`, { autoClose: 2000 });
-
-          // Stop listening on serious errors
-          if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
-            setIsListening(false);
-            isListeningRef.current = false;
-          }
-        }
-      };
-
-      recognitionRef.current.onend = () => {
-        // Auto-restart if still supposed to be listening
-        if (isListeningRef.current) {
-          try {
-            // Small delay before restart to prevent rapid cycling
-            setTimeout(() => {
-              if (isListeningRef.current && recognitionRef.current) {
-                recognitionRef.current.start();
-              }
-            }, 100);
-          } catch (e) {
-            console.error('[Voice] Error restarting recognition:', e);
-            setIsListening(false);
-            isListeningRef.current = false;
-          }
-        }
-      };
-    }
-
-    return () => {
-      if (recognitionRef.current) {
-        try {
-          recognitionRef.current.stop();
-        } catch (e) {
-          console.error('[Voice] Error stopping recognition:', e);
-        }
-      }
-      isListeningRef.current = false;
-    };
-  }, []);
-
-  const toggleVoiceControl = () => {
-    if (!recognitionRef.current) {
-      toast.error('Voice control not supported in this browser');
-      return;
-    }
-
-    if (isListeningRef.current) {
-      recognitionRef.current.stop();
-      setIsListening(false);
-      isListeningRef.current = false;
-      toast.info('Voice control stopped');
-    } else {
-      try {
-        recognitionRef.current.start();
-        setIsListening(true);
-        isListeningRef.current = true;
-        toast.success('Voice control activated!');
-      } catch (e) {
-        toast.error('Failed to start voice control');
-      }
-    }
+  // Voice control: vocabulary matching, auto-timeout, and error handling all
+  // live in useVoiceControl. The dispatcher below is re-created every render
+  // so it always closes over the latest state-dependent handlers; the hook
+  // internally stores the callback in a ref so render identity doesn't matter.
+  const handleVoiceCommand = (cmd: VoiceCommand) => {
+    if (cmd === 'increment') handleVoiceIncrement();
+    else if (cmd === 'decrement') handleVoiceDecrement();
+    else if (cmd === 'reset') handleReset();
   };
+
+  const { isListening, lastHeard, toggle: toggleVoiceControl } = useVoiceControl({
+    onCommand: handleVoiceCommand,
+  });
 
   const progress = counter.target_value ? (count / counter.target_value) * 100 : 0;
   const increment = calculateIncrement();
@@ -386,6 +290,15 @@ export default function CounterCard({ counter, onUpdate: _onUpdate, onEdit, onDe
         </div>
 
         <div className="flex items-center gap-1 flex-shrink-0">
+          {isListening && lastHeard && (
+            <span
+              className="max-w-[120px] truncate rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700"
+              aria-live="polite"
+              title={`Heard: "${lastHeard}"`}
+            >
+              “{lastHeard}”
+            </span>
+          )}
           <button
             onClick={toggleVoiceControl}
             className={`p-3 md:p-2 rounded-lg transition min-w-[48px] min-h-[48px] md:min-w-0 md:min-h-0 flex items-center justify-center ${
