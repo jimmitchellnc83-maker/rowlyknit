@@ -28,6 +28,10 @@ Thumbs.db
 # IDE / Editor
 .vscode/
 .idea/
+
+# Claude Code worktrees + session artifacts
+.claude/worktrees/
+.claude/*.local.*
 *.swp
 *.swo
 *~
