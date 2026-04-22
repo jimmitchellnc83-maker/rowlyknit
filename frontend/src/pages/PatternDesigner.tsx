@@ -4,28 +4,34 @@ import {
   computeBlanket,
   computeBodyBlock,
   computeHat,
+  computeMittens,
   computeScarf,
   computeShawl,
   computeSleeve,
+  computeSocks,
   toInches,
   type BlanketInput,
   type BodyBlockInput,
   type HatInput,
+  type MittenInput,
   type ScarfInput,
   type ShawlInput,
   type SleeveInput,
+  type SockInput,
   type MeasurementUnit,
 } from '../utils/designerMath';
 import BodySchematic from '../components/designer/BodySchematic';
 import HatSchematic from '../components/designer/HatSchematic';
+import MittenSchematic from '../components/designer/MittenSchematic';
 import RectSchematic from '../components/designer/RectSchematic';
 import ShawlSchematic from '../components/designer/ShawlSchematic';
 import SleeveSchematic from '../components/designer/SleeveSchematic';
+import SockSchematic from '../components/designer/SockSchematic';
 import PageHelpButton from '../components/PageHelpButton';
 
 type NumField = number | '';
 type DesignerSection = 'body' | 'sleeve';
-type ItemType = 'sweater' | 'hat' | 'scarf' | 'blanket' | 'shawl';
+type ItemType = 'sweater' | 'hat' | 'scarf' | 'blanket' | 'shawl' | 'mittens' | 'socks';
 
 interface ItemTypeOption {
   value: ItemType | string;
@@ -42,8 +48,8 @@ const ITEM_TYPE_OPTIONS: ItemTypeOption[] = [
   { value: 'scarf', label: 'Scarf' },
   { value: 'blanket', label: 'Blanket' },
   { value: 'shawl', label: 'Shawl' },
-  { value: 'mittens', label: 'Mittens (coming soon)', disabled: true },
-  { value: 'socks', label: 'Socks (coming soon)', disabled: true },
+  { value: 'mittens', label: 'Mittens' },
+  { value: 'socks', label: 'Socks' },
 ];
 
 interface DesignerForm {
@@ -75,6 +81,24 @@ interface DesignerForm {
   // Shawl
   shawlWingspan: NumField;
   shawlInitialCastOn: NumField;
+
+  // Mittens
+  handCircumference: NumField;
+  negativeEaseAtMittenCuff: NumField;
+  thumbCircumference: NumField;
+  mittenCuffDepth: NumField;
+  cuffToThumbLength: NumField;
+  thumbGussetLength: NumField;
+  thumbToTipLength: NumField;
+  thumbLength: NumField;
+
+  // Socks
+  ankleCircumference: NumField;
+  negativeEaseAtSockCuff: NumField;
+  footCircumference: NumField;
+  sockCuffDepth: NumField;
+  legLength: NumField;
+  footLength: NumField;
 
   // Body block
   chestCircumference: NumField;
@@ -131,6 +155,22 @@ const DEFAULT_FORM: DesignerForm = {
 
   shawlWingspan: 60,
   shawlInitialCastOn: 7,
+
+  handCircumference: 8,
+  negativeEaseAtMittenCuff: 0.5,
+  thumbCircumference: 3,
+  mittenCuffDepth: 2,
+  cuffToThumbLength: 1,
+  thumbGussetLength: 1.5,
+  thumbToTipLength: 3,
+  thumbLength: 2,
+
+  ankleCircumference: 8,
+  negativeEaseAtSockCuff: 0.5,
+  footCircumference: 9,
+  sockCuffDepth: 1.5,
+  legLength: 6,
+  footLength: 8,
 
   chestCircumference: 36,
   easeAtChest: 4,
@@ -269,6 +309,62 @@ function buildShawlInput(f: DesignerForm): ShawlInput {
     gauge: normalizedGauge(f),
     wingspan: toInches(f.shawlWingspan as number, f.unit),
     initialCastOn: f.shawlInitialCastOn as number,
+  };
+}
+
+function mittensReady(f: DesignerForm): boolean {
+  if (!gaugeReady(f)) return false;
+  if (
+    !isPositive(f.handCircumference) ||
+    !isPositive(f.thumbCircumference) ||
+    !isPositive(f.mittenCuffDepth) ||
+    !isPositive(f.cuffToThumbLength) ||
+    !isPositive(f.thumbGussetLength) ||
+    !isPositive(f.thumbToTipLength) ||
+    !isPositive(f.thumbLength)
+  )
+    return false;
+  if (!isFiniteNum(f.negativeEaseAtMittenCuff)) return false;
+  return true;
+}
+
+function buildMittenInput(f: DesignerForm): MittenInput {
+  return {
+    gauge: normalizedGauge(f),
+    handCircumference: toInches(f.handCircumference as number, f.unit),
+    negativeEaseAtCuff: toInches(f.negativeEaseAtMittenCuff as number, f.unit),
+    thumbCircumference: toInches(f.thumbCircumference as number, f.unit),
+    cuffDepth: toInches(f.mittenCuffDepth as number, f.unit),
+    cuffToThumbLength: toInches(f.cuffToThumbLength as number, f.unit),
+    thumbGussetLength: toInches(f.thumbGussetLength as number, f.unit),
+    thumbToTipLength: toInches(f.thumbToTipLength as number, f.unit),
+    thumbLength: toInches(f.thumbLength as number, f.unit),
+  };
+}
+
+function socksReady(f: DesignerForm): boolean {
+  if (!gaugeReady(f)) return false;
+  if (
+    !isPositive(f.ankleCircumference) ||
+    !isPositive(f.footCircumference) ||
+    !isPositive(f.sockCuffDepth) ||
+    !isPositive(f.legLength) ||
+    !isPositive(f.footLength)
+  )
+    return false;
+  if (!isFiniteNum(f.negativeEaseAtSockCuff)) return false;
+  return true;
+}
+
+function buildSockInput(f: DesignerForm): SockInput {
+  return {
+    gauge: normalizedGauge(f),
+    ankleCircumference: toInches(f.ankleCircumference as number, f.unit),
+    negativeEaseAtCuff: toInches(f.negativeEaseAtSockCuff as number, f.unit),
+    footCircumference: toInches(f.footCircumference as number, f.unit),
+    cuffDepth: toInches(f.sockCuffDepth as number, f.unit),
+    legLength: toInches(f.legLength as number, f.unit),
+    footLength: toInches(f.footLength as number, f.unit),
   };
 }
 
@@ -490,6 +586,26 @@ export default function PatternDesigner() {
       return computeShawl(buildShawlInput(form));
     } catch (e) {
       console.error('[Designer] shawl compute error:', e);
+      return null;
+    }
+  }, [form]);
+
+  const mittenOutput = useMemo(() => {
+    if (!mittensReady(form)) return null;
+    try {
+      return computeMittens(buildMittenInput(form));
+    } catch (e) {
+      console.error('[Designer] mittens compute error:', e);
+      return null;
+    }
+  }, [form]);
+
+  const sockOutput = useMemo(() => {
+    if (!socksReady(form)) return null;
+    try {
+      return computeSocks(buildSockInput(form));
+    } catch (e) {
+      console.error('[Designer] socks compute error:', e);
       return null;
     }
   }, [form]);
@@ -955,6 +1071,45 @@ export default function PatternDesigner() {
             </section>
           )}
 
+          {form.itemType === 'mittens' && (
+            <section className="rounded-lg bg-white p-4 shadow dark:bg-gray-800 md:p-6">
+              <h2 className="mb-3 text-lg font-semibold text-gray-900 dark:text-gray-100">Mittens</h2>
+              <div className="grid grid-cols-2 gap-3">
+                <NumberInput label="Hand circumference" value={form.handCircumference} onChange={(v) => update('handCircumference', v)} step={0.25} suffix={unitLabel} />
+                <NumberInput label="Negative ease at cuff" value={form.negativeEaseAtMittenCuff} onChange={(v) => update('negativeEaseAtMittenCuff', v)} step={0.25} suffix={unitLabel} />
+                <NumberInput label="Thumb circumference" value={form.thumbCircumference} onChange={(v) => update('thumbCircumference', v)} step={0.25} suffix={unitLabel} />
+                <NumberInput label="Cuff depth" value={form.mittenCuffDepth} onChange={(v) => update('mittenCuffDepth', v)} step={0.25} suffix={unitLabel} />
+                <NumberInput label="Cuff → thumb length" value={form.cuffToThumbLength} onChange={(v) => update('cuffToThumbLength', v)} step={0.25} suffix={unitLabel} />
+                <NumberInput label="Thumb gusset length" value={form.thumbGussetLength} onChange={(v) => update('thumbGussetLength', v)} step={0.25} suffix={unitLabel} />
+                <NumberInput label="Thumb → tip length" value={form.thumbToTipLength} onChange={(v) => update('thumbToTipLength', v)} step={0.25} suffix={unitLabel} />
+                <NumberInput label="Thumb length" value={form.thumbLength} onChange={(v) => update('thumbLength', v)} step={0.25} suffix={unitLabel} />
+              </div>
+              <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+                Bottom-up, worked in the round. Afterthought-style thumb: increase a gusset at
+                the palm seam, transfer stitches to a holder, continue hand, then pick up and
+                work the thumb separately.
+              </p>
+            </section>
+          )}
+
+          {form.itemType === 'socks' && (
+            <section className="rounded-lg bg-white p-4 shadow dark:bg-gray-800 md:p-6">
+              <h2 className="mb-3 text-lg font-semibold text-gray-900 dark:text-gray-100">Socks</h2>
+              <div className="grid grid-cols-2 gap-3">
+                <NumberInput label="Ankle circumference" value={form.ankleCircumference} onChange={(v) => update('ankleCircumference', v)} step={0.25} suffix={unitLabel} />
+                <NumberInput label="Negative ease at cuff" value={form.negativeEaseAtSockCuff} onChange={(v) => update('negativeEaseAtSockCuff', v)} step={0.25} suffix={unitLabel} />
+                <NumberInput label="Foot circumference" value={form.footCircumference} onChange={(v) => update('footCircumference', v)} step={0.25} suffix={unitLabel} />
+                <NumberInput label="Cuff depth" value={form.sockCuffDepth} onChange={(v) => update('sockCuffDepth', v)} step={0.25} suffix={unitLabel} />
+                <NumberInput label="Leg length" value={form.legLength} onChange={(v) => update('legLength', v)} step={0.25} suffix={unitLabel} />
+                <NumberInput label="Foot length" value={form.footLength} onChange={(v) => update('footLength', v)} step={0.25} suffix={unitLabel} />
+              </div>
+              <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+                Top-down with a classic heel-flap + heel-turn + gusset + grafted toe. Cast-on is
+                rounded to a multiple of 4 for clean ribbing and a clean heel split.
+              </p>
+            </section>
+          )}
+
           {form.itemType === 'blanket' && (
             <section className="rounded-lg bg-white p-4 shadow dark:bg-gray-800 md:p-6">
               <h2 className="mb-3 text-lg font-semibold text-gray-900 dark:text-gray-100">Blanket</h2>
@@ -1000,12 +1155,22 @@ export default function PatternDesigner() {
                   ? 'Scarf'
                   : form.itemType === 'blanket'
                     ? 'Blanket'
-                    : form.activeSection === 'body'
-                      ? 'Body block'
-                      : 'Sleeve'}
+                    : form.itemType === 'shawl'
+                      ? 'Shawl'
+                      : form.itemType === 'mittens'
+                        ? 'Mittens'
+                        : form.itemType === 'socks'
+                          ? 'Socks'
+                          : form.activeSection === 'body'
+                            ? 'Body block'
+                            : 'Sleeve'}
             </h2>
             {form.itemType === 'hat' && hatOutput ? (
               <HatSchematic output={hatOutput} />
+            ) : form.itemType === 'mittens' && mittenOutput ? (
+              <MittenSchematic output={mittenOutput} />
+            ) : form.itemType === 'socks' && sockOutput ? (
+              <SockSchematic output={sockOutput} />
             ) : form.itemType === 'shawl' && shawlOutput ? (
               <ShawlSchematic output={shawlOutput} />
             ) : form.itemType === 'scarf' && scarfOutput ? (
@@ -1052,6 +1217,18 @@ export default function PatternDesigner() {
                   <StepCard key={`hat-${i}`} step={step} />
                 ))}
               </div>
+            ) : form.itemType === 'mittens' && mittenOutput ? (
+              <div className="space-y-3">
+                {mittenOutput.steps.map((step, i) => (
+                  <StepCard key={`mitten-${i}`} step={step} />
+                ))}
+              </div>
+            ) : form.itemType === 'socks' && sockOutput ? (
+              <div className="space-y-3">
+                {sockOutput.steps.map((step, i) => (
+                  <StepCard key={`sock-${i}`} step={step} />
+                ))}
+              </div>
             ) : form.itemType === 'shawl' && shawlOutput ? (
               <div className="space-y-3">
                 {shawlOutput.steps.map((step, i) => (
@@ -1089,8 +1266,9 @@ export default function PatternDesigner() {
 
           <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs text-blue-800 dark:border-blue-900/30 dark:bg-blue-900/20 dark:text-blue-200">
             <FiInfo className="mr-1 inline h-3 w-3" />
-            Supported item types: sweater, hat, scarf, blanket, shawl. Mittens and socks coming
-            in follow-up PRs.
+            Supported item types: sweater, hat, scarf, blanket, shawl, mittens, socks. Full
+            catalog shipped — next up: coloring, stitch-grid authoring, production card deck,
+            DB persistence, PDF export.
           </div>
         </div>
       </div>

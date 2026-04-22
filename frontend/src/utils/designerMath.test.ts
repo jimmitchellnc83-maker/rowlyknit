@@ -4,17 +4,21 @@ import {
   computeBlanket,
   computeBodyBlock,
   computeHat,
+  computeMittens,
   computeScarf,
   computeShawl,
   computeSleeve,
+  computeSocks,
   toInches,
   type BlanketInput,
   type BodyBlockInput,
   type DesignerGauge,
   type HatInput,
+  type MittenInput,
   type ScarfInput,
   type ShawlInput,
   type SleeveInput,
+  type SockInput,
 } from './designerMath';
 
 const STANDARD_GAUGE: DesignerGauge = {
@@ -610,5 +614,85 @@ describe('computeShawl', () => {
     // totalRows ~ 147 ÷ (28/4) = 21 in
     expect(out.finishedDepth).toBeGreaterThan(18);
     expect(out.finishedDepth).toBeLessThan(24);
+  });
+});
+
+describe('computeMittens', () => {
+  const baseInput: MittenInput = {
+    gauge: STANDARD_GAUGE,
+    handCircumference: 8,
+    negativeEaseAtCuff: 0.5,
+    thumbCircumference: 3,
+    cuffDepth: 2,
+    cuffToThumbLength: 1,
+    thumbGussetLength: 1.5,
+    thumbToTipLength: 3,
+    thumbLength: 2,
+  };
+
+  it('casts on hand × gauge with a touch of negative ease', () => {
+    const out = computeMittens(baseInput);
+    // 7.5 × 5 = 37.5 → rounded to even = 38
+    expect(out.castOnStitches).toBe(38);
+  });
+
+  it('computes thumb width from thumb circumference', () => {
+    const out = computeMittens(baseInput);
+    // 3 × 5 = 15 → rounded to even = 16
+    expect(out.thumbStitches).toBe(16);
+  });
+
+  it('has cuff, hand-to-thumb, gusset, set-aside, hand-above, top-dec, thumb steps', () => {
+    const out = computeMittens(baseInput);
+    const labels = out.steps.map((s) => s.label);
+    expect(labels).toContain('Cuff');
+    expect(labels).toContain('Thumb gusset');
+    expect(labels).toContain('Set aside thumb');
+    expect(labels).toContain('Top decreases');
+    expect(labels).toContain('Thumb');
+  });
+});
+
+describe('computeSocks', () => {
+  const baseInput: SockInput = {
+    gauge: STANDARD_GAUGE,
+    ankleCircumference: 8,
+    negativeEaseAtCuff: 0.5,
+    footCircumference: 9,
+    cuffDepth: 1.5,
+    legLength: 6,
+    footLength: 8,
+  };
+
+  it('casts on a multiple of 4 for clean rib + heel split', () => {
+    const out = computeSocks(baseInput);
+    expect(out.castOnStitches % 4).toBe(0);
+  });
+
+  it('heel flap uses half the total stitches', () => {
+    const out = computeSocks(baseInput);
+    expect(out.heelFlapRows).toBe(out.castOnStitches / 2);
+  });
+
+  it('emits cuff, leg, heel flap, heel turn, gusset, foot, toe, graft steps', () => {
+    const out = computeSocks(baseInput);
+    const labels = out.steps.map((s) => s.label);
+    expect(labels).toEqual([
+      'Cuff',
+      'Leg',
+      'Heel flap',
+      'Heel turn',
+      'Gusset',
+      'Foot',
+      'Toe decreases',
+      'Graft toe',
+    ]);
+  });
+
+  it('gusset step describes pick-up and decrease back to foot stitches', () => {
+    const out = computeSocks(baseInput);
+    const gusset = out.steps.find((s) => s.label === 'Gusset')!;
+    expect(gusset.instruction).toMatch(/pick up.*along each side/i);
+    expect(gusset.endStitches).toBe(out.footStitches);
   });
 });
