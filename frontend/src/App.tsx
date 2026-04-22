@@ -17,6 +17,8 @@ import PatternDetail from './pages/PatternDetail';
 import YarnStash from './pages/YarnStash';
 import YarnDetail from './pages/YarnDetail';
 import Tools from './pages/Tools';
+import Calculators from './pages/Calculators';
+import GaugeCalculator from './pages/GaugeCalculator';
 import Recipients from './pages/Recipients';
 import Profile from './pages/Profile';
 import Stats from './pages/Stats';
@@ -101,6 +103,8 @@ function App() {
         <Route path="/yarn" element={<ErrorBoundary><YarnStash /></ErrorBoundary>} />
         <Route path="/yarn/:id" element={<ErrorBoundary><YarnDetail /></ErrorBoundary>} />
         <Route path="/tools" element={<Tools />} />
+        <Route path="/calculators" element={<Calculators />} />
+        <Route path="/calculators/gauge" element={<ErrorBoundary><GaugeCalculator /></ErrorBoundary>} />
         <Route path="/recipients" element={<Recipients />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/auth/ravelry/callback" element={<RavelryCallback />} />
