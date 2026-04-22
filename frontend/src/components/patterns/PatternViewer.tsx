@@ -12,12 +12,14 @@ import {
   
   FiBookmark,
   FiMove,
-  FiEdit3
+  FiEdit3,
+  FiHelpCircle
 } from 'react-icons/fi';
 import { toast } from 'react-toastify';
 import BookmarkManager from './BookmarkManager';
 import RowMarker from './RowMarker';
 import PatternHighlighter from './PatternHighlighter';
+import QuickKeyPanel from './QuickKeyPanel';
 import HelpTooltip from '../HelpTooltip';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
@@ -69,6 +71,7 @@ export default function PatternViewer({ fileUrl, filename, patternId, projectId,
   const [showBookmarks, setShowBookmarks] = useState<boolean>(Boolean(patternId));
   const [showRowMarker, setShowRowMarker] = useState<boolean>(false);
   const [showHighlighter, setShowHighlighter] = useState<boolean>(false);
+  const [showQuickKey, setShowQuickKey] = useState<boolean>(false);
   const viewerRef = useRef<HTMLDivElement>(null);
   useFocusTrap(viewerRef, fullscreen);
 
@@ -345,6 +348,14 @@ export default function PatternViewer({ fileUrl, filename, patternId, projectId,
             </button>
           )}
 
+          <button
+            onClick={() => setShowQuickKey(!showQuickKey)}
+            className={`p-2 hover:bg-gray-700 rounded-lg ${showQuickKey ? 'bg-gray-700' : ''}`}
+            title="Quick Key (shortcuts, marker meanings, symbols)"
+          >
+            <FiHelpCircle className="h-5 w-5" />
+          </button>
+
           <HelpTooltip text="Use the row marker to track your current row. Use the highlighter to mark sections of the pattern." />
 
           <button
@@ -449,6 +460,9 @@ export default function PatternViewer({ fileUrl, filename, patternId, projectId,
 
       {/* Row Marker Overlay */}
       {showRowMarker && <RowMarker pageNumber={currentPage} />}
+
+      {/* Quick Key reference panel */}
+      {showQuickKey && <QuickKeyPanel onClose={() => setShowQuickKey(false)} />}
 
       {/* Pattern Highlighter */}
       {showHighlighter && patternId && (
