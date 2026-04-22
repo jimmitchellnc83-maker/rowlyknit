@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { FiTool, FiInfo, FiGrid, FiSquare, FiCircle } from 'react-icons/fi';
+import { FiTool, FiInfo, FiGrid, FiSquare } from 'react-icons/fi';
 import {
   computeBodyBlock,
   computeHat,
@@ -18,6 +18,25 @@ import PageHelpButton from '../components/PageHelpButton';
 type NumField = number | '';
 type DesignerSection = 'body' | 'sleeve';
 type ItemType = 'sweater' | 'hat';
+
+interface ItemTypeOption {
+  value: ItemType | string;
+  label: string;
+  disabled?: boolean;
+}
+
+// Catalog of item types. Supported types use the union above; roadmap
+// entries stay as disabled strings so knitters can see what's coming
+// without being able to select them.
+const ITEM_TYPE_OPTIONS: ItemTypeOption[] = [
+  { value: 'sweater', label: 'Sweater' },
+  { value: 'hat', label: 'Hat' },
+  { value: 'scarf', label: 'Scarf (coming soon)', disabled: true },
+  { value: 'mittens', label: 'Mittens (coming soon)', disabled: true },
+  { value: 'socks', label: 'Socks (coming soon)', disabled: true },
+  { value: 'shawl', label: 'Shawl (coming soon)', disabled: true },
+  { value: 'blanket', label: 'Blanket (coming soon)', disabled: true },
+];
 
 interface DesignerForm {
   // Shared
@@ -441,36 +460,28 @@ export default function PatternDesigner() {
             </div>
           </section>
 
-          {/* Item type selector */}
-          <section className="rounded-lg bg-white p-2 shadow dark:bg-gray-800">
-            <div className="flex gap-1" role="tablist" aria-label="Item type">
-              <button
-                role="tab"
-                aria-selected={form.itemType === 'sweater'}
-                onClick={() => update('itemType', 'sweater')}
-                className={`flex-1 flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition ${
-                  form.itemType === 'sweater'
-                    ? 'bg-purple-600 text-white'
-                    : 'text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700'
-                }`}
+          {/* Item type selector — dropdown so the roadmap (scarf, mittens,
+              socks, shawl, blanket, …) can keep expanding without crowding
+              the page. Coming-soon entries stay in the list as disabled
+              options so the catalog is visible at a glance. */}
+          <section className="rounded-lg bg-white p-4 shadow dark:bg-gray-800">
+            <label className="block">
+              <span className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Item type
+              </span>
+              <select
+                value={form.itemType}
+                onChange={(e) => update('itemType', e.target.value as ItemType)}
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900 focus:border-transparent focus:ring-2 focus:ring-purple-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+                aria-label="Item type"
               >
-                <FiSquare className="h-4 w-4" />
-                Sweater
-              </button>
-              <button
-                role="tab"
-                aria-selected={form.itemType === 'hat'}
-                onClick={() => update('itemType', 'hat')}
-                className={`flex-1 flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition ${
-                  form.itemType === 'hat'
-                    ? 'bg-purple-600 text-white'
-                    : 'text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700'
-                }`}
-              >
-                <FiCircle className="h-4 w-4" />
-                Hat
-              </button>
-            </div>
+                {ITEM_TYPE_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value} disabled={opt.disabled}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </label>
           </section>
 
           {form.itemType === 'sweater' && (
