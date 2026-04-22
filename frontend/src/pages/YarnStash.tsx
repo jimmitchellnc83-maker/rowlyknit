@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { FiPlus, FiTrash2, FiPackage, FiEdit2, FiSearch, FiRefreshCw, FiMoreVertical, FiHeart } from 'react-icons/fi';
+import { FiPlus, FiTrash2, FiPackage, FiEdit2, FiSearch, FiRefreshCw, FiMoreVertical, FiHeart, FiCamera } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { useEscapeKey } from '../hooks/useEscapeKey';
@@ -13,6 +13,7 @@ import HelpTooltip from '../components/HelpTooltip';
 import RavelryYarnSearch, { type RavelryYarnImportData } from '../components/RavelryYarnSearch';
 import { useMeasurements } from '../hooks/useMeasurements';
 import StashValueCard from '../components/yarn/StashValueCard';
+import YarnLabelCapture, { type ExtractedLabelData } from '../components/yarn/YarnLabelCapture';
 
 interface Yarn {
   id: string;
@@ -117,10 +118,12 @@ export default function YarnStash() {
     brand: '',
     name: '',
     color: '',
+    colorCode: '',
     weight: 'worsted',
     fiberContent: '',
     yardsTotal: '',
     skeinsTotal: '1',
+    dyeLot: '',
     lowStockThreshold: '',
     lowStockAlert: false,
     notes: '',
@@ -128,6 +131,38 @@ export default function YarnStash() {
     needleSizes: '',
     description: '',
   });
+  const [showLabelCapture, setShowLabelCapture] = useState(false);
+
+  const weightStringToValue = useCallback((canonical: string | null | undefined): string => {
+    if (!canonical) return '';
+    // Form stores lowercase alias (e.g. "worsted"); parser returns canonical
+    // ("Medium"). Map the common canonical values back to the alias the
+    // existing <select> options use.
+    const map: Record<string, string> = {
+      Lace: 'lace',
+      'Super Fine': 'fingering',
+      Fine: 'sport',
+      Light: 'dk',
+      Medium: 'worsted',
+      Bulky: 'bulky',
+      'Super Bulky': 'bulky',
+      Jumbo: 'bulky',
+    };
+    return map[canonical] ?? '';
+  }, []);
+
+  const handleLabelExtracted = useCallback(
+    (extracted: ExtractedLabelData) => {
+      setFormData((prev) => ({
+        ...prev,
+        dyeLot: extracted.dyeLot ?? prev.dyeLot,
+        colorCode: extracted.colorCode ?? extracted.barcode ?? prev.colorCode,
+        color: extracted.colorName ?? prev.color,
+        weight: extracted.weight ? weightStringToValue(extracted.weight) || prev.weight : prev.weight,
+      }));
+    },
+    [weightStringToValue],
+  );
 
   const closeAllModals = useCallback(() => {
     setShowCreateModal(false);
@@ -158,10 +193,12 @@ export default function YarnStash() {
     brand: '',
     name: '',
     color: '',
+    colorCode: '',
     weight: 'worsted',
     fiberContent: '',
     yardsTotal: '',
     skeinsTotal: '1',
+    dyeLot: '',
     lowStockThreshold: '',
     lowStockAlert: false,
     notes: '',
@@ -239,10 +276,12 @@ export default function YarnStash() {
       brand: y.brand || '',
       name: y.name || '',
       color: y.color || '',
+      colorCode: (y as unknown as { color_code?: string }).color_code || '',
       weight: y.weight || 'worsted',
       fiberContent: y.fiber_content || '',
       yardsTotal: y.yards_total?.toString() || '',
       skeinsTotal: y.skeins_total?.toString() || '1',
+      dyeLot: (y as unknown as { dye_lot?: string }).dye_lot || '',
       lowStockThreshold: y.low_stock_threshold?.toString() || '',
       lowStockAlert: y.low_stock_alert || false,
       notes: y.notes || '',
@@ -582,8 +621,16 @@ export default function YarnStash() {
           aria-labelledby="create-yarn-title"
         >
           <div ref={createModalRef} className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+            <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between gap-3">
               <h2 id="create-yarn-title" className="text-2xl font-bold text-gray-900 dark:text-gray-100">Add Yarn to Stash</h2>
+              <button
+                type="button"
+                onClick={() => setShowLabelCapture(true)}
+                className="flex items-center gap-2 rounded-lg bg-purple-50 px-3 py-2 text-sm font-medium text-purple-700 hover:bg-purple-100"
+              >
+                <FiCamera className="h-4 w-4" />
+                Scan Label
+              </button>
             </div>
 
             <form onSubmit={handleCreateYarn} className="p-6 space-y-4">
@@ -661,6 +708,33 @@ export default function YarnStash() {
                   className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                   placeholder="e.g., 100% Wool, 80% Acrylic 20% Wool"
                 />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Color Code
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.colorCode}
+                    onChange={(e) => setFormData({ ...formData, colorCode: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    placeholder="e.g., 2450 or B54"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Dye Lot
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.dyeLot}
+                    onChange={(e) => setFormData({ ...formData, dyeLot: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    placeholder="e.g., A9-7766"
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -775,8 +849,16 @@ export default function YarnStash() {
           aria-labelledby="edit-yarn-title"
         >
           <div ref={editModalRef} className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+            <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between gap-3">
               <h2 id="edit-yarn-title" className="text-2xl font-bold text-gray-900 dark:text-gray-100">Edit Yarn</h2>
+              <button
+                type="button"
+                onClick={() => setShowLabelCapture(true)}
+                className="flex items-center gap-2 rounded-lg bg-purple-50 px-3 py-2 text-sm font-medium text-purple-700 hover:bg-purple-100"
+              >
+                <FiCamera className="h-4 w-4" />
+                Scan Label
+              </button>
             </div>
 
             <form onSubmit={handleUpdateYarn} className="p-6 space-y-4">
@@ -854,6 +936,33 @@ export default function YarnStash() {
                   className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                   placeholder="e.g., 100% Wool, 80% Acrylic 20% Wool"
                 />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Color Code
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.colorCode}
+                    onChange={(e) => setFormData({ ...formData, colorCode: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    placeholder="e.g., 2450 or B54"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Dye Lot
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.dyeLot}
+                    onChange={(e) => setFormData({ ...formData, dyeLot: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    placeholder="e.g., A9-7766"
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1072,6 +1181,12 @@ export default function YarnStash() {
         onClose={() => setShowRavelrySearch(false)}
         onImport={handleRavelryImport}
       />
+      {showLabelCapture && (
+        <YarnLabelCapture
+          onClose={() => setShowLabelCapture(false)}
+          onExtracted={handleLabelExtracted}
+        />
+      )}
     </div>
   );
 }
