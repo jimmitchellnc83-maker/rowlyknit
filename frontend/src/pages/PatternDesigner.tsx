@@ -21,6 +21,7 @@ import {
   type MeasurementUnit,
 } from '../utils/designerMath';
 import BodySchematic from '../components/designer/BodySchematic';
+import ColorPalette, { type ColorSwatch } from '../components/designer/ColorPalette';
 import HatSchematic from '../components/designer/HatSchematic';
 import MittenSchematic from '../components/designer/MittenSchematic';
 import RectSchematic from '../components/designer/RectSchematic';
@@ -99,6 +100,11 @@ interface DesignerForm {
   sockCuffDepth: NumField;
   legLength: NumField;
   footLength: NumField;
+
+  // Colors — optional palette the knitter plans to use. First color
+  // becomes the main color; additional colors can be referenced by stripe /
+  // colorwork extensions in later PRs.
+  colors: ColorSwatch[];
 
   // Body block
   chestCircumference: NumField;
@@ -193,6 +199,8 @@ const DEFAULT_FORM: DesignerForm = {
   easeAtBicep: 2,
   cuffToUnderarmLength: 18,
   cuffDepth: 2,
+
+  colors: [],
 };
 
 const LS_KEY = 'rowly:designer:current';
@@ -709,6 +717,10 @@ export default function PatternDesigner() {
             </label>
           </section>
 
+          {/* Color palette — shared across all item types. First color
+              becomes MC and is shown alongside the schematic as a preview. */}
+          <ColorPalette colors={form.colors} onChange={(next) => update('colors', next)} />
+
           {form.itemType === 'sweater' && (
             <>
           {/* Section tabs */}
@@ -1203,6 +1215,31 @@ export default function PatternDesigner() {
             ) : (
               <div className="flex min-h-[280px] items-center justify-center rounded-lg border border-dashed border-gray-300 bg-gray-50 p-6 text-center text-sm italic text-gray-500">
                 Fill in gauge and section measurements to see the schematic.
+              </div>
+            )}
+
+            {/* Color palette preview — echo of the Colors card inputs, shown
+                alongside the schematic so knitters can eyeball the palette
+                in context. */}
+            {form.colors.length > 0 && (
+              <div className="mt-4 border-t border-gray-200 pt-3 dark:border-gray-700">
+                <p className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-500">
+                  Palette
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {form.colors.map((c, i) => (
+                    <div key={c.id} className="flex items-center gap-2 rounded-full bg-gray-50 px-3 py-1 dark:bg-gray-900/50">
+                      <span
+                        className="h-5 w-5 rounded-full border border-gray-300"
+                        style={{ backgroundColor: c.hex }}
+                        aria-hidden="true"
+                      />
+                      <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                        {i === 0 ? 'MC · ' : ''}{c.label}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </section>
