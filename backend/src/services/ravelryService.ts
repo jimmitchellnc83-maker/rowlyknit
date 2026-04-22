@@ -50,6 +50,11 @@ function mapYarnFields(y: any, isDetail: boolean = false) {
       gauge = `${y.min_gauge || y.max_gauge} sts over ${divisor} ${unit}`;
     }
   }
+  // Scrub "1 inches" → "1 inch" regardless of source (Ravelry's
+  // gauge_description sometimes ships the grammatically wrong form).
+  if (gauge) {
+    gauge = gauge.replace(/\b1 inches\b/g, '1 inch');
+  }
 
   // Needle sizes: build a range from min/max
   let needleSizes: string | null = null;
