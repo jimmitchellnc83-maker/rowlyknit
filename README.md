@@ -383,9 +383,6 @@ Coming soon!
 
 ---
 
-**Try the Demo**
-Visit the login page and click **"Try the demo"** — no sign-up or credentials required. You'll land in a sandboxed demo account pre-loaded with sample projects, patterns, and yarn.
-
 **Production URL**: https://rowlyknit.com
 
 Made with ❤️ and 🧶 by knitters, for knitters.

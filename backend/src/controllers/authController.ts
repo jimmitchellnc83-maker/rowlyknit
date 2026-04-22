@@ -218,43 +218,6 @@ export async function login(req: Request, res: Response) {
 }
 
 /**
- * Passwordless demo login — issues a session for the seeded demo user without
- * exposing credentials in client HTML. Intended for the "Try Demo" button.
- * Safe because the demo user holds only seeded sample data.
- */
-export async function demoLogin(req: Request, res: Response) {
-  const demoEmail = process.env.DEMO_EMAIL || 'demo@rowlyknit.com';
-
-  const user = await db('users')
-    .where({ email: demoEmail })
-    .whereNull('deleted_at')
-    .first();
-
-  if (!user || !user.is_active) {
-    throw new NotFoundError('Demo account not available');
-  }
-
-  const { accessToken, refreshToken } = await issueSession(req, res, user, false, 'demo_login');
-
-  res.json({
-    success: true,
-    message: 'Demo login successful',
-    data: {
-      user: {
-        id: user.id,
-        email: user.email,
-        firstName: user.first_name,
-        lastName: user.last_name,
-        emailVerified: user.email_verified,
-        preferences: user.preferences,
-      },
-      accessToken,
-      refreshToken,
-    },
-  });
-}
-
-/**
  * Refresh access token
  */
 export async function refreshToken(req: Request, res: Response) {
