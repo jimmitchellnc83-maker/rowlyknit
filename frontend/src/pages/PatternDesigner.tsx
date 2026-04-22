@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { FiTool, FiInfo, FiGrid, FiSquare } from 'react-icons/fi';
+import { Link } from 'react-router-dom';
+import { FiTool, FiInfo, FiGrid, FiSquare, FiPrinter } from 'react-icons/fi';
 import {
   computeBlanket,
   computeBodyBlock,
@@ -634,12 +635,25 @@ export default function PatternDesigner() {
           <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium uppercase tracking-wide text-purple-700">
             Beta
           </span>
-          <PageHelpButton label="Designer help" className="ml-auto" />
+          <div className="ml-auto flex items-center gap-2">
+            <Link
+              to="/designer/print"
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-2 rounded-lg border border-purple-300 px-3 py-1.5 text-sm font-medium text-purple-700 hover:bg-purple-50 dark:border-purple-800 dark:text-purple-300 dark:hover:bg-purple-900/30"
+              title="Open a printable pattern write-up in a new tab"
+            >
+              <FiPrinter className="h-4 w-4" />
+              Print pattern
+            </Link>
+            <PageHelpButton label="Designer help" />
+          </div>
         </div>
         <p className="mt-1 max-w-2xl text-sm text-gray-600 dark:text-gray-400">
-          Draft garment sections from body measurements and your swatch gauge. v1 covers the body
-          block (torso front or back) and sleeves. Yoke/neckline and stitch-grid authoring come in
-          follow-up releases. Drafts are saved locally to this browser.
+          Draft garments from body measurements and your swatch gauge. Supports sweater, hat,
+          scarf, blanket, shawl, mittens, and socks. Click <strong>Print pattern</strong> to open a
+          clean write-up with schematics and step-by-step instructions, ready to print or save as
+          PDF. Drafts are saved locally to this browser.
         </p>
       </div>
 
