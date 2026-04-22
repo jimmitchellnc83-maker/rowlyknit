@@ -41,7 +41,17 @@ export default function PatternViewer({ fileUrl, filename, patternId, projectId,
   const [numPages, setNumPages] = useState<number>(0);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [zoomIndex, setZoomIndex] = useState<number>(2); // Start at 1.0
-  const [rotation, setRotation] = useState<number>(0);
+  const rotationStorageKey = patternId ? `rowly:pageRotations:${patternId}:${filename}` : null;
+  const [pageRotations, setPageRotations] = useState<Record<number, number>>(() => {
+    if (!rotationStorageKey) return {};
+    try {
+      const raw = localStorage.getItem(rotationStorageKey);
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  });
+  const rotation = pageRotations[currentPage] ?? 0;
   const [searchText, setSearchText] = useState<string>('');
   const [showSearch, setShowSearch] = useState<boolean>(false);
   const [_isFullscreen, setIsFullscreen] = useState<boolean>(false);
@@ -77,8 +87,18 @@ export default function PatternViewer({ fileUrl, filename, patternId, projectId,
   }, [zoomIndex]);
 
   const handleRotate = useCallback(() => {
-    setRotation(prev => (prev + 90) % 360);
-  }, []);
+    setPageRotations(prev => {
+      const next = { ...prev, [currentPage]: ((prev[currentPage] ?? 0) + 90) % 360 };
+      if (rotationStorageKey) {
+        try {
+          localStorage.setItem(rotationStorageKey, JSON.stringify(next));
+        } catch {
+          // localStorage unavailable (private mode, quota) — silently fall back to in-memory only
+        }
+      }
+      return next;
+    });
+  }, [currentPage, rotationStorageKey]);
 
   const handleNextPage = useCallback(() => {
     if (currentPage < numPages) {
@@ -250,8 +270,8 @@ export default function PatternViewer({ fileUrl, filename, patternId, projectId,
           {/* Additional Controls */}
           <button
             onClick={handleRotate}
-            className="p-2 hover:bg-gray-700 rounded-lg"
-            title="Rotate clockwise"
+            className={`p-2 hover:bg-gray-700 rounded-lg ${rotation !== 0 ? 'bg-gray-700' : ''}`}
+            title={rotation !== 0 ? `Rotate clockwise (page ${currentPage} at ${rotation}°)` : 'Rotate clockwise'}
           >
             <FiRotateCw className="h-5 w-5" />
           </button>
