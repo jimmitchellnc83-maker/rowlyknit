@@ -5,6 +5,7 @@ import {
   computeBodyBlock,
   computeHat,
   computeScarf,
+  computeShawl,
   computeSleeve,
   toInches,
   type BlanketInput,
@@ -12,6 +13,7 @@ import {
   type DesignerGauge,
   type HatInput,
   type ScarfInput,
+  type ShawlInput,
   type SleeveInput,
 } from './designerMath';
 
@@ -564,5 +566,49 @@ describe('computeBlanket', () => {
     const labels = out.steps.map((s) => s.label);
     expect(labels).toEqual(['Cast on', 'Body', 'Bind off']);
     expect(out.borderStitchesPerSide).toBe(0);
+  });
+});
+
+describe('computeShawl', () => {
+  const baseInput: ShawlInput = {
+    gauge: STANDARD_GAUGE,
+    wingspan: 60,
+    initialCastOn: 7,
+  };
+
+  it('ends at wingspan × gauge stitches', () => {
+    const out = computeShawl(baseInput);
+    // 60 × 5 = 300, even rounded = 300
+    expect(out.finalStitches).toBe(300);
+  });
+
+  it('totalRows is roughly (finalStitches - castOn) / 2', () => {
+    const out = computeShawl(baseInput);
+    // (300 - 7) / 2 = 146.5 → rounds to 147 or 146
+    expect(out.totalRows).toBeGreaterThanOrEqual(146);
+    expect(out.totalRows).toBeLessThanOrEqual(147);
+  });
+
+  it('emits garter tab, increases, border, bind-off steps', () => {
+    const out = computeShawl(baseInput);
+    const labels = out.steps.map((s) => s.label);
+    expect(labels).toEqual([
+      'Garter-tab cast-on',
+      'Triangle increases',
+      'Border (optional)',
+      'Bind off',
+    ]);
+  });
+
+  it('enforces minimum cast-on of 3', () => {
+    const out = computeShawl({ ...baseInput, initialCastOn: 1 });
+    expect(out.castOnStitches).toBeGreaterThanOrEqual(3);
+  });
+
+  it('derives depth from row count and gauge', () => {
+    const out = computeShawl(baseInput);
+    // totalRows ~ 147 ÷ (28/4) = 21 in
+    expect(out.finishedDepth).toBeGreaterThan(18);
+    expect(out.finishedDepth).toBeLessThan(24);
   });
 });

@@ -5,24 +5,27 @@ import {
   computeBodyBlock,
   computeHat,
   computeScarf,
+  computeShawl,
   computeSleeve,
   toInches,
   type BlanketInput,
   type BodyBlockInput,
   type HatInput,
   type ScarfInput,
+  type ShawlInput,
   type SleeveInput,
   type MeasurementUnit,
 } from '../utils/designerMath';
 import BodySchematic from '../components/designer/BodySchematic';
 import HatSchematic from '../components/designer/HatSchematic';
 import RectSchematic from '../components/designer/RectSchematic';
+import ShawlSchematic from '../components/designer/ShawlSchematic';
 import SleeveSchematic from '../components/designer/SleeveSchematic';
 import PageHelpButton from '../components/PageHelpButton';
 
 type NumField = number | '';
 type DesignerSection = 'body' | 'sleeve';
-type ItemType = 'sweater' | 'hat' | 'scarf' | 'blanket';
+type ItemType = 'sweater' | 'hat' | 'scarf' | 'blanket' | 'shawl';
 
 interface ItemTypeOption {
   value: ItemType | string;
@@ -38,9 +41,9 @@ const ITEM_TYPE_OPTIONS: ItemTypeOption[] = [
   { value: 'hat', label: 'Hat' },
   { value: 'scarf', label: 'Scarf' },
   { value: 'blanket', label: 'Blanket' },
+  { value: 'shawl', label: 'Shawl' },
   { value: 'mittens', label: 'Mittens (coming soon)', disabled: true },
   { value: 'socks', label: 'Socks (coming soon)', disabled: true },
-  { value: 'shawl', label: 'Shawl (coming soon)', disabled: true },
 ];
 
 interface DesignerForm {
@@ -68,6 +71,10 @@ interface DesignerForm {
   blanketWidth: NumField;
   blanketLength: NumField;
   blanketBorderDepth: NumField;
+
+  // Shawl
+  shawlWingspan: NumField;
+  shawlInitialCastOn: NumField;
 
   // Body block
   chestCircumference: NumField;
@@ -121,6 +128,9 @@ const DEFAULT_FORM: DesignerForm = {
   blanketWidth: 40,
   blanketLength: 50,
   blanketBorderDepth: 1.5,
+
+  shawlWingspan: 60,
+  shawlInitialCastOn: 7,
 
   chestCircumference: 36,
   easeAtChest: 4,
@@ -245,6 +255,20 @@ function buildBlanketInput(f: DesignerForm): BlanketInput {
     width: toInches(f.blanketWidth as number, f.unit),
     length: toInches(f.blanketLength as number, f.unit),
     borderDepth: toInches(f.blanketBorderDepth as number, f.unit),
+  };
+}
+
+function shawlReady(f: DesignerForm): boolean {
+  if (!gaugeReady(f)) return false;
+  if (!isPositive(f.shawlWingspan) || !isPositive(f.shawlInitialCastOn)) return false;
+  return true;
+}
+
+function buildShawlInput(f: DesignerForm): ShawlInput {
+  return {
+    gauge: normalizedGauge(f),
+    wingspan: toInches(f.shawlWingspan as number, f.unit),
+    initialCastOn: f.shawlInitialCastOn as number,
   };
 }
 
@@ -456,6 +480,16 @@ export default function PatternDesigner() {
       return computeBlanket(buildBlanketInput(form));
     } catch (e) {
       console.error('[Designer] blanket compute error:', e);
+      return null;
+    }
+  }, [form]);
+
+  const shawlOutput = useMemo(() => {
+    if (!shawlReady(form)) return null;
+    try {
+      return computeShawl(buildShawlInput(form));
+    } catch (e) {
+      console.error('[Designer] shawl compute error:', e);
       return null;
     }
   }, [form]);
@@ -895,6 +929,32 @@ export default function PatternDesigner() {
             </section>
           )}
 
+          {form.itemType === 'shawl' && (
+            <section className="rounded-lg bg-white p-4 shadow dark:bg-gray-800 md:p-6">
+              <h2 className="mb-3 text-lg font-semibold text-gray-900 dark:text-gray-100">Shawl</h2>
+              <div className="grid grid-cols-2 gap-3">
+                <NumberInput
+                  label="Wingspan"
+                  value={form.shawlWingspan}
+                  onChange={(v) => update('shawlWingspan', v)}
+                  step={1}
+                  suffix={unitLabel}
+                />
+                <NumberInput
+                  label="Initial cast-on (after garter tab)"
+                  value={form.shawlInitialCastOn}
+                  onChange={(v) => update('shawlInitialCastOn', v)}
+                  step={1}
+                />
+              </div>
+              <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+                Top-down triangular shawl worked from the center-back neck out. Depth comes out to
+                roughly wingspan ÷ 4 at your gauge. For a deeper shawl, choose a wider wingspan
+                and add a lace/garter border along the bottom edge.
+              </p>
+            </section>
+          )}
+
           {form.itemType === 'blanket' && (
             <section className="rounded-lg bg-white p-4 shadow dark:bg-gray-800 md:p-6">
               <h2 className="mb-3 text-lg font-semibold text-gray-900 dark:text-gray-100">Blanket</h2>
@@ -946,6 +1006,8 @@ export default function PatternDesigner() {
             </h2>
             {form.itemType === 'hat' && hatOutput ? (
               <HatSchematic output={hatOutput} />
+            ) : form.itemType === 'shawl' && shawlOutput ? (
+              <ShawlSchematic output={shawlOutput} />
             ) : form.itemType === 'scarf' && scarfOutput ? (
               <RectSchematic
                 label="Scarf"
@@ -990,6 +1052,12 @@ export default function PatternDesigner() {
                   <StepCard key={`hat-${i}`} step={step} />
                 ))}
               </div>
+            ) : form.itemType === 'shawl' && shawlOutput ? (
+              <div className="space-y-3">
+                {shawlOutput.steps.map((step, i) => (
+                  <StepCard key={`shawl-${i}`} step={step} />
+                ))}
+              </div>
             ) : form.itemType === 'scarf' && scarfOutput ? (
               <div className="space-y-3">
                 {scarfOutput.steps.map((step, i) => (
@@ -1021,7 +1089,7 @@ export default function PatternDesigner() {
 
           <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs text-blue-800 dark:border-blue-900/30 dark:bg-blue-900/20 dark:text-blue-200">
             <FiInfo className="mr-1 inline h-3 w-3" />
-            Supported item types: sweater, hat, scarf, blanket. Mittens, socks, and shawl coming
+            Supported item types: sweater, hat, scarf, blanket, shawl. Mittens and socks coming
             in follow-up PRs.
           </div>
         </div>

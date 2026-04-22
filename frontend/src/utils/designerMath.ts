@@ -983,3 +983,103 @@ export function computeBlanket(input: BlanketInput): BlanketOutput {
     steps,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Shawl (top-down triangle)
+// ---------------------------------------------------------------------------
+
+export interface ShawlInput {
+  gauge: DesignerGauge;
+  /** Finished wingspan at the bottom edge (inches). */
+  wingspan: number;
+  /** Initial cast-on stitches. Most top-down triangles start with a garter
+   *  tab of 3 sts that expands to ~7 after setup; we default to 7 to match. */
+  initialCastOn: number;
+}
+
+export interface ShawlOutput {
+  castOnStitches: number;
+  finalStitches: number;
+  totalRows: number;
+  finishedWingspan: number;
+  finishedDepth: number;
+  steps: ShapingStep[];
+}
+
+/**
+ * Top-down triangular shawl. Cast on small (typically 7 sts after a garter
+ * tab setup), increase 4 sts every RS row (1 edge + 1 center on each side),
+ * grow into a triangle until the wingspan is reached.
+ *
+ * Depth comes out to ~wingspan/4 with standard gauge — there's no
+ * user-tunable depth parameter because the triangle geometry fixes the
+ * aspect. If a knitter wants a deeper shawl they'd keep knitting past the
+ * target wingspan (which this math doesn't try to model).
+ */
+export function computeShawl(input: ShawlInput): ShawlOutput {
+  const { gauge, wingspan, initialCastOn } = input;
+
+  const castOnStitches = Math.max(3, initialCastOn);
+  const finalStitches = stitchesForWidth(wingspan, gauge);
+
+  // 4 sts added per RS row, one row of RS + one row of plain WS between
+  // shapings → 2 rows per +4 sts → diff / 2 total rows.
+  const totalRows = Math.max(1, Math.round((finalStitches - castOnStitches) / 2));
+  const finishedDepth = Math.max(0, (totalRows / Math.max(1, gauge.rowsPer4in)) * 4);
+
+  const steps: ShapingStep[] = [
+    {
+      label: 'Garter-tab cast-on',
+      startStitches: 0,
+      endStitches: castOnStitches,
+      rows: 1,
+      direction: 'none',
+      instruction:
+        `Cast on 3 sts and knit 6–8 rows in garter. Rotate the strip 90° and pick up ` +
+        `3 sts along the long edge, then 3 more from the cast-on edge — ` +
+        `${castOnStitches} sts total. This gives the shawl a clean top edge.`,
+    },
+    {
+      label: 'Triangle increases',
+      startStitches: castOnStitches,
+      endStitches: finalStitches,
+      rows: totalRows,
+      direction: 'increase',
+      instruction:
+        `Increase 4 sts every RS row (1 edge + 1 either side of the center spine). ` +
+        `Work plain on WS rows. Continue for ${totalRows} rows until you reach ` +
+        `${finalStitches} sts — about ${round025(wingspan)} in wide and ` +
+        `${round025(finishedDepth)} in deep at the center spine.`,
+    },
+    {
+      label: 'Border (optional)',
+      startStitches: finalStitches,
+      endStitches: finalStitches,
+      rows: 0,
+      direction: 'none',
+      instruction:
+        `Before binding off: many shawls work a short lace or garter border along the ` +
+        `bottom edge. 8–16 rows of feather-and-fan or garter deepens the shawl and gives ` +
+        `it a more finished look. Skip if you're keeping it simple.`,
+    },
+    {
+      label: 'Bind off',
+      startStitches: finalStitches,
+      endStitches: 0,
+      rows: 1,
+      direction: 'none',
+      instruction:
+        `Bind off very loosely (yarn-over bind-off, i-cord, or picot). A tight bind-off ` +
+        `will curve the bottom edge — tighten to taste but default to loose.`,
+    },
+  ];
+
+  return {
+    castOnStitches,
+    finalStitches,
+    totalRows,
+    finishedWingspan: round025(wingspan),
+    finishedDepth: round025(finishedDepth),
+    steps,
+  };
+}
