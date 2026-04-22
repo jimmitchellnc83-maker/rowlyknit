@@ -3,6 +3,7 @@ import db from '../config/database';
 import { NotFoundError, ValidationError } from '../utils/errorHandler';
 import { createAuditLog } from '../middleware/auditLog';
 import { sanitizeSearchQuery } from '../utils/inputSanitizer';
+import { findYarnSubstitutions } from '../services/feasibilityService';
 
 export async function getYarn(req: Request, res: Response) {
   const userId = req.user!.userId;
@@ -395,5 +396,35 @@ export async function getYarnStats(req: Request, res: Response) {
   res.json({
     success: true,
     data: { stats },
+  });
+}
+
+/**
+ * Score the user's stash against a standalone yarn requirement and return
+ * traffic-light-ranked candidates. Shares the matcher semantics used by the
+ * pattern feasibility check (#97) so recommendations stay consistent between
+ * the two entry points.
+ */
+export async function getYarnSubstitutions(req: Request, res: Response) {
+  const userId = req.user!.userId;
+  const { weightName, fiberHints, yardage, skeinCount } = req.body;
+
+  if (weightName != null && typeof weightName !== 'string') {
+    throw new ValidationError('weightName must be a string');
+  }
+  if (fiberHints != null && !Array.isArray(fiberHints)) {
+    throw new ValidationError('fiberHints must be an array of strings');
+  }
+
+  const result = await findYarnSubstitutions(userId, {
+    weightName: weightName ?? null,
+    fiberHints: Array.isArray(fiberHints) ? fiberHints : null,
+    yardage: yardage != null ? Number(yardage) : null,
+    skeinCount: skeinCount != null ? Number(skeinCount) : null,
+  });
+
+  res.json({
+    success: true,
+    data: { substitution: result },
   });
 }
