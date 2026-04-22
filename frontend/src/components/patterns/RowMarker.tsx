@@ -16,18 +16,63 @@ const MARKER_COLORS = [
   { name: 'Dim', value: '#1F2937', opacity: 0.5 },
 ];
 
+const PREFS_KEY = 'rowly:markerPrefs:v1';
+
+const DEFAULT_PREFS = {
+  color: MARKER_COLORS[0].value,
+  opacity: 0.3,
+  height: 3,
+  width: 90,
+  style: 'bar', // 'bar' | 'lines' | 'underline'
+  isInverted: false,
+};
+
+function loadPrefs() {
+  try {
+    const raw = localStorage.getItem(PREFS_KEY);
+    if (!raw) return DEFAULT_PREFS;
+    return { ...DEFAULT_PREFS, ...JSON.parse(raw) };
+  } catch {
+    return DEFAULT_PREFS;
+  }
+}
+
+function savePrefs(prefs) {
+  try {
+    localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
+  } catch {
+    // ignore quota / private mode errors
+  }
+}
+
+function hexToRgba(hex, alpha) {
+  const c = hex.replace('#', '');
+  const r = parseInt(c.slice(0, 2), 16);
+  const g = parseInt(c.slice(2, 4), 16);
+  const b = parseInt(c.slice(4, 6), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
 export default function RowMarker({ pageNumber, onPositionChange }: RowMarkerProps) {
+  const initial = loadPrefs();
   const [position, setPosition] = useState({ x: 50, y: 50 }); // Percentage based
-  const [height, setHeight] = useState(3); // Percentage of viewport
+  const [height, setHeight] = useState(initial.height);
+  const [width, setWidth] = useState(initial.width);
+  const [style, setStyle] = useState(initial.style);
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
-  const [color, setColor] = useState(MARKER_COLORS[0].value);
-  const [opacity, setOpacity] = useState(0.3);
+  const [color, setColor] = useState(initial.color);
+  const [opacity, setOpacity] = useState(initial.opacity);
   const [isLocked, setIsLocked] = useState(false);
   const [isVisible, setIsVisible] = useState(true);
-  const [isInverted, setIsInverted] = useState(false);
+  const [isInverted, setIsInverted] = useState(initial.isInverted);
   const [showControls, setShowControls] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+
+  // Persist user style preferences (not session-only state like position/lock/visibility)
+  useEffect(() => {
+    savePrefs({ color, opacity, height, width, style, isInverted });
+  }, [color, opacity, height, width, style, isInverted]);
 
   // Handle dragging
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
@@ -182,13 +227,21 @@ export default function RowMarker({ pageNumber, onPositionChange }: RowMarkerPro
         style={{
           left: isInverted ? '0%' : `${position.x}%`,
           top: `${position.y}%`,
-          width: isInverted ? '100%' : '90%',
+          width: isInverted ? '100%' : `${width}%`,
           height: `${height}%`,
-          backgroundColor: isInverted ? 'transparent' : color,
-          opacity: isInverted ? 1 : opacity,
+          backgroundColor: isInverted || style !== 'bar' ? 'transparent' : color,
+          opacity: isInverted ? 1 : (style === 'bar' ? opacity : 1),
           transform: isInverted ? 'none' : 'translate(-50%, 0)',
-          borderTop: isInverted ? '2px solid rgba(255,255,255,0.5)' : undefined,
-          borderBottom: isInverted ? '2px solid rgba(255,255,255,0.5)' : undefined,
+          borderTop: isInverted
+            ? '2px solid rgba(255,255,255,0.5)'
+            : style === 'lines'
+              ? `2px solid ${hexToRgba(color, Math.max(0.75, opacity))}`
+              : undefined,
+          borderBottom: isInverted
+            ? '2px solid rgba(255,255,255,0.5)'
+            : style === 'lines' || style === 'underline'
+              ? `2px solid ${hexToRgba(color, Math.max(0.75, opacity))}`
+              : undefined,
         }}
         onMouseDown={handleMouseDown}
         onMouseEnter={() => !isLocked && setShowControls(true)}
@@ -269,6 +322,33 @@ export default function RowMarker({ pageNumber, onPositionChange }: RowMarkerPro
           </div>
         </div>
 
+        {/* Style (band shape) — only meaningful in non-inverted mode */}
+        {!isInverted && (
+          <div>
+            <label className="block text-xs font-medium text-gray-300 mb-2">Style</label>
+            <div className="flex gap-2">
+              {[
+                { id: 'bar', label: 'Bar', help: 'Solid colored band across the row' },
+                { id: 'lines', label: 'Lines', help: 'Two thin lines (top + bottom of row)' },
+                { id: 'underline', label: 'Underline', help: 'Single line beneath the row' },
+              ].map((s) => (
+                <button
+                  key={s.id}
+                  onClick={() => setStyle(s.id)}
+                  className={`flex-1 px-2 py-1.5 rounded text-xs font-medium ${
+                    style === s.id
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                  }`}
+                  title={s.help}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Color Selection */}
         <div>
           <label className="block text-xs font-medium text-gray-300 mb-2">
@@ -288,6 +368,24 @@ export default function RowMarker({ pageNumber, onPositionChange }: RowMarkerPro
             ))}
           </div>
         </div>
+
+        {/* Width slider (band-mode only) */}
+        {!isInverted && (
+          <div>
+            <label className="block text-xs font-medium text-gray-300 mb-2">
+              Width: {width.toFixed(0)}%
+            </label>
+            <input
+              type="range"
+              min="40"
+              max="100"
+              step="5"
+              value={width}
+              onChange={(e) => setWidth(parseFloat(e.target.value))}
+              className="w-full"
+            />
+          </div>
+        )}
 
         {/* Opacity Slider */}
         <div>
