@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
-import { FiUpload, FiX } from 'react-icons/fi';
+import { FiUpload, FiX, FiCrop } from 'react-icons/fi';
 import { toast } from 'react-toastify';
+import ImageCropperModal from './ImageCropperModal';
 
 interface FileUploadProps {
   onUpload: (file: File) => Promise<void>;
@@ -17,7 +18,16 @@ export default function FileUpload({
   const [preview, setPreview] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
+  const [showCropper, setShowCropper] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleCropConfirm = (croppedFile: File) => {
+    setSelectedFile(croppedFile);
+    const reader = new FileReader();
+    reader.onloadend = () => setPreview(reader.result as string);
+    reader.readAsDataURL(croppedFile);
+    setShowCropper(false);
+  };
 
   const handleFileSelect = (file: File) => {
     // Validate file type
@@ -167,6 +177,15 @@ export default function FileUpload({
             <div className="flex space-x-2">
               <button
                 type="button"
+                onClick={() => setShowCropper(true)}
+                disabled={uploading}
+                className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition disabled:opacity-50"
+                title="Crop image before uploading"
+              >
+                <FiCrop className="h-4 w-4" /> Crop
+              </button>
+              <button
+                type="button"
                 onClick={handleUpload}
                 disabled={uploading}
                 className="flex-1 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
@@ -185,6 +204,16 @@ export default function FileUpload({
           </div>
         )}
       </div>
+
+      {showCropper && preview && selectedFile && (
+        <ImageCropperModal
+          imageSrc={preview}
+          filename={selectedFile.name}
+          mimeType={selectedFile.type}
+          onCancel={() => setShowCropper(false)}
+          onConfirm={handleCropConfirm}
+        />
+      )}
     </div>
   );
 }
