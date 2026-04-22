@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
-import { FiLayers, FiPlus, FiTrash2, FiCheck } from 'react-icons/fi';
+import { FiLayers, FiPlus, FiTrash2, FiCheck, FiMenu } from 'react-icons/fi';
 import {
   ProjectPiece,
   PieceStatus,
@@ -97,6 +97,51 @@ export default function PiecesSection({ projectId, initialPieces }: Props) {
     }
   };
 
+  // Drag-and-drop reorder using HTML5 native DnD (no extra deps)
+  const dragSource = useRef<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
+
+  const handleDragStart = (id: string) => (e: React.DragEvent) => {
+    dragSource.current = id;
+    e.dataTransfer.effectAllowed = 'move';
+    // Required by Firefox to start the drag
+    e.dataTransfer.setData('text/plain', id);
+  };
+
+  const handleDragOver = (id: string) => (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (dragOverId !== id) setDragOverId(id);
+  };
+
+  const handleDrop = (targetId: string) => async (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOverId(null);
+    const sourceId = dragSource.current;
+    dragSource.current = null;
+    if (!sourceId || sourceId === targetId) return;
+
+    const fromIndex = pieces.findIndex((p) => p.id === sourceId);
+    const toIndex = pieces.findIndex((p) => p.id === targetId);
+    if (fromIndex < 0 || toIndex < 0) return;
+
+    const previous = pieces;
+    const next = [...pieces];
+    const [moved] = next.splice(fromIndex, 1);
+    next.splice(toIndex, 0, moved);
+    setPieces(next);
+
+    try {
+      await axios.patch(`/api/projects/${projectId}/pieces/reorder`, {
+        order: next.map((p) => p.id),
+      });
+    } catch (err) {
+      console.error('Reorder pieces failed', err);
+      toast.error('Could not save new order');
+      setPieces(previous);
+    }
+  };
+
   const completedCount = pieces.filter((p) => p.status === 'completed').length;
 
   return (
@@ -119,6 +164,11 @@ export default function PiecesSection({ projectId, initialPieces }: Props) {
           <PieceRow
             key={piece.id}
             piece={piece}
+            isDragOver={dragOverId === piece.id}
+            onDragStart={handleDragStart(piece.id)}
+            onDragOver={handleDragOver(piece.id)}
+            onDragLeave={() => setDragOverId(null)}
+            onDrop={handleDrop(piece.id)}
             onRename={(name) => handleRename(piece.id, name)}
             onStatusChange={(s) => handleStatusChange(piece.id, s)}
             onDelete={() => handleDelete(piece.id)}
@@ -178,17 +228,28 @@ export default function PiecesSection({ projectId, initialPieces }: Props) {
 
 function PieceRow({
   piece,
+  isDragOver,
+  onDragStart,
+  onDragOver,
+  onDragLeave,
+  onDrop,
   onRename,
   onStatusChange,
   onDelete,
 }: {
   piece: ProjectPiece;
+  isDragOver: boolean;
+  onDragStart: (e: React.DragEvent) => void;
+  onDragOver: (e: React.DragEvent) => void;
+  onDragLeave: () => void;
+  onDrop: (e: React.DragEvent) => void;
   onRename: (name: string) => void;
   onStatusChange: (s: PieceStatus) => void;
   onDelete: () => void;
 }) {
   const [editingName, setEditingName] = useState(false);
   const [draftName, setDraftName] = useState(piece.name);
+  const [isDraggable, setIsDraggable] = useState(false);
 
   const commitName = () => {
     setEditingName(false);
@@ -200,7 +261,29 @@ function PieceRow({
   };
 
   return (
-    <div className="flex items-center gap-3 py-2 border-b border-gray-100 last:border-0">
+    <div
+      draggable={isDraggable}
+      onDragStart={onDragStart}
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
+      className={`flex items-center gap-3 py-2 border-b border-gray-100 last:border-0 ${
+        isDragOver ? 'bg-purple-50 border-purple-300 border-2 rounded' : ''
+      }`}
+    >
+      {/* Drag handle — only this element activates draggable so input/select stay clickable */}
+      <button
+        type="button"
+        onMouseDown={() => setIsDraggable(true)}
+        onMouseUp={() => setIsDraggable(false)}
+        onMouseLeave={() => setIsDraggable(false)}
+        className="p-1 text-gray-400 hover:text-gray-700 cursor-grab active:cursor-grabbing"
+        title="Drag to reorder"
+        aria-label="Drag to reorder piece"
+      >
+        <FiMenu className="h-4 w-4" />
+      </button>
+
       <span className="text-xs uppercase tracking-wide text-gray-400 w-16 truncate" title={piece.type}>
         {piece.type}
       </span>
