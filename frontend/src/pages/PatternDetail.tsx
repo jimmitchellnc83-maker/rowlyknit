@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { FiArrowLeft, FiEdit2, FiTrash2, FiFileText, FiGrid, FiTool, FiBook } from 'react-icons/fi';
+import { FiArrowLeft, FiEdit2, FiTrash2, FiFileText, FiGrid, FiTool, FiBook, FiCheckCircle } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { PDFCollation } from '../components/patterns';
 import PatternFileUpload from '../components/PatternFileUpload';
 import BookmarkManager from '../components/patterns/BookmarkManager';
 import PatternViewer from '../components/patterns/PatternViewer';
+import FeasibilityPanel from '../components/patterns/FeasibilityPanel';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ConfirmModal from '../components/ConfirmModal';
 import { ChartImageUpload } from '../components/charts';
@@ -80,7 +81,7 @@ export default function PatternDetail() {
   const [annotations, setAnnotations] = useState<any[]>([]);
   const [newSectionName, setNewSectionName] = useState('');
   const [newAnnotationText, setNewAnnotationText] = useState('');
-  const [activeTab, setActiveTab] = useState<'overview' | 'viewer' | 'charts' | 'tools'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'viewer' | 'charts' | 'tools' | 'feasibility'>('overview');
   const [selectedPdfFile, setSelectedPdfFile] = useState<PatternFile | null>(null);
   const [formData, setFormData] = useState({
     name: '',
@@ -390,6 +391,19 @@ export default function PatternDetail() {
                 <span className="hidden sm:inline">Tools</span>
               </div>
             </button>
+            <button
+              onClick={() => setActiveTab('feasibility')}
+              className={`px-4 md:px-6 py-4 md:py-3 text-sm md:text-base font-medium border-b-2 whitespace-nowrap flex-shrink-0 ${
+                activeTab === 'feasibility'
+                  ? 'border-purple-600 text-purple-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <FiCheckCircle className="h-5 w-5 md:h-4 md:w-4" />
+                <span className="hidden sm:inline">Feasibility</span>
+              </div>
+            </button>
           </nav>
         </div>
       </div>
@@ -667,6 +681,11 @@ export default function PatternDetail() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Feasibility Tab */}
+      {activeTab === 'feasibility' && id && (
+        <FeasibilityPanel patternId={id} />
       )}
 
       {/* Edit Modal */}
