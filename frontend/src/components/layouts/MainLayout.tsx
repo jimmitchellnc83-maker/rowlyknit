@@ -56,7 +56,7 @@ function MainLayoutInner() {
     { name: 'Patterns', href: '/patterns', icon: FiBook, shortName: 'Patterns' },
     { name: 'Yarn Stash', href: '/yarn', icon: FiPackage, shortName: 'Stash' },
     { name: 'Tools', href: '/tools', icon: FiTool, shortName: 'Tools' },
-    { name: 'Calculators', href: '/calculators', icon: FiGrid, shortName: 'Calc' },
+    { name: 'AI Helpers', href: '/calculators', icon: FiGrid, shortName: 'AI' },
     { name: 'Recipients', href: '/recipients', icon: FiUsers, shortName: 'Recipients' },
   ];
 

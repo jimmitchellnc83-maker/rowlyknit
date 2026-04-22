@@ -193,14 +193,15 @@ export default function GaugeCalculator() {
           className="inline-flex items-center text-purple-600 hover:text-purple-700"
         >
           <FiArrowLeft className="mr-2 h-4 w-4" />
-          Back to Calculators
+          Back to AI Helpers
         </Link>
         <h1 className="mt-2 text-2xl font-bold text-gray-900 dark:text-gray-100 md:text-3xl">
           Gauge Calculator
         </h1>
         <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-          Enter your pattern&apos;s target gauge and your swatch measurements to see whether
-          you&apos;re on-gauge, and how much your finished piece will drift if you aren&apos;t.
+          Your smart gauge helper. Enter the pattern&apos;s target gauge and your swatch
+          measurements — we&apos;ll call the needle change, row/stitch drift, and finished-dimension
+          delta.
         </p>
       </div>
 

@@ -183,14 +183,14 @@ export default function YarnSubstitutionCalculator() {
           className="inline-flex items-center text-purple-600 hover:text-purple-700"
         >
           <FiArrowLeft className="mr-2 h-4 w-4" />
-          Back to Calculators
+          Back to AI Helpers
         </Link>
         <h1 className="mt-2 text-2xl font-bold text-gray-900 dark:text-gray-100 md:text-3xl">
-          Yarn Substitution Calculator
+          Yarn Substitution Helper
         </h1>
         <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-          Describe the yarn a pattern calls for, and we&apos;ll rank your stash by how well each
-          option could stand in for it.
+          Describe the yarn a pattern calls for, and our smart matcher ranks your stash by how
+          well each option could stand in for it — weight, fiber, and yardage all scored.
         </p>
       </div>
 
