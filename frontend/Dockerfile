@@ -20,8 +20,13 @@ COPY . .
 ARG VITE_API_URL
 ENV VITE_API_URL=$VITE_API_URL
 
-# Build application
-RUN npm run build
+# Build application.
+# `NODE_OPTIONS=--max-old-space-size=1536` raises the V8 old-space ceiling
+# from its default (~0.5–1 GB) so tsc + vite can fit the project's module
+# graph on the 2 GB droplet. Tesseract.js and @zxing/library each pull in
+# hundreds of type-declaration / bundle modules; without the bump, the
+# build SIGABRTs during type-checking (see PR #106 post-mortem).
+RUN NODE_OPTIONS=--max-old-space-size=1536 npm run build
 
 # Production stage
 FROM nginx:alpine
