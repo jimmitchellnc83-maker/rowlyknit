@@ -19,9 +19,9 @@ const CALCULATORS: CalculatorLink[] = [
   {
     title: 'Yarn Substitution Calculator',
     description:
-      "Find yarns in your stash (or the Ravelry database) that would work as a substitute for a pattern's suggested yarn — by weight, fiber, and yardage.",
+      "Describe a yarn you'd like to substitute for and rank your stash by how well each option matches on weight, fiber, and yardage.",
     href: '/calculators/yarn-sub',
-    available: false,
+    available: true,
   },
   {
     title: 'Gift Size Calculator',

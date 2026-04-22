@@ -135,6 +135,90 @@ const METERS_TO_YARDS = 1.09361;
 const TOOL_TOLERANCE_GREEN_MM = 0.01;
 const TOOL_TOLERANCE_YELLOW_MM = 0.25;
 
+/** Canonical weight names for UI dropdowns / API validation. */
+export const YARN_WEIGHT_NAMES = WEIGHT_CATEGORIES.map((c) => c.name);
+
+/** Known fiber keywords, flattened for UI multi-select / API validation. */
+export const KNOWN_FIBERS = Object.values(FIBER_FAMILIES).flat();
+
+/**
+ * Build a ParsedYarnRequirement from structured input (weight name, fiber
+ * hints, yardage, skein count) — used by the standalone yarn-substitution
+ * endpoint where the caller supplies fields directly instead of a free-text
+ * pattern string. Re-uses the same alias lookup as the parser so callers
+ * can pass either a canonical name ("Medium") or a common alias
+ * ("worsted") and get the same result.
+ */
+export function buildYarnRequirement(input: {
+  weightName?: string | null;
+  fiberHints?: string[] | null;
+  yardage?: number | null;
+  skeinCount?: number | null;
+}): ParsedYarnRequirement {
+  let weightNumber: number | null = null;
+  let weightName: string | null = null;
+  if (input.weightName) {
+    const lower = input.weightName.toLowerCase().trim();
+    for (const cat of WEIGHT_CATEGORIES) {
+      if (
+        cat.name.toLowerCase() === lower ||
+        cat.aliases.some((a) => a.toLowerCase() === lower)
+      ) {
+        weightNumber = cat.number;
+        weightName = cat.name;
+        break;
+      }
+    }
+  }
+
+  const fiberHints = (input.fiberHints ?? [])
+    .map((f) => f.trim().toLowerCase())
+    .filter((f) => KNOWN_FIBERS.includes(f));
+
+  return {
+    totalYardage: input.yardage != null && input.yardage > 0 ? input.yardage : null,
+    weightNumber,
+    weightName,
+    fiberHints,
+    skeinCount: input.skeinCount != null && input.skeinCount > 0 ? input.skeinCount : null,
+    rawText: null,
+  };
+}
+
+/**
+ * Score the user's stash against a standalone yarn requirement and return a
+ * ready-to-render result. Thin orchestrator around matchYarn — kept here so
+ * both the feasibility flow and the standalone yarn-substitution endpoint
+ * share identical matching semantics.
+ */
+export async function findYarnSubstitutions(
+  userId: string,
+  input: {
+    weightName?: string | null;
+    fiberHints?: string[] | null;
+    yardage?: number | null;
+    skeinCount?: number | null;
+  },
+): Promise<YarnRequirementResult> {
+  const stash = await db('yarn')
+    .where({ user_id: userId })
+    .whereNull('deleted_at')
+    .select(
+      'id',
+      'name',
+      'brand',
+      'weight',
+      'fiber_content',
+      'yards_remaining',
+      'dye_lot',
+      'color',
+      'is_stash',
+    );
+
+  const req = buildYarnRequirement(input);
+  return matchYarn(req, stash as YarnStashRow[]);
+}
+
 // ---------------------------------------------------------------------------
 // Parsers (pure)
 // ---------------------------------------------------------------------------

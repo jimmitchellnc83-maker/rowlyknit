@@ -18,6 +18,27 @@ router.get(
 
 router.get('/stats', asyncHandler(yarnController.getYarnStats));
 
+/**
+ * @route   POST /api/yarn/substitutions
+ * @desc    Score the user's stash against a standalone yarn spec
+ *          (weight / fibers / yardage / skein count). Returns
+ *          traffic-light-ranked candidates using the same matcher as
+ *          the pattern feasibility check.
+ * @access  Private
+ */
+router.post(
+  '/substitutions',
+  [
+    body('weightName').optional({ values: 'null' }).isString().isLength({ max: 50 }),
+    body('fiberHints').optional({ values: 'null' }).isArray(),
+    body('fiberHints.*').optional().isString().isLength({ max: 30 }),
+    body('yardage').optional({ values: 'falsy' }).isNumeric(),
+    body('skeinCount').optional({ values: 'falsy' }).isNumeric(),
+  ],
+  validate,
+  asyncHandler(yarnController.getYarnSubstitutions)
+);
+
 router.get(
   '/:id',
   validateUUID('id'),

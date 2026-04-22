@@ -19,6 +19,7 @@ import YarnDetail from './pages/YarnDetail';
 import Tools from './pages/Tools';
 import Calculators from './pages/Calculators';
 import GaugeCalculator from './pages/GaugeCalculator';
+import YarnSubstitutionCalculator from './pages/YarnSubstitutionCalculator';
 import Recipients from './pages/Recipients';
 import Profile from './pages/Profile';
 import Stats from './pages/Stats';
@@ -105,6 +106,7 @@ function App() {
         <Route path="/tools" element={<Tools />} />
         <Route path="/calculators" element={<Calculators />} />
         <Route path="/calculators/gauge" element={<ErrorBoundary><GaugeCalculator /></ErrorBoundary>} />
+        <Route path="/calculators/yarn-sub" element={<ErrorBoundary><YarnSubstitutionCalculator /></ErrorBoundary>} />
         <Route path="/recipients" element={<Recipients />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/auth/ravelry/callback" element={<RavelryCallback />} />

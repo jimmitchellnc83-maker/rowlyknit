@@ -20,6 +20,9 @@ import {
   matchYarn,
   matchTools,
   buildShoppingList,
+  buildYarnRequirement,
+  YARN_WEIGHT_NAMES,
+  KNOWN_FIBERS,
   YarnStashRow,
   ToolRow,
   YarnRequirementResult,
@@ -389,5 +392,69 @@ describe('buildShoppingList', () => {
     };
     const list = buildShoppingList(yarnResult, tools);
     expect(list.filter((i) => i.kind === 'tool')).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// buildYarnRequirement — used by the standalone yarn-substitution endpoint
+// ---------------------------------------------------------------------------
+
+describe('buildYarnRequirement', () => {
+  it('maps canonical weight names to weightNumber + weightName', () => {
+    const r = buildYarnRequirement({ weightName: 'Medium' });
+    expect(r.weightNumber).toBe(4);
+    expect(r.weightName).toBe('Medium');
+  });
+
+  it('accepts common aliases like "worsted"', () => {
+    const r = buildYarnRequirement({ weightName: 'worsted' });
+    expect(r.weightNumber).toBe(4);
+    expect(r.weightName).toBe('Medium');
+  });
+
+  it('returns nulls for unknown weight', () => {
+    const r = buildYarnRequirement({ weightName: 'gigachunk' });
+    expect(r.weightNumber).toBeNull();
+    expect(r.weightName).toBeNull();
+  });
+
+  it('filters fiber hints to known keywords', () => {
+    const r = buildYarnRequirement({ fiberHints: ['wool', 'cotton', 'unicorn-hair'] });
+    expect(r.fiberHints.sort()).toEqual(['cotton', 'wool']);
+  });
+
+  it('normalizes fiber hints to lowercase', () => {
+    const r = buildYarnRequirement({ fiberHints: ['Wool', 'COTTON'] });
+    expect(r.fiberHints.sort()).toEqual(['cotton', 'wool']);
+  });
+
+  it('treats non-positive yardage as null', () => {
+    expect(buildYarnRequirement({ yardage: 0 }).totalYardage).toBeNull();
+    expect(buildYarnRequirement({ yardage: -100 }).totalYardage).toBeNull();
+    expect(buildYarnRequirement({ yardage: 800 }).totalYardage).toBe(800);
+  });
+
+  it('preserves skein count when positive', () => {
+    expect(buildYarnRequirement({ skeinCount: 3 }).skeinCount).toBe(3);
+    expect(buildYarnRequirement({ skeinCount: 0 }).skeinCount).toBeNull();
+  });
+
+  it('exports all 8 CYC canonical weight names', () => {
+    expect(YARN_WEIGHT_NAMES).toEqual([
+      'Lace',
+      'Super Fine',
+      'Fine',
+      'Light',
+      'Medium',
+      'Bulky',
+      'Super Bulky',
+      'Jumbo',
+    ]);
+  });
+
+  it('exports known fibers list non-empty', () => {
+    expect(KNOWN_FIBERS).toContain('wool');
+    expect(KNOWN_FIBERS).toContain('cotton');
+    expect(KNOWN_FIBERS).toContain('acrylic');
   });
 });
