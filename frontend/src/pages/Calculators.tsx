@@ -26,9 +26,9 @@ const CALCULATORS: CalculatorLink[] = [
   {
     title: 'Gift Size Calculator',
     description:
-      'Convert body measurements and ease into a recommended size across common pattern sizing schemes.',
+      'Enter a chest or bust measurement and a fit style; get a recommended size across common women, men, children, and baby sizing schemes.',
     href: '/calculators/gift-size',
-    available: false,
+    available: true,
   },
 ];
 
