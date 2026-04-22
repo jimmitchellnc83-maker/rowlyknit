@@ -1,23 +1,28 @@
 import { useEffect, useMemo, useState } from 'react';
 import { FiTool, FiInfo, FiGrid, FiSquare } from 'react-icons/fi';
 import {
+  computeBlanket,
   computeBodyBlock,
   computeHat,
+  computeScarf,
   computeSleeve,
   toInches,
+  type BlanketInput,
   type BodyBlockInput,
   type HatInput,
+  type ScarfInput,
   type SleeveInput,
   type MeasurementUnit,
 } from '../utils/designerMath';
 import BodySchematic from '../components/designer/BodySchematic';
 import HatSchematic from '../components/designer/HatSchematic';
+import RectSchematic from '../components/designer/RectSchematic';
 import SleeveSchematic from '../components/designer/SleeveSchematic';
 import PageHelpButton from '../components/PageHelpButton';
 
 type NumField = number | '';
 type DesignerSection = 'body' | 'sleeve';
-type ItemType = 'sweater' | 'hat';
+type ItemType = 'sweater' | 'hat' | 'scarf' | 'blanket';
 
 interface ItemTypeOption {
   value: ItemType | string;
@@ -31,11 +36,11 @@ interface ItemTypeOption {
 const ITEM_TYPE_OPTIONS: ItemTypeOption[] = [
   { value: 'sweater', label: 'Sweater' },
   { value: 'hat', label: 'Hat' },
-  { value: 'scarf', label: 'Scarf (coming soon)', disabled: true },
+  { value: 'scarf', label: 'Scarf' },
+  { value: 'blanket', label: 'Blanket' },
   { value: 'mittens', label: 'Mittens (coming soon)', disabled: true },
   { value: 'socks', label: 'Socks (coming soon)', disabled: true },
   { value: 'shawl', label: 'Shawl (coming soon)', disabled: true },
-  { value: 'blanket', label: 'Blanket (coming soon)', disabled: true },
 ];
 
 interface DesignerForm {
@@ -53,6 +58,16 @@ interface DesignerForm {
   hatTotalHeight: NumField;
   hatBrimDepth: NumField;
   hatCrownHeight: NumField;
+
+  // Scarf
+  scarfWidth: NumField;
+  scarfLength: NumField;
+  scarfFringeLength: NumField;
+
+  // Blanket
+  blanketWidth: NumField;
+  blanketLength: NumField;
+  blanketBorderDepth: NumField;
 
   // Body block
   chestCircumference: NumField;
@@ -98,6 +113,14 @@ const DEFAULT_FORM: DesignerForm = {
   hatTotalHeight: 9,
   hatBrimDepth: 2,
   hatCrownHeight: 2.5,
+
+  scarfWidth: 8,
+  scarfLength: 60,
+  scarfFringeLength: 0,
+
+  blanketWidth: 40,
+  blanketLength: 50,
+  blanketBorderDepth: 1.5,
 
   chestCircumference: 36,
   easeAtChest: 4,
@@ -190,6 +213,38 @@ function buildHatInput(f: DesignerForm): HatInput {
     totalHeight: toInches(f.hatTotalHeight as number, f.unit),
     brimDepth: toInches(f.hatBrimDepth as number, f.unit),
     crownHeight: toInches(f.hatCrownHeight as number, f.unit),
+  };
+}
+
+function scarfReady(f: DesignerForm): boolean {
+  if (!gaugeReady(f)) return false;
+  if (!isPositive(f.scarfWidth) || !isPositive(f.scarfLength)) return false;
+  if (!isFiniteNum(f.scarfFringeLength)) return false;
+  return true;
+}
+
+function buildScarfInput(f: DesignerForm): ScarfInput {
+  return {
+    gauge: normalizedGauge(f),
+    width: toInches(f.scarfWidth as number, f.unit),
+    length: toInches(f.scarfLength as number, f.unit),
+    fringeLength: toInches(f.scarfFringeLength as number, f.unit),
+  };
+}
+
+function blanketReady(f: DesignerForm): boolean {
+  if (!gaugeReady(f)) return false;
+  if (!isPositive(f.blanketWidth) || !isPositive(f.blanketLength)) return false;
+  if (!isFiniteNum(f.blanketBorderDepth)) return false;
+  return true;
+}
+
+function buildBlanketInput(f: DesignerForm): BlanketInput {
+  return {
+    gauge: normalizedGauge(f),
+    width: toInches(f.blanketWidth as number, f.unit),
+    length: toInches(f.blanketLength as number, f.unit),
+    borderDepth: toInches(f.blanketBorderDepth as number, f.unit),
   };
 }
 
@@ -381,6 +436,26 @@ export default function PatternDesigner() {
       return computeHat(buildHatInput(form));
     } catch (e) {
       console.error('[Designer] hat compute error:', e);
+      return null;
+    }
+  }, [form]);
+
+  const scarfOutput = useMemo(() => {
+    if (!scarfReady(form)) return null;
+    try {
+      return computeScarf(buildScarfInput(form));
+    } catch (e) {
+      console.error('[Designer] scarf compute error:', e);
+      return null;
+    }
+  }, [form]);
+
+  const blanketOutput = useMemo(() => {
+    if (!blanketReady(form)) return null;
+    try {
+      return computeBlanket(buildBlanketInput(form));
+    } catch (e) {
+      console.error('[Designer] blanket compute error:', e);
       return null;
     }
   }, [form]);
@@ -786,6 +861,72 @@ export default function PatternDesigner() {
               </p>
             </section>
           )}
+
+          {form.itemType === 'scarf' && (
+            <section className="rounded-lg bg-white p-4 shadow dark:bg-gray-800 md:p-6">
+              <h2 className="mb-3 text-lg font-semibold text-gray-900 dark:text-gray-100">Scarf</h2>
+              <div className="grid grid-cols-2 gap-3">
+                <NumberInput
+                  label="Width"
+                  value={form.scarfWidth}
+                  onChange={(v) => update('scarfWidth', v)}
+                  step={0.5}
+                  suffix={unitLabel}
+                />
+                <NumberInput
+                  label="Length"
+                  value={form.scarfLength}
+                  onChange={(v) => update('scarfLength', v)}
+                  step={1}
+                  suffix={unitLabel}
+                />
+                <NumberInput
+                  label="Fringe length per side"
+                  value={form.scarfFringeLength}
+                  onChange={(v) => update('scarfFringeLength', v)}
+                  step={0.5}
+                  suffix={unitLabel}
+                />
+              </div>
+              <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+                Set fringe to 0 to skip it. Scarves look best in reversible stitches (garter, ribbed,
+                or double-knit) so the back doesn't look messy when the scarf twists.
+              </p>
+            </section>
+          )}
+
+          {form.itemType === 'blanket' && (
+            <section className="rounded-lg bg-white p-4 shadow dark:bg-gray-800 md:p-6">
+              <h2 className="mb-3 text-lg font-semibold text-gray-900 dark:text-gray-100">Blanket</h2>
+              <div className="grid grid-cols-2 gap-3">
+                <NumberInput
+                  label="Width"
+                  value={form.blanketWidth}
+                  onChange={(v) => update('blanketWidth', v)}
+                  step={1}
+                  suffix={unitLabel}
+                />
+                <NumberInput
+                  label="Length"
+                  value={form.blanketLength}
+                  onChange={(v) => update('blanketLength', v)}
+                  step={1}
+                  suffix={unitLabel}
+                />
+                <NumberInput
+                  label="Border depth"
+                  value={form.blanketBorderDepth}
+                  onChange={(v) => update('blanketBorderDepth', v)}
+                  step={0.25}
+                  suffix={unitLabel}
+                />
+              </div>
+              <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+                A border in garter or seed stitch keeps the edges from curling. Set border depth to 0
+                to skip. Typical baby blanket: 30×36 in; throw: 48×60 in; twin: 66×90 in.
+              </p>
+            </section>
+          )}
         </div>
 
         {/* Preview */}
@@ -795,12 +936,36 @@ export default function PatternDesigner() {
               Schematic —{' '}
               {form.itemType === 'hat'
                 ? 'Hat'
-                : form.activeSection === 'body'
-                  ? 'Body block'
-                  : 'Sleeve'}
+                : form.itemType === 'scarf'
+                  ? 'Scarf'
+                  : form.itemType === 'blanket'
+                    ? 'Blanket'
+                    : form.activeSection === 'body'
+                      ? 'Body block'
+                      : 'Sleeve'}
             </h2>
             {form.itemType === 'hat' && hatOutput ? (
               <HatSchematic output={hatOutput} />
+            ) : form.itemType === 'scarf' && scarfOutput ? (
+              <RectSchematic
+                label="Scarf"
+                accent="purple"
+                widthInches={scarfOutput.finishedWidth}
+                lengthInches={scarfOutput.finishedLength}
+                castOnStitches={scarfOutput.castOnStitches}
+                fringeInches={scarfOutput.fringeLength}
+              />
+            ) : form.itemType === 'blanket' && blanketOutput ? (
+              <RectSchematic
+                label="Blanket"
+                accent="green"
+                widthInches={blanketOutput.finishedWidth}
+                lengthInches={blanketOutput.finishedLength}
+                castOnStitches={blanketOutput.castOnStitches}
+                borderInches={
+                  typeof form.blanketBorderDepth === 'number' ? form.blanketBorderDepth : 0
+                }
+              />
             ) : form.itemType === 'sweater' && form.activeSection === 'body' && bodyOutput ? (
               <BodySchematic input={buildBodyInput(form)} output={bodyOutput} />
             ) : form.itemType === 'sweater' && form.activeSection === 'sleeve' && sleeveOutput ? (
@@ -825,6 +990,18 @@ export default function PatternDesigner() {
                   <StepCard key={`hat-${i}`} step={step} />
                 ))}
               </div>
+            ) : form.itemType === 'scarf' && scarfOutput ? (
+              <div className="space-y-3">
+                {scarfOutput.steps.map((step, i) => (
+                  <StepCard key={`scarf-${i}`} step={step} />
+                ))}
+              </div>
+            ) : form.itemType === 'blanket' && blanketOutput ? (
+              <div className="space-y-3">
+                {blanketOutput.steps.map((step, i) => (
+                  <StepCard key={`blanket-${i}`} step={step} />
+                ))}
+              </div>
             ) : form.itemType === 'sweater' && form.activeSection === 'body' && bodyOutput ? (
               <div className="space-y-3">
                 {bodyOutput.steps.map((step, i) => (
@@ -844,8 +1021,8 @@ export default function PatternDesigner() {
 
           <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs text-blue-800 dark:border-blue-900/30 dark:bg-blue-900/20 dark:text-blue-200">
             <FiInfo className="mr-1 inline h-3 w-3" />
-            Supported item types so far: sweater (body, sleeve, armhole, neckline, cap) and hat
-            (brim, body, crown). Scarf, mittens, socks, shawl, blanket coming in follow-up PRs.
+            Supported item types: sweater, hat, scarf, blanket. Mittens, socks, and shawl coming
+            in follow-up PRs.
           </div>
         </div>
       </div>

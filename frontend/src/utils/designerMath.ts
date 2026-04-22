@@ -764,3 +764,222 @@ export function computeHat(input: HatInput): HatOutput {
     steps,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Scarf
+// ---------------------------------------------------------------------------
+
+export interface ScarfInput {
+  gauge: DesignerGauge;
+  /** Finished scarf width (inches). */
+  width: number;
+  /** Finished scarf length (inches). */
+  length: number;
+  /** Optional fringe length per side (inches). 0 = no fringe. */
+  fringeLength?: number;
+}
+
+export interface ScarfOutput {
+  castOnStitches: number;
+  totalRows: number;
+  finishedWidth: number;
+  finishedLength: number;
+  fringeLength: number;
+  steps: ShapingStep[];
+}
+
+/**
+ * The simplest item — a flat rectangle. Cast on width × gauge, knit straight
+ * for length × gauge rows, bind off. Optional knotted fringe on each end.
+ */
+export function computeScarf(input: ScarfInput): ScarfOutput {
+  const { gauge, width, length } = input;
+  const fringeLength = input.fringeLength ?? 0;
+
+  const castOnStitches = stitchesForWidth(width, gauge);
+  const totalRows = rowsForLength(length, gauge);
+
+  const steps: ShapingStep[] = [
+    {
+      label: 'Cast on',
+      startStitches: 0,
+      endStitches: castOnStitches,
+      rows: 1,
+      direction: 'none',
+      instruction:
+        `Cast on ${castOnStitches} sts. Any stretchy cast-on works — long-tail, German twisted, ` +
+        `or tubular for a neater edge.`,
+    },
+    {
+      label: 'Body',
+      startStitches: castOnStitches,
+      endStitches: castOnStitches,
+      rows: totalRows,
+      direction: 'none',
+      instruction:
+        `Work straight for ${totalRows} row${totalRows === 1 ? '' : 's'} in pattern (garter, ` +
+        `stockinette, ribbed, cabled — whatever you like). Scarves look best in reversible ` +
+        `stitches since the back shows as you wear it.`,
+    },
+    {
+      label: 'Bind off',
+      startStitches: castOnStitches,
+      endStitches: 0,
+      rows: 1,
+      direction: 'none',
+      instruction: `Bind off all ${castOnStitches} sts loosely in pattern.`,
+    },
+  ];
+
+  if (fringeLength > 0) {
+    steps.push({
+      label: 'Fringe',
+      startStitches: 0,
+      endStitches: 0,
+      rows: 0,
+      direction: 'none',
+      instruction:
+        `Cut ${castOnStitches * 4} strands of yarn, each ${round025(fringeLength * 2 + 1)} in long. ` +
+        `Fold each group of 2 strands in half, pull through a cast-on/bind-off stitch with a ` +
+        `crochet hook, and knot. Trim to even. Repeat along both short ends.`,
+    });
+  }
+
+  return {
+    castOnStitches,
+    totalRows,
+    finishedWidth: round025(width),
+    finishedLength: round025(length),
+    fringeLength: round025(fringeLength),
+    steps,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Blanket
+// ---------------------------------------------------------------------------
+
+export interface BlanketInput {
+  gauge: DesignerGauge;
+  /** Finished blanket width (inches). */
+  width: number;
+  /** Finished blanket length (inches). */
+  length: number;
+  /** Optional garter or seed-stitch border depth (inches). 0 = no border. */
+  borderDepth?: number;
+}
+
+export interface BlanketOutput {
+  castOnStitches: number;
+  totalRows: number;
+  borderRows: number;
+  borderStitchesPerSide: number;
+  finishedWidth: number;
+  finishedLength: number;
+  steps: ShapingStep[];
+}
+
+/**
+ * A blanket is a big rectangle, usually with a garter or seed-stitch border
+ * so the edges don't curl. Math: cast on (width × gauge), work border rows
+ * straight, then body in pattern with border-stitches-per-side held in the
+ * border stitch, then mirror border rows at top.
+ */
+export function computeBlanket(input: BlanketInput): BlanketOutput {
+  const { gauge, width, length } = input;
+  const borderDepth = input.borderDepth ?? 0;
+
+  const castOnStitches = stitchesForWidth(width, gauge);
+  const totalRows = rowsForLength(length, gauge);
+  const borderRows = rowsForLength(borderDepth, gauge);
+  const borderStitchesPerSide = borderDepth > 0 ? stitchesForWidth(borderDepth, gauge, false) : 0;
+
+  const bodyRows = Math.max(0, totalRows - 2 * borderRows);
+
+  const steps: ShapingStep[] = [];
+
+  steps.push({
+    label: 'Cast on',
+    startStitches: 0,
+    endStitches: castOnStitches,
+    rows: 1,
+    direction: 'none',
+    instruction:
+      `Cast on ${castOnStitches} sts using a stretchy method that won't pull in ` +
+      `(long-tail or knitted cast-on both work well for blankets).`,
+  });
+
+  if (borderRows > 0) {
+    steps.push({
+      label: 'Bottom border',
+      startStitches: castOnStitches,
+      endStitches: castOnStitches,
+      rows: borderRows,
+      direction: 'none',
+      instruction:
+        `Work ${borderRows} row${borderRows === 1 ? '' : 's'} in border pattern (garter, seed, ` +
+        `or linen stitch) across all sts.`,
+    });
+  }
+
+  if (bodyRows > 0) {
+    if (borderStitchesPerSide > 0) {
+      steps.push({
+        label: 'Body with side borders',
+        startStitches: castOnStitches,
+        endStitches: castOnStitches,
+        rows: bodyRows,
+        direction: 'none',
+        instruction:
+          `Work ${bodyRows} row${bodyRows === 1 ? '' : 's'}: ${borderStitchesPerSide} sts in border ` +
+          `pattern, ${castOnStitches - 2 * borderStitchesPerSide} sts in main pattern, ` +
+          `${borderStitchesPerSide} sts in border pattern. Keep the sides in border through the body ` +
+          `to prevent curling.`,
+      });
+    } else {
+      steps.push({
+        label: 'Body',
+        startStitches: castOnStitches,
+        endStitches: castOnStitches,
+        rows: bodyRows,
+        direction: 'none',
+        instruction:
+          `Work ${bodyRows} row${bodyRows === 1 ? '' : 's'} straight in main pattern.`,
+      });
+    }
+  }
+
+  if (borderRows > 0) {
+    steps.push({
+      label: 'Top border',
+      startStitches: castOnStitches,
+      endStitches: castOnStitches,
+      rows: borderRows,
+      direction: 'none',
+      instruction:
+        `Mirror the bottom border: ${borderRows} row${borderRows === 1 ? '' : 's'} in border ` +
+        `pattern across all sts.`,
+    });
+  }
+
+  steps.push({
+    label: 'Bind off',
+    startStitches: castOnStitches,
+    endStitches: 0,
+    rows: 1,
+    direction: 'none',
+    instruction:
+      `Bind off all ${castOnStitches} sts loosely in border pattern. A stretchy ` +
+      `bind-off (Jeny's Surprisingly Stretchy or i-cord) keeps the top edge from pulling in.`,
+  });
+
+  return {
+    castOnStitches,
+    totalRows,
+    borderRows,
+    borderStitchesPerSide,
+    finishedWidth: round025(width),
+    finishedLength: round025(length),
+    steps,
+  };
+}

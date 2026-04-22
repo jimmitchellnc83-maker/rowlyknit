@@ -1,13 +1,17 @@
 import { describe, it, expect } from 'vitest';
 import {
   buildShapingFormula,
+  computeBlanket,
   computeBodyBlock,
   computeHat,
+  computeScarf,
   computeSleeve,
   toInches,
+  type BlanketInput,
   type BodyBlockInput,
   type DesignerGauge,
   type HatInput,
+  type ScarfInput,
   type SleeveInput,
 } from './designerMath';
 
@@ -476,5 +480,89 @@ describe('computeHat', () => {
     const out = computeHat({ ...baseInput, headCircumference: 2, negativeEaseAtBrim: 1 });
     // finishedCirc = 1 in → very small but positive, doesn't throw
     expect(out.castOnStitches).toBeGreaterThan(0);
+  });
+});
+
+describe('computeScarf', () => {
+  const baseInput: ScarfInput = {
+    gauge: STANDARD_GAUGE,
+    width: 8,
+    length: 60,
+  };
+
+  it('casts on width × gauge stitches rounded to even', () => {
+    const out = computeScarf(baseInput);
+    // 8 in × 5 sts/in = 40 sts
+    expect(out.castOnStitches).toBe(40);
+  });
+
+  it('computes total rows from length × gauge', () => {
+    const out = computeScarf(baseInput);
+    // 60 in × 7 rows/in = 420 rows
+    expect(out.totalRows).toBe(420);
+  });
+
+  it('produces cast-on / body / bind-off steps', () => {
+    const out = computeScarf(baseInput);
+    const labels = out.steps.map((s) => s.label);
+    expect(labels).toEqual(['Cast on', 'Body', 'Bind off']);
+  });
+
+  it('adds fringe instructions when requested', () => {
+    const out = computeScarf({ ...baseInput, fringeLength: 4 });
+    const fringe = out.steps.find((s) => s.label === 'Fringe');
+    expect(fringe).toBeTruthy();
+    expect(fringe!.instruction).toMatch(/crochet hook/i);
+  });
+
+  it('skips fringe when length is 0 or omitted', () => {
+    expect(computeScarf(baseInput).steps.some((s) => s.label === 'Fringe')).toBe(false);
+    expect(computeScarf({ ...baseInput, fringeLength: 0 }).steps.some((s) => s.label === 'Fringe')).toBe(false);
+  });
+});
+
+describe('computeBlanket', () => {
+  const baseInput: BlanketInput = {
+    gauge: STANDARD_GAUGE,
+    width: 40,
+    length: 50,
+    borderDepth: 1.5,
+  };
+
+  it('casts on width × gauge stitches rounded to even', () => {
+    const out = computeBlanket(baseInput);
+    // 40 in × 5 sts/in = 200 sts
+    expect(out.castOnStitches).toBe(200);
+  });
+
+  it('reserves border stitches per side based on border depth', () => {
+    const out = computeBlanket(baseInput);
+    // 1.5 in × 5 sts/in = 7.5 → rounded = 8
+    expect(out.borderStitchesPerSide).toBe(8);
+  });
+
+  it('emits cast-on, bottom border, body, top border, bind-off', () => {
+    const out = computeBlanket(baseInput);
+    const labels = out.steps.map((s) => s.label);
+    expect(labels).toEqual([
+      'Cast on',
+      'Bottom border',
+      'Body with side borders',
+      'Top border',
+      'Bind off',
+    ]);
+  });
+
+  it('body instruction references all three pattern stretches', () => {
+    const out = computeBlanket(baseInput);
+    const body = out.steps.find((s) => s.label === 'Body with side borders')!;
+    expect(body.instruction).toMatch(/border pattern.*main pattern.*border pattern/);
+  });
+
+  it('skips borders entirely when borderDepth is 0', () => {
+    const out = computeBlanket({ ...baseInput, borderDepth: 0 });
+    const labels = out.steps.map((s) => s.label);
+    expect(labels).toEqual(['Cast on', 'Body', 'Bind off']);
+    expect(out.borderStitchesPerSide).toBe(0);
   });
 });
