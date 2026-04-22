@@ -310,3 +310,118 @@ export function computeBodyBlock(input: BodyBlockInput): BodyBlockOutput {
     steps,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Sleeve
+// ---------------------------------------------------------------------------
+
+export interface SleeveInput {
+  gauge: DesignerGauge;
+  /** Wrist/cuff circumference (inches). */
+  cuffCircumference: number;
+  /** Positive ease = roomier cuff. */
+  easeAtCuff: number;
+  /** Upper-arm (bicep) circumference. */
+  bicepCircumference: number;
+  /** Ease at the bicep — usually tighter than the body for mobility. */
+  easeAtBicep: number;
+  /** Total sleeve length from cuff edge to underarm (inches). */
+  cuffToUnderarmLength: number;
+  /** Ribbing / cuff depth where no shaping happens (inches). */
+  cuffDepth: number;
+}
+
+export interface SleeveOutput {
+  castOnStitches: number;
+  bicepStitches: number;
+  totalRows: number;
+  cuffRows: number;
+  finishedCuff: number;
+  finishedBicep: number;
+  finishedLength: number;
+  /** Knit-order: cuff cast-on → cuff ribbing → taper → bicep bind-off. */
+  steps: ShapingStep[];
+}
+
+/**
+ * A simple tapered sleeve — cuff at the bottom, gradually increases to the
+ * bicep just below the underarm. v1 stops at the underarm; sleeve-cap
+ * shaping (which connects to the yoke/armhole) comes in the yoke PR so we
+ * can model the cap against a known armhole depth.
+ *
+ * Assumes flat-knit symmetric seam shaping (increase 1 st each end every N
+ * rows). In-the-round sleeves use the same formula with the caveat that
+ * "each end" means at the underarm stitch on each side of the marker —
+ * the pattern language is identical.
+ */
+export function computeSleeve(input: SleeveInput): SleeveOutput {
+  const {
+    gauge,
+    cuffCircumference,
+    easeAtCuff,
+    bicepCircumference,
+    easeAtBicep,
+    cuffToUnderarmLength,
+    cuffDepth,
+  } = input;
+
+  const finishedCuff = cuffCircumference + easeAtCuff;
+  const finishedBicep = bicepCircumference + easeAtBicep;
+
+  const castOnStitches = stitchesForWidth(finishedCuff, gauge);
+  const bicepStitches = stitchesForWidth(finishedBicep, gauge);
+
+  const cuffRows = rowsForLength(cuffDepth, gauge);
+  const totalRows = rowsForLength(cuffToUnderarmLength, gauge);
+  const taperRows = Math.max(0, totalRows - cuffRows);
+
+  const steps: ShapingStep[] = [];
+
+  if (cuffRows > 0) {
+    steps.push({
+      label: 'Cuff',
+      startStitches: castOnStitches,
+      endStitches: castOnStitches,
+      rows: cuffRows,
+      direction: 'none',
+      instruction:
+        `Cast on ${castOnStitches} sts. Work in pattern (e.g. 1×1 rib) for ` +
+        `${cuffRows} row${cuffRows === 1 ? '' : 's'}.`,
+    });
+  }
+
+  if (taperRows > 0) {
+    const f = buildShapingFormula(castOnStitches, bicepStitches, taperRows, 'sleeve taper');
+    steps.push({
+      label: 'Taper to bicep',
+      startStitches: castOnStitches,
+      endStitches: bicepStitches,
+      rows: taperRows,
+      direction: f.direction,
+      instruction: f.instruction,
+    });
+  }
+
+  steps.push({
+    label: 'Underarm',
+    startStitches: bicepStitches,
+    endStitches: 0,
+    rows: 1,
+    direction: 'none',
+    instruction:
+      taperRows > 0
+        ? `Bind off all ${bicepStitches} sts (or place on a holder if joining to the body for a seamless yoke).`
+        : `Bind off all ${bicepStitches} sts.`,
+  });
+
+  return {
+    castOnStitches,
+    bicepStitches,
+    totalRows,
+    cuffRows,
+    finishedCuff: round025(finishedCuff),
+    finishedBicep: round025(finishedBicep),
+    finishedLength: round025(cuffToUnderarmLength),
+    steps,
+  };
+}
