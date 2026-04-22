@@ -645,3 +645,122 @@ export function computeSleeve(input: SleeveInput): SleeveOutput {
     steps,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Hat
+// ---------------------------------------------------------------------------
+
+export interface HatInput {
+  gauge: DesignerGauge;
+  /** Head circumference at the fullest (forehead) point (inches). */
+  headCircumference: number;
+  /** Negative ease at the brim — subtracts from head circumference for a
+   *  snug fit. Typical beanie: 1–2 in of negative ease. */
+  negativeEaseAtBrim: number;
+  /** Total hat height from cast-on to crown peak (inches). */
+  totalHeight: number;
+  /** Brim / ribbing depth from cast-on (inches). */
+  brimDepth: number;
+  /** Crown shaping section height (inches). Typical 2–3 in. */
+  crownHeight: number;
+}
+
+export interface HatOutput {
+  castOnStitches: number;
+  brimRows: number;
+  bodyRows: number;
+  crownRows: number;
+  crownEndStitches: number;
+  finishedCircumference: number;
+  finishedHeight: number;
+  steps: ShapingStep[];
+}
+
+/**
+ * A simple top-down-or-bottom-up beanie worked in the round. v1 is
+ * deliberately terse on the crown shaping — it reports the total decrease
+ * count and rough cadence guidance, leaving per-round spacing to the
+ * knitter (8 decreases every other round is the canonical pattern). More
+ * prescriptive crown formulas (star, spiral, split decreases) can layer in
+ * later once the multi-item framework is in place.
+ */
+export function computeHat(input: HatInput): HatOutput {
+  const { gauge, headCircumference, negativeEaseAtBrim, totalHeight, brimDepth, crownHeight } = input;
+
+  const finishedCircumference = Math.max(1, headCircumference - negativeEaseAtBrim);
+  const castOnStitches = stitchesForWidth(finishedCircumference, gauge);
+
+  const brimRows = rowsForLength(brimDepth, gauge);
+  const crownRows = rowsForLength(crownHeight, gauge);
+  const bodyRows = Math.max(0, rowsForLength(totalHeight, gauge) - brimRows - crownRows);
+
+  // Canonical closing stitch count — small enough to thread through with a
+  // tapestry needle and cinch shut. Round to a multiple of 8 when possible
+  // since most crown patterns use 8 decrease points.
+  const crownEndStitches = 8;
+
+  const steps: ShapingStep[] = [];
+
+  if (brimRows > 0) {
+    steps.push({
+      label: 'Brim',
+      startStitches: castOnStitches,
+      endStitches: castOnStitches,
+      rows: brimRows,
+      direction: 'none',
+      instruction:
+        `Cast on ${castOnStitches} sts and join to work in the round. Work 2×2 rib (or ` +
+        `pattern of choice) for ${brimRows} round${brimRows === 1 ? '' : 's'} ` +
+        `(~${round025(brimDepth)} in).`,
+    });
+  }
+
+  if (bodyRows > 0) {
+    steps.push({
+      label: 'Body',
+      startStitches: castOnStitches,
+      endStitches: castOnStitches,
+      rows: bodyRows,
+      direction: 'none',
+      instruction:
+        `Continue in stockinette (or pattern of choice) for ${bodyRows} round` +
+        `${bodyRows === 1 ? '' : 's'} (~${round025(totalHeight - brimDepth - crownHeight)} in).`,
+    });
+  }
+
+  const totalDecreases = Math.max(0, castOnStitches - crownEndStitches);
+  steps.push({
+    label: 'Crown decreases',
+    startStitches: castOnStitches,
+    endStitches: crownEndStitches,
+    rows: crownRows,
+    direction: 'decrease',
+    instruction:
+      `Decrease ${totalDecreases} sts evenly over ${crownRows} round` +
+      `${crownRows === 1 ? '' : 's'} (~${round025(crownHeight)} in). Common cadence: 8 ` +
+      `decrease points spaced equally around, alternated with plain rounds, tapering faster ` +
+      `as you approach the top. End with ${crownEndStitches} sts.`,
+  });
+
+  steps.push({
+    label: 'Close crown',
+    startStitches: crownEndStitches,
+    endStitches: 0,
+    rows: 1,
+    direction: 'none',
+    instruction:
+      `Cut yarn leaving a ~10 in tail. Thread through remaining ${crownEndStitches} sts and ` +
+      `pull tight to close the crown. Weave in the tail on the inside.`,
+  });
+
+  return {
+    castOnStitches,
+    brimRows,
+    bodyRows,
+    crownRows,
+    crownEndStitches,
+    finishedCircumference: round025(finishedCircumference),
+    finishedHeight: round025(totalHeight),
+    steps,
+  };
+}
