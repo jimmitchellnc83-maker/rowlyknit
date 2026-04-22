@@ -101,9 +101,10 @@ export async function getProject(req: Request, res: Response) {
   }
 
   // Get related data
-  const [photos, counters, patterns, yarn, tools] = await Promise.all([
+  const [photos, counters, pieces, patterns, yarn, tools] = await Promise.all([
     db('project_photos').where({ project_id: id }).orderBy('sort_order'),
     db('counters').where({ project_id: id }).orderBy('sort_order'),
+    db('project_pieces').where({ project_id: id }).orderBy('sort_order'),
     db('project_patterns as pp')
       .join('patterns as p', 'pp.pattern_id', 'p.id')
       .where({ 'pp.project_id': id })
@@ -125,6 +126,7 @@ export async function getProject(req: Request, res: Response) {
         ...project,
         photos,
         counters,
+        pieces,
         patterns,
         yarn,
         tools,

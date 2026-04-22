@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import CounterHierarchy from '../components/counters/CounterHierarchy';
+import PiecesSection from '../components/project-detail/PiecesSection';
 import { SessionManager } from '../components/sessions';
 import { useWebSocket } from '../contexts/WebSocketContext';
 import MagicMarkerManager from '../components/magic-markers/MagicMarkerManager';
@@ -51,6 +52,7 @@ interface Project {
   recipient_id?: string;
   photos: any[];
   counters: any[];
+  pieces?: any[];
   patterns: any[];
   yarn: any[];
   tools: any[];
@@ -497,6 +499,9 @@ export default function ProjectDetail() {
               onUpload={handlePhotoUpload}
               onDelete={handlePhotoDelete}
             />
+
+            {/* Pieces */}
+            <PiecesSection projectId={id!} initialPieces={project?.pieces} />
 
             {/* Counters */}
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
