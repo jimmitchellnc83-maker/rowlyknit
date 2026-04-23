@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { toast } from 'react-toastify';
 import ModalShell from './ModalShell';
+import FileUploadField, { hasInvalidFiles } from '../../forms/FileUploadField';
 
 export interface NewPatternData {
   name: string;
@@ -31,7 +32,10 @@ export default function UploadPatternModal({ onClose, onSubmit }: UploadPatternM
       toast.error('Please select a pattern file to upload');
       return;
     }
-
+    if (hasInvalidFiles([patternFile])) {
+      toast.error('File exceeds the 25 MB limit');
+      return;
+    }
     if (!newPatternData.name.trim()) {
       toast.error('Please enter a pattern name');
       return;
@@ -47,6 +51,11 @@ export default function UploadPatternModal({ onClose, onSubmit }: UploadPatternM
       setUploading(false);
     }
   };
+
+  const canSubmit =
+    !!patternFile &&
+    !hasInvalidFiles(patternFile ? [patternFile] : []) &&
+    newPatternData.name.trim().length > 0;
 
   return (
     <ModalShell
@@ -119,19 +128,14 @@ export default function UploadPatternModal({ onClose, onSubmit }: UploadPatternM
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Pattern File (PDF) *
           </label>
-          <input
-            type="file"
+          <FileUploadField
+            files={patternFile ? [patternFile] : []}
+            onChange={(files) => setPatternFile(files[0] ?? null)}
             accept=".pdf,application/pdf"
-            onChange={(e) => setPatternFile(e.target.files?.[0] || null)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100"
-            required
+            multiple={false}
             disabled={uploading}
+            helperText="PDF only. Encrypted PDFs need to be unlocked first."
           />
-          {patternFile && (
-            <p className="text-sm text-gray-600 mt-2">
-              Selected: {patternFile.name} ({(patternFile.size / 1024 / 1024).toFixed(2)} MB)
-            </p>
-          )}
         </div>
 
         <div className="flex gap-3 pt-4">
@@ -146,7 +150,7 @@ export default function UploadPatternModal({ onClose, onSubmit }: UploadPatternM
           <button
             type="submit"
             className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed"
-            disabled={uploading}
+            disabled={uploading || !canSubmit}
           >
             {uploading ? 'Uploading...' : 'Upload & Add to Project'}
           </button>

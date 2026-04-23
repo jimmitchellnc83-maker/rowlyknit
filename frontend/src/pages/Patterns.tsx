@@ -12,6 +12,7 @@ import { usePatterns, useCreatePattern, useUpdatePattern, useDeletePattern } fro
 import { useUndoableDelete } from '../hooks/useUndoableDelete';
 import RavelryPatternSearch, { type RavelryPatternImportData } from '../components/RavelryPatternSearch';
 import PageHelpButton from '../components/PageHelpButton';
+import FileUploadField from '../components/forms/FileUploadField';
 
 interface Pattern {
   id: string;
@@ -632,34 +633,14 @@ export default function Patterns() {
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Pattern PDF Files (Optional)
                 </label>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
-                  Upload one or more PDF files for this pattern
-                </p>
-                <input
-                  type="file"
+                <FileUploadField
+                  files={patternFiles}
+                  onChange={setPatternFiles}
                   accept=".pdf,application/pdf"
                   multiple
-                  onChange={(e) => {
-                    if (e.target.files) {
-                      setPatternFiles(Array.from(e.target.files));
-                    }
-                  }}
                   disabled={uploadingFiles}
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                  helperText="You can upload multiple PDFs — useful for patterns split across parts."
                 />
-                {patternFiles.length > 0 && (
-                  <div className="mt-3 space-y-1">
-                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Selected files ({patternFiles.length}):
-                    </p>
-                    {patternFiles.map((file, index) => (
-                      <div key={index} className="text-sm text-gray-600 dark:text-gray-400 flex items-center justify-between bg-gray-50 dark:bg-gray-900 px-3 py-2 rounded">
-                        <span>{file.name}</span>
-                        <span className="text-gray-500 dark:text-gray-400">({(file.size / 1024 / 1024).toFixed(2)} MB)</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
               </div>
 
               <div className="flex gap-3 pt-4">
