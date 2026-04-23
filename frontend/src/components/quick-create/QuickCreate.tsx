@@ -68,6 +68,7 @@ export default function QuickCreate() {
     <>
       <button
         type="button"
+        data-tour="quick-create"
         onClick={() => {
           setOpen(true);
           setActiveType(null);

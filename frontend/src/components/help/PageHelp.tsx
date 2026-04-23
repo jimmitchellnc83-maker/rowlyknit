@@ -43,6 +43,7 @@ export default function PageHelp() {
     <>
       <button
         type="button"
+        data-tour="page-help"
         onClick={() => setOpen(true)}
         aria-label={`Help for ${help.title}`}
         className="fixed bottom-24 right-4 md:bottom-4 md:right-4 z-40 flex items-center justify-center w-11 h-11 rounded-full bg-purple-600 hover:bg-purple-700 text-white shadow-lg transition-transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
