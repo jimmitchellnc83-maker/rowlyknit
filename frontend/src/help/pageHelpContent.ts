@@ -520,6 +520,138 @@ export const PAGE_HELP: PageHelpRoute[] = [
       ],
     },
   },
+  // =========================================================================
+  // Ravelry integrations
+  // =========================================================================
+  {
+    pattern: /^\/ravelry\/bookmarks\/sync$/,
+    help: {
+      title: 'Sync Ravelry bookmarks',
+      tagline: 'Import selected Ravelry bookmarks as Rowly patterns.',
+      sections: [
+        {
+          heading: 'How it works',
+          body:
+            'Pick the bookmarks you want to bring in. Rowly creates a pattern entry for each — name, designer, Ravelry link, and any metadata the API exposes. The original Ravelry page stays untouched.',
+        },
+        {
+          heading: 'What doesn\'t sync',
+          body:
+            'Ravelry doesn\'t expose the actual PDF or full pattern instructions via its API. You\'ll get the metadata + link; upload the PDF separately if you have it.',
+        },
+      ],
+    },
+  },
+  {
+    pattern: /^\/ravelry\/bookmarks$/,
+    help: {
+      title: 'Ravelry bookmarks',
+      tagline: 'Your Ravelry bookmarks, ready to sync.',
+      sections: [
+        {
+          heading: 'Browse + select',
+          body:
+            'Scroll or search your Ravelry bookmarks. Multi-select the ones you want, then tap **Sync selected** to create Rowly patterns for them.',
+        },
+        {
+          heading: 'Already-synced bookmarks',
+          body:
+            'Bookmarks that have already been imported are flagged so you don\'t re-import them.',
+        },
+      ],
+    },
+  },
+  {
+    pattern: /^\/ravelry\/stash\/sync$/,
+    help: {
+      title: 'Sync Ravelry stash',
+      tagline: 'Bring your Ravelry stash into your Rowly yarn inventory.',
+      sections: [
+        {
+          heading: 'What gets imported',
+          body:
+            'Yarn name, brand, fibre content, weight, yardage, photos (if present), and your notes. Colors and colorway are preserved. Remaining yardage is taken as-is from Ravelry.',
+        },
+        {
+          heading: 'Duplicates',
+          body:
+            'Rowly matches by Ravelry stash ID so a re-sync updates existing entries rather than creating duplicates.',
+        },
+      ],
+    },
+  },
+  {
+    pattern: /^\/ravelry\/projects\/sync$/,
+    help: {
+      title: 'Sync Ravelry projects',
+      tagline: 'Import your Ravelry projects as Rowly projects.',
+      sections: [
+        {
+          heading: 'What gets imported',
+          body:
+            'Project name, pattern link (if available), yarn used, needles, start/finish dates, and any project notes. Photos come through if Ravelry hosts them.',
+        },
+        {
+          heading: 'Linking to existing',
+          body:
+            'If a Ravelry project references a pattern already in your Rowly library, the link is preserved. Otherwise a pattern stub is created so the link survives.',
+        },
+      ],
+    },
+  },
+  {
+    pattern: /^\/ravelry\/favorites\/yarns\/sync$/,
+    help: {
+      title: 'Sync favourite yarns',
+      tagline: 'Your Ravelry-favourited yarns become shoppable references in Rowly.',
+      sections: [
+        {
+          heading: 'Why sync favourite yarns',
+          body:
+            'Unlike stash, these are yarns you\'ve starred as "want to try" or "keep an eye on". They come in as reference entries — not counted in your stash inventory, but available when planning projects.',
+        },
+      ],
+    },
+  },
+  {
+    pattern: /^\/ravelry\/favorites$/,
+    help: {
+      title: 'Ravelry favourites',
+      tagline: 'Patterns you\'ve favourited on Ravelry.',
+      sections: [
+        {
+          heading: 'What\'s here',
+          body:
+            'Every pattern you\'ve favourited on Ravelry. Multi-select + sync to create Rowly pattern entries linked back to Ravelry.',
+        },
+        {
+          heading: 'Keep in sync',
+          body:
+            'Re-syncing catches new favourites since last import. Existing patterns keep their Rowly notes, tags, and project links.',
+        },
+      ],
+    },
+  },
+  {
+    pattern: /^\/ravelry\/sync$/,
+    help: {
+      title: 'Ravelry sync',
+      tagline: 'Hub for importing from your Ravelry account.',
+      sections: [
+        {
+          heading: 'Connect first',
+          body:
+            'Go to **Profile → Ravelry** to connect. Rowly uses OAuth — your password is never sent or stored. You can revoke access at any time from Ravelry settings.',
+        },
+        {
+          heading: 'What you can sync',
+          body:
+            '**Bookmarks** → Rowly patterns.\n\n**Favourites** → Rowly patterns.\n\n**Stash** → Rowly yarn inventory.\n\n**Projects** → Rowly projects.\n\n**Favourite yarns** → reference entries.\n\nEach category has its own page for previewing + selecting before commit.',
+          tip: 'Sync is read-only — Rowly never writes back to Ravelry. Bidirectional sync is explicitly deferred.',
+        },
+      ],
+    },
+  },
   {
     pattern: /^\/help$/,
     help: {
