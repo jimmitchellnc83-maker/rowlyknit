@@ -33,6 +33,8 @@ import {
   ProjectYarnUsage,
   NeedleInventoryAlert,
   type NeedleCheckPayload,
+  ProjectRatingCard,
+  type ProjectRating,
 } from '../components/project-detail/sidebar';
 import {
   ProjectDescription,
@@ -61,6 +63,7 @@ interface Project {
   yarn: any[];
   tools: any[];
   needleCheck?: NeedleCheckPayload | null;
+  rating?: ProjectRating | null;
   /** Arbitrary per-project blob — stores designer snapshot, future
    *  integrations (chart-linked counters, etc.). Server returns it parsed. */
   metadata?: { designer?: unknown; [key: string]: unknown } | null;
@@ -575,6 +578,9 @@ export default function ProjectDetail() {
               targetCompletionDate={project.target_completion_date}
               completionDate={project.completion_date}
             />
+            {id && (
+              <ProjectRatingCard projectId={id} initialRating={project.rating ?? null} />
+            )}
             <ProjectQuickNotes
               currentNotes={project.notes}
               onSave={handleSaveProjectNotes}

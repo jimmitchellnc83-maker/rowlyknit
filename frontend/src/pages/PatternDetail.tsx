@@ -9,6 +9,7 @@ import BookmarkManager from '../components/patterns/BookmarkManager';
 import PatternViewer from '../components/patterns/PatternViewer';
 import FeasibilityPanel from '../components/patterns/FeasibilityPanel';
 import ComplexityBadge, { type ComplexityResult } from '../components/patterns/ComplexityBadge';
+import MadeByChip from '../components/patterns/MadeByChip';
 import DesignCard from '../components/designer/DesignCard';
 import type { DesignerFormSnapshot } from '../utils/designerSnapshot';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -40,6 +41,7 @@ interface Pattern {
    *  future integrations. Added in migration 51. */
   metadata?: { designer?: unknown; [key: string]: unknown } | null;
   complexity?: ComplexityResult | null;
+  madeCount?: number;
   created_at: string;
   updated_at: string;
 }
@@ -341,6 +343,7 @@ export default function PatternDetail() {
               {pattern.complexity && (
                 <ComplexityBadge complexity={pattern.complexity} patternId={pattern.id} />
               )}
+              {pattern.madeCount ? <MadeByChip count={pattern.madeCount} /> : null}
             </div>
             {pattern.designer && (
               <p className="text-base md:text-sm text-gray-600">by {pattern.designer}</p>

@@ -11,6 +11,7 @@ import { sanitizeSearchQuery } from '../utils/inputSanitizer';
 import { assertPublicUrl } from '../utils/ssrfGuard';
 import { getFeasibility } from '../services/feasibilityService';
 import { calculatePatternComplexity } from '../services/patternComplexityService';
+import { countMakersForPattern } from '../services/ratingsService';
 
 /**
  * Serialize pattern fields for frontend.
@@ -172,6 +173,7 @@ export async function getPattern(req: Request, res: Response) {
     sizes_available: serializedPattern.sizes_available,
     gauge: serializedPattern.gauge,
   });
+  const madeCount = await countMakersForPattern(db, id, userId);
 
   res.json({
     success: true,
@@ -180,6 +182,7 @@ export async function getPattern(req: Request, res: Response) {
         ...serializedPattern,
         projects,
         complexity,
+        madeCount,
       },
     },
   });
