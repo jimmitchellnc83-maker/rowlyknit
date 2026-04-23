@@ -28,9 +28,14 @@ interface PatternFile {
 interface PatternPreviewProps {
   patterns: Pattern[];
   mode?: 'normal' | 'knitting';
+  /** When rendered inside a project, pass the project id so the
+   *  "Open Full View" deep-link carries `?projectId=X`. That lets
+   *  PatternViewer auto-wire the project's row counter to the row
+   *  marker's step buttons. */
+  projectId?: string;
 }
 
-export default function PatternPreview({ patterns, mode = 'normal' }: PatternPreviewProps) {
+export default function PatternPreview({ patterns, mode = 'normal', projectId }: PatternPreviewProps) {
   const [selectedPattern, setSelectedPattern] = useState<Pattern | null>(null);
   const [patternFiles, setPatternFiles] = useState<PatternFile[]>([]);
   const [selectedFile, setSelectedFile] = useState<PatternFile | null>(null);
@@ -139,7 +144,7 @@ export default function PatternPreview({ patterns, mode = 'normal' }: PatternPre
           </h3>
           {selectedPattern && (
             <Link
-              to={`/patterns/${selectedPattern.id}`}
+              to={`/patterns/${selectedPattern.id}${projectId ? `?projectId=${projectId}` : ''}`}
               className="text-purple-600 hover:text-purple-700 flex items-center gap-1 text-sm"
             >
               Open Full View <FiExternalLink className="h-4 w-4" />
@@ -273,7 +278,7 @@ export default function PatternPreview({ patterns, mode = 'normal' }: PatternPre
           <p className="text-gray-500">No PDF files found for this pattern.</p>
           {selectedPattern && (
             <Link
-              to={`/patterns/${selectedPattern.id}`}
+              to={`/patterns/${selectedPattern.id}${projectId ? `?projectId=${projectId}` : ''}`}
               className="inline-block mt-2 text-purple-600 hover:text-purple-700 text-sm"
             >
               Upload a PDF file →

@@ -591,6 +591,7 @@ export default function PatternDetail() {
             fileUrl={`/api/uploads/patterns/${id}/files/${selectedPdfFile.id}/download`}
             filename={selectedPdfFile.original_filename}
             patternId={id}
+            projectId={searchParams.get('projectId') ?? undefined}
             fullscreen={false}
           />
         </div>

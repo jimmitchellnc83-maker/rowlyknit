@@ -508,6 +508,7 @@ export default function ProjectDetail() {
               <PatternPreview
                 patterns={project.patterns}
                 mode="normal"
+                projectId={id!}
               />
             )}
 
