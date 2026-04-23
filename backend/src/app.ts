@@ -39,6 +39,7 @@ import uploadsRoutes from './routes/uploads';
 import countersRoutes from './routes/counters';
 import piecesRoutes from './routes/pieces';
 import sessionsRoutes from './routes/sessions';
+import ratingsRoutes from './routes/ratings';
 import patternEnhancementsRoutes from './routes/pattern-enhancements';
 import notesRoutes from './routes/notes';
 import magicMarkersRoutes from './routes/magic-markers';
@@ -141,6 +142,7 @@ app.get('/api/csrf-token', sendCsrfToken);
 // Note: More specific routes (sessions, counters, notes) must come BEFORE generic /projects route
 app.use('/api/auth', authRoutes);
 app.use('/api', sessionsRoutes);
+app.use('/api', ratingsRoutes);
 app.use('/api', countersRoutes);
 app.use('/api', piecesRoutes);
 app.use('/api', notesRoutes);

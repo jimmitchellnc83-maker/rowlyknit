@@ -103,8 +103,8 @@ export async function getProject(req: Request, res: Response) {
   }
 
   // Get related data (plus the user's full tool inventory for the
-  // needle-inventory cross-check — not just tools attached to this project).
-  const [photos, counters, pieces, patterns, yarn, tools, allUserTools] = await Promise.all([
+  // needle-inventory cross-check and this user's rating, if either exists).
+  const [photos, counters, pieces, patterns, yarn, tools, allUserTools, rating] = await Promise.all([
     db('project_photos').where({ project_id: id }).orderBy('sort_order'),
     db('counters').where({ project_id: id }).orderBy('sort_order'),
     db('project_pieces').where({ project_id: id }).orderBy('sort_order'),
@@ -121,6 +121,7 @@ export async function getProject(req: Request, res: Response) {
       .where({ 'pt.project_id': id })
       .select('t.*'),
     db('tools').where({ user_id: userId }).whereNull('deleted_at'),
+    db('project_ratings').where({ project_id: id, user_id: userId }).first(),
   ]);
 
   const needleCheck = checkNeedleInventory(patterns, allUserTools);
@@ -137,6 +138,7 @@ export async function getProject(req: Request, res: Response) {
         yarn,
         tools,
         needleCheck,
+        rating: rating ?? null,
       },
     },
   });

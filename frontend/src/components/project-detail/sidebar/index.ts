@@ -4,3 +4,5 @@ export { default as ProjectPatternsList } from './ProjectPatternsList';
 export { default as ProjectToolsList } from './ProjectToolsList';
 export { default as ProjectYarnUsage } from './ProjectYarnUsage';
 export { default as NeedleInventoryAlert, type NeedleCheckPayload, type NeedleCheckStatus } from './NeedleInventoryAlert';
+export { default as ProjectRatingCard, type ProjectRating } from './ProjectRatingCard';
+export { default as RatingStars } from './RatingStars';
