@@ -445,10 +445,16 @@ export default function CounterHierarchy({ projectId, onCounterChange, linkedCha
   );
 
   // When a designer chart is attached to the project, auto-wire the first
-  // visible primary row-type counter as the chart's row tracker. Future
-  // iteration could expose an explicit per-counter opt-in.
+  // visible primary row-type counter as the chart's row tracker. The
+  // backend persists the type as 'rows' (plural) even though the frontend
+  // counter.types.ts union claims 'row' (singular) — the earlier singular
+  // filter here silently matched nothing. Accept either for safety; cast
+  // to string because the narrower TS union doesn't include 'rows'.
   const chartLinkedCounter = linkedChart
-    ? primaryCounters.find((c) => c.type === 'row') ?? null
+    ? primaryCounters.find((c) => {
+        const t = c.type as string;
+        return t === 'rows' || t === 'row';
+      }) ?? null
     : null;
 
   if (loading) {
