@@ -2,11 +2,19 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'react-toastify';
-import { FiArrowLeft, FiRotateCcw, FiSettings } from 'react-icons/fi';
+import { FiArrowLeft, FiMic, FiMicOff, FiRotateCcw, FiSettings } from 'react-icons/fi';
 import { useWebSocket } from '../contexts/WebSocketContext';
 import type { LivePanelGroupResponse } from '../types/panel.types';
 import MasterCounterControl from '../components/panels/MasterCounterControl';
 import PanelCard from '../components/panels/PanelCard';
+import {
+  speakAlways,
+  usePanelVoiceControl,
+} from '../hooks/usePanelVoiceControl';
+import {
+  resolveReadTarget,
+  type PanelVoiceIntent,
+} from '../voice/panelCommands';
 
 export default function PanelKnittingView() {
   const { id: projectId, groupId } = useParams<{ id: string; groupId: string }>();
@@ -112,6 +120,108 @@ export default function PanelKnittingView() {
     return live.panels.length === 0;
   }, [live]);
 
+  const speakLivePanel = useCallback(
+    (panelName: string) => {
+      if (!live) return;
+      const lowered = panelName.toLowerCase();
+      const panel = live.panels.find(
+        (p) => p.name.toLowerCase() === lowered,
+      );
+      if (!panel) {
+        speakAlways(`Couldn't find a panel called ${panelName}.`);
+        return;
+      }
+      if (!panel.started) {
+        speakAlways(
+          `${panel.name} starts in ${panel.rows_until_start} rows.`,
+        );
+        return;
+      }
+      const instruction = panel.instruction
+        ? panel.instruction
+        : 'No instruction set';
+      speakAlways(
+        `${panel.name}, row ${panel.current_row} of ${panel.repeat_length}. ${instruction}.`,
+      );
+    },
+    [live],
+  );
+
+  const speakAllPanels = useCallback(() => {
+    if (!live) return;
+    const started = live.panels.filter((p) => p.started);
+    if (started.length === 0) {
+      speakAlways(`Master row ${live.master.current_row}. No panels started.`);
+      return;
+    }
+    const parts = [`Master row ${live.master.current_row}.`];
+    for (const panel of started) {
+      if (!panel.started) continue;
+      const instruction = panel.instruction || 'no instruction';
+      parts.push(
+        `${panel.name}, row ${panel.current_row}. ${instruction}.`,
+      );
+    }
+    speakAlways(parts.join(' '));
+  }, [live]);
+
+  const speakWhereAmI = useCallback(() => {
+    if (!live) return;
+    const started = live.panels.filter((p) => p.started);
+    if (started.length === 0) {
+      speakAlways(`Master row ${live.master.current_row}.`);
+      return;
+    }
+    const summary = started
+      .map((p) => (p.started ? `${p.name}, row ${p.current_row}` : ''))
+      .filter(Boolean)
+      .join('. ');
+    speakAlways(
+      `Master row ${live.master.current_row}. ${summary}.`,
+    );
+  }, [live]);
+
+  const handleVoiceIntent = useCallback(
+    (intent: PanelVoiceIntent) => {
+      switch (intent.kind) {
+        case 'advance':
+          advance(1);
+          return;
+        case 'retreat':
+          advance(-1);
+          return;
+        case 'jump':
+          jumpTo(intent.row);
+          return;
+        case 'where':
+          speakWhereAmI();
+          return;
+        case 'read':
+          if (intent.target === 'all') {
+            speakAllPanels();
+          } else if (live) {
+            const names = live.panels.map((p) => p.name);
+            const matchedName = resolveReadTarget(intent.target, names);
+            if (matchedName) {
+              speakLivePanel(matchedName);
+            } else {
+              speakAlways(`Couldn't find a panel called ${intent.target}.`);
+            }
+          }
+          return;
+        case 'stop':
+          // Cancel any in-flight TTS. The user can click the mic button to
+          // end listening; "stop" here is the "shut up" button for a
+          // too-long read-all mid-narration.
+          if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+          return;
+      }
+    },
+    [advance, jumpTo, speakAllPanels, speakLivePanel, speakWhereAmI, live],
+  );
+
+  const voice = usePanelVoiceControl({ onIntent: handleVoiceIntent });
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center">
@@ -191,7 +301,7 @@ export default function PanelKnittingView() {
           hasPanels={!allPanelsEmpty}
         />
 
-        <div className="mt-4 flex items-center justify-center gap-3">
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
           <button
             type="button"
             onClick={() => advance(-1)}
@@ -201,7 +311,54 @@ export default function PanelKnittingView() {
             <FiRotateCcw className="w-4 h-4" />
             Undo last row
           </button>
+          {voice.isSupported && (
+            <button
+              type="button"
+              onClick={voice.toggle}
+              aria-pressed={voice.isListening}
+              aria-label={voice.isListening ? 'Stop voice control' : 'Start voice control'}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors ${
+                voice.isListening
+                  ? 'bg-red-600 hover:bg-red-700 text-white'
+                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-800'
+              }`}
+            >
+              {voice.isListening ? (
+                <FiMicOff className="w-4 h-4" />
+              ) : (
+                <FiMic className="w-4 h-4" />
+              )}
+              {voice.isListening ? 'Listening…' : 'Voice control'}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={speakAllPanels}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-800 rounded-md"
+          >
+            Read all
+          </button>
         </div>
+
+        {voice.isListening && voice.lastHeard && (
+          <p className="mt-2 text-xs text-center text-gray-500 dark:text-gray-400 italic">
+            Heard: “{voice.lastHeard}”
+          </p>
+        )}
+
+        {voice.isListening && (
+          <div className="mt-4 rounded-md border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 px-3 py-2 text-xs text-gray-600 dark:text-gray-400">
+            <p className="font-medium text-gray-700 dark:text-gray-300 mb-1">Voice commands</p>
+            <ul className="grid grid-cols-2 gap-x-3 gap-y-0.5">
+              <li>“next” · “back”</li>
+              <li>“jump to 20”</li>
+              <li>“read all”</li>
+              <li>“read cable A”</li>
+              <li>“where am I”</li>
+              <li>“stop”</li>
+            </ul>
+          </div>
+        )}
       </main>
     </div>
   );
