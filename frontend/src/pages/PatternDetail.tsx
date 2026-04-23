@@ -8,6 +8,8 @@ import PatternFileUpload from '../components/PatternFileUpload';
 import BookmarkManager from '../components/patterns/BookmarkManager';
 import PatternViewer from '../components/patterns/PatternViewer';
 import FeasibilityPanel from '../components/patterns/FeasibilityPanel';
+import DesignCard from '../components/designer/DesignCard';
+import type { DesignerFormSnapshot } from '../utils/designerSnapshot';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ConfirmModal from '../components/ConfirmModal';
 import { ChartImageUpload } from '../components/charts';
@@ -32,6 +34,10 @@ interface Pattern {
   thumbnail_url?: string | null;
   source_url?: string | null;
   estimated_yardage?: number | null;
+  /** Arbitrary per-pattern blob — stores Designer form snapshots saved
+   *  via the Pattern Designer's "Save as pattern" button, plus room for
+   *  future integrations. Added in migration 51. */
+  metadata?: { designer?: unknown; [key: string]: unknown } | null;
   created_at: string;
   updated_at: string;
 }
@@ -354,6 +360,19 @@ export default function PatternDetail() {
           </div>
         </div>
       </div>
+
+      {/* Attached design (saved from the Pattern Designer via "Save as pattern").
+          When metadata.designer is populated the pattern renders a DesignCard
+          with the schematic, finished dimensions, yardage, and deep links to
+          open the design in the Designer or view the full printable write-up. */}
+      {pattern.metadata?.designer ? (
+        <div className="mb-4 md:mb-6">
+          <DesignCard
+            form={pattern.metadata.designer as DesignerFormSnapshot}
+            patternId={pattern.id}
+          />
+        </div>
+      ) : null}
 
       {/* Tabs - Scrollable on mobile */}
       <div className="bg-white rounded-lg shadow mb-4 md:mb-6">

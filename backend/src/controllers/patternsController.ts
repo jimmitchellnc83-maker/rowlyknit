@@ -236,6 +236,7 @@ export async function createPattern(req: Request, res: Response) {
     estimatedYardage,
     notes,
     tags,
+    metadata,
   } = req.body;
 
   if (!name) {
@@ -259,6 +260,7 @@ export async function createPattern(req: Request, res: Response) {
       estimated_yardage: estimatedYardage,
       notes,
       tags: tags ? JSON.stringify(tags) : '[]',
+      metadata: metadata ? JSON.stringify(metadata) : '{}',
       created_at: new Date(),
       updated_at: new Date(),
     })
@@ -312,6 +314,7 @@ export async function updatePattern(req: Request, res: Response) {
     notes,
     tags,
     isFavorite,
+    metadata,
   } = req.body;
 
   const updateData: any = {
@@ -333,6 +336,7 @@ export async function updatePattern(req: Request, res: Response) {
   if (notes !== undefined) updateData.notes = notes;
   if (tags !== undefined) updateData.tags = JSON.stringify(tags);
   if (isFavorite !== undefined) updateData.is_favorite = isFavorite;
+  if (metadata !== undefined) updateData.metadata = JSON.stringify(metadata);
 
   const [updatedPattern] = await db('patterns')
     .where({ id })

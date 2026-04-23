@@ -13,11 +13,12 @@ import { buildBodyInput } from '../../utils/designerSnapshot';
 
 interface DesignCardProps {
   form: DesignerFormSnapshot;
-  /** Optional deep-link target for "Open in Designer" / "View full pattern"
-   *  buttons. When provided, buttons navigate to `/designer` and
-   *  `/designer/print?projectId=...` respectively; when omitted, the buttons
-   *  hide (e.g. used on the Designer page itself). */
+  /** Pass projectId when embedded in a project context; the "View / Print"
+   *  button deep-links to `/designer/print?projectId=...`. */
   projectId?: string;
+  /** Pass patternId when embedded in a pattern-library context; the "View /
+   *  Print" button deep-links to `/designer/print?patternId=...`. */
+  patternId?: string;
 }
 
 /**
@@ -26,7 +27,13 @@ interface DesignCardProps {
  * open or print the full pattern. Designed to sit inside Project Detail or
  * Pattern Detail pages without dominating the layout.
  */
-export default function DesignCard({ form, projectId }: DesignCardProps) {
+export default function DesignCard({ form, projectId, patternId }: DesignCardProps) {
+  const printHref = projectId
+    ? `/designer/print?projectId=${projectId}`
+    : patternId
+      ? `/designer/print?patternId=${patternId}`
+      : '/designer/print';
+  const showActions = !!(projectId || patternId);
   const compute = computeDesign(form);
   const gauge = normalizedGauge(form);
 
@@ -126,7 +133,7 @@ export default function DesignCard({ form, projectId }: DesignCardProps) {
             )}
           </ul>
 
-          {projectId && (
+          {showActions && (
             <div className="mt-3 flex flex-wrap gap-2">
               <Link
                 to="/designer"
@@ -136,7 +143,7 @@ export default function DesignCard({ form, projectId }: DesignCardProps) {
                 Open Designer
               </Link>
               <Link
-                to={`/designer/print?projectId=${projectId}`}
+                to={printHref}
                 target="_blank"
                 rel="noreferrer"
                 className="inline-flex items-center gap-1 rounded-lg border border-purple-300 bg-white px-3 py-1.5 text-xs font-medium text-purple-700 hover:bg-purple-50"
