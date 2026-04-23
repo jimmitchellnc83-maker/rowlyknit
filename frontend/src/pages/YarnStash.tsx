@@ -15,6 +15,7 @@ import { useMeasurements } from '../hooks/useMeasurements';
 import StashValueCard from '../components/yarn/StashValueCard';
 import YarnLabelCapture, { type ExtractedLabelData } from '../components/yarn/YarnLabelCapture';
 import PageHelpButton from '../components/PageHelpButton';
+import CollapsibleSection from '../components/forms/CollapsibleSection';
 
 interface Yarn {
   id: string;
@@ -644,6 +645,8 @@ export default function YarnStash() {
             </div>
 
             <form onSubmit={handleCreateYarn} className="p-6 space-y-4">
+              {/* Essentials — always visible. Everything else is collapsed
+                  so a first-time user doesn't face a 14-field wall. */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -707,144 +710,157 @@ export default function YarnStash() {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Fiber Content
-                </label>
-                <input
-                  type="text"
-                  value={formData.fiberContent}
-                  onChange={(e) => setFormData({ ...formData, fiberContent: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  placeholder="e.g., 100% Wool, 80% Acrylic 20% Wool"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <CollapsibleSection
+                title="Inventory"
+                subtitle="Color code, dye lot, skeins, yardage, price."
+                previewHint="5 fields"
+              >
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Color Code
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.colorCode}
+                      onChange={(e) => setFormData({ ...formData, colorCode: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      placeholder="e.g., 2450 or B54"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Dye Lot
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.dyeLot}
+                      onChange={(e) => setFormData({ ...formData, dyeLot: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      placeholder="e.g., A9-7766"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Number of Skeins
+                    </label>
+                    <input
+                      type="number"
+                      value={formData.skeinsTotal}
+                      onChange={(e) => setFormData({ ...formData, skeinsTotal: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      min="1"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      {fmt.yarnLengthUnit() === 'm' ? 'Meters' : 'Yards'} per Skein
+                    </label>
+                    <input
+                      type="number"
+                      value={formData.yardsTotal}
+                      onChange={(e) => setFormData({ ...formData, yardsTotal: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      placeholder="e.g., 364"
+                    />
+                  </div>
+                </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Color Code
+                    Price per Skein <span className="text-xs font-normal text-gray-400">(for stash value tracking)</span>
+                  </label>
+                  <div className="relative">
+                    <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">$</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={formData.pricePerSkein}
+                      onChange={(e) => setFormData({ ...formData, pricePerSkein: e.target.value })}
+                      className="w-full pl-7 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      placeholder="e.g., 12.00"
+                    />
+                  </div>
+                </div>
+              </CollapsibleSection>
+
+              <CollapsibleSection
+                title="Fiber details"
+                subtitle="Fiber content, suggested gauge, needle size."
+                previewHint="3 fields"
+              >
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Fiber Content
                   </label>
                   <input
                     type="text"
-                    value={formData.colorCode}
-                    onChange={(e) => setFormData({ ...formData, colorCode: e.target.value })}
+                    value={formData.fiberContent}
+                    onChange={(e) => setFormData({ ...formData, fiberContent: e.target.value })}
                     className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                    placeholder="e.g., 2450 or B54"
+                    placeholder="e.g., 100% Wool, 80% Acrylic 20% Wool"
+                  />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Gauge
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.gauge}
+                      onChange={(e) => setFormData({ ...formData, gauge: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      placeholder="e.g., 20 sts over 4 inches"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Needle Sizes
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.needleSizes}
+                      onChange={(e) => setFormData({ ...formData, needleSizes: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      placeholder="e.g., US 5 / 3.75 mm"
+                    />
+                  </div>
+                </div>
+              </CollapsibleSection>
+
+              <CollapsibleSection
+                title="Notes"
+                subtitle="Description + personal notes."
+                previewHint="2 fields"
+              >
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Description
+                  </label>
+                  <textarea
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    placeholder="Marketing description, fiber notes, etc."
+                    rows={3}
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Dye Lot
+                    Notes
                   </label>
-                  <input
-                    type="text"
-                    value={formData.dyeLot}
-                    onChange={(e) => setFormData({ ...formData, dyeLot: e.target.value })}
+                  <textarea
+                    value={formData.notes}
+                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                     className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                    placeholder="e.g., A9-7766"
+                    placeholder="Personal notes about this yarn"
+                    rows={3}
                   />
                 </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Number of Skeins
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.skeinsTotal}
-                    onChange={(e) => setFormData({ ...formData, skeinsTotal: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                    min="1"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    {fmt.yarnLengthUnit() === 'm' ? 'Meters' : 'Yards'} per Skein
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.yardsTotal}
-                    onChange={(e) => setFormData({ ...formData, yardsTotal: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                    placeholder="e.g., 364"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Price per Skein <span className="text-xs font-normal text-gray-400">(optional, for stash value tracking)</span>
-                </label>
-                <div className="relative">
-                  <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">$</span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={formData.pricePerSkein}
-                    onChange={(e) => setFormData({ ...formData, pricePerSkein: e.target.value })}
-                    className="w-full pl-7 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                    placeholder="e.g., 12.00"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Gauge
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.gauge}
-                    onChange={(e) => setFormData({ ...formData, gauge: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                    placeholder="e.g., 20 sts over 4 inches"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Needle Sizes
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.needleSizes}
-                    onChange={(e) => setFormData({ ...formData, needleSizes: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                    placeholder="e.g., US 5 / 3.75 mm"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Description
-                </label>
-                <textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  placeholder="Marketing description, fiber notes, etc."
-                  rows={3}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Notes
-                </label>
-                <textarea
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  placeholder="Personal notes about this yarn"
-                  rows={3}
-                />
-              </div>
+              </CollapsibleSection>
 
               <div className="flex gap-3 pt-4">
                 <button
@@ -890,6 +906,8 @@ export default function YarnStash() {
             </div>
 
             <form onSubmit={handleUpdateYarn} className="p-6 space-y-4">
+              {/* Same progressive-disclosure layout as the Add modal: keep
+                  essentials visible, tuck the rest into collapsible groups. */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -953,146 +971,160 @@ export default function YarnStash() {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Fiber Content
-                </label>
-                <input
-                  type="text"
-                  value={formData.fiberContent}
-                  onChange={(e) => setFormData({ ...formData, fiberContent: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  placeholder="e.g., 100% Wool, 80% Acrylic 20% Wool"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <CollapsibleSection
+                title="Inventory"
+                subtitle="Color code, dye lot, skeins, yardage, price."
+                previewHint="5 fields"
+              >
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Color Code
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.colorCode}
+                      onChange={(e) => setFormData({ ...formData, colorCode: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      placeholder="e.g., 2450 or B54"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Dye Lot
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.dyeLot}
+                      onChange={(e) => setFormData({ ...formData, dyeLot: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      placeholder="e.g., A9-7766"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Number of Skeins
+                    </label>
+                    <input
+                      type="number"
+                      value={formData.skeinsTotal}
+                      onChange={(e) => setFormData({ ...formData, skeinsTotal: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      min="1"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      {fmt.yarnLengthUnit() === 'm' ? 'Meters' : 'Yards'} per Skein
+                    </label>
+                    <input
+                      type="number"
+                      value={formData.yardsTotal}
+                      onChange={(e) => setFormData({ ...formData, yardsTotal: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      placeholder="e.g., 364"
+                    />
+                  </div>
+                </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Color Code
+                    Price per Skein <span className="text-xs font-normal text-gray-400">(for stash value tracking)</span>
+                  </label>
+                  <div className="relative">
+                    <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">$</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={formData.pricePerSkein}
+                      onChange={(e) => setFormData({ ...formData, pricePerSkein: e.target.value })}
+                      className="w-full pl-7 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      placeholder="e.g., 12.00"
+                    />
+                  </div>
+                </div>
+              </CollapsibleSection>
+
+              <CollapsibleSection
+                title="Fiber details"
+                subtitle="Fiber content, suggested gauge, needle size."
+                previewHint="3 fields"
+              >
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Fiber Content
                   </label>
                   <input
                     type="text"
-                    value={formData.colorCode}
-                    onChange={(e) => setFormData({ ...formData, colorCode: e.target.value })}
+                    value={formData.fiberContent}
+                    onChange={(e) => setFormData({ ...formData, fiberContent: e.target.value })}
                     className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                    placeholder="e.g., 2450 or B54"
+                    placeholder="e.g., 100% Wool, 80% Acrylic 20% Wool"
+                  />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Gauge
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.gauge}
+                      onChange={(e) => setFormData({ ...formData, gauge: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      placeholder="e.g., 20 sts over 4 inches"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Needle Sizes
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.needleSizes}
+                      onChange={(e) => setFormData({ ...formData, needleSizes: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      placeholder="e.g., US 5 / 3.75 mm"
+                    />
+                  </div>
+                </div>
+              </CollapsibleSection>
+
+              <CollapsibleSection
+                title="Notes"
+                subtitle="Description + personal notes."
+                previewHint="2 fields"
+              >
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Description
+                  </label>
+                  <textarea
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    placeholder="Marketing description, fiber notes, etc."
+                    rows={3}
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Dye Lot
+                    Notes
                   </label>
-                  <input
-                    type="text"
-                    value={formData.dyeLot}
-                    onChange={(e) => setFormData({ ...formData, dyeLot: e.target.value })}
+                  <textarea
+                    value={formData.notes}
+                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                     className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                    placeholder="e.g., A9-7766"
+                    placeholder="Personal notes about this yarn"
+                    rows={3}
                   />
                 </div>
-              </div>
+              </CollapsibleSection>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Number of Skeins
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.skeinsTotal}
-                    onChange={(e) => setFormData({ ...formData, skeinsTotal: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                    min="1"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    {fmt.yarnLengthUnit() === 'm' ? 'Meters' : 'Yards'} per Skein
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.yardsTotal}
-                    onChange={(e) => setFormData({ ...formData, yardsTotal: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                    placeholder="e.g., 364"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Price per Skein <span className="text-xs font-normal text-gray-400">(optional, for stash value tracking)</span>
-                </label>
-                <div className="relative">
-                  <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">$</span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={formData.pricePerSkein}
-                    onChange={(e) => setFormData({ ...formData, pricePerSkein: e.target.value })}
-                    className="w-full pl-7 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                    placeholder="e.g., 12.00"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Gauge
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.gauge}
-                    onChange={(e) => setFormData({ ...formData, gauge: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                    placeholder="e.g., 20 sts over 4 inches"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Needle Sizes
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.needleSizes}
-                    onChange={(e) => setFormData({ ...formData, needleSizes: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                    placeholder="e.g., US 5 / 3.75 mm"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Description
-                </label>
-                <textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  placeholder="Marketing description, fiber notes, etc."
-                  rows={3}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Notes
-                </label>
-                <textarea
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  placeholder="Personal notes about this yarn"
-                  rows={3}
-                />
-              </div>
-
-              {/* Photo Gallery Section */}
+              {/* Photo Gallery — always visible since photos are often the
+                  whole reason a user opens the edit modal. */}
               <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
                 <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">Photos</h3>
 
