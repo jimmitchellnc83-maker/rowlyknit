@@ -35,11 +35,30 @@ if [ "$1" = "--no-cache" ]; then
     echo -e "${YELLOW}🧹 Forced clean rebuild (--no-cache)${NC}"
 fi
 
-# Build backend + frontend
+# OOM-safe build sequence.
+#
+# The frontend build is heavy (~1.5 GB heap for tesseract.js + zxing under
+# V8; see frontend/Dockerfile's NODE_OPTIONS bump from PR #107). On our 2 GB
+# droplet, running that build alongside the *existing* frontend + backend +
+# postgres + redis + nginx containers pushed the host into swap-thrashing
+# territory — sshd and nginx stopped completing handshakes and the droplet
+# had to be power-cycled on 2026-04-23 after two failed deploys.
+#
+# Fix: stop the frontend container before building so ~300 MB of RAM comes
+# back to the build process. The existing image keeps serving nginx-cached
+# assets via the running `rowly_nginx` reverse proxy (it'll 502 briefly on
+# origin requests — ~2 min of downtime is acceptable for a deploy). When
+# the build finishes, `docker compose up -d` brings the new frontend up.
+#
+# If droplet RAM ever grows past ~4 GB we can simplify back to a pure
+# build-then-up flow without the stop step.
+echo -e "${YELLOW}🛑 Stopping frontend container to free RAM for the build...${NC}"
+docker compose stop frontend
+
 echo -e "${YELLOW}🔨 Building services...${NC}"
 docker compose build $BUILD_FLAGS backend frontend
 
-# Recreate containers whose images changed; postgres/redis/nginx stay up
+# Recreate containers whose images changed; postgres/redis/nginx stay up.
 echo -e "${YELLOW}🚀 Starting services...${NC}"
 docker compose up -d
 
