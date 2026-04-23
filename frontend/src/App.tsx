@@ -43,9 +43,11 @@ import RavelryBookmarksSync from './pages/RavelryBookmarksSync';
 import RavelryFavorites from './pages/RavelryFavorites';
 import NotFound from './pages/NotFound';
 
-// Lazy-load the public Landing page so unauthenticated visitors don't pay
-// for the full authenticated-app bundle just to read marketing copy.
+// Lazy-load public pages so unauthenticated visitors don't pay for the full
+// authenticated-app bundle just to read marketing or legal copy.
 const Landing = lazy(() => import('./pages/Landing'));
+const Privacy = lazy(() => import('./pages/Privacy'));
+const Terms = lazy(() => import('./pages/Terms'));
 
 // Protected route wrapper
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -59,12 +61,8 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
   return !isAuthenticated ? <>{children}</> : <Navigate to="/dashboard" replace />;
 }
 
-// Landing route — redirect authenticated visitors straight into the app so
-// the root URL is still "home" for returning users; new visitors get the
-// public marketing page with signup CTAs.
-function LandingOrDashboard() {
-  const { isAuthenticated } = useAuthStore();
-  if (isAuthenticated) return <Navigate to="/dashboard" replace />;
+// Shared Suspense fallback for every lazy-loaded public page.
+function PublicSuspense({ children }: { children: React.ReactNode }) {
   return (
     <Suspense
       fallback={
@@ -73,8 +71,21 @@ function LandingOrDashboard() {
         </div>
       }
     >
-      <Landing />
+      {children}
     </Suspense>
+  );
+}
+
+// Landing route — redirect authenticated visitors straight into the app so
+// the root URL is still "home" for returning users; new visitors get the
+// public marketing page with signup CTAs.
+function LandingOrDashboard() {
+  const { isAuthenticated } = useAuthStore();
+  if (isAuthenticated) return <Navigate to="/dashboard" replace />;
+  return (
+    <PublicSuspense>
+      <Landing />
+    </PublicSuspense>
   );
 }
 
@@ -86,6 +97,10 @@ function App() {
       <Routes>
       {/* Public root — landing page for unauthenticated visitors */}
       <Route path="/" element={<LandingOrDashboard />} />
+
+      {/* Public legal pages — accessible regardless of auth state */}
+      <Route path="/privacy" element={<PublicSuspense><Privacy /></PublicSuspense>} />
+      <Route path="/terms" element={<PublicSuspense><Terms /></PublicSuspense>} />
 
         {/* Auth routes */}
       <Route element={<AuthLayout />}>

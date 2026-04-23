@@ -172,14 +172,22 @@ export default function Landing() {
 
       {/* Footer */}
       <footer className="border-t border-gray-200 dark:border-gray-800">
-        <div className="mx-auto max-w-6xl px-6 py-6 flex flex-col sm:flex-row items-center justify-between text-sm text-gray-500 dark:text-gray-400">
+        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-6 py-6 text-sm text-gray-500 dark:text-gray-400 sm:flex-row">
           <span>© {new Date().getFullYear()} Rowly</span>
-          <a
-            href="mailto:hello@rowlyknit.com"
-            className="hover:text-gray-700 dark:hover:text-gray-200"
-          >
-            hello@rowlyknit.com
-          </a>
+          <nav aria-label="Footer" className="flex flex-wrap items-center gap-x-5 gap-y-2">
+            <Link to="/privacy" className="hover:text-gray-700 dark:hover:text-gray-200">
+              Privacy
+            </Link>
+            <Link to="/terms" className="hover:text-gray-700 dark:hover:text-gray-200">
+              Terms
+            </Link>
+            <a
+              href="mailto:hello@rowlyknit.com"
+              className="hover:text-gray-700 dark:hover:text-gray-200"
+            >
+              hello@rowlyknit.com
+            </a>
+          </nav>
         </div>
       </footer>
     </div>
