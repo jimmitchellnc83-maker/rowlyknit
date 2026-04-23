@@ -1,13 +1,16 @@
 /**
- * Page-level help content. Each entry matches a route pattern and provides
- * the title + sections the PageHelp drawer renders.
+ * Page-level help content. Each entry matches a route pattern and describes
+ * every tool/button/control on that page as a step-by-step how-to.
  *
- * Patterns are matched in order — put more specific routes before general
- * ones (e.g. /projects/:id/panels/:id/setup before /projects/:id).
+ * Structure:
+ * - One section per TOOL the user can interact with (not per concept)
+ * - Section heading = the tool's visible name on the page
+ * - Section body = numbered/bullet how-to: "Tap X. Type Y. Save."
  *
- * Sections render as a stacked list. `body` supports double-newline paragraph
- * breaks. Keep tone direct and practical — these are for a knitter on their
- * phone, not documentation.
+ * Tone: imperative, concrete, no summaries. If removing a sentence wouldn't
+ * confuse a knitter mid-task, cut it.
+ *
+ * Patterns matched in order — most specific first.
  */
 
 export interface HelpSection {
@@ -29,128 +32,210 @@ export interface PageHelpRoute {
 
 export const PAGE_HELP: PageHelpRoute[] = [
   // =========================================================================
-  // Panel Mode (most specific routes first)
+  // Panel Mode — setup
   // =========================================================================
   {
     pattern: /^\/projects\/[^/]+\/panels\/[^/]+\/setup$/,
     help: {
       title: 'Panel setup',
-      tagline: 'Add, edit, and organise the panels for this piece.',
+      tagline: 'Every tool on this page, step by step.',
       sections: [
         {
-          heading: 'Four ways to add a panel',
+          heading: 'Add panel button',
           body:
-            '**Paste pattern text** — fastest. Paste lines like "Row 1: K2, P2" and Rowly splits them into panels with their correct repeat lengths.\n\n**Pick a template** — ten curated stitch patterns: seed, moss, 1×1 and 2×2 rib, cables (C4F/C6F/C8F), honeycomb, stockinette, garter. Rename before adding if you want.\n\n**Copy from another piece** — only shown if this project has another panel group. Ideal for mirror sleeves — clones every panel and its rows from the source.\n\n**Build manually** — set a repeat length and fill each row. Use for patterns coming from a chart or a book photo.',
-          tip: 'Paste-and-parse handles "Row 1:", "Rnd 1:", ranges like "Rows 1-4:", and multi-row callouts like "Rows 1 and 3:" — but it warns you when rows are missing.',
+            '1. Tap **Add panel** (blue button, bottom of the list).\n2. Pick one of four ways:\n   • **Paste pattern text** — fastest\n   • **Pick a template** — 10 curated stitch patterns\n   • **Copy from another piece** — only shown if this project has another panel group\n   • **Build manually** — fill each row by hand\n3. Complete the flow you picked. The new panel appears in the list.',
         },
         {
-          heading: 'Editing a panel',
+          heading: 'Paste pattern text (Path A)',
           body:
-            'Tap **Edit** on any panel in the list to change its name, repeat length, row offset, colour, or individual row instructions. Changing repeat length keeps existing rows where possible and adds blanks for new rows.',
+            '1. In the picker, tap **Paste pattern text**.\n2. Paste lines like `Row 1: K2, P2, C4F, P2, K2` into the textarea. Leave a blank line between panels if the source has more than one.\n3. Tap **Preview**.\n4. Review each row in the card on the right. Amber rows are gaps the parser couldn\'t find — type the missing instruction.\n5. Rename the panel at the top of each card if you want.\n6. Tap **Save N panels**.',
+          tip: 'The parser handles `Row 1:`, `Rnd 1:`, bare `1:`, ranges (`Rows 1-4: knit`), and multi-row callouts (`Rows 1 and 3: knit`). It warns on gaps but never fabricates rows.',
         },
         {
-          heading: 'Row offset',
+          heading: 'Pick a template (Path B)',
           body:
-            'Use **row offset** if a panel shouldn\'t start on master row 1 — for example, a border that begins after 10 rows of plain knitting. The panel shows "Starts in N rows" until the master reaches its offset.',
-        },
-      ],
-    },
-  },
-  {
-    pattern: /^\/projects\/[^/]+\/panels\/[^/]+$/,
-    help: {
-      title: 'Panel knitting view',
-      tagline: 'Advance one counter — every panel\'s instruction updates itself.',
-      sections: [
-        {
-          heading: 'Advancing the master counter',
-          body:
-            '**Tap the right side** of the big number for next row, the left side for back.\n\n**Swipe** right across the counter card to advance, left to retreat.\n\n**Long-press** the counter to open the jump-to-row modal and type any specific row.',
-          tip: 'Every panel\'s current row is derived from the master counter via modulo math. No per-panel state to keep in sync — one tap moves all of them.',
+            '1. In the picker, tap **Pick a template**.\n2. Find a template card (stockinette, garter, seed, moss, 1×1 rib, 2×2 rib, C4F, C6F, C8F, honeycomb).\n3. Type a custom name in the card if you want to override the default.\n4. Tap **Add this template**. The panel appears in the list immediately.',
         },
         {
-          heading: 'Voice control',
+          heading: 'Copy from another piece (Path C)',
           body:
-            'Tap **Voice control** to start listening. Supported commands:\n\n• "next" / "next row" / "advance" — advance\n• "back" / "back one" / "undo" — retreat\n• "jump to 20" / "go to row 47" — jump\n• "read all" / "read everything" — speaks every panel\'s current instruction\n• "read cable A" — speaks just that panel (fuzzy-matches your panel name)\n• "where am I" — speaks master row + every panel\'s current row\n• "stop" — cancels in-flight speech',
-          tip: 'Keep the mic on while you knit — advance verbally without putting needles down. The mic auto-stops after a preference-configured silence window.',
+            '1. In the picker, tap **Copy from another piece**. (Only visible if the project has other groups.)\n2. Pick the source group from the dropdown (e.g. "Left Sleeve" → copying into "Right Sleeve").\n3. Tap **Copy panels**. Every panel + its rows is cloned into this group. The source is untouched.',
         },
         {
-          heading: 'Reverting to an earlier point',
+          heading: 'Build manually (Path D)',
           body:
-            'Tap **Undo last row** to step back one row. Tap **History** to see every change with a timestamp and revert to any point — every panel snaps to its derived row at that counter value.',
+            '1. In the picker, tap **Build manually**.\n2. Type a **Name** (e.g. "Cable A").\n3. Set **Repeat length** — how many rows before the panel repeats.\n4. (Optional) Set **Row offset** if the panel shouldn\'t start until master row N+1.\n5. Pick a **Color** — shows up as the left-accent on the panel card.\n6. Fill the instruction for every numbered row.\n7. Tap **Save panel**. Save is disabled until every row has an instruction.',
         },
         {
-          heading: 'Alignment math',
+          heading: 'Edit an existing panel',
           body:
-            'The **Alignment math** drawer shows the LCM of your panel repeats — the number of rows until every panel simultaneously returns to its first row. Useful for planning colour changes or breaks.',
+            '1. Find the panel in the list.\n2. Tap **Edit** (blue text, right side of the row).\n3. Change name, repeat length, offset, color, or row instructions. The same editor opens.\n4. Tap **Save panel**. Row-count changes keep existing rows where they fit and blank out any new ones.',
         },
         {
-          heading: 'Offline mode',
+          heading: 'Delete a panel',
           body:
-            'If the network drops, the banner at the top will tell you. Advances are kept locally and queued; when you reconnect, they sync automatically and Rowly\'s other devices catch up.',
-        },
-      ],
-    },
-  },
-  {
-    pattern: /^\/projects\/[^/]+\/panels$/,
-    help: {
-      title: 'Panel Mode',
-      tagline: 'Multi-panel pattern tracking for this project.',
-      sections: [
-        {
-          heading: 'What is a panel group?',
-          body:
-            'A **panel group** is a piece of your garment — body, left sleeve, right sleeve, collar. Each has its own master counter so row counts stay independent.',
-          tip: 'For a sweater in pieces, create three groups: "Body", "Left Sleeve", "Right Sleeve". When you finish one piece and start the next, back out to this hub and open the new group.',
-        },
-        {
-          heading: 'Creating a group',
-          body:
-            'Tap **New panel group**, name the piece, and choose whether to create a new master counter or reuse an existing counter from this project. New-counter is the right default unless you\'re retrofitting.',
-        },
-        {
-          heading: 'Pieces overview',
-          body:
-            'Each card shows the master row plus a chip for every panel with its current row / repeat length. Tap a card to open the knitting view for that piece.',
+            '1. In the list, tap the **trash icon** at the far right of the row.\n2. Confirm in the browser prompt. The panel and every row it contained are removed.',
+          tip: 'Deletion cascades: panel_rows are removed too. The master counter is NOT affected.',
         },
       ],
     },
   },
   // =========================================================================
-  // Projects
+  // Panel Mode — knitting view
+  // =========================================================================
+  {
+    pattern: /^\/projects\/[^/]+\/panels\/[^/]+$/,
+    help: {
+      title: 'Panel knitting view',
+      tagline: 'Every tool on this page, step by step.',
+      sections: [
+        {
+          heading: 'Master counter (big number)',
+          body:
+            '• **Tap the right side** of the counter card → next row.\n• **Tap the left side** → back one row.\n• **Swipe right** across the card → next row (mobile).\n• **Swipe left** → back one row.\n• **Long-press** the counter (hold ~0.6s) → opens "Jump to row" modal. Type any row number and tap **Jump**.',
+          tip: 'Advancing the master once updates every panel\'s current instruction via modulo math. There\'s no per-panel counter to sync.',
+        },
+        {
+          heading: 'Panel cards',
+          body:
+            '• Each panel card shows its current row (e.g. "Row 7 of 10"), the instruction, and "N rows until repeat".\n• **Tap the panel header** (with the chevron) to collapse/expand it. Collapsed cards show just the name + row number.\n• The coloured bar on the left matches the panel\'s chosen color.\n• Panels where master row is still below their offset show "Starts in N rows" with no instruction box.',
+        },
+        {
+          heading: 'Undo last row',
+          body:
+            '1. Tap **Undo last row** (bottom controls).\n2. Master drops by 1. Every panel\'s row recomputes.\n3. Disabled when master is already at row 1.',
+        },
+        {
+          heading: 'History scrubber',
+          body:
+            '1. Tap **History** (bottom controls).\n2. A modal opens with every counter change — timestamp, old → new, and delta.\n3. The current row is highlighted; its Revert button is disabled and reads "Here".\n4. Tap **Revert** on any earlier entry.\n5. Confirm the browser prompt. Master snaps to that value; every panel\'s row derives to match.',
+        },
+        {
+          heading: 'Voice control',
+          body:
+            '1. Tap **Voice control** (bottom controls). The button turns red and reads "Listening…".\n2. Say one of the commands. The cheat-sheet below lists all of them:\n   • "next" / "back" → advance / retreat\n   • "jump to 20" → jump\n   • "read all" → TTS every panel\'s current instruction\n   • "read cable A" → TTS just that panel\n   • "where am I" → TTS master row + every panel\'s row\n   • "stop" → cancel in-flight speech\n3. Tap the red button again to stop listening. Mic auto-stops after the silence timeout in Profile → Voice preferences.',
+        },
+        {
+          heading: 'Read all button',
+          body:
+            '1. Tap **Read all** (bottom controls).\n2. TTS speaks master row + every started panel\'s current instruction.\n3. Doesn\'t require voice-control to be on — it\'s a one-shot.',
+        },
+        {
+          heading: 'Alignment math drawer',
+          body:
+            '1. Scroll below the panel cards to the "Alignment math" panel.\n2. Tap the header to expand.\n3. Shows the LCM of your panel repeats + rows-until-next-alignment (countdown until every panel returns to row 1 simultaneously).',
+        },
+        {
+          heading: 'Settings icon (gear, top-right)',
+          body:
+            'Tap the **gear icon** in the page header to jump to Panel setup for this group — where you can add, edit, or delete panels.',
+        },
+        {
+          heading: 'Magic marker banner',
+          body:
+            'When a marker you\'ve set up fires at the current master row, a coloured band appears above the counter with the marker name and message. Tap the **X** to dismiss for this row — it reappears if you advance past and back.',
+          tip: 'Set up markers from the Project detail page → Magic Markers section.',
+        },
+        {
+          heading: 'Offline banner',
+          body:
+            'If the network drops, an amber "Offline" banner appears above the counter. Advances still work — they update the cached counter locally and queue for sync. When you reconnect, the queue drains automatically and the banner disappears.',
+        },
+      ],
+    },
+  },
+  // =========================================================================
+  // Panel Mode — hub
+  // =========================================================================
+  {
+    pattern: /^\/projects\/[^/]+\/panels$/,
+    help: {
+      title: 'Panel Mode',
+      tagline: 'Every tool on this page, step by step.',
+      sections: [
+        {
+          heading: 'New panel group button',
+          body:
+            '1. Tap **New panel group**.\n2. Type a **Name** for the piece (e.g. "Body", "Left Sleeve").\n3. Choose the master counter:\n   • **Create a new master counter** (default) — Rowly makes one named "[your name] — Master Row".\n   • **Use an existing counter** — only pick this if you want to bind the group to a counter you already have.\n4. Tap **Create + add panels**. You\'ll land on the Panel setup page for the new group.',
+          tip: 'For a multi-piece sweater, make one group per piece. Body + Left Sleeve + Right Sleeve → three groups. Each has its own master counter so row counts stay independent.',
+        },
+        {
+          heading: 'Your pieces list',
+          body:
+            '• Each card is one panel group.\n• Shows the group name, panel count, master row, and chips for each panel (name + current row / repeat).\n• **Tap a card** to open the knitting view for that piece.\n• Cards update in real time if another device bumps the master counter.',
+        },
+        {
+          heading: 'Editing or deleting a group',
+          body:
+            'Open the group → tap the **gear icon** in the knitting view header → that opens Panel setup. Panel groups themselves don\'t have an in-hub delete yet; delete all panels in setup if you want to empty a group.',
+        },
+      ],
+    },
+  },
+  // =========================================================================
+  // Project detail
   // =========================================================================
   {
     pattern: /^\/projects\/[^/]+$/,
     help: {
       title: 'Project detail',
-      tagline: 'Everything about a single knitting project.',
+      tagline: 'Every tool on this page, step by step.',
       sections: [
         {
-          heading: 'Pattern + yarn + tools',
+          heading: 'Edit project (pencil icon)',
           body:
-            'Link a pattern from your library, assign yarn from your stash, and note which needles and tools you\'re using. Rowly cross-checks needle availability against your stash and warns if anything is double-booked.',
+            '1. Tap the **pencil** near the project name.\n2. Change name, status (planning / in-progress / on-hold / complete), start date, or target date.\n3. Tap **Save**.',
         },
         {
-          heading: 'Counters',
+          heading: 'Delete project',
           body:
-            'Track row counts, stitch counts, and custom counters. Counters can be linked to charts, have auto-reset behaviour, and fire magic markers at specific rows.',
-          tip: 'For multi-panel patterns (cables + borders on different repeats), use **Panel Mode** at the link below the counters — it tracks every panel\'s row from one master counter.',
+            '1. Tap **Delete** in the project actions menu.\n2. Confirm in the modal.\n3. Project is soft-deleted — pattern/yarn/counter data stays tied to it but it won\'t show in lists.',
+        },
+        {
+          heading: 'Link a pattern',
+          body:
+            '1. Scroll to the **Patterns** card.\n2. Tap **Link Pattern**.\n3. Search for the pattern in the modal (by name or designer).\n4. Tap a result → the pattern is linked and appears in the card with a link to its detail page.\n5. To unlink: tap the **X** next to the pattern name.',
+        },
+        {
+          heading: 'Assign yarn',
+          body:
+            '1. Scroll to the **Yarn** card.\n2. Tap **Add yarn**.\n3. Pick from your stash in the modal, enter estimated yardage needed.\n4. Tap **Save**. Remaining yardage is auto-decremented from your stash.',
+        },
+        {
+          heading: 'Needle inventory cross-check',
+          body:
+            'When you assign needles, Rowly shows a badge next to each needle that conflicts (the same needle is already assigned to another active project). Click the badge to see which project is holding it.',
+        },
+        {
+          heading: 'Add a counter',
+          body:
+            '1. Scroll to the **Counters** card.\n2. Tap **New Counter**.\n3. Type a **Name**.\n4. Pick a **Type** (rows, stitches, repeats, custom).\n5. Set **Start value** (usually 1 or 0).\n6. (Optional) Set a **Target** and enable **Auto-reset** to cycle the counter.\n7. Pick a color.\n8. Tap **Save**.\n\nTo use: tap **+** to advance, **–** to retreat. Long-press to reset.',
+        },
+        {
+          heading: 'Panel Mode link',
+          body:
+            'Below the counters card, tap **Panel Mode →**. Opens the Panel Hub where you can track multi-panel patterns with one master counter.',
+          tip: 'Use Panel Mode when your pattern has multiple stitch-pattern sections repeating on different cycles (e.g. cables + borders + lace).',
         },
         {
           heading: 'Magic markers',
           body:
-            'Set reminders that fire at specific rows — "decrease here", "switch colour at row 48", "start sleeve shaping". Markers can be one-shot, repeating every N rows, or span a row range.',
+            '1. Scroll to the **Magic Markers** card.\n2. Tap **+ New Marker**.\n3. Pick a **Trigger type**:\n   • **Row range** — fires between rows X and Y\n   • **Counter value** — fires at exact row N\n   • **Row interval** — fires every N rows\n4. Set the trigger condition.\n5. Type the **Alert message**.\n6. Pick **Alert type** (notification / sound / vibration).\n7. Tap **Save**. The marker will fire at the configured row in Panel Mode and counter views.',
         },
         {
-          heading: 'Sessions + notes',
+          heading: 'Sessions',
           body:
-            'Knitting sessions track elapsed time and row deltas. Add audio notes, handwritten notes, or structured memos — all attached to this project and searchable globally.',
+            '1. Scroll to the **Sessions** card.\n2. Tap **Start session**. A timer starts; row deltas are recorded.\n3. Knit.\n4. Tap **Pause** or **Stop** when done. Sessions auto-pause after 5 minutes of inactivity.\n5. Session history shows elapsed time + row count per session.',
         },
         {
-          heading: 'Progress + feasibility',
+          heading: 'Notes (tabs)',
           body:
-            'The **feasibility badge** tells you if your stash + gauge + pattern yardage add up. Ratings let you revisit which projects went well.',
+            '1. Scroll to the **Notes** tabs.\n2. **Audio** — tap the mic to record a voice note. Auto-transcribed.\n3. **Handwritten** — sketch with the drawing pad.\n4. **Structured** — plain text memos. Searchable via global search.',
+        },
+        {
+          heading: 'Rate this project',
+          body:
+            '1. Tap the stars in the **Rating** card.\n2. Leave a comment if you want.\n3. Ratings show on the pattern\'s "Made by N knitters" count and help you decide which patterns to return to.',
         },
       ],
     },
@@ -159,23 +244,37 @@ export const PAGE_HELP: PageHelpRoute[] = [
     pattern: /^\/projects$/,
     help: {
       title: 'Projects',
-      tagline: 'Every knitting project you\'ve tracked.',
+      tagline: 'Every tool on this page, step by step.',
       sections: [
         {
-          heading: 'Creating a project',
+          heading: '+ New project button',
           body:
-            'Tap **+ New project**. Give it a name and a status (planning, in progress, on hold, complete). You can link a pattern, yarn, and tools later from the project detail page.',
+            '1. Tap **+ New project** (top-right).\n2. Type a **Name**.\n3. Pick a **Status** (planning / in-progress / on-hold / complete).\n4. Tap **Create**. You\'ll land on the project detail page to add pattern, yarn, and tools.',
         },
         {
-          heading: 'Status + filtering',
+          heading: 'Status filter chips',
           body:
-            'Use the filter chips to narrow by status. Favouriting a project pins it to the top. The search box above finds projects by name or pattern title.',
+            '• Tap a chip ("All", "In Progress", "Planning", "On Hold", "Complete") to filter the list.\n• Multi-select is not supported — one chip at a time.\n• Combine with the search box to narrow further.',
         },
         {
-          heading: 'Feasibility badges',
+          heading: 'Search box',
           body:
-            'Cards show a traffic-light feasibility badge — green means your stash + gauge covers this project, amber means it\'s close, red means you need more yarn.',
-          tip: 'Click a badge to see which factor (yardage, weight, gauge match) is driving the colour.',
+            'Type in the search box to filter by project name or linked pattern title. Search is instant as you type.',
+        },
+        {
+          heading: 'Favourite (star icon on card)',
+          body:
+            '1. Tap the **star** on any project card.\n2. Favourited projects pin to the top of the list.\n3. Tap again to unfavourite.',
+        },
+        {
+          heading: 'Feasibility badge (traffic light)',
+          body:
+            '• **Green** = your stash + gauge covers this project\n• **Amber** = close but tight\n• **Red** = you need more yarn\n\nTap the badge on a card to see which factor (yardage, weight, or gauge match) is driving the colour.',
+        },
+        {
+          heading: 'Open a project',
+          body:
+            'Tap anywhere on a project card (outside the star/badge) to open its detail page.',
         },
       ],
     },
@@ -187,27 +286,32 @@ export const PAGE_HELP: PageHelpRoute[] = [
     pattern: /^\/patterns\/[^/]+$/,
     help: {
       title: 'Pattern detail',
-      tagline: 'Uploaded pattern with notes, complexity, and linked projects.',
+      tagline: 'Every tool on this page, step by step.',
       sections: [
         {
-          heading: 'Viewing the PDF',
+          heading: 'PDF viewer',
           body:
-            'The PDF viewer supports pinch-to-zoom, pan, and page-by-page navigation. Use the sidebar thumbnails for quick jumps.',
+            '• **Scroll** to move through the pattern.\n• **Pinch** (mobile) or **Ctrl/Cmd + scroll** (desktop) to zoom.\n• **Page thumbnails** — tap any thumbnail in the sidebar to jump to that page.\n• **Text search** — Ctrl/Cmd+F inside the viewer finds any word in the extracted text.',
         },
         {
-          heading: 'Complexity score',
+          heading: 'Complexity score badge',
           body:
-            'Every uploaded pattern gets a complexity score from 1–5 based on detected techniques (cables, lace, colourwork, short rows), sizes offered, and estimated time. It\'s a rough guide, not a judgement.',
+            '• A 1–5 score at the top based on detected techniques (cables, lace, colourwork, short rows), size range, and estimated time.\n• **Tap the badge** to see the breakdown — which techniques were detected, estimated hours, size range.',
         },
         {
-          heading: 'Notes + structured memos',
+          heading: '"Made by N knitters" card',
           body:
-            'Add quick notes while you\'re knitting. Structured memos capture things like "cast on +10%" or "use larger needles for sleeves" — they survive across projects that use this pattern.',
+            '• Shows how many Rowly users have completed a project from this pattern.\n• If linked to Ravelry, it also pulls Ravelry\'s project count.\n• Your own completed projects for this pattern are listed.',
         },
         {
-          heading: 'Made by N knitters',
+          heading: 'Notes tabs',
           body:
-            'The "made by" count shows how many Rowly users have completed a project against this pattern. If the pattern is linked to Ravelry, it also pulls the Ravelry project count.',
+            '• **Quick notes** — plain text, shows up across projects that use this pattern.\n• **Structured memos** — tagged text like "Use +10% on sleeves for size L". Survive project-to-project.\n• Type → auto-saves.',
+        },
+        {
+          heading: 'Delete pattern',
+          body:
+            '1. Tap the menu (three dots) → **Delete**.\n2. Confirm.\n3. Pattern file + notes are removed. Projects that linked to this pattern will have their link cleared.',
         },
       ],
     },
@@ -216,22 +320,27 @@ export const PAGE_HELP: PageHelpRoute[] = [
     pattern: /^\/patterns$/,
     help: {
       title: 'Patterns',
-      tagline: 'Your pattern library — uploaded PDFs, imported Ravelry patterns, and designer outputs.',
+      tagline: 'Every tool on this page, step by step.',
       sections: [
         {
-          heading: 'Uploading a pattern',
+          heading: '+ Upload button',
           body:
-            'Tap **+ Upload**. PDF, PNG, JPG, and text all accepted. For PDFs, Rowly extracts text for search and estimates complexity. Encrypted PDFs need to be unlocked before upload.',
+            '1. Tap **+ Upload** (top-right).\n2. Pick a file — PDF, PNG, JPG, or plain text.\n3. (Optional) Enter the designer name.\n4. Tap **Upload**. Rowly extracts text for search and computes a complexity score. Encrypted PDFs need to be unlocked before upload.',
         },
         {
-          heading: 'Searching',
+          heading: 'Search box',
           body:
-            'The search box finds patterns by name, designer, detected techniques (e.g. "cables"), or any term in the extracted text.',
+            'Type to filter by pattern name, designer, detected techniques (e.g. "cables"), or any word in the extracted text.',
         },
         {
-          heading: 'Importing from Ravelry',
+          heading: 'Import from Ravelry',
           body:
-            'If you\'ve connected Ravelry in Profile, use the Ravelry sync to bring in bookmarks, favourites, and patterns you\'ve bought.',
+            '1. Tap **Ravelry sync** (top-right bar).\n2. Connect your Ravelry account (Profile → Ravelry) if you haven\'t.\n3. Choose bookmarks or favourites to import. Each becomes a pattern entry in your library.',
+        },
+        {
+          heading: 'Open a pattern',
+          body:
+            'Tap any pattern card to open its detail page (PDF viewer + notes + complexity).',
         },
       ],
     },
@@ -243,22 +352,32 @@ export const PAGE_HELP: PageHelpRoute[] = [
     pattern: /^\/yarn\/[^/]+$/,
     help: {
       title: 'Yarn detail',
-      tagline: 'Everything about one skein or colorway in your stash.',
+      tagline: 'Every tool on this page, step by step.',
       sections: [
         {
-          heading: 'Yardage + weight',
+          heading: 'Edit yarn fields',
           body:
-            'Total yardage, remaining yardage (auto-decremented from projects), and yarn weight (fingering / DK / worsted, etc.). Weight is stored in the knitter vernacular — CYC numeric codes are never shown as the primary label.',
+            '1. Tap any field (brand, colorway, weight, fibre, yardage).\n2. Change the value.\n3. Tap outside or press Enter — auto-saves.',
         },
         {
-          heading: 'Label capture',
+          heading: 'Upload / replace label photo',
           body:
-            'Upload a photo of the yarn label and Rowly OCRs the fibre content, weight, yardage, and care instructions into the right fields. Review before saving.',
+            '1. Tap **Upload label** (camera icon).\n2. Take or pick a photo.\n3. Rowly OCRs the fibre content, yardage, weight, and care symbols.\n4. Review the auto-filled fields and tap **Save** — reject any wrong read.',
         },
         {
-          heading: 'Usage across projects',
+          heading: 'Projects using this yarn',
           body:
-            'Every project using this yarn is listed with its estimated yardage. Helps you decide whether a remaining partial ball is enough for another project.',
+            'The **Usage** card lists every project linked to this colorway with the yardage each consumes. Helps you decide whether a partial ball is enough for another project.',
+        },
+        {
+          heading: 'Remaining yardage',
+          body:
+            '• Shown as total - consumed by projects.\n• To manually override (e.g. you measured a remaining ball), tap the yardage value and edit directly.',
+        },
+        {
+          heading: 'Delete yarn',
+          body:
+            '1. Tap the menu (three dots) → **Delete**.\n2. Confirm. If projects reference this yarn, their link is cleared.',
         },
       ],
     },
@@ -267,22 +386,33 @@ export const PAGE_HELP: PageHelpRoute[] = [
     pattern: /^\/yarn$/,
     help: {
       title: 'Yarn stash',
-      tagline: 'Every yarn in your inventory.',
+      tagline: 'Every tool on this page, step by step.',
       sections: [
         {
-          heading: 'Adding yarn',
+          heading: '+ Add yarn button',
           body:
-            'Tap **+ Add**. You can enter manually, scan a barcode, or snap a photo of the label to OCR-fill the fields. Add photos of the actual yarn so you remember what you have.',
+            '1. Tap **+ Add** (top-right). Three paths appear.\n2. **Manual** — type fields by hand.\n3. **Label photo** — snap a yarn label and OCR auto-fills brand, fibre, yardage.\n4. **Barcode** — point your camera at the yarn\'s barcode to look it up.',
         },
         {
-          heading: 'Filtering + sorting',
+          heading: 'Filter chips',
           body:
-            'Filter by weight, fibre, colour family, or remaining yardage. Sort by name, date added, or remaining yardage to plan your next project.',
+            '• Tap a weight chip (Lace / Fingering / DK / Worsted / Aran / Bulky) to filter.\n• Fibre and colour-family chips work the same.\n• Chips are single-select within each group.',
         },
         {
-          heading: 'Stash value',
+          heading: 'Sort dropdown',
           body:
-            'The **Stash Value** card at the top estimates your total stash worth based on the cost-per-ball you entered. Helpful for insurance or just for a reality check.',
+            '1. Tap the **Sort** dropdown.\n2. Pick: Name / Date Added / Remaining Yardage / Brand.\n3. Toggle the arrow to flip ascending / descending.',
+        },
+        {
+          heading: 'Stash Value card',
+          body:
+            '• Top of the page. Sums every yarn\'s `cost × remaining yardage / total yardage`.\n• Hover (desktop) or tap (mobile) to see the breakdown per weight class.',
+          tip: 'To get accurate values, fill in the cost-per-ball when you add yarn. Missing costs are excluded from the total.',
+        },
+        {
+          heading: 'Open a yarn',
+          body:
+            'Tap any yarn card to open its detail page (edit, label photo, project usage).',
         },
       ],
     },
@@ -294,22 +424,32 @@ export const PAGE_HELP: PageHelpRoute[] = [
     pattern: /^\/tools$/,
     help: {
       title: 'Tools',
-      tagline: 'Needles, hooks, and other knitting tools you own.',
+      tagline: 'Every tool on this page, step by step.',
       sections: [
         {
-          heading: 'Adding a tool',
+          heading: '+ Add tool button',
           body:
-            'Tap **+ Add**. Pick the type (circular, DPN, straight, crochet hook, notion), size, length if applicable, and the material. Use canonical mm sizes — Rowly normalises US/metric automatically.',
+            '1. Tap **+ Add**.\n2. Pick a **Type** (circular needle / DPN / straight / crochet hook / notion).\n3. Enter **Size** (mm or US — Rowly normalises).\n4. For circulars, enter **Length** (inches or cm).\n5. Pick **Material** (metal / wood / bamboo / plastic).\n6. (Optional) Add a photo.\n7. Tap **Save**.',
         },
         {
-          heading: 'Conflict check',
+          heading: 'Category filter',
           body:
-            'When you assign tools to a project, Rowly tells you if the same needle is already assigned to another in-progress project. Prevents "where are my 4mm circulars?" confusion.',
+            'Tap a category chip (Needles / Hooks / Notions) to filter. Subcategory chips appear below — tap a subcategory to narrow further.',
         },
         {
-          heading: 'Categories + taxonomy',
+          heading: 'Conflict badge',
           body:
-            'Tools are tagged by category (needle / hook / notion) and subcategory (circular / DPN / etc.). Browse by category using the filters.',
+            'A red badge on a tool card means it\'s assigned to more than one active project simultaneously. Tap the badge to see which projects — and decide which one actually has the tool right now.',
+        },
+        {
+          heading: 'Edit a tool',
+          body:
+            '1. Tap a tool card.\n2. Change fields.\n3. Tap **Save**. Conflicts are re-checked live.',
+        },
+        {
+          heading: 'Delete a tool',
+          body:
+            '1. Tap the tool\'s menu → **Delete**.\n2. Confirm. Projects that used this tool keep the reference but it\'s marked as removed.',
         },
       ],
     },
@@ -321,22 +461,27 @@ export const PAGE_HELP: PageHelpRoute[] = [
     pattern: /^\/recipients$/,
     help: {
       title: 'Recipients',
-      tagline: 'People you knit for — measurements, preferences, gift history.',
+      tagline: 'Every tool on this page, step by step.',
       sections: [
         {
-          heading: 'Measurements',
+          heading: '+ Add recipient',
           body:
-            'Store chest, waist, hip, arm length, head circumference, foot length. The Gift Size Calculator reads these to recommend a garment size without asking again.',
+            '1. Tap **+ Add recipient**.\n2. Enter a **Name**.\n3. Fill in **Measurements** (chest, waist, hip, arm length, head circumference, foot length — any you know).\n4. Add **Preferences** — fibre allergies, disliked colours, notes.\n5. Tap **Save**.',
         },
         {
-          heading: 'Preferences',
+          heading: 'Link a recipient to a project',
           body:
-            'Track fibre allergies, colour preferences, disliked fibres, and any notes. Useful when you\'re shopping yarn for a gift.',
+            '1. Open the project detail page.\n2. Scroll to Recipient.\n3. Pick from your recipients dropdown.\n4. The project now shows on the recipient\'s **Gift history**.',
         },
         {
-          heading: 'Gift history',
+          heading: 'Use measurements in Gift Size Calculator',
           body:
-            'Every project linked to a recipient appears on their profile. Stops you from knitting the same scarf for someone twice.',
+            '1. Open Calculators → Gift Size.\n2. Tap **Load from recipient**.\n3. Pick the recipient. Their chest measurement auto-fills.\n4. Pick a fit (close / classic / oversized). Rowly recommends a size.',
+        },
+        {
+          heading: 'Edit / delete recipient',
+          body:
+            '1. Tap a recipient card to open.\n2. Edit fields inline — auto-saves.\n3. Delete from the card menu (three dots). Project links are cleared; project data remains.',
         },
       ],
     },
@@ -348,23 +493,28 @@ export const PAGE_HELP: PageHelpRoute[] = [
     pattern: /^\/calculators\/gauge$/,
     help: {
       title: 'Gauge calculator',
-      tagline: 'Scale stitch counts when your gauge doesn\'t match the pattern.',
+      tagline: 'Every tool on this page, step by step.',
       sections: [
         {
-          heading: 'When to use this',
+          heading: 'Step 1: Enter the pattern\'s stated gauge',
           body:
-            'You swatched, measured, and your stitches-per-inch or rows-per-inch are different from the pattern\'s stated gauge. This tool scales the pattern\'s stitch/row counts so you end up with the intended finished measurements.',
+            '• **Stitches per 4"** (or per 10 cm) — what the pattern says.\n• **Rows per 4"** — same.\n• Toggle units (inches / cm) if needed.',
         },
         {
-          heading: 'Inputs',
+          heading: 'Step 2: Enter your measured gauge',
           body:
-            'Enter the pattern\'s stated gauge and your measured gauge (both stitches-per-inch and rows-per-inch). Then enter the number from the pattern — e.g. "cast on 96 stitches" — and the tool scales it.',
-          tip: 'Swatch at least 4×4 inches after washing to get an honest gauge. Pre-wash swatching under-reports.',
+            '• Swatch at least 4×4 inches.\n• Wash + block the swatch before measuring — pre-wash gauge under-reports.\n• Measure on a flat surface.\n• Enter **Stitches per 4"** and **Rows per 4"** as you measured.',
         },
         {
-          heading: 'When NOT to use this',
+          heading: 'Step 3: Enter the pattern number to scale',
           body:
-            'If the pattern has colourwork or cables that depend on multiples of specific numbers, scaling row counts can land you on a non-multiple. Verify against the chart before casting on.',
+            '1. Pick the **Axis** (stitches or rows).\n2. Enter the pattern\'s stitch/row count (e.g. "cast on 96 stitches").\n3. The scaled number appears instantly. Tap **Copy** to put it on the clipboard.',
+        },
+        {
+          heading: 'Warnings to heed',
+          body:
+            '• If the pattern is a cable/colourwork chart, the scaled count may not land on a multiple of the repeat. Round to the nearest multiple and recheck fit.\n• If your gauge is wildly off (>20%), change needle size before trying to scale the whole pattern.',
+          tip: 'A gauge mismatch of just 10% over a 40" chest adds 4" of ease. Always swatch for anything fitted.',
         },
       ],
     },
@@ -373,18 +523,27 @@ export const PAGE_HELP: PageHelpRoute[] = [
     pattern: /^\/calculators\/yarn-sub$/,
     help: {
       title: 'Yarn substitution calculator',
-      tagline: 'Check whether one yarn can stand in for another.',
+      tagline: 'Every tool on this page, step by step.',
       sections: [
         {
-          heading: 'What it checks',
+          heading: 'Step 1: Pattern yarn (left column)',
           body:
-            'Weight match (are both worsted?), gauge compatibility (do their stated gauges match?), fibre behaviour (will they block similarly?), and whether you have enough total yardage.',
+            '• **Weight** — DK, worsted, etc. (labelled in knitter vernacular).\n• **Yardage per 100g** — from the pattern\'s ball-band info.\n• **Fibre** — wool, cotton, alpaca, etc.\n• **Total yardage needed** — from the pattern.',
         },
         {
-          heading: 'Running the check',
+          heading: 'Step 2: Your substitute (right column)',
           body:
-            'Pick the pattern yarn and your substitute. The tool flags each axis as green / amber / red with an explanation.',
-          tip: 'Weights are labelled in knitter vernacular (DK / Worsted / Sport) — CYC codes are internal only.',
+            '• Same fields.\n• Or tap **Load from stash** to pick an existing yarn — fields auto-fill.',
+        },
+        {
+          heading: 'Read the compatibility grid',
+          body:
+            '• **Weight** — green if identical, amber if adjacent (DK↔sport), red if mismatched.\n• **Gauge** — green if within 5%, amber ±10%, red above.\n• **Fibre** — green if similar family (wool/wool), amber if different but compatible (wool/alpaca), red if very different (wool/cotton).\n• **Yardage** — green if you have enough, red if short.',
+        },
+        {
+          heading: 'Swatch before committing',
+          body:
+            'The calculator is a go/no-go first pass. Any "amber" result is a swatch conversation, not a veto.',
         },
       ],
     },
@@ -393,17 +552,22 @@ export const PAGE_HELP: PageHelpRoute[] = [
     pattern: /^\/calculators\/gift-size$/,
     help: {
       title: 'Gift size calculator',
-      tagline: 'Recommend a garment size from a recipient\'s measurements.',
+      tagline: 'Every tool on this page, step by step.',
       sections: [
         {
-          heading: 'How it works',
+          heading: 'Enter body measurement',
           body:
-            'Enter the recipient\'s body chest circumference (or pull from their Recipient profile), choose a fit preference (close / classic / oversized), and Rowly returns the recommended size in women\'s / men\'s / child / baby schemes.',
+            '1. Type the **Body chest circumference**.\n2. Toggle inches/cm if needed.\n3. Or tap **Load from recipient** and pick a recipient whose chest you\'ve recorded.',
         },
         {
-          heading: 'Ease explained',
+          heading: 'Pick a fit',
           body:
-            '**Close fit** subtracts 2" from the body — fitted. **Classic fit** adds 2" — standard sweater fit. **Oversized** adds 6" — roomy. The finished garment measurement is body + ease.',
+            '• **Close fit** — finished garment is 2" smaller than body. Fitted.\n• **Classic fit** — 2" larger than body. Standard sweater.\n• **Oversized** — 6" larger. Roomy, slouchy.\n\nChanging fit re-runs the recommendation instantly.',
+        },
+        {
+          heading: 'Read the recommendations',
+          body:
+            '• Three size schemes appear: **Women\'s**, **Men\'s**, **Children\'s** (and **Baby** for small measurements).\n• Each scheme shows the recommended size letter/number and the finished chest range.\n• The recommendation is the size whose finished chest is closest to body + ease.',
         },
       ],
     },
@@ -412,17 +576,27 @@ export const PAGE_HELP: PageHelpRoute[] = [
     pattern: /^\/calculators$/,
     help: {
       title: 'Calculators',
-      tagline: 'Quick utilities for knitters.',
+      tagline: 'Every tool on this page, step by step.',
       sections: [
         {
-          heading: 'What\'s here',
+          heading: 'Gauge tile',
           body:
-            '**Gauge** — scale pattern stitch counts to your measured gauge.\n\n**Yarn substitution** — check if a yarn can replace another in a pattern.\n\n**Gift size** — recommend a garment size from a recipient\'s body measurements.',
+            'Tap **Gauge** to scale a pattern\'s stitch/row counts to your measured gauge. Use when your swatch doesn\'t match the pattern.',
         },
         {
-          heading: 'Feasibility calculator',
+          heading: 'Yarn substitution tile',
           body:
-            'The feasibility calculator is surfaced per-project on project cards rather than here. Open any project to see whether your stash + gauge + pattern add up.',
+            'Tap **Yarn substitution** to check whether one yarn can stand in for another — compares weight, gauge, fibre, and yardage.',
+        },
+        {
+          heading: 'Gift size tile',
+          body:
+            'Tap **Gift size** to get a recommended garment size from a recipient\'s body measurements. Pulls from your Recipients list.',
+        },
+        {
+          heading: 'Feasibility (on project cards)',
+          body:
+            'The feasibility calc is surfaced per-project — look for the traffic-light badge on any project card. Tap a badge to see whether your stash, gauge, and pattern yardage add up.',
         },
       ],
     },
@@ -431,48 +605,97 @@ export const PAGE_HELP: PageHelpRoute[] = [
   // Designer
   // =========================================================================
   {
+    pattern: /^\/designer\/print$/,
+    help: {
+      title: 'Designer — print view',
+      tagline: 'Every tool on this page, step by step.',
+      sections: [
+        {
+          heading: 'Print the pattern',
+          body:
+            '1. Tap your browser\'s print (Cmd/Ctrl+P).\n2. The layout is pre-formatted for A4 / Letter — schematic, stitch grid, and row-by-row instructions in order.\n3. Use "Save as PDF" if you want a file rather than paper.',
+        },
+        {
+          heading: 'Back to designer',
+          body:
+            'Tap **Back to designer** (top-left) to return to the form. Any field changes there will update the print view live.',
+        },
+      ],
+    },
+  },
+  {
     pattern: /^\/designer/,
     help: {
       title: 'Pattern designer',
-      tagline: 'Parametric garment design with schematic, stitch grid, and production instructions.',
+      tagline: 'Every tool on this page, step by step.',
       sections: [
         {
-          heading: 'Filling in the form',
+          heading: 'Fill the form (left column)',
           body:
-            'The form is sectioned top-to-bottom: measurements, gauge, construction method, stitch selection, shaping. Fields update the schematic live on the right.',
+            '1. **Measurements** — chest, waist, hip, length, arm length.\n2. **Gauge** — stitches + rows per 4".\n3. **Construction** — bottom-up, top-down, seamed, raglan, etc.\n4. **Stitch pattern** — pick from the library or type a custom repeat.\n5. **Shaping** — waist shaping, sleeve taper, neckline depth.\n\nThe schematic on the right updates live as you change fields.',
         },
         {
-          heading: 'Chart grid + schematic',
+          heading: 'Schematic (right column)',
           body:
-            'The schematic shows the silhouette with measurements. The stitch grid renders your repeat over the piece so you can verify fit before casting on.',
+            'Shows the garment silhouette with measurements labelled. Rotate with the icon in the top-right of the schematic to see front / back / side views.',
         },
         {
-          heading: 'Production instructions',
+          heading: 'Stitch grid',
           body:
-            'Scroll down past the schematic for the row-by-row written instructions. **Print view** renders a printer-ready version.',
+            'Below the schematic. Renders your chosen stitch pattern over the garment piece so you can see where cables/motifs land.',
+        },
+        {
+          heading: 'Row-by-row instructions',
+          body:
+            'Scroll below the schematic. Every row is listed with its stitch count and any shaping. Copy-paste any row into another editor, or print the whole thing via the **Print view** button.',
+        },
+        {
+          heading: 'Print view button',
+          body:
+            'Tap **Print view** (top-right). Opens a printer-friendly layout. Use browser print to save as PDF or print on paper.',
         },
       ],
     },
   },
   // =========================================================================
-  // Dashboard / misc
+  // Dashboard
   // =========================================================================
   {
     pattern: /^\/dashboard$/,
     help: {
       title: 'Dashboard',
-      tagline: 'Your command center.',
+      tagline: 'Every tool on this page, step by step.',
       sections: [
         {
-          heading: 'What the cards show',
+          heading: 'Global search (⌘K / Ctrl+K)',
           body:
-            '**In-progress projects** — active projects with your current row. Tap to open.\n\n**Activity heatmap** — GitHub-style grid of rows knitted per day over the last year.\n\n**Stash value** + **pattern library** — inventory counts.\n\n**Recent sessions** — last few knitting sessions with time + rows.',
+            '1. Press **⌘K** (Mac) or **Ctrl+K** (Windows).\n2. A search bar opens.\n3. Type any term — Rowly searches projects, patterns, yarn, tools, and notes.\n4. Arrow keys to navigate, Enter to open.',
+          tip: 'The ⌘K hint appears on your first dashboard visit. Once dismissed it stays dismissed.',
         },
         {
-          heading: 'Global search',
+          heading: 'In-progress project cards',
           body:
-            'Press **⌘K** (Mac) or **Ctrl+K** (Windows) anywhere in Rowly to open global search — finds projects, patterns, yarn, and tools instantly.',
-          tip: 'The ⌘K tooltip appears on your first visit to the dashboard. Once dismissed it stays dismissed.',
+            '• Each card shows a project name, current row, and progress bar.\n• **Tap a card** to open the project detail page and keep knitting.',
+        },
+        {
+          heading: 'Activity heatmap',
+          body:
+            '• GitHub-style grid — rows knitted per day over the last year.\n• Darker squares = more rows knitted that day.\n• **Hover a square** (desktop) or **tap** (mobile) to see the exact row count + date.',
+        },
+        {
+          heading: 'Stash value tile',
+          body:
+            'Tap the tile to jump to the Yarn Stash page. Total is your current stash worth based on entered cost-per-ball.',
+        },
+        {
+          heading: 'Pattern library tile',
+          body:
+            'Tap to jump to Patterns. Count is your total saved patterns.',
+        },
+        {
+          heading: 'Recent sessions',
+          body:
+            'Last few knitting sessions with duration + rows. Tap one to open that session\'s project.',
         },
       ],
     },
@@ -481,17 +704,27 @@ export const PAGE_HELP: PageHelpRoute[] = [
     pattern: /^\/stats$/,
     help: {
       title: 'Stats',
-      tagline: 'Long-term trends across your knitting.',
+      tagline: 'Every tool on this page, step by step.',
       sections: [
         {
-          heading: 'What\'s shown',
+          heading: 'Summary tiles',
           body:
-            'Total projects, patterns, and yarn — cumulative counts. Time-series charts for rows knitted per week, sessions per month, average session length.',
+            'Total projects, patterns, yarn (by weight), tools. Tap any tile to jump to that section.',
         },
         {
-          heading: 'Heatmap',
+          heading: 'Rows-per-week chart',
           body:
-            'The full-year activity heatmap is the same one on the dashboard but with more granularity. Hover a cell for the row count on that day.',
+            'Bar chart of rows knitted per week. Hover a bar (desktop) or tap (mobile) for the exact count.',
+        },
+        {
+          heading: 'Session history',
+          body:
+            'List of every session — date, duration, rows, project. Tap any row to open the project.',
+        },
+        {
+          heading: 'Activity heatmap',
+          body:
+            'Full-year grid. Same as the dashboard widget but larger and more legible. Hover or tap a square for the day\'s count.',
         },
       ],
     },
@@ -500,44 +733,64 @@ export const PAGE_HELP: PageHelpRoute[] = [
     pattern: /^\/profile$/,
     help: {
       title: 'Profile',
-      tagline: 'Your account and integrations.',
+      tagline: 'Every tool on this page, step by step.',
       sections: [
         {
-          heading: 'Account',
+          heading: 'Change name / email',
           body:
-            'Change your name, email, or password. Updating email triggers a verification link to the new address.',
+            '1. Tap the field, change, tap outside to save.\n2. Changing email triggers a verification link sent to the new address. You stay logged in; the old email is removed when you click verify.',
         },
         {
-          heading: 'Ravelry',
+          heading: 'Change password',
           body:
-            'Link your Ravelry account to sync favourites, bookmarks, and stash. OAuth-based; you can revoke access at any time.',
+            '1. Scroll to **Password**.\n2. Enter current password.\n3. Enter new password (twice).\n4. Tap **Update**. You remain logged in.',
+        },
+        {
+          heading: 'Ravelry integration',
+          body:
+            '1. Tap **Connect Ravelry**.\n2. You\'re bounced to Ravelry to authorise — enter your Ravelry login.\n3. Back in Rowly, the section shows "Connected as [your Ravelry handle]".\n4. Tap **Disconnect** to revoke — Ravelry sync pages will stop working until you reconnect.',
         },
         {
           heading: 'Voice preferences',
           body:
-            'Toggle text-to-speech for voice control, adjust the silence timeout, and pick a language for speech recognition.',
+            '1. Scroll to **Voice**.\n2. **TTS enabled** — toggle text-to-speech for voice commands.\n3. **Silence timeout** — how long (seconds) the mic can hear nothing before auto-stopping.\n4. **Language** — pick the recognition language. Defaults to browser default.',
+        },
+        {
+          heading: 'Theme',
+          body:
+            'Tap the theme toggle in the sidebar header to switch dark / light. Choice persists per browser.',
+        },
+        {
+          heading: 'Delete account',
+          body:
+            '1. Tap **Delete account** at the bottom (red).\n2. Type your email to confirm.\n3. Account + all data is scheduled for deletion. GDPR export is available before final delete.',
         },
       ],
     },
   },
   // =========================================================================
-  // Ravelry integrations
+  // Ravelry pages
   // =========================================================================
   {
     pattern: /^\/ravelry\/bookmarks\/sync$/,
     help: {
       title: 'Sync Ravelry bookmarks',
-      tagline: 'Import selected Ravelry bookmarks as Rowly patterns.',
+      tagline: 'Every tool on this page, step by step.',
       sections: [
         {
-          heading: 'How it works',
+          heading: 'Select bookmarks',
           body:
-            'Pick the bookmarks you want to bring in. Rowly creates a pattern entry for each — name, designer, Ravelry link, and any metadata the API exposes. The original Ravelry page stays untouched.',
+            '• Tap checkboxes on bookmark cards to queue them.\n• Or tap **Select all** / **Clear all** at the top.',
         },
         {
-          heading: 'What doesn\'t sync',
+          heading: 'Sync selected button',
           body:
-            'Ravelry doesn\'t expose the actual PDF or full pattern instructions via its API. You\'ll get the metadata + link; upload the PDF separately if you have it.',
+            '1. Tap **Sync selected**.\n2. Rowly creates a pattern entry for each — name, designer, Ravelry link, and available metadata.\n3. Wait for the progress bar. Count of successes / failures appears at the end.',
+        },
+        {
+          heading: 'Already-synced tag',
+          body:
+            'Bookmarks previously imported show an "Already synced" tag. They\'re skipped if you re-select them.',
         },
       ],
     },
@@ -546,17 +799,17 @@ export const PAGE_HELP: PageHelpRoute[] = [
     pattern: /^\/ravelry\/bookmarks$/,
     help: {
       title: 'Ravelry bookmarks',
-      tagline: 'Your Ravelry bookmarks, ready to sync.',
+      tagline: 'Every tool on this page, step by step.',
       sections: [
         {
-          heading: 'Browse + select',
+          heading: 'Browse your bookmarks',
           body:
-            'Scroll or search your Ravelry bookmarks. Multi-select the ones you want, then tap **Sync selected** to create Rowly patterns for them.',
+            'Cards load on scroll. Each shows title, designer, and a Ravelry link.',
         },
         {
-          heading: 'Already-synced bookmarks',
+          heading: 'Sync button',
           body:
-            'Bookmarks that have already been imported are flagged so you don\'t re-import them.',
+            'Tap **Sync to patterns** to jump to the selection page (`/ravelry/bookmarks/sync`) where you can pick which bookmarks to import as Rowly patterns.',
         },
       ],
     },
@@ -565,17 +818,22 @@ export const PAGE_HELP: PageHelpRoute[] = [
     pattern: /^\/ravelry\/stash\/sync$/,
     help: {
       title: 'Sync Ravelry stash',
-      tagline: 'Bring your Ravelry stash into your Rowly yarn inventory.',
+      tagline: 'Every tool on this page, step by step.',
       sections: [
         {
-          heading: 'What gets imported',
+          heading: 'Preview your Ravelry stash',
           body:
-            'Yarn name, brand, fibre content, weight, yardage, photos (if present), and your notes. Colors and colorway are preserved. Remaining yardage is taken as-is from Ravelry.',
+            'Every stash entry is listed with brand, colorway, weight, and remaining yardage.',
         },
         {
-          heading: 'Duplicates',
+          heading: 'Import all button',
           body:
-            'Rowly matches by Ravelry stash ID so a re-sync updates existing entries rather than creating duplicates.',
+            '1. Tap **Import all**.\n2. Rowly matches by Ravelry stash ID — existing entries are updated, new ones created. No duplicates.\n3. Progress + counts shown at the end.',
+        },
+        {
+          heading: 'Selective import',
+          body:
+            'Uncheck any entry you don\'t want to import before tapping the button.',
         },
       ],
     },
@@ -584,17 +842,17 @@ export const PAGE_HELP: PageHelpRoute[] = [
     pattern: /^\/ravelry\/projects\/sync$/,
     help: {
       title: 'Sync Ravelry projects',
-      tagline: 'Import your Ravelry projects as Rowly projects.',
+      tagline: 'Every tool on this page, step by step.',
       sections: [
         {
-          heading: 'What gets imported',
+          heading: 'Preview Ravelry projects',
           body:
-            'Project name, pattern link (if available), yarn used, needles, start/finish dates, and any project notes. Photos come through if Ravelry hosts them.',
+            'Cards show project name, linked pattern, yarn used, dates, and status.',
         },
         {
-          heading: 'Linking to existing',
+          heading: 'Import button',
           body:
-            'If a Ravelry project references a pattern already in your Rowly library, the link is preserved. Otherwise a pattern stub is created so the link survives.',
+            '1. Tap **Import selected** (or individual card buttons).\n2. Each becomes a Rowly project. Patterns already in your library stay linked; new patterns get stub entries.\n3. Wait for the import to complete. Counts shown.',
         },
       ],
     },
@@ -603,12 +861,12 @@ export const PAGE_HELP: PageHelpRoute[] = [
     pattern: /^\/ravelry\/favorites\/yarns\/sync$/,
     help: {
       title: 'Sync favourite yarns',
-      tagline: 'Your Ravelry-favourited yarns become shoppable references in Rowly.',
+      tagline: 'Every tool on this page, step by step.',
       sections: [
         {
-          heading: 'Why sync favourite yarns',
+          heading: 'Select + import',
           body:
-            'Unlike stash, these are yarns you\'ve starred as "want to try" or "keep an eye on". They come in as reference entries — not counted in your stash inventory, but available when planning projects.',
+            '1. Tap checkboxes on yarn cards you want to import.\n2. Tap **Import selected**.\n3. Yarns come in as **reference entries** — NOT counted in your stash inventory. Useful for "I want to try this yarn someday".',
         },
       ],
     },
@@ -617,17 +875,17 @@ export const PAGE_HELP: PageHelpRoute[] = [
     pattern: /^\/ravelry\/favorites$/,
     help: {
       title: 'Ravelry favourites',
-      tagline: 'Patterns you\'ve favourited on Ravelry.',
+      tagline: 'Every tool on this page, step by step.',
       sections: [
         {
-          heading: 'What\'s here',
+          heading: 'Browse favourites',
           body:
-            'Every pattern you\'ve favourited on Ravelry. Multi-select + sync to create Rowly pattern entries linked back to Ravelry.',
+            'Cards load on scroll. Filtered by type (patterns / yarns / projects). Use the tabs at the top to switch.',
         },
         {
-          heading: 'Keep in sync',
+          heading: 'Sync button',
           body:
-            'Re-syncing catches new favourites since last import. Existing patterns keep their Rowly notes, tags, and project links.',
+            'Tap **Sync to patterns** to jump to the selection page where you choose which to import.',
         },
       ],
     },
@@ -636,37 +894,60 @@ export const PAGE_HELP: PageHelpRoute[] = [
     pattern: /^\/ravelry\/sync$/,
     help: {
       title: 'Ravelry sync',
-      tagline: 'Hub for importing from your Ravelry account.',
+      tagline: 'Every tool on this page, step by step.',
       sections: [
         {
-          heading: 'Connect first',
+          heading: 'Connect Ravelry',
           body:
-            'Go to **Profile → Ravelry** to connect. Rowly uses OAuth — your password is never sent or stored. You can revoke access at any time from Ravelry settings.',
+            'If you see "Not connected", tap **Connect Ravelry**. You\'ll be bounced to Ravelry to authorise. Back in Rowly, the other buttons become active.',
         },
         {
-          heading: 'What you can sync',
+          heading: 'Sync Bookmarks tile',
           body:
-            '**Bookmarks** → Rowly patterns.\n\n**Favourites** → Rowly patterns.\n\n**Stash** → Rowly yarn inventory.\n\n**Projects** → Rowly projects.\n\n**Favourite yarns** → reference entries.\n\nEach category has its own page for previewing + selecting before commit.',
-          tip: 'Sync is read-only — Rowly never writes back to Ravelry. Bidirectional sync is explicitly deferred.',
+            'Tap → opens `/ravelry/bookmarks/sync` where you pick which bookmarks to import as Rowly patterns.',
+        },
+        {
+          heading: 'Sync Favourites tile',
+          body:
+            'Tap → opens the favourites page with pattern/yarn tabs.',
+        },
+        {
+          heading: 'Sync Stash tile',
+          body:
+            'Tap → imports your Ravelry stash into your Rowly yarn inventory. Matches by Ravelry stash ID so re-syncing updates rather than duplicates.',
+        },
+        {
+          heading: 'Sync Projects tile',
+          body:
+            'Tap → imports Ravelry projects as Rowly projects. Pattern links preserved where possible.',
+        },
+        {
+          heading: 'Disconnect',
+          body:
+            'Go to **Profile → Ravelry** and tap **Disconnect** to revoke access. Sync pages stop working until you reconnect.',
+          tip: 'Rowly\'s Ravelry sync is read-only. Nothing is written back to your Ravelry account.',
         },
       ],
     },
   },
+  // =========================================================================
+  // Help index
+  // =========================================================================
   {
     pattern: /^\/help$/,
     help: {
       title: 'Help',
-      tagline: 'The full how-to index.',
+      tagline: 'Where to find what.',
       sections: [
         {
-          heading: 'Page-specific help',
+          heading: 'Page-specific help (this ? button)',
           body:
-            'The **?** button in the bottom-right of every page opens context-specific help about the tools on that page. Start there.',
+            'Every authenticated page has a floating **?** button in the bottom-right. Tap it to see a step-by-step how-to for every tool on that page. Start there.',
         },
         {
-          heading: 'Questions?',
+          heading: 'This help index',
           body:
-            'If this page or the in-page help doesn\'t cover it, reach out via the feedback link.',
+            'The /help route has general onboarding content, FAQs, and the feedback link. For "how do I do X on this specific page?", use the ? button on that page instead.',
         },
       ],
     },
