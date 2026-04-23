@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import axios from 'axios';
 import { FiLink, FiLoader, FiCheck, FiX, FiAlertCircle, FiSave, FiArrowLeft } from 'react-icons/fi';
+import { logUsage } from '../../utils/logUsage';
 
 interface ExtractedContent {
   title: string;
@@ -111,6 +112,7 @@ export const BlogImportModal: React.FC<BlogImportModalProps> = ({
       if (response.data.success) {
         setSavedPatternId(response.data.patternId);
         setStep('success');
+        logUsage('blog_import_pattern_saved', response.data.patternId);
         onPatternImported(response.data.patternId);
       } else {
         setError(response.data.message || 'Failed to save pattern');
