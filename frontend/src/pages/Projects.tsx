@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { FiPlus, FiTrash2, FiCalendar, FiClock, FiMoreVertical, FiHeart, FiRefreshCw, FiX } from 'react-icons/fi';
+import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { useEscapeKey } from '../hooks/useEscapeKey';
@@ -10,6 +11,14 @@ import ListControls, { applyListControls, type SortOption } from '../components/
 import { LoadingCardGrid, ErrorState } from '../components/LoadingSpinner';
 import { useProjects, useCreateProject, useDeleteProject, useUpdateProject } from '../hooks/useApi';
 import PageHelpButton from '../components/PageHelpButton';
+import { FeasibilityBadge } from '../components/projects';
+import type { LightLevel } from '../components/projects/FeasibilityBadge';
+
+interface FeasibilitySummary {
+  projectId: string;
+  patternId: string;
+  overallStatus: LightLevel;
+}
 
 interface ProjectTypeOption {
   value: string;
@@ -109,6 +118,23 @@ export default function Projects() {
   const createProject = useCreateProject();
   const updateProjectMutation = useUpdateProject();
   const deleteProjectMutation = useDeleteProject();
+
+  const { data: feasibilitySummaries } = useQuery<FeasibilitySummary[]>({
+    queryKey: ['projects-feasibility-summary'],
+    queryFn: async () => {
+      const { data } = await axios.get('/api/projects/feasibility-summary');
+      return data.data.summaries as FeasibilitySummary[];
+    },
+    // Stash/tool edits propagate after ~30 s without manual reload.
+    staleTime: 30_000,
+  });
+
+  const feasibilityByProject = useMemo(() => {
+    const map = new Map<string, FeasibilitySummary>();
+    for (const s of feasibilitySummaries ?? []) map.set(s.projectId, s);
+    return map;
+  }, [feasibilitySummaries]);
+
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const moreMenuRef = useRef<HTMLDivElement>(null);
 
@@ -391,6 +417,15 @@ export default function Projects() {
                   {project.status || 'active'}
                 </span>
               </div>
+
+              {feasibilityByProject.get(project.id) && (
+                <div className="mb-3">
+                  <FeasibilityBadge
+                    status={feasibilityByProject.get(project.id)!.overallStatus}
+                    patternId={feasibilityByProject.get(project.id)!.patternId}
+                  />
+                </div>
+              )}
 
               {project.description && (
                 <p className="text-gray-600 dark:text-gray-400 text-sm mb-4 line-clamp-2">
