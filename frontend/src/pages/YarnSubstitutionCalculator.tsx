@@ -46,16 +46,22 @@ interface SubstitutionResult {
   message: string;
 }
 
-const WEIGHT_OPTIONS = [
-  'Lace',
-  'Super Fine',
-  'Fine',
-  'Light',
-  'Medium',
-  'Bulky',
-  'Super Bulky',
-  'Jumbo',
-] as const;
+// The API normalises weight names (backend accepts 'fingering', 'DK',
+// etc. as aliases of the CYC canonical names), but we keep the value
+// field as the CYC canonical so the request payload stays stable. Only
+// the visible label changes — showing the knitter vernacular first
+// because that's how labels are printed in the real world. Matches the
+// Yarn Stash add/edit form which already uses these names.
+const WEIGHT_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: 'Lace', label: 'Lace' },
+  { value: 'Super Fine', label: 'Fingering / Sock (Super Fine)' },
+  { value: 'Fine', label: 'Sport (Fine)' },
+  { value: 'Light', label: 'DK (Light)' },
+  { value: 'Medium', label: 'Worsted / Aran (Medium)' },
+  { value: 'Bulky', label: 'Chunky / Bulky' },
+  { value: 'Super Bulky', label: 'Super Bulky' },
+  { value: 'Jumbo', label: 'Jumbo' },
+];
 
 const FIBER_OPTIONS = [
   'wool',
@@ -213,8 +219,8 @@ export default function YarnSubstitutionCalculator() {
             >
               <option value="">Any weight</option>
               {WEIGHT_OPTIONS.map((w) => (
-                <option key={w} value={w}>
-                  {w}
+                <option key={w.value} value={w.value}>
+                  {w.label}
                 </option>
               ))}
             </select>
