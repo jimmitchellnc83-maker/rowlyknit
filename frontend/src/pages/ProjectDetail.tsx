@@ -522,7 +522,12 @@ export default function ProjectDetail() {
 
             {/* Counters */}
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-              <CounterHierarchy projectId={id!} />
+              <CounterHierarchy
+                projectId={id!}
+                linkedChart={
+                  (project.metadata?.designer as DesignerFormSnapshot | undefined)?.chart ?? null
+                }
+              />
             </div>
 
             {/* Magic Markers */}

@@ -6,10 +6,17 @@ import type { Counter, IncrementMode, CounterUpdateResult } from '../../types/co
 import CounterForm from './CounterForm';
 import HelpTooltip from '../HelpTooltip';
 import ConfirmModal from '../ConfirmModal';
+import ChartRowTracker from './ChartRowTracker';
+import type { ChartData } from '../designer/ChartGrid';
 
 interface CounterHierarchyProps {
   projectId: string;
   onCounterChange?: () => void;
+  /** When the parent project has a saved Designer chart, pass it here and
+   *  the first primary row-type counter will be wired to it — its
+   *  current_value drives the chart's highlighted row, and incrementing
+   *  the counter advances the row follower. */
+  linkedChart?: ChartData | null;
 }
 
 interface HierarchicalCounterCardProps {
@@ -208,7 +215,7 @@ function HierarchicalCounterCard({
   );
 }
 
-export default function CounterHierarchy({ projectId, onCounterChange }: CounterHierarchyProps) {
+export default function CounterHierarchy({ projectId, onCounterChange, linkedChart }: CounterHierarchyProps) {
   const [counters, setCounters] = useState<Counter[]>([]);
   const [allCounters, setAllCounters] = useState<Counter[]>([]);
   const [loading, setLoading] = useState(true);
@@ -437,6 +444,13 @@ export default function CounterHierarchy({ projectId, onCounterChange }: Counter
     (c) => !c.parent_counter_id && c.is_visible && c.is_active
   );
 
+  // When a designer chart is attached to the project, auto-wire the first
+  // visible primary row-type counter as the chart's row tracker. Future
+  // iteration could expose an explicit per-counter opt-in.
+  const chartLinkedCounter = linkedChart
+    ? primaryCounters.find((c) => c.type === 'row') ?? null
+    : null;
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -504,6 +518,19 @@ export default function CounterHierarchy({ projectId, onCounterChange }: Counter
           </p>
         )}
       </div>
+
+      {/* Chart follower — when the project has a designer chart and a
+          primary row-type counter exists, show a read-only chart viewer
+          that highlights the current row and exposes its own +/- steppers. */}
+      {chartLinkedCounter && linkedChart && (
+        <ChartRowTracker
+          chart={linkedChart}
+          currentRow={chartLinkedCounter.current_value}
+          counterName={chartLinkedCounter.name}
+          disabled={incrementing}
+          onStep={(delta) => handleIncrement(chartLinkedCounter.id, delta)}
+        />
+      )}
 
       {/* Counter List */}
       {primaryCounters.length === 0 ? (
