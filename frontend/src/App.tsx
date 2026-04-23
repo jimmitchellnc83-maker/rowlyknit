@@ -41,6 +41,7 @@ import RavelryBookmarks from './pages/RavelryBookmarks';
 import RavelryBookmarksSync from './pages/RavelryBookmarksSync';
 import RavelryFavorites from './pages/RavelryFavorites';
 import NotFound from './pages/NotFound';
+import Landing from './pages/Landing';
 
 // Protected route wrapper
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -54,12 +55,23 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
   return !isAuthenticated ? <>{children}</> : <Navigate to="/dashboard" replace />;
 }
 
+// Landing route — redirect authenticated visitors straight into the app so
+// the root URL is still "home" for returning users; new visitors get the
+// public marketing page with signup CTAs.
+function LandingOrDashboard() {
+  const { isAuthenticated } = useAuthStore();
+  return isAuthenticated ? <Navigate to="/dashboard" replace /> : <Landing />;
+}
+
 function App() {
   return (
     <>
       <OfflineIndicator />
       <PWAInstallPrompt />
       <Routes>
+      {/* Public root — landing page for unauthenticated visitors */}
+      <Route path="/" element={<LandingOrDashboard />} />
+
         {/* Auth routes */}
       <Route element={<AuthLayout />}>
         <Route
@@ -98,7 +110,6 @@ function App() {
           </PrivateRoute>
         }
       >
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/projects" element={<Projects />} />
         <Route path="/projects/:id" element={<ErrorBoundary><ProjectDetail /></ErrorBoundary>} />
