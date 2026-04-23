@@ -49,6 +49,7 @@ import colorPlanningRoutes from './routes/color-planning';
 import sharedRoutes from './routes/shared';
 import ravelryRoutes from './routes/ravelry';
 import usageEventsRoutes from './routes/usage-events';
+import panelsRoutes from './routes/panels';
 
 // Create Express app
 const app: Application = express();
@@ -145,6 +146,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api', sessionsRoutes);
 app.use('/api', ratingsRoutes);
 app.use('/api', countersRoutes);
+app.use('/api', panelsRoutes);
 app.use('/api', piecesRoutes);
 app.use('/api', notesRoutes);
 app.use('/api', magicMarkersRoutes);
