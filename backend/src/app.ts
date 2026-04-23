@@ -50,6 +50,7 @@ import sharedRoutes from './routes/shared';
 import ravelryRoutes from './routes/ravelry';
 import usageEventsRoutes from './routes/usage-events';
 import panelsRoutes from './routes/panels';
+import userExamplesRoutes from './routes/user-examples';
 
 // Create Express app
 const app: Application = express();
@@ -167,6 +168,7 @@ app.get('/api/chart-symbols', (req, res, next) => {
 app.use('/api', colorPlanningRoutes);
 app.use('/api/ravelry', ravelryRoutes);
 app.use('/api/usage-events', usageEventsRoutes);
+app.use('/api/users', userExamplesRoutes);
 app.use('/shared', sharedRoutes); // Public shared content routes
 
 // API documentation

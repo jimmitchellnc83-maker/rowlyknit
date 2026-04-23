@@ -16,6 +16,7 @@ import {
   NotFoundError,
 } from '../utils/errorHandler';
 import emailService from '../services/emailService';
+import { seedExampleDataForUser } from '../services/seedExampleData';
 import { createAuditLog } from '../middleware/auditLog';
 import logger from '../config/logger';
 import validator from 'validator';
@@ -92,6 +93,18 @@ export async function register(req: Request, res: Response) {
     entityType: 'user',
     entityId: user.id,
     newValues: { email, firstName, lastName },
+  });
+
+  // Seed showcase content so first-login Dashboard isn't an empty room.
+  // Fire-and-forget so a seeding hiccup never blocks registration —
+  // the seed function is idempotent (examples_seeded_at gate) and logs
+  // its own failures. The user can also re-seed later via admin tools
+  // if this fails silently.
+  void seedExampleDataForUser(user.id).catch((err) => {
+    logger.error('Example data seeding failed during registration', {
+      userId: user.id,
+      error: err instanceof Error ? err.message : String(err),
+    });
   });
 
   res.status(201).json({
