@@ -538,6 +538,17 @@ export default function ProjectDetail() {
                   (project.metadata?.designer as DesignerFormSnapshot | undefined)?.chart ?? null
                 }
               />
+              <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <Link
+                  to={`/projects/${id}/panels`}
+                  className="inline-flex items-center gap-1.5 text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                >
+                  Panel Mode →
+                </Link>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Track multi-panel patterns with one master counter.
+                </p>
+              </div>
             </div>
 
             {/* Magic Markers */}
