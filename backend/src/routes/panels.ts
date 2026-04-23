@@ -19,6 +19,12 @@ router.get(
 );
 
 router.get(
+  '/projects/:id/panel-groups/live',
+  validateUUID('id'),
+  asyncHandler(panelGroupsController.getAllPanelGroupsLive),
+);
+
+router.get(
   '/projects/:id/panel-groups/:groupId',
   [validateUUID('id'), validateUUID('groupId')],
   validate,
@@ -30,6 +36,17 @@ router.get(
   [validateUUID('id'), validateUUID('groupId')],
   validate,
   asyncHandler(panelGroupsController.getPanelGroupLive),
+);
+
+router.post(
+  '/projects/:id/panel-groups/:groupId/copy-panels',
+  [
+    validateUUID('id'),
+    validateUUID('groupId'),
+    body('sourceGroupId').notEmpty().isUUID(),
+  ],
+  validate,
+  asyncHandler(panelGroupsController.copyPanelsFromGroup),
 );
 
 router.post(
@@ -120,6 +137,17 @@ router.post(
   ],
   validate,
   asyncHandler(panelsController.bulkReplacePanelRows),
+);
+
+/**
+ * Parse pasted pattern text into candidate panels. Stateless — no project
+ * UUID in the path because the request body is the only input.
+ */
+router.post(
+  '/panels/parse',
+  [body('text').isString().isLength({ min: 1, max: 50000 })],
+  validate,
+  asyncHandler(panelsController.parsePanelText),
 );
 
 export default router;
