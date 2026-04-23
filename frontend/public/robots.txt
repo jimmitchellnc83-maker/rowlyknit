@@ -1,4 +1,7 @@
 User-agent: *
+Allow: /
+Allow: /privacy
+Allow: /terms
 Disallow: /login
 Disallow: /register
 Disallow: /forgot-password
@@ -13,3 +16,10 @@ Disallow: /tools
 Disallow: /recipients
 Disallow: /profile
 Disallow: /settings
+Disallow: /help
+Disallow: /stats
+Disallow: /calculators
+Disallow: /designer
+Disallow: /ravelry
+
+Sitemap: https://rowlyknit.com/sitemap.xml
