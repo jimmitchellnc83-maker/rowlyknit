@@ -7,6 +7,7 @@ import PatternPreview from '../../PatternPreview';
 import CounterHierarchy from '../../counters/CounterHierarchy';
 import { SessionTimer, SessionHistory } from '../../sessions';
 import { AudioNotes } from '../../notes/AudioNotes';
+import type { ChartData } from '../../designer/ChartGrid';
 
 interface Props {
   projectId: string;
@@ -16,6 +17,10 @@ interface Props {
   onSaveAudioNote: (audioBlob: Blob, durationSeconds: number, transcription?: string, patternId?: string) => Promise<void>;
   onDeleteAudioNote: (noteId: string) => Promise<void>;
   onUpdateAudioTranscription: (noteId: string, transcription: string) => Promise<void>;
+  /** If the parent project has a saved Designer chart, thread it through so
+   *  the counter pane's ChartRowTracker renders here too — this is the
+   *  mode where a hands-free chart follower matters most. */
+  linkedChart?: ChartData | null;
 }
 
 export default function KnittingModeLayout({
@@ -26,6 +31,7 @@ export default function KnittingModeLayout({
   onSaveAudioNote,
   onDeleteAudioNote,
   onUpdateAudioTranscription,
+  linkedChart,
 }: Props) {
   const [showVoiceNotes, setShowVoiceNotes] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
@@ -126,7 +132,7 @@ export default function KnittingModeLayout({
         )}
 
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 md:p-6">
-          <CounterHierarchy projectId={projectId} />
+          <CounterHierarchy projectId={projectId} linkedChart={linkedChart} />
         </div>
       </div>
 

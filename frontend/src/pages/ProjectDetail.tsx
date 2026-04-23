@@ -485,6 +485,9 @@ export default function ProjectDetail() {
           onSaveAudioNote={handleSaveAudioNote}
           onDeleteAudioNote={handleDeleteAudioNote}
           onUpdateAudioTranscription={handleUpdateAudioTranscription}
+          linkedChart={
+            (project.metadata?.designer as DesignerFormSnapshot | undefined)?.chart ?? null
+          }
         />
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
