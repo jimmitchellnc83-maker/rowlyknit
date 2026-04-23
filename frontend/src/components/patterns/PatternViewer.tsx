@@ -459,7 +459,7 @@ export default function PatternViewer({ fileUrl, filename, patternId, projectId,
       </div>
 
       {/* Row Marker Overlay */}
-      {showRowMarker && <RowMarker pageNumber={currentPage} />}
+      {showRowMarker && <RowMarker pageNumber={currentPage} patternId={patternId} />}
 
       {/* Quick Key reference panel */}
       {showQuickKey && <QuickKeyPanel onClose={() => setShowQuickKey(false)} />}

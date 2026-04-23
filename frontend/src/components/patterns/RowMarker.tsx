@@ -1,10 +1,31 @@
 // @ts-nocheck
-import { useState, useEffect, useCallback } from 'react';
-import { FiMove, FiX, FiEye, FiEyeOff, FiSun, FiMoon } from 'react-icons/fi';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import {
+  FiMove,
+  FiX,
+  FiEye,
+  FiEyeOff,
+  FiSun,
+  FiMoon,
+  FiChevronUp,
+  FiChevronDown,
+} from 'react-icons/fi';
 
 interface RowMarkerProps {
   pageNumber: number;
   onPositionChange?: (position: { x: number; y: number }) => void;
+  /** When provided, the marker's per-page position + height are saved to
+   *  localStorage under a key scoped to this pattern id. Without it the
+   *  marker still works but resets when the page or reload changes. */
+  patternId?: string;
+  /** If set, called with +1 / -1 when the user taps the row-step buttons.
+   *  Lets a parent wire the marker to a project counter so every step
+   *  goes through the existing counter pipeline (WebSocket sync, voice).
+   *  The marker itself still moves visually regardless. */
+  onStep?: (delta: number) => void;
+  /** Short label rendered above the step buttons — e.g., "Row 27 of 45".
+   *  Typically set by the parent that also supplies onStep. */
+  stepLabel?: string;
 }
 
 const MARKER_COLORS = [
@@ -53,10 +74,46 @@ function hexToRgba(hex, alpha) {
   return `rgba(${r},${g},${b},${alpha})`;
 }
 
-export default function RowMarker({ pageNumber, onPositionChange }: RowMarkerProps) {
+// Per-(patternId, pageNumber) position + height persistence so the
+// marker remembers "I was on row 27 of page 3" across reloads.
+const POS_KEY_PREFIX = 'rowly:rowMarker:v1';
+function posKey(patternId: string, page: number) {
+  return `${POS_KEY_PREFIX}:${patternId}:${page}`;
+}
+function loadPagePos(patternId: string | undefined, page: number) {
+  if (!patternId) return null;
+  try {
+    const raw = localStorage.getItem(posKey(patternId, page));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (typeof parsed?.posY === 'number' && typeof parsed?.height === 'number') {
+      return parsed as { posY: number; height: number };
+    }
+  } catch {
+    /* ignore parse / quota errors */
+  }
+  return null;
+}
+function savePagePos(patternId: string | undefined, page: number, posY: number, height: number) {
+  if (!patternId) return;
+  try {
+    localStorage.setItem(posKey(patternId, page), JSON.stringify({ posY, height }));
+  } catch {
+    /* ignore quota / private-mode errors */
+  }
+}
+
+export default function RowMarker({
+  pageNumber,
+  onPositionChange,
+  patternId,
+  onStep,
+  stepLabel,
+}: RowMarkerProps) {
   const initial = loadPrefs();
-  const [position, setPosition] = useState({ x: 50, y: 50 }); // Percentage based
-  const [height, setHeight] = useState(initial.height);
+  const saved = loadPagePos(patternId, pageNumber);
+  const [position, setPosition] = useState({ x: 50, y: saved?.posY ?? 50 });
+  const [height, setHeight] = useState(saved?.height ?? initial.height);
   const [width, setWidth] = useState(initial.width);
   const [style, setStyle] = useState(initial.style);
   const [isDragging, setIsDragging] = useState(false);
@@ -73,6 +130,42 @@ export default function RowMarker({ pageNumber, onPositionChange }: RowMarkerPro
   useEffect(() => {
     savePrefs({ color, opacity, height, width, style, isInverted });
   }, [color, opacity, height, width, style, isInverted]);
+
+  // Reload saved position + height when the viewed page (or pattern) changes.
+  // Without this the marker would stay on the old y-% even when the user flips
+  // to a different page that has its own remembered row.
+  const lastKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!patternId) return;
+    const key = posKey(patternId, pageNumber);
+    if (lastKeyRef.current === key) return;
+    lastKeyRef.current = key;
+    const rec = loadPagePos(patternId, pageNumber);
+    if (rec) {
+      setPosition((prev) => ({ ...prev, y: rec.posY }));
+      setHeight(rec.height);
+    }
+  }, [patternId, pageNumber]);
+
+  // Persist position + height for this (pattern, page) whenever they change.
+  useEffect(() => {
+    savePagePos(patternId, pageNumber, position.y, height);
+  }, [patternId, pageNumber, position.y, height]);
+
+  // Step the marker by exactly one row (height). Also notifies the parent
+  // so it can pipe the delta into a counter. The marker moves visually
+  // even when onStep is not provided — it's still useful for standalone
+  // PDF viewing.
+  const handleStep = useCallback(
+    (delta: 1 | -1) => {
+      setPosition((prev) => {
+        const nextY = Math.max(0, Math.min(100 - height, prev.y + delta * height));
+        return { ...prev, y: nextY };
+      });
+      onStep?.(delta);
+    },
+    [height, onStep],
+  );
 
   // Handle dragging
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
@@ -125,6 +218,17 @@ export default function RowMarker({ pageNumber, onPositionChange }: RowMarkerPro
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!isVisible) return;
 
+      // Skip shortcut handling when the user is typing in an input or
+      // contenteditable element — otherwise PageDown/Space steals input focus.
+      const target = e.target as HTMLElement | null;
+      const typing =
+        !!target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable);
+      if (typing) return;
+
       switch (e.key) {
         case 'ArrowUp':
           if (!isLocked) {
@@ -137,6 +241,18 @@ export default function RowMarker({ pageNumber, onPositionChange }: RowMarkerPro
             e.preventDefault();
             setPosition(prev => ({ ...prev, y: Math.min(100 - height, prev.y + 1) }));
           }
+          break;
+        // Row-step shortcuts — move by exactly one row. These work even when
+        // locked because step-mode is the whole point of that lock (fine drag
+        // is disabled but per-row advance is still expected).
+        case 'PageDown':
+        case ' ':
+          e.preventDefault();
+          handleStep(1);
+          break;
+        case 'PageUp':
+          e.preventDefault();
+          handleStep(-1);
           break;
         case 'l':
         case 'L':
@@ -157,7 +273,7 @@ export default function RowMarker({ pageNumber, onPositionChange }: RowMarkerPro
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isVisible, isLocked, height]);
+  }, [isVisible, isLocked, height, handleStep]);
 
   // Mouse event listeners
   useEffect(() => {
@@ -419,6 +535,34 @@ export default function RowMarker({ pageNumber, onPositionChange }: RowMarkerPro
           />
         </div>
 
+        {/* Row-step buttons — advance the marker by exactly one row. Uses
+            the current Height setting as the step size, so the user
+            calibrates once (drag + resize to match pattern row height)
+            and then steps without losing alignment. */}
+        <div className="pt-2 border-t border-gray-700">
+          {stepLabel && (
+            <p className="text-xs text-gray-300 mb-2 text-center font-medium">{stepLabel}</p>
+          )}
+          <div className="flex gap-2">
+            <button
+              onClick={() => handleStep(-1)}
+              className="flex-1 h-10 rounded bg-gray-700 hover:bg-gray-600 text-white flex items-center justify-center gap-1 text-sm font-medium"
+              title="Previous row (PageUp)"
+              aria-label="Previous row"
+            >
+              <FiChevronUp className="h-4 w-4" /> Prev
+            </button>
+            <button
+              onClick={() => handleStep(1)}
+              className="flex-1 h-10 rounded bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center gap-1 text-sm font-medium"
+              title="Next row (PageDown or Space)"
+              aria-label="Next row"
+            >
+              Next <FiChevronDown className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+
         {/* Lock Toggle */}
         <button
           onClick={() => setIsLocked(!isLocked)}
@@ -433,11 +577,12 @@ export default function RowMarker({ pageNumber, onPositionChange }: RowMarkerPro
 
         {/* Instructions */}
         <div className="text-xs text-gray-400 space-y-1 pt-2 border-t border-gray-700">
-          <p>• Drag marker to move</p>
-          <p>• Drag bottom edge to resize</p>
-          <p>• Arrow keys to fine-tune</p>
-          <p>• Ctrl+L to lock/unlock</p>
-          <p>• Ctrl+H to hide/show</p>
+          <p>• Drag marker to position row 1</p>
+          <p>• Drag bottom edge to match row height</p>
+          <p>• Space / PageDown → next row</p>
+          <p>• PageUp → prev row</p>
+          <p>• Arrow keys fine-tune by 1%</p>
+          <p>• Ctrl+L lock, Ctrl+H hide</p>
         </div>
       </div>
     </>
