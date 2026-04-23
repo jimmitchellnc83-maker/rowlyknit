@@ -2,6 +2,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { FiEdit3, FiTrash, FiSave, FiTrash2, FiRotateCcw, FiRotateCw, FiDroplet } from 'react-icons/fi';
 import { toast } from 'react-toastify';
+import { logUsage } from '../../utils/logUsage';
 
 interface HandwrittenNotesProps {
   patternId?: string;
@@ -229,6 +230,7 @@ export const HandwrittenNotes: React.FC<HandwrittenNotesProps> = ({
         }
         try {
           await onSave(blob);
+          logUsage('handwritten_notes_saved', projectId);
         } catch (error) {
           console.error('Failed to save notes:', error);
           toast.error('Failed to save notes');

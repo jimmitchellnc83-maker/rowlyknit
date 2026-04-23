@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import axios from 'axios';
+import { logUsage } from '../../utils/logUsage';
 import {
   Box,
   Card,
@@ -319,6 +320,7 @@ const ChartImageUpload: React.FC<ChartImageUploadProps> = ({
       }
 
       const data = await response.json();
+      logUsage('chart_image_upload_saved', data.chart?.id ?? null);
       onChartCreated?.(data.chart);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save chart');

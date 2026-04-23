@@ -23,6 +23,7 @@ import {
   Save,
   ColorLens,
 } from '@mui/icons-material';
+import { logUsage } from '../../utils/logUsage';
 
 interface Color {
   id: string;
@@ -147,6 +148,7 @@ const GradientDesigner: React.FC<GradientDesignerProps> = ({
         throw new Error('Failed to save gradient');
       }
 
+      logUsage('gradient_designer_saved', projectId);
       onSave?.(sequence);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save gradient');
