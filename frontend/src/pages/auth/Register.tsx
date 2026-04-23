@@ -148,6 +148,22 @@ export default function Register() {
           >
             {isLoading ? 'Creating Account...' : 'Create Account'}
           </button>
+
+          {/* Clickwrap consent — by submitting the form the user is deemed
+              to have agreed to the linked terms. Keep the links to
+              /terms and /privacy unambiguous for any future compliance
+              review. */}
+          <p className="text-center text-xs text-gray-500 dark:text-gray-400">
+            By creating an account you agree to our{' '}
+            <Link to="/terms" className="underline hover:text-purple-700 dark:hover:text-purple-300">
+              Terms of Service
+            </Link>{' '}
+            and{' '}
+            <Link to="/privacy" className="underline hover:text-purple-700 dark:hover:text-purple-300">
+              Privacy Policy
+            </Link>
+            .
+          </p>
         </form>
 
         <div className="mt-6 text-center">
