@@ -21,6 +21,7 @@ import {
   matchTools,
   buildShoppingList,
   buildYarnRequirement,
+  computePatternOverallStatus,
   YARN_WEIGHT_NAMES,
   KNOWN_FIBERS,
   YarnStashRow,
@@ -456,5 +457,107 @@ describe('buildYarnRequirement', () => {
     expect(KNOWN_FIBERS).toContain('wool');
     expect(KNOWN_FIBERS).toContain('cotton');
     expect(KNOWN_FIBERS).toContain('acrylic');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// computePatternOverallStatus (shared by getFeasibility + getFeasibilityBatch)
+// ---------------------------------------------------------------------------
+
+describe('computePatternOverallStatus', () => {
+  const greenYarn: YarnStashRow = {
+    id: 'y1',
+    name: 'Cascade 220',
+    brand: 'Cascade',
+    weight: 'worsted',
+    fiber_content: 'wool',
+    yards_remaining: 1000,
+    dye_lot: 'A1',
+    color: 'red',
+    is_stash: true,
+  };
+
+  const greenTool: ToolRow = {
+    id: 't1',
+    name: '4.5mm circular',
+    type: 'circular',
+    size: 'US 7',
+    size_mm: 4.5,
+    is_available: true,
+  };
+
+  it('returns green when yarn + tools both match exactly', () => {
+    const status = computePatternOverallStatus(
+      {
+        yarn_requirements: '800 yards worsted wool',
+        needle_sizes: '4.5mm',
+      },
+      [greenYarn],
+      [greenTool],
+    );
+    expect(status).toBe('green');
+  });
+
+  it('returns red when yarn is a clear mismatch', () => {
+    const status = computePatternOverallStatus(
+      {
+        yarn_requirements: '800 yards lace silk',
+        needle_sizes: '4.5mm',
+      },
+      [greenYarn],
+      [greenTool],
+    );
+    expect(status).toBe('red');
+  });
+
+  it('returns yellow when tools have no matching size', () => {
+    const status = computePatternOverallStatus(
+      {
+        yarn_requirements: '800 yards worsted wool',
+        needle_sizes: '6mm',
+      },
+      [greenYarn],
+      [greenTool],
+    );
+    // yarn=green, tools=red (no close tool) → red overall
+    expect(status).toBe('red');
+  });
+
+  it('returns yellow when pattern has no needle sizes parsed', () => {
+    const status = computePatternOverallStatus(
+      {
+        yarn_requirements: '800 yards worsted wool',
+        needle_sizes: null,
+      },
+      [greenYarn],
+      [greenTool],
+    );
+    // yarn=green, tools=yellow (empty requirements) → yellow overall
+    expect(status).toBe('yellow');
+  });
+
+  it('returns red when stash is empty', () => {
+    const status = computePatternOverallStatus(
+      {
+        yarn_requirements: '800 yards worsted wool',
+        needle_sizes: '4.5mm',
+      },
+      [],
+      [greenTool],
+    );
+    expect(status).toBe('red');
+  });
+
+  it('honors estimated_yardage when provided', () => {
+    const status = computePatternOverallStatus(
+      {
+        yarn_requirements: 'worsted wool',
+        estimated_yardage: 500,
+        needle_sizes: '4.5mm',
+      },
+      [{ ...greenYarn, yards_remaining: 600 }],
+      [greenTool],
+    );
+    expect(status).toBe('green');
   });
 });

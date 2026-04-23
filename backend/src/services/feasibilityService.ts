@@ -400,6 +400,37 @@ function combineDimensions(...levels: DimLevel[]): LightLevel {
   return 'green';
 }
 
+/** Reduce a set of per-needle-size tool matches to an overall tool status. */
+function aggregateToolStatus(toolMatches: ToolMatch[]): LightLevel {
+  if (toolMatches.length === 0) return 'yellow';
+  const statuses = toolMatches.map((t) => t.status);
+  if (statuses.includes('red')) return 'red';
+  if (statuses.includes('yellow')) return 'yellow';
+  return 'green';
+}
+
+/**
+ * Compute the overall traffic-light verdict for one pattern against a
+ * preloaded stash + tools list. Pure — no DB access. Shared between the
+ * detail report (`getFeasibility`) and the batch summary
+ * (`getFeasibilityBatch`) so both always agree.
+ */
+export function computePatternOverallStatus(
+  pattern: {
+    yarn_requirements: string | null;
+    estimated_yardage?: number | null;
+    needle_sizes: string | null;
+  },
+  stash: YarnStashRow[],
+  tools: ToolRow[],
+): LightLevel {
+  const yarnReq = parseYarnRequirements(pattern.yarn_requirements, pattern.estimated_yardage);
+  const needleReq = parseNeedleSizes(pattern.needle_sizes);
+  const yarnResult = matchYarn(yarnReq, stash);
+  const toolMatches = matchTools(needleReq.sizesMm, tools);
+  return combineDimensions(yarnResult.status, aggregateToolStatus(toolMatches));
+}
+
 export function scoreYarnCandidate(
   req: ParsedYarnRequirement,
   yarn: YarnStashRow,
@@ -656,18 +687,8 @@ export async function getFeasibility(userId: string, patternId: string): Promise
   const yarnResult = matchYarn(yarnReq, stash as YarnStashRow[]);
   const toolMatches = matchTools(needleReq.sizesMm, tools as ToolRow[]);
 
-  const toolStatuses = toolMatches.map((t) => t.status);
-  const toolsStatus: LightLevel =
-    toolMatches.length === 0
-      ? 'yellow'
-      : toolStatuses.includes('red')
-        ? 'red'
-        : toolStatuses.includes('yellow')
-          ? 'yellow'
-          : 'green';
-
   const toolResult: ToolRequirementResult = {
-    status: toolsStatus,
+    status: aggregateToolStatus(toolMatches),
     requirements: toolMatches,
     rawText: needleReq.rawText,
   };
@@ -684,4 +705,62 @@ export async function getFeasibility(userId: string, patternId: string): Promise
     shoppingList,
     generatedAt: new Date().toISOString(),
   };
+}
+
+/**
+ * Compute overall verdicts for many (project, pattern) pairs in one go.
+ * Loads the user's stash + tools + patterns once, then evaluates each pair
+ * with the same parsers/matchers as `getFeasibility`. Pairs whose pattern
+ * is missing or soft-deleted are skipped.
+ */
+export async function getFeasibilityBatch(
+  userId: string,
+  items: Array<{ projectId: string; patternId: string }>,
+): Promise<Array<{ projectId: string; patternId: string; overallStatus: LightLevel }>> {
+  if (items.length === 0) return [];
+
+  const patternIds = [...new Set(items.map((i) => i.patternId))];
+
+  const [patterns, stash, tools] = await Promise.all([
+    db('patterns')
+      .where({ user_id: userId })
+      .whereIn('id', patternIds)
+      .whereNull('deleted_at')
+      .select('id', 'yarn_requirements', 'estimated_yardage', 'needle_sizes'),
+    db('yarn')
+      .where({ user_id: userId })
+      .whereNull('deleted_at')
+      .select(
+        'id',
+        'name',
+        'brand',
+        'weight',
+        'fiber_content',
+        'yards_remaining',
+        'dye_lot',
+        'color',
+        'is_stash',
+      ),
+    db('tools')
+      .where({ user_id: userId })
+      .whereNull('deleted_at')
+      .select('id', 'name', 'type', 'size', 'size_mm', 'is_available'),
+  ]);
+
+  const patternMap = new Map(patterns.map((p: any) => [p.id, p]));
+  const stashRows = stash as YarnStashRow[];
+  const toolRows = tools as ToolRow[];
+
+  const summaries: Array<{ projectId: string; patternId: string; overallStatus: LightLevel }> = [];
+  for (const { projectId, patternId } of items) {
+    const pattern = patternMap.get(patternId);
+    if (!pattern) continue;
+    summaries.push({
+      projectId,
+      patternId,
+      overallStatus: computePatternOverallStatus(pattern, stashRows, toolRows),
+    });
+  }
+
+  return summaries;
 }

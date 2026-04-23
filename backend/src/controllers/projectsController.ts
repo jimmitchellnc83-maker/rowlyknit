@@ -3,6 +3,7 @@ import db from '../config/database';
 import { NotFoundError, ValidationError } from '../utils/errorHandler';
 import { createAuditLog } from '../middleware/auditLog';
 import { sanitizeSearchQuery } from '../utils/inputSanitizer';
+import { getFeasibilityBatch } from '../services/feasibilityService';
 
 export const ALLOWED_PROJECT_TYPES = [
   'sweater',
@@ -344,6 +345,48 @@ export async function deleteProject(req: Request, res: Response) {
     success: true,
     message: 'Project deleted successfully',
     data: { yarnsRestored },
+  });
+}
+
+/**
+ * Return a per-project feasibility verdict for every project with a linked
+ * pattern. Used by the Projects list to render a traffic-light chip on each
+ * card without fanning out per-pattern feasibility requests.
+ */
+export async function getProjectsFeasibilitySummary(req: Request, res: Response) {
+  const userId = req.user!.userId;
+
+  const projectIds = await db('projects')
+    .where({ user_id: userId })
+    .whereNull('deleted_at')
+    .pluck('id');
+
+  if (projectIds.length === 0) {
+    return res.json({ success: true, data: { summaries: [] } });
+  }
+
+  const links = await db('project_patterns')
+    .whereIn('project_id', projectIds)
+    .orderBy('created_at', 'asc')
+    .select('project_id', 'pattern_id');
+
+  const firstPattern = new Map<string, string>();
+  for (const link of links) {
+    if (!firstPattern.has(link.project_id)) {
+      firstPattern.set(link.project_id, link.pattern_id);
+    }
+  }
+
+  const items = [...firstPattern.entries()].map(([projectId, patternId]) => ({
+    projectId,
+    patternId,
+  }));
+
+  const summaries = await getFeasibilityBatch(userId, items);
+
+  return res.json({
+    success: true,
+    data: { summaries },
   });
 }
 

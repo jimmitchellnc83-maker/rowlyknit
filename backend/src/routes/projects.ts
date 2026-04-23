@@ -40,6 +40,16 @@ router.get(
 router.get('/stats', asyncHandler(projectsController.getProjectStats));
 
 /**
+ * @route   GET /api/projects/feasibility-summary
+ * @desc    Per-project overall feasibility verdict for the Projects list badge
+ * @access  Private
+ */
+router.get(
+  '/feasibility-summary',
+  asyncHandler(projectsController.getProjectsFeasibilitySummary),
+);
+
+/**
  * @route   GET /api/projects/:id
  * @desc    Get single project by ID
  * @access  Private
