@@ -291,6 +291,18 @@ export async function updateCounter(req: Request, res: Response) {
 
     // Check and execute linked counter actions
     await checkAndExecuteCounterLinks(counterId, newValue, userId, req);
+
+    // Broadcast to other clients on this project so Panel Mode (and every
+    // other counter-subscribing view) picks up the new value immediately.
+    try {
+      getIO().to(`project:${projectId}`).emit('counter:updated', {
+        counterId,
+        projectId,
+        currentValue: newValue,
+      });
+    } catch (socketError) {
+      logger.error('[Counter Update] Failed to emit WebSocket event:', socketError);
+    }
   }
 
   await createAuditLog(req, {
