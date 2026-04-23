@@ -8,6 +8,7 @@ import { SyncIndicator } from '../offline/SyncIndicator';
 import { ConflictResolver, DataConflict } from '../offline/ConflictResolver';
 import PageHelp from '../help/PageHelp';
 import QuickCreate from '../quick-create/QuickCreate';
+import GuidedTour from '../tour/GuidedTour';
 import {
   FiHome,
   FiFolder,
@@ -205,6 +206,7 @@ function MainLayoutInner() {
 
       <QuickCreate />
       <PageHelp />
+      <GuidedTour />
     </div>
   );
 }
