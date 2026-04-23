@@ -49,6 +49,17 @@ router.get(
 );
 
 /**
+ * @route   GET /api/projects/:id/sessions/heatmap
+ * @desc    Get per-day session totals for an activity heatmap
+ * @access  Private
+ */
+router.get(
+  '/projects/:id/sessions/heatmap',
+  validateUUID('id'),
+  asyncHandler(sessionsController.getSessionHeatmap)
+);
+
+/**
  * @route   GET /api/projects/:id/sessions/:sessionId
  * @desc    Get single session by ID
  * @access  Private
