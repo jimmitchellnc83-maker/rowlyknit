@@ -6,10 +6,10 @@ import axios from 'axios';
 import { toast } from 'react-toastify';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import { useFocusTrap } from '../hooks/useFocusTrap';
-import ConfirmModal from '../components/ConfirmModal';
 import ListControls, { applyListControls, type SortOption } from '../components/ListControls';
 import { LoadingCardGrid, ErrorState } from '../components/LoadingSpinner';
 import { useProjects, useCreateProject, useDeleteProject, useUpdateProject } from '../hooks/useApi';
+import { useUndoableDelete } from '../hooks/useUndoableDelete';
 import PageHelpButton from '../components/PageHelpButton';
 import { FeasibilityBadge } from '../components/projects';
 import type { LightLevel } from '../components/projects/FeasibilityBadge';
@@ -106,14 +106,19 @@ export default function Projects() {
   };
   const [search, setSearch] = useState('');
   const [sortId, setSortId] = useState<string>('recent');
+  const [pendingDeleteIds, setPendingDeleteIds] = useState<Set<string>>(new Set());
+  const { execute: undoableDelete } = useUndoableDelete();
   const visibleProjects = useMemo(
     () =>
-      applyListControls(projects, {
-        search,
-        searchFields: (p: any) => [p.name, p.description, p.project_type, p.status],
-        sort: PROJECT_SORT_OPTIONS.find((s) => s.id === sortId),
-      }),
-    [projects, search, sortId],
+      applyListControls(
+        projects.filter((p: any) => !pendingDeleteIds.has(p.id)),
+        {
+          search,
+          searchFields: (p: any) => [p.name, p.description, p.project_type, p.status],
+          sort: PROJECT_SORT_OPTIONS.find((s) => s.id === sortId),
+        },
+      ),
+    [projects, search, sortId, pendingDeleteIds],
   );
   const createProject = useCreateProject();
   const updateProjectMutation = useUpdateProject();
@@ -151,7 +156,6 @@ export default function Projects() {
   const [projectTypes, setProjectTypes] = useState<ProjectTypeOption[]>(DEFAULT_PROJECT_TYPES);
   const [loadingTypes, setLoadingTypes] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -218,16 +222,32 @@ export default function Projects() {
     });
   };
 
-  const handleDeleteProject = async (id: string) => {
-    deleteProjectMutation.mutate(id, {
-      onSuccess: () => {
-        toast.success('Project deleted successfully');
-      },
-      onError: () => {
-        toast.error('Failed to delete project');
-      },
-      onSettled: () => {
-        setDeleteTarget(null);
+  const handleDeleteProject = (project: { id: string; name: string }) => {
+    undoableDelete({
+      id: project.id,
+      label: project.name,
+      optimisticHide: () =>
+        setPendingDeleteIds((prev) => {
+          const next = new Set(prev);
+          next.add(project.id);
+          return next;
+        }),
+      rollback: () =>
+        setPendingDeleteIds((prev) => {
+          const next = new Set(prev);
+          next.delete(project.id);
+          return next;
+        }),
+      commit: async () => {
+        try {
+          await deleteProjectMutation.mutateAsync(project.id);
+        } finally {
+          setPendingDeleteIds((prev) => {
+            const next = new Set(prev);
+            next.delete(project.id);
+            return next;
+          });
+        }
       },
     });
   };
@@ -461,9 +481,11 @@ export default function Projects() {
                   View Details
                 </Link>
                 <button
-                  onClick={() => setDeleteTarget({ id: project.id, name: project.name })}
+                  onClick={() =>
+                    handleDeleteProject({ id: project.id, name: project.name })
+                  }
                   className="px-3 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition"
-                  title="Delete project"
+                  title="Delete project (undo available for 5s)"
                 >
                   <FiTrash2 className="h-4 w-4" />
                 </button>
@@ -583,16 +605,6 @@ export default function Projects() {
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
-      {deleteTarget && (
-        <ConfirmModal
-          title="Delete Project"
-          message={`Are you sure you want to delete "${deleteTarget.name}"? This action cannot be undone.`}
-          confirmLabel="Delete"
-          onConfirm={() => handleDeleteProject(deleteTarget.id)}
-          onCancel={() => setDeleteTarget(null)}
-        />
-      )}
     </div>
   );
 }

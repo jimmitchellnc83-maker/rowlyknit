@@ -9,6 +9,7 @@ import ConfirmModal from '../components/ConfirmModal';
 import ListControls, { applyListControls, type SortOption } from '../components/ListControls';
 import { LoadingCardGrid, ErrorState } from '../components/LoadingSpinner';
 import { useYarn, useCreateYarn, useUpdateYarn, useDeleteYarn } from '../hooks/useApi';
+import { useUndoableDelete } from '../hooks/useUndoableDelete';
 import HelpTooltip from '../components/HelpTooltip';
 import RavelryYarnSearch, { type RavelryYarnImportData } from '../components/RavelryYarnSearch';
 import { useMeasurements } from '../hooks/useMeasurements';
@@ -81,14 +82,19 @@ export default function YarnStash() {
   };
   const [search, setSearch] = useState('');
   const [sortId, setSortId] = useState<string>('recent');
+  const [pendingDeleteIds, setPendingDeleteIds] = useState<Set<string>>(new Set());
+  const { execute: undoableDelete } = useUndoableDelete();
   const visibleYarn = useMemo(
     () =>
-      applyListControls(yarn, {
-        search,
-        searchFields: (y) => [y.brand, y.name, y.color, y.fiber_content],
-        sort: YARN_SORT_OPTIONS.find((s) => s.id === sortId),
-      }),
-    [yarn, search, sortId],
+      applyListControls(
+        yarn.filter((y: Yarn) => !pendingDeleteIds.has(y.id)),
+        {
+          search,
+          searchFields: (y) => [y.brand, y.name, y.color, y.fiber_content],
+          sort: YARN_SORT_OPTIONS.find((s) => s.id === sortId),
+        },
+      ),
+    [yarn, search, sortId, pendingDeleteIds],
   );
   const createYarn = useCreateYarn();
   const updateYarnMutation = useUpdateYarn();
@@ -112,7 +118,6 @@ export default function YarnStash() {
   const [editingYarn, setEditingYarn] = useState<Yarn | null>(null);
   const [yarnPhotos, setYarnPhotos] = useState<YarnPhoto[]>([]);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [photoDeleteTarget, setPhotoDeleteTarget] = useState<string | null>(null);
   const [pendingRavelryPhotoUrl, setPendingRavelryPhotoUrl] = useState<string | null>(null);
   const [pendingRavelryExtras, setPendingRavelryExtras] = useState<any | null>(null);
@@ -368,16 +373,33 @@ export default function YarnStash() {
     });
   };
 
-  const handleDeleteYarn = async (id: string, _name: string) => {
-    deleteYarnMutation.mutate(id, {
-      onSuccess: () => {
-        toast.success('Yarn deleted successfully');
-      },
-      onError: () => {
-        toast.error('Failed to delete yarn');
-      },
-      onSettled: () => {
-        setDeleteTarget(null);
+  const handleDeleteYarn = (yarnItem: { id: string; name: string; brand?: string }) => {
+    const label = yarnItem.brand ? `${yarnItem.brand} ${yarnItem.name}` : yarnItem.name;
+    undoableDelete({
+      id: yarnItem.id,
+      label,
+      optimisticHide: () =>
+        setPendingDeleteIds((prev) => {
+          const next = new Set(prev);
+          next.add(yarnItem.id);
+          return next;
+        }),
+      rollback: () =>
+        setPendingDeleteIds((prev) => {
+          const next = new Set(prev);
+          next.delete(yarnItem.id);
+          return next;
+        }),
+      commit: async () => {
+        try {
+          await deleteYarnMutation.mutateAsync(yarnItem.id);
+        } finally {
+          setPendingDeleteIds((prev) => {
+            const next = new Set(prev);
+            next.delete(yarnItem.id);
+            return next;
+          });
+        }
       },
     });
   };
@@ -609,7 +631,9 @@ export default function YarnStash() {
                     Edit
                   </button>
                   <button
-                    onClick={() => setDeleteTarget({ id: y.id, name: y.name })}
+                    onClick={() =>
+                      handleDeleteYarn({ id: y.id, name: y.name, brand: y.brand })
+                    }
                     className="flex-1 px-3 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition flex items-center justify-center text-sm"
                   >
                     <FiTrash2 className="mr-2 h-4 w-4" />
@@ -1232,16 +1256,6 @@ export default function YarnStash() {
             </form>
           </div>
         </div>
-      )}
-
-      {deleteTarget && (
-        <ConfirmModal
-          title="Delete Yarn"
-          message={`Are you sure you want to delete "${deleteTarget.name}"? This action cannot be undone.`}
-          confirmLabel="Delete"
-          onConfirm={() => handleDeleteYarn(deleteTarget.id, deleteTarget.name)}
-          onCancel={() => setDeleteTarget(null)}
-        />
       )}
 
       {photoDeleteTarget && (

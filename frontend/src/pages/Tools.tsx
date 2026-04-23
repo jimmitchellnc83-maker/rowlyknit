@@ -3,11 +3,11 @@ import { FiPlus, FiTrash2, FiTool, FiEdit2, FiSearch, FiChevronRight } from 'rea
 import { toast } from 'react-toastify';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import { useFocusTrap } from '../hooks/useFocusTrap';
-import ConfirmModal from '../components/ConfirmModal';
 import ListControls, { applyListControls, type SortOption } from '../components/ListControls';
 import { LoadingCardGrid, ErrorState } from '../components/LoadingSpinner';
 import ToolTypeAutocomplete from '../components/ToolTypeAutocomplete';
 import { useTools as useToolsQuery, useCreateTool, useUpdateTool, useDeleteTool } from '../hooks/useApi';
+import { useUndoableDelete } from '../hooks/useUndoableDelete';
 import { useToolTaxonomyTree } from '../hooks/useToolTaxonomy';
 import type { ToolTaxonomySuggestion, TaxonomyToolType } from '../types/toolTaxonomy';
 import { getSizePresetsForType, getSizeOptions, getSizeLabel } from '../data/toolSizes';
@@ -88,7 +88,8 @@ export default function Tools() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingTool, setEditingTool] = useState<Tool | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [pendingDeleteIds, setPendingDeleteIds] = useState<Set<string>>(new Set());
+  const { execute: undoableDelete } = useUndoableDelete();
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [listSearch, setListSearch] = useState('');
   const [listSortId, setListSortId] = useState<string>('recent');
@@ -232,16 +233,32 @@ export default function Tools() {
     });
   };
 
-  const handleDeleteTool = async (id: string, _name: string) => {
-    deleteToolMutation.mutate(id, {
-      onSuccess: () => {
-        toast.success('Tool deleted successfully');
-      },
-      onError: () => {
-        toast.error('Failed to delete tool');
-      },
-      onSettled: () => {
-        setDeleteTarget(null);
+  const handleDeleteTool = (tool: { id: string; name: string }) => {
+    undoableDelete({
+      id: tool.id,
+      label: tool.name,
+      optimisticHide: () =>
+        setPendingDeleteIds((prev) => {
+          const next = new Set(prev);
+          next.add(tool.id);
+          return next;
+        }),
+      rollback: () =>
+        setPendingDeleteIds((prev) => {
+          const next = new Set(prev);
+          next.delete(tool.id);
+          return next;
+        }),
+      commit: async () => {
+        try {
+          await deleteToolMutation.mutateAsync(tool.id);
+        } finally {
+          setPendingDeleteIds((prev) => {
+            const next = new Set(prev);
+            next.delete(tool.id);
+            return next;
+          });
+        }
       },
     });
   };
@@ -294,9 +311,10 @@ export default function Tools() {
     }
   }
 
-  const filteredTools = filterCategory === 'all'
+  const filteredTools = (filterCategory === 'all'
     ? tools
-    : tools.filter((t) => (t.category || 'other') === filterCategory);
+    : tools.filter((t) => (t.category || 'other') === filterCategory)
+  ).filter((t: Tool) => !pendingDeleteIds.has(t.id));
 
   const visibleTools = applyListControls(filteredTools, {
     search: listSearch,
@@ -701,7 +719,7 @@ export default function Tools() {
                   Edit
                 </button>
                 <button
-                  onClick={() => setDeleteTarget({ id: tool.id, name: tool.name })}
+                  onClick={() => handleDeleteTool({ id: tool.id, name: tool.name })}
                   className="flex-1 px-3 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition flex items-center justify-center text-sm"
                 >
                   <FiTrash2 className="mr-2 h-4 w-4" />
@@ -759,15 +777,6 @@ export default function Tools() {
         </div>
       )}
 
-      {deleteTarget && (
-        <ConfirmModal
-          title="Delete Tool"
-          message={`Are you sure you want to delete "${deleteTarget.name}"? This action cannot be undone.`}
-          confirmLabel="Delete"
-          onConfirm={() => handleDeleteTool(deleteTarget.id, deleteTarget.name)}
-          onCancel={() => setDeleteTarget(null)}
-        />
-      )}
     </div>
   );
 }
