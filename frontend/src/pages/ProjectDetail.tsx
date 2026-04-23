@@ -4,6 +4,7 @@ import axios from 'axios';
 import { toast } from 'react-toastify';
 import CounterHierarchy from '../components/counters/CounterHierarchy';
 import PiecesSection from '../components/project-detail/PiecesSection';
+import SectionNav from '../components/project-detail/SectionNav';
 import DesignCard from '../components/designer/DesignCard';
 import type { DesignerFormSnapshot } from '../utils/designerSnapshot';
 import { SessionManager } from '../components/sessions';
@@ -496,10 +497,26 @@ export default function ProjectDetail() {
           }
         />
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+        <>
+          <SectionNav
+            sections={[
+              { id: 'description', label: 'About', visible: !!project.description },
+              { id: 'design', label: 'Design', visible: !!project.metadata?.designer },
+              { id: 'patterns', label: 'Patterns', visible: !!(project.patterns && project.patterns.length > 0) },
+              { id: 'photos', label: 'Photos' },
+              { id: 'pieces', label: 'Pieces' },
+              { id: 'counters', label: 'Counters' },
+              { id: 'markers', label: 'Markers' },
+              { id: 'sessions', label: 'Sessions' },
+              { id: 'notes', label: 'Notes' },
+            ]}
+          />
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
           {/* Main Content - Left Column */}
           <div className="lg:col-span-2 space-y-6">
-            <ProjectDescription description={project.description} />
+            <section id="section-description">
+              <ProjectDescription description={project.description} />
+            </section>
 
             {/* Attached design (saved from the Pattern Designer). The
                 project's metadata.designer field holds a snapshot of the
@@ -507,31 +524,40 @@ export default function ProjectDetail() {
                 clicked. If it's present, render a summary card with the
                 schematic + dimensions + yardage + deep links. */}
             {project.metadata?.designer ? (
-              <DesignCard
-                form={project.metadata.designer as DesignerFormSnapshot}
-                projectId={id!}
-              />
+              <section id="section-design">
+                <DesignCard
+                  form={project.metadata.designer as DesignerFormSnapshot}
+                  projectId={id!}
+                />
+              </section>
             ) : null}
 
             {project.patterns && project.patterns.length > 0 && (
-              <PatternPreview
-                patterns={project.patterns}
-                mode="normal"
-                projectId={id!}
-              />
+              <section id="section-patterns">
+                <PatternPreview
+                  patterns={project.patterns}
+                  mode="normal"
+                  projectId={id!}
+                />
+              </section>
             )}
 
-            <ProjectPhotosSection
-              photos={photos}
-              onUpload={handlePhotoUpload}
-              onDelete={handlePhotoDelete}
-            />
+            <section id="section-photos">
+              <ProjectPhotosSection
+                photos={photos}
+                onUpload={handlePhotoUpload}
+                onDelete={handlePhotoDelete}
+              />
+            </section>
 
-            {/* Pieces */}
-            <PiecesSection projectId={id!} initialPieces={project?.pieces} />
+            <section id="section-pieces">
+              <PiecesSection projectId={id!} initialPieces={project?.pieces} />
+            </section>
 
-            {/* Counters */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <section
+              id="section-counters"
+              className="bg-white dark:bg-gray-800 rounded-lg shadow p-6"
+            >
               <CounterHierarchy
                 projectId={id!}
                 linkedChart={
@@ -549,37 +575,42 @@ export default function ProjectDetail() {
                   Track multi-panel patterns with one master counter.
                 </p>
               </div>
-            </div>
+            </section>
 
-            {/* Magic Markers */}
-            <div className="bg-white rounded-lg shadow p-6">
+            <section
+              id="section-markers"
+              className="bg-white rounded-lg shadow p-6"
+            >
               <MagicMarkerManager
                 projectId={id!}
                 counters={project?.counters || []}
               />
-            </div>
+            </section>
 
-            {/* Session Management */}
-            <SessionManager
-              projectId={id!}
-              totalRows={0}
-              getCurrentCounterValues={() => {
-                return {};
-              }}
-            />
+            <section id="section-sessions">
+              <SessionManager
+                projectId={id!}
+                totalRows={0}
+                getCurrentCounterValues={() => {
+                  return {};
+                }}
+              />
+            </section>
 
-            <ProjectNotesTabs
-              projectId={id!}
-              patterns={project?.patterns || []}
-              audioNotes={audioNotes}
-              structuredMemos={structuredMemos}
-              onSaveAudioNote={handleSaveAudioNote}
-              onDeleteAudioNote={handleDeleteAudioNote}
-              onUpdateAudioTranscription={handleUpdateAudioTranscription}
-              onSaveHandwrittenNote={handleSaveHandwrittenNote}
-              onSaveStructuredMemo={handleSaveStructuredMemo}
-              onDeleteStructuredMemo={handleDeleteStructuredMemo}
-            />
+            <section id="section-notes">
+              <ProjectNotesTabs
+                projectId={id!}
+                patterns={project?.patterns || []}
+                audioNotes={audioNotes}
+                structuredMemos={structuredMemos}
+                onSaveAudioNote={handleSaveAudioNote}
+                onDeleteAudioNote={handleDeleteAudioNote}
+                onUpdateAudioTranscription={handleUpdateAudioTranscription}
+                onSaveHandwrittenNote={handleSaveHandwrittenNote}
+                onSaveStructuredMemo={handleSaveStructuredMemo}
+                onDeleteStructuredMemo={handleDeleteStructuredMemo}
+              />
+            </section>
           </div>
 
           {/* Sidebar - Right Column (sticky so it follows scroll) */}
@@ -615,6 +646,7 @@ export default function ProjectDetail() {
             />
           </div>
         </div>
+        </>
       )}
 
       {showEditModal && (
