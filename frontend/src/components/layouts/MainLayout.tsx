@@ -6,6 +6,7 @@ import GlobalSearch from '../GlobalSearch';
 import ThemeToggle from '../ThemeToggle';
 import { SyncIndicator } from '../offline/SyncIndicator';
 import { ConflictResolver, DataConflict } from '../offline/ConflictResolver';
+import PageHelp from '../help/PageHelp';
 import {
   FiHome,
   FiFolder,
@@ -200,6 +201,8 @@ function MainLayoutInner() {
           <Outlet />
         </main>
       </div>
+
+      <PageHelp />
     </div>
   );
 }
