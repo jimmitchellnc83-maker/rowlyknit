@@ -58,6 +58,12 @@ interface ChartGridProps {
   tool: ChartTool;
   /** Cell edge length in pixels. Default 28 (readable on desktop). */
   cellSize?: number;
+  /** 1-indexed knitter row number (1 = bottom of chart). When set, that
+   *  row is drawn with a bold accent border to show the active row for
+   *  chart-linked counters. Out-of-range values (including 0) are ignored. */
+  highlightedRowIndex?: number;
+  /** Disable painting. Clicks and drags do not mutate the chart. */
+  readOnly?: boolean;
 }
 
 /**
@@ -66,12 +72,26 @@ interface ChartGridProps {
  * RS / WS tags (rightmost shows reading direction — chart rows are knit
  * right-to-left for RS and left-to-right for WS in flat knitting).
  */
-export default function ChartGrid({ chart, onChange, tool, cellSize = 28 }: ChartGridProps) {
+export default function ChartGrid({
+  chart,
+  onChange,
+  tool,
+  cellSize = 28,
+  highlightedRowIndex,
+  readOnly = false,
+}: ChartGridProps) {
   const [painting, setPainting] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // Convert 1-indexed knitter row (bottom = 1) to 0-indexed grid row (top = 0).
+  const highlightedGridRow =
+    highlightedRowIndex && highlightedRowIndex >= 1 && highlightedRowIndex <= chart.height
+      ? chart.height - highlightedRowIndex
+      : null;
+
   const applyTool = useCallback(
     (index: number) => {
+      if (readOnly) return;
       if (index < 0 || index >= chart.cells.length) return;
       const next = [...chart.cells];
       const cur = next[index];
@@ -84,7 +104,7 @@ export default function ChartGrid({ chart, onChange, tool, cellSize = 28 }: Char
       }
       onChange({ ...chart, cells: next });
     },
-    [chart, onChange, tool],
+    [chart, onChange, tool, readOnly],
   );
 
   const cellIndexFromEvent = (clientX: number, clientY: number): number => {
@@ -147,16 +167,24 @@ export default function ChartGrid({ chart, onChange, tool, cellSize = 28 }: Char
             const sym = cell.symbolId ? SYMBOL_INDEX.get(cell.symbolId) : undefined;
             const bg = cell.colorHex ?? sym?.color ?? '#FFFFFF';
             const fontPx = Math.max(10, Math.round(cellSize * 0.55));
+            const row = Math.floor(i / chart.width);
+            const isActive = highlightedGridRow !== null && row === highlightedGridRow;
             return (
               <div
                 key={i}
                 role="gridcell"
-                className="flex items-center justify-center border border-gray-200 leading-none dark:border-gray-700"
+                aria-current={isActive ? 'true' : undefined}
+                className={`flex items-center justify-center leading-none ${
+                  isActive
+                    ? 'border-y-2 border-x-0 border-amber-500 dark:border-amber-400'
+                    : 'border border-gray-200 dark:border-gray-700'
+                }`}
                 style={{
                   backgroundColor: bg,
                   color: luminance(bg) > 0.55 ? '#111' : '#fff',
-                  cursor: 'cell',
+                  cursor: readOnly ? 'default' : 'cell',
                   fontSize: `${fontPx}px`,
+                  boxShadow: isActive ? 'inset 0 0 0 1px rgba(245, 158, 11, 0.35)' : undefined,
                 }}
                 aria-label={sym ? `${sym.name}${cell.colorHex ? `, ${cell.colorHex}` : ''}` : cell.colorHex ?? 'empty'}
               >
@@ -169,16 +197,19 @@ export default function ChartGrid({ chart, onChange, tool, cellSize = 28 }: Char
         {/* Row numbers — render on the right side, counting up from 1 at
             the bottom to match how knitters read charts. */}
         <div className="flex flex-col-reverse text-[10px] font-mono text-gray-500" style={{ gap: 0 }}>
-          {Array.from({ length: chart.height }).map((_, i) => (
-            <span
-              key={i}
-              className="flex items-center"
-              style={{ height: cellSize }}
-            >
-              <span className="ml-1">{i + 1}</span>
-              <span className="ml-1 text-[9px] text-gray-400">{i % 2 === 0 ? 'RS' : 'WS'}</span>
-            </span>
-          ))}
+          {Array.from({ length: chart.height }).map((_, i) => {
+            const isActive = highlightedRowIndex === i + 1;
+            return (
+              <span
+                key={i}
+                className={`flex items-center ${isActive ? 'font-bold text-amber-600 dark:text-amber-400' : ''}`}
+                style={{ height: cellSize }}
+              >
+                <span className="ml-1">{i + 1}</span>
+                <span className="ml-1 text-[9px] text-gray-400">{i % 2 === 0 ? 'RS' : 'WS'}</span>
+              </span>
+            );
+          })}
         </div>
       </div>
 
