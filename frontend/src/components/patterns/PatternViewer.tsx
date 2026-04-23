@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import axios from 'axios';
 import { Document, Page, pdfjs } from 'react-pdf';
 import {
   FiZoomIn,
@@ -70,6 +71,78 @@ export default function PatternViewer({ fileUrl, filename, patternId, projectId,
   const [_isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [showBookmarks, setShowBookmarks] = useState<boolean>(Boolean(patternId));
   const [showRowMarker, setShowRowMarker] = useState<boolean>(false);
+  // When a projectId is threaded through (deep-link from a project's
+  // pattern preview, e.g. `/patterns/:id?projectId=X`), fetch that
+  // project's first visible row counter so the RowMarker can double as
+  // a counter stepper. Counter value drives the "Row N" label; step
+  // buttons call the same increment endpoint the UI elsewhere uses, so
+  // WebSocket + voice control propagate without extra work.
+  const [linkedCounter, setLinkedCounter] = useState<{
+    id: string;
+    name: string;
+    currentValue: number;
+    targetValue: number | null;
+  } | null>(null);
+  useEffect(() => {
+    if (!projectId) {
+      setLinkedCounter(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await axios.get(`/api/projects/${projectId}/counters`);
+        const counters = (res.data?.data?.counters ?? []) as Array<{
+          id: string;
+          name: string;
+          type: string;
+          current_value: number;
+          target_value: number | null;
+          is_visible: boolean;
+          is_active: boolean;
+          parent_counter_id: string | null;
+        }>;
+        const row = counters
+          .filter(
+            (c) => c.is_visible && c.is_active && !c.parent_counter_id && c.type === 'row',
+          )
+          .sort((a, b) => a.name.localeCompare(b.name))[0];
+        if (!cancelled && row) {
+          setLinkedCounter({
+            id: row.id,
+            name: row.name,
+            currentValue: row.current_value,
+            targetValue: row.target_value,
+          });
+        }
+      } catch {
+        /* no counter link; step buttons still work locally */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId]);
+
+  const handleCounterStep = useCallback(
+    async (delta: number) => {
+      if (!linkedCounter || !projectId) return;
+      // Optimistic local update so the "Row N of M" label feels instant.
+      const previous = linkedCounter.currentValue;
+      const nextValue = previous + delta;
+      setLinkedCounter({ ...linkedCounter, currentValue: nextValue });
+      try {
+        await axios.post(
+          `/api/projects/${projectId}/counters/${linkedCounter.id}/increment`,
+          { amount: delta, mode: 'linked' },
+        );
+      } catch {
+        setLinkedCounter({ ...linkedCounter, currentValue: previous });
+        toast.error('Could not update counter');
+      }
+    },
+    [linkedCounter, projectId],
+  );
   const [showHighlighter, setShowHighlighter] = useState<boolean>(false);
   const [showQuickKey, setShowQuickKey] = useState<boolean>(false);
   const viewerRef = useRef<HTMLDivElement>(null);
@@ -459,7 +532,20 @@ export default function PatternViewer({ fileUrl, filename, patternId, projectId,
       </div>
 
       {/* Row Marker Overlay */}
-      {showRowMarker && <RowMarker pageNumber={currentPage} patternId={patternId} />}
+      {showRowMarker && (
+        <RowMarker
+          pageNumber={currentPage}
+          patternId={patternId}
+          onStep={linkedCounter ? handleCounterStep : undefined}
+          stepLabel={
+            linkedCounter
+              ? linkedCounter.targetValue
+                ? `${linkedCounter.name}: row ${linkedCounter.currentValue} of ${linkedCounter.targetValue}`
+                : `${linkedCounter.name}: row ${linkedCounter.currentValue}`
+              : undefined
+          }
+        />
+      )}
 
       {/* Quick Key reference panel */}
       {showQuickKey && <QuickKeyPanel onClose={() => setShowQuickKey(false)} />}
