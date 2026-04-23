@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { SessionTimer } from './SessionTimer';
 import { SessionHistory } from './SessionHistory';
+import ActivityHeatmap from './ActivityHeatmap';
 import { ProjectTimer } from './ProjectTimer';
 import { KnittingSession, ProjectMilestone } from '../../types/counter.types';
+import type { DayActivity } from './heatmapLayout';
 import axios from 'axios';
 import HelpTooltip from '../HelpTooltip';
 
@@ -22,13 +24,32 @@ export const SessionManager: React.FC<SessionManagerProps> = ({
   const [milestones, setMilestones] = useState<ProjectMilestone[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'timer' | 'history' | 'progress'>('timer');
+  const [heatmapActivity, setHeatmapActivity] = useState<DayActivity[]>([]);
+  const [heatmapLoading, setHeatmapLoading] = useState(true);
+  const HEATMAP_DAYS = 365;
 
   // Fetch sessions and milestones
   useEffect(() => {
     fetchSessions();
     fetchMilestones();
     checkActiveSession();
+    fetchHeatmap();
   }, [projectId]);
+
+  const fetchHeatmap = async () => {
+    try {
+      setHeatmapLoading(true);
+      const response = await axios.get(
+        `/api/projects/${projectId}/sessions/heatmap?days=${HEATMAP_DAYS}`,
+      );
+      setHeatmapActivity(response.data?.data?.activity ?? []);
+    } catch (error) {
+      console.error('Failed to fetch heatmap:', error);
+      setHeatmapActivity([]);
+    } finally {
+      setHeatmapLoading(false);
+    }
+  };
 
   const checkActiveSession = async () => {
     try {
@@ -243,7 +264,14 @@ export const SessionManager: React.FC<SessionManagerProps> = ({
 
           {/* History Tab */}
           {activeTab === 'history' && (
-            <SessionHistory sessions={sessions} onDeleteSession={handleDeleteSession} />
+            <div className="space-y-4">
+              <ActivityHeatmap
+                activity={heatmapActivity}
+                days={HEATMAP_DAYS}
+                loading={heatmapLoading}
+              />
+              <SessionHistory sessions={sessions} onDeleteSession={handleDeleteSession} />
+            </div>
           )}
         </div>
       </div>

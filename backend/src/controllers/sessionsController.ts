@@ -397,6 +397,55 @@ export async function getSessionStats(req: Request, res: Response) {
 }
 
 /**
+ * Get per-day aggregated session totals for a heatmap view.
+ * Returns one row per calendar day that has activity, so the frontend
+ * can stitch together an N-day strip client-side.
+ */
+export async function getSessionHeatmap(req: Request, res: Response) {
+  const userId = req.user!.userId;
+  const { id: projectId } = req.params;
+  const requestedDays = Number(req.query.days);
+  const days = Number.isFinite(requestedDays) && requestedDays > 0 && requestedDays <= 730
+    ? Math.floor(requestedDays)
+    : 365;
+
+  const project = await db('projects')
+    .where({ id: projectId, user_id: userId })
+    .whereNull('deleted_at')
+    .first();
+
+  if (!project) {
+    throw new NotFoundError('Project not found');
+  }
+
+  const rows: Array<{ date: string; seconds: string | number; session_count: string | number }> =
+    await db('knitting_sessions')
+      .where({ project_id: projectId })
+      .whereRaw("start_time >= NOW() - (?::text || ' days')::interval", [days])
+      .select(
+        db.raw("TO_CHAR(DATE(start_time), 'YYYY-MM-DD') as date"),
+        db.raw('COALESCE(SUM(duration_seconds), 0) as seconds'),
+        db.raw('COUNT(*) as session_count'),
+      )
+      .groupByRaw('DATE(start_time)')
+      .orderByRaw('DATE(start_time) ASC');
+
+  const activity = rows.map((r) => ({
+    date: r.date,
+    seconds: Number(r.seconds) || 0,
+    sessionCount: Number(r.session_count) || 0,
+  }));
+
+  res.json({
+    success: true,
+    data: {
+      days,
+      activity,
+    },
+  });
+}
+
+/**
  * Get active session for a project
  */
 export async function getActiveSession(req: Request, res: Response) {
