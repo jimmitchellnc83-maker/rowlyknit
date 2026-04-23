@@ -32,6 +32,7 @@ import ChartGrid, {
   type ChartTool,
 } from '../components/designer/ChartGrid';
 import ColorPalette, { type ColorSwatch } from '../components/designer/ColorPalette';
+import ConfirmModal from '../components/ConfirmModal';
 import HatSchematic from '../components/designer/HatSchematic';
 import MittenSchematic from '../components/designer/MittenSchematic';
 import RectSchematic from '../components/designer/RectSchematic';
@@ -655,6 +656,7 @@ function ChartSection({
 }) {
   const [tool, setTool] = useState<ChartTool>({ type: 'symbol', symbolId: 'knit' });
   const [cellSize, setCellSize] = useState<number>(28);
+  const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
 
   if (!chart) {
     return (
@@ -710,15 +712,26 @@ function ChartSection({
           </div>
           <button
             type="button"
-            onClick={() => {
-              if (confirm('Remove the chart entirely? This clears the grid.')) onChange(null);
-            }}
+            onClick={() => setShowRemoveConfirm(true)}
             className="text-xs text-red-600 hover:underline"
           >
             Remove chart
           </button>
         </div>
       </div>
+
+      {showRemoveConfirm && (
+        <ConfirmModal
+          title="Remove chart"
+          message="Remove the chart entirely? This clears the grid."
+          confirmLabel="Remove"
+          onConfirm={() => {
+            setShowRemoveConfirm(false);
+            onChange(null);
+          }}
+          onCancel={() => setShowRemoveConfirm(false)}
+        />
+      )}
 
       <div className="mb-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <label className="block">

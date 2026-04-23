@@ -10,6 +10,7 @@ import {
   PIECE_TYPE_SUGGESTIONS,
   ASSEMBLY_STEP_TEMPLATES,
 } from '../../types/piece.types';
+import ConfirmModal from '../ConfirmModal';
 
 interface Props {
   projectId: string;
@@ -24,6 +25,7 @@ export default function PiecesSection({ projectId, initialPieces }: Props) {
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState('');
   const [newType, setNewType] = useState('other');
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
   const fetchPieces = useCallback(async () => {
     try {
@@ -85,8 +87,10 @@ export default function PiecesSection({ projectId, initialPieces }: Props) {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Delete this piece? Notes attached to it will be removed.')) return;
+  const confirmDelete = async () => {
+    if (!pendingDeleteId) return;
+    const id = pendingDeleteId;
+    setPendingDeleteId(null);
     const previous = pieces;
     setPieces((prev) => prev.filter((p) => p.id !== id));
     try {
@@ -195,7 +199,7 @@ export default function PiecesSection({ projectId, initialPieces }: Props) {
             onDrop={handleDrop(piece.id)}
             onRename={(name) => handleRename(piece.id, name)}
             onStatusChange={(s) => handleStatusChange(piece.id, s)}
-            onDelete={() => handleDelete(piece.id)}
+            onDelete={() => setPendingDeleteId(piece.id)}
           />
         ))}
 
@@ -258,6 +262,15 @@ export default function PiecesSection({ projectId, initialPieces }: Props) {
           </div>
         )}
       </div>
+
+      {pendingDeleteId && (
+        <ConfirmModal
+          title="Delete piece"
+          message="Delete this piece? Notes attached to it will be removed."
+          onConfirm={confirmDelete}
+          onCancel={() => setPendingDeleteId(null)}
+        />
+      )}
     </details>
   );
 }
