@@ -4,6 +4,7 @@ import { FiX } from 'react-icons/fi';
 import type { Counter, IncrementPattern } from '../../types/counter.types';
 import HelpTooltip from '../HelpTooltip';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
+import CollapsibleSection from '../forms/CollapsibleSection';
 
 interface CounterFormProps {
   projectId: string;
@@ -135,8 +136,10 @@ export default function CounterForm({ counter, parentCounterId, existingCounters
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          {/* Basic Info */}
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {/* Essentials — name, type, current value, color. Everything else
+              is hidden behind collapsible sections so a first-time user
+              isn't staring at 11 fields. */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Counter Name *
@@ -151,25 +154,22 @@ export default function CounterForm({ counter, parentCounterId, existingCounters
             />
           </div>
 
-          {/* Counter Type */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Counter Type
-            </label>
-            <select
-              value={type}
-              onChange={(e) => setType(e.target.value as any)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent text-gray-900"
-            >
-              <option value="rows">Row Counter</option>
-              <option value="stitches">Stitch Counter</option>
-              <option value="repeats">Repeat Counter</option>
-              <option value="custom">Custom Counter</option>
-            </select>
-          </div>
-
-          {/* Values */}
           <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Counter Type
+              </label>
+              <select
+                value={type}
+                onChange={(e) => setType(e.target.value as any)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent text-gray-900"
+              >
+                <option value="rows">Row Counter</option>
+                <option value="stitches">Stitch Counter</option>
+                <option value="repeats">Repeat Counter</option>
+                <option value="custom">Custom Counter</option>
+              </select>
+            </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Current Value
@@ -181,10 +181,35 @@ export default function CounterForm({ counter, parentCounterId, existingCounters
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent text-gray-900"
               />
             </div>
+          </div>
 
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Counter Color
+            </label>
+            <div className="flex gap-2 flex-wrap">
+              {COUNTER_COLORS.map((color) => (
+                <button
+                  key={color}
+                  type="button"
+                  onClick={() => setDisplayColor(color)}
+                  className={`w-10 h-10 rounded-lg border-2 transition ${
+                    displayColor === color ? 'border-gray-900 scale-110' : 'border-gray-200'
+                  }`}
+                  style={{ backgroundColor: color }}
+                />
+              ))}
+            </div>
+          </div>
+
+          <CollapsibleSection
+            title="Targets & limits"
+            subtitle="Optional goal value + min/max bounds."
+            previewHint="3 fields"
+          >
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Target Value (optional) <HelpTooltip text="The goal count for this counter. A progress bar shows your progress toward this target." />
+                Target Value <HelpTooltip text="The goal count for this counter. A progress bar shows your progress toward this target." />
               </label>
               <input
                 type="number"
@@ -194,41 +219,37 @@ export default function CounterForm({ counter, parentCounterId, existingCounters
                 placeholder="No limit"
               />
             </div>
-          </div>
-
-          {/* Min/Max Values */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Minimum Value
-              </label>
-              <input
-                type="number"
-                value={minValue}
-                onChange={(e) => setMinValue(Number(e.target.value))}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent text-gray-900"
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Minimum Value
+                </label>
+                <input
+                  type="number"
+                  value={minValue}
+                  onChange={(e) => setMinValue(Number(e.target.value))}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent text-gray-900"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Maximum Value
+                </label>
+                <input
+                  type="number"
+                  value={maxValue}
+                  onChange={(e) => setMaxValue(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent text-gray-900"
+                  placeholder="No limit"
+                />
+              </div>
             </div>
+          </CollapsibleSection>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Maximum Value (optional)
-              </label>
-              <input
-                type="number"
-                value={maxValue}
-                onChange={(e) => setMaxValue(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent text-gray-900"
-                placeholder="No limit"
-              />
-            </div>
-          </div>
-
-          {/* Increment Pattern */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Increment Pattern <HelpTooltip text="Controls how the counter counts. Simple adds 1 each time. Garter counts ridges (every 2 rows). Cable counts repeats (every 4 rows)." />
-            </label>
+          <CollapsibleSection
+            title="Increment pattern"
+            subtitle="How this counter counts — simple, garter ridges, cables, or custom."
+          >
             <div className="space-y-2">
               {INCREMENT_PATTERNS.map((pattern) => (
                 <label
@@ -265,89 +286,73 @@ export default function CounterForm({ counter, parentCounterId, existingCounters
                 />
               </div>
             )}
-          </div>
+          </CollapsibleSection>
 
-          {/* Color Selection */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Counter Color
-            </label>
-            <div className="flex gap-2 flex-wrap">
-              {COUNTER_COLORS.map((color) => (
-                <button
-                  key={color}
-                  type="button"
-                  onClick={() => setDisplayColor(color)}
-                  className={`w-10 h-10 rounded-lg border-2 transition ${
-                    displayColor === color ? 'border-gray-900 scale-110' : 'border-gray-200'
-                  }`}
-                  style={{ backgroundColor: color }}
-                />
-              ))}
-            </div>
-          </div>
-
-          {/* Notes */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Notes (optional)
-            </label>
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent text-gray-900"
-              rows={3}
-              placeholder="Add any notes or reminders for this counter..."
-            />
-          </div>
-
-          {/* Link to Parent Counter */}
-          {availableParents.length > 0 && (
+          <CollapsibleSection
+            title="Notes & linking"
+            subtitle={
+              availableParents.length > 0
+                ? 'Notes + link to a parent counter for chained updates.'
+                : 'Add a reminder or note to this counter.'
+            }
+          >
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Link to Parent Counter (optional)
+                Notes
               </label>
-              <select
-                value={selectedParentId}
-                onChange={(e) => setSelectedParentId(e.target.value)}
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent text-gray-900"
-              >
-                <option value="">None (Primary Counter)</option>
-                {availableParents.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-              {selectedParentId && (
-                <p className="text-sm text-gray-500 mt-1">
-                  This counter will update when "{parentCounter?.name}" is incremented in Linked Mode.
-                </p>
-              )}
-            </div>
-          )}
-
-          {/* Auto-Reset Toggle */}
-          {selectedParentId && (
-            <div className="flex items-start gap-3 p-4 bg-blue-50 rounded-lg">
-              <input
-                type="checkbox"
-                id="autoReset"
-                checked={autoReset}
-                onChange={(e) => setAutoReset(e.target.checked)}
-                className="mt-1 h-4 w-4 text-purple-600 rounded focus:ring-purple-500"
+                rows={3}
+                placeholder="Add any notes or reminders for this counter..."
               />
-              <label htmlFor="autoReset" className="flex-1">
-                <span className="block text-sm font-medium text-gray-900">
-                  Auto-reset when target reached <HelpTooltip text="When this counter reaches its target, it automatically resets to zero. Great for tracking repeating pattern sections." />
-                </span>
-                <span className="block text-sm text-gray-500">
-                  When this counter reaches its target value, it will automatically reset to the minimum value.
-                  Great for tracking pattern repeats!
-                </span>
-              </label>
             </div>
-          )}
+            {availableParents.length > 0 && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Link to parent counter
+                </label>
+                <select
+                  value={selectedParentId}
+                  onChange={(e) => setSelectedParentId(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent text-gray-900"
+                >
+                  <option value="">None (primary counter)</option>
+                  {availableParents.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+                {selectedParentId && (
+                  <p className="text-sm text-gray-500 mt-1">
+                    This counter will update when "{parentCounter?.name}" is incremented in Linked Mode.
+                  </p>
+                )}
+              </div>
+            )}
+            {selectedParentId && (
+              <div className="flex items-start gap-3 p-4 bg-blue-50 rounded-lg">
+                <input
+                  type="checkbox"
+                  id="autoReset"
+                  checked={autoReset}
+                  onChange={(e) => setAutoReset(e.target.checked)}
+                  className="mt-1 h-4 w-4 text-purple-600 rounded focus:ring-purple-500"
+                />
+                <label htmlFor="autoReset" className="flex-1">
+                  <span className="block text-sm font-medium text-gray-900">
+                    Auto-reset when target reached <HelpTooltip text="When this counter reaches its target, it automatically resets to zero. Great for tracking repeating pattern sections." />
+                  </span>
+                  <span className="block text-sm text-gray-500">
+                    When this counter reaches its target value, it will automatically reset to the minimum value.
+                    Great for tracking pattern repeats.
+                  </span>
+                </label>
+              </div>
+            )}
+          </CollapsibleSection>
 
           {/* Action Buttons */}
           <div className="flex gap-3 pt-4 border-t border-gray-200">
