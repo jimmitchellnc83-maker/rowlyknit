@@ -2,9 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'react-toastify';
-import { FiArrowLeft, FiClock, FiMic, FiMicOff, FiRotateCcw, FiSettings } from 'react-icons/fi';
+import { FiArrowLeft, FiClock, FiMic, FiMicOff, FiRotateCcw, FiSettings, FiWifiOff } from 'react-icons/fi';
 import { useWebSocket } from '../contexts/WebSocketContext';
-import type { LivePanelGroupResponse } from '../types/panel.types';
+import type { LivePanelGroupResponse, Panel, PanelGroup, PanelRow } from '../types/panel.types';
 import MasterCounterControl from '../components/panels/MasterCounterControl';
 import PanelCard from '../components/panels/PanelCard';
 import HistoryScrubber from '../components/panels/HistoryScrubber';
@@ -17,6 +17,41 @@ import {
   resolveReadTarget,
   type PanelVoiceIntent,
 } from '../voice/panelCommands';
+import { computeLiveLocal } from '../utils/panelMath';
+import {
+  getCounterFromCache,
+  cacheCounter,
+} from '../utils/offline/db';
+
+const PANEL_CACHE_PREFIX = 'rowly:panel-group:';
+
+interface CachedGroup {
+  panelGroup: PanelGroup;
+  panels: Panel[];
+  panelRows: PanelRow[];
+  cachedAt: number;
+}
+
+function readGroupCache(groupId: string): CachedGroup | null {
+  try {
+    const raw = localStorage.getItem(`${PANEL_CACHE_PREFIX}${groupId}`);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+function writeGroupCache(groupId: string, cached: CachedGroup): void {
+  try {
+    localStorage.setItem(
+      `${PANEL_CACHE_PREFIX}${groupId}`,
+      JSON.stringify(cached),
+    );
+  } catch {
+    // Quota exceeded or serialization issue — non-fatal for the online path.
+  }
+}
 
 export default function PanelKnittingView() {
   const { id: projectId, groupId } = useParams<{ id: string; groupId: string }>();
@@ -29,21 +64,69 @@ export default function PanelKnittingView() {
   const [advancing, setAdvancing] = useState(false);
   const [localCollapsed, setLocalCollapsed] = useState<Record<string, boolean>>({});
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [isOffline, setIsOffline] = useState(false);
 
   const fetchLive = useCallback(async () => {
     if (!projectId || !groupId) return;
     try {
-      const res = await axios.get(
-        `/api/projects/${projectId}/panel-groups/${groupId}/live`,
-      );
-      setLive(res.data.data);
+      // Always fetch raw group for cache + live state for current row.
+      const [liveRes, groupRes] = await Promise.all([
+        axios.get(`/api/projects/${projectId}/panel-groups/${groupId}/live`),
+        axios.get(`/api/projects/${projectId}/panel-groups/${groupId}`),
+      ]);
+      setLive(liveRes.data.data);
+      setIsOffline(false);
+      const { panelGroup, panels, panelRows } = groupRes.data.data;
+      writeGroupCache(groupId, {
+        panelGroup,
+        panels,
+        panelRows,
+        cachedAt: Date.now(),
+      });
+      // Also refresh the master counter cache so offline advance works.
+      if (liveRes.data.data.master) {
+        cacheCounter(
+          {
+            id: liveRes.data.data.master.counter_id,
+            project_id: projectId,
+            current_value: liveRes.data.data.master.current_row,
+          },
+          true,
+        ).catch(() => {});
+      }
     } catch (err) {
       const status = axios.isAxiosError(err) ? err.response?.status : undefined;
       if (status === 404) {
         toast.error('Panel group not found');
         navigate(`/projects/${projectId}/panels`);
       } else {
-        toast.error('Could not load panel group');
+        // Network failure — fall back to cache + local compute.
+        const cached = readGroupCache(groupId);
+        if (cached) {
+          const cachedCounter = await getCounterFromCache(
+            cached.panelGroup.master_counter_id,
+          );
+          const masterRow = cachedCounter?.value ?? 1;
+          const localState = computeLiveLocal(
+            cached.panelGroup.master_counter_id,
+            masterRow,
+            cached.panels,
+            cached.panelRows,
+          );
+          setLive({
+            panelGroup: {
+              id: cached.panelGroup.id,
+              name: cached.panelGroup.name,
+            },
+            master: localState.master,
+            panels: localState.panels as LivePanelGroupResponse['panels'],
+            lcm: localState.lcm,
+            rows_until_full_alignment: localState.rows_until_full_alignment,
+          });
+          setIsOffline(true);
+        } else {
+          toast.error('Could not load panel group');
+        }
       }
     } finally {
       setLoading(false);
@@ -87,12 +170,53 @@ export default function PanelKnittingView() {
         await fetchLive();
         if ('vibrate' in navigator) navigator.vibrate(10);
       } catch {
-        toast.error('Could not update counter');
+        // Offline advance: bump the master cache locally, queue for sync,
+        // and recompute live state from the cached panels. The existing
+        // counter sync-queue machinery will replay this when back online.
+        const cached = readGroupCache(groupId!);
+        if (cached) {
+          const newValue = Math.max(1, live.master.current_row + amount);
+          await cacheCounter(
+            {
+              id: live.master.counter_id,
+              project_id: projectId,
+              current_value: newValue,
+            },
+            false,
+          );
+          const { addToSyncQueue } = await import('../utils/offline/db');
+          await addToSyncQueue({
+            type: 'counter',
+            endpoint: `/api/projects/${projectId}/counters/${live.master.counter_id}/increment`,
+            method: 'POST',
+            data: { amount, mode: 'independent' },
+          });
+          const localState = computeLiveLocal(
+            cached.panelGroup.master_counter_id,
+            newValue,
+            cached.panels,
+            cached.panelRows,
+          );
+          setLive({
+            panelGroup: {
+              id: cached.panelGroup.id,
+              name: cached.panelGroup.name,
+            },
+            master: localState.master,
+            panels: localState.panels as LivePanelGroupResponse['panels'],
+            lcm: localState.lcm,
+            rows_until_full_alignment: localState.rows_until_full_alignment,
+          });
+          setIsOffline(true);
+          if ('vibrate' in navigator) navigator.vibrate(10);
+        } else {
+          toast.error('Could not update counter');
+        }
       } finally {
         setAdvancing(false);
       }
     },
-    [live, projectId, advancing, fetchLive],
+    [live, projectId, groupId, advancing, fetchLive],
   );
 
   const jumpTo = useCallback(
@@ -260,6 +384,15 @@ export default function PanelKnittingView() {
       </header>
 
       <main className="max-w-2xl mx-auto px-4 pt-4">
+        {isOffline && (
+          <div className="mb-3 rounded-md border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/30 px-3 py-2 flex items-center gap-2">
+            <FiWifiOff className="w-4 h-4 text-amber-700 dark:text-amber-400 flex-shrink-0" />
+            <p className="text-xs text-amber-800 dark:text-amber-300">
+              Offline — advances are queued and will sync when you reconnect.
+            </p>
+          </div>
+        )}
+
         <PanelMarkerBanner
           projectId={projectId!}
           counterId={live.master.counter_id}
