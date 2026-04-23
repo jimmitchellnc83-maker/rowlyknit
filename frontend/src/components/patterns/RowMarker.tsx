@@ -9,7 +9,10 @@ import {
   FiMoon,
   FiChevronUp,
   FiChevronDown,
+  FiMic,
+  FiMicOff,
 } from 'react-icons/fi';
+import { useVoiceControl, speakIfEnabled, type VoiceCommand } from '../../hooks/useVoiceControl';
 
 interface RowMarkerProps {
   pageNumber: number;
@@ -166,6 +169,28 @@ export default function RowMarker({
     },
     [height, onStep],
   );
+
+  // Voice control — only wired when the parent is handling step events.
+  // Without onStep the marker is purely visual and voice would advance the
+  // marker but do nothing else, which is confusing. TTS announces the new
+  // row number if the user has TTS enabled in voice prefs.
+  const handleVoiceCommand = useCallback(
+    (cmd: VoiceCommand) => {
+      if (!onStep) return;
+      if (cmd === 'increment') {
+        handleStep(1);
+        speakIfEnabled('next row');
+      } else if (cmd === 'decrement') {
+        handleStep(-1);
+        speakIfEnabled('back a row');
+      }
+      // reset is deliberately a no-op here — resetting a counter from the
+      // pattern viewer is a destructive op we don't want triggered by voice.
+    },
+    [handleStep, onStep],
+  );
+  const { isSupported: voiceSupported, isListening, lastHeard, toggle: toggleVoice } =
+    useVoiceControl({ onCommand: handleVoiceCommand });
 
   // Handle dragging
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
@@ -561,6 +586,45 @@ export default function RowMarker({
               Next <FiChevronDown className="h-4 w-4" />
             </button>
           </div>
+          {/* Voice control — only shown when parent wires onStep (typically
+              a linked counter context). Standalone viewer hides the mic
+              since voice would advance a marker that doesn't persist
+              elsewhere, which would be misleading. */}
+          {onStep && voiceSupported && (
+            <div className="mt-2">
+              <button
+                onClick={toggleVoice}
+                className={`w-full h-10 rounded flex items-center justify-center gap-2 text-sm font-medium transition ${
+                  isListening
+                    ? 'bg-red-600 hover:bg-red-700 text-white animate-pulse'
+                    : 'bg-gray-700 hover:bg-gray-600 text-white'
+                }`}
+                title={
+                  isListening
+                    ? 'Stop voice control'
+                    : 'Say "next" / "add" to advance, "back" / "undo" to step back'
+                }
+                aria-pressed={isListening}
+                aria-label={isListening ? 'Stop voice control' : 'Start voice control'}
+              >
+                {isListening ? (
+                  <FiMic className="h-4 w-4" aria-hidden="true" />
+                ) : (
+                  <FiMicOff className="h-4 w-4" aria-hidden="true" />
+                )}
+                {isListening ? 'Listening…' : 'Voice control'}
+              </button>
+              {isListening && lastHeard && (
+                <p
+                  className="mt-1 truncate text-center text-[11px] text-red-200"
+                  aria-live="polite"
+                  title={`Heard: "${lastHeard}"`}
+                >
+                  “{lastHeard}”
+                </p>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Lock Toggle */}
