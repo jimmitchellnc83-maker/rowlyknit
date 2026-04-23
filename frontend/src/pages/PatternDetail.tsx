@@ -8,6 +8,7 @@ import PatternFileUpload from '../components/PatternFileUpload';
 import BookmarkManager from '../components/patterns/BookmarkManager';
 import PatternViewer from '../components/patterns/PatternViewer';
 import FeasibilityPanel from '../components/patterns/FeasibilityPanel';
+import ComplexityBadge, { type ComplexityResult } from '../components/patterns/ComplexityBadge';
 import DesignCard from '../components/designer/DesignCard';
 import type { DesignerFormSnapshot } from '../utils/designerSnapshot';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -38,6 +39,7 @@ interface Pattern {
    *  via the Pattern Designer's "Save as pattern" button, plus room for
    *  future integrations. Added in migration 51. */
   metadata?: { designer?: unknown; [key: string]: unknown } | null;
+  complexity?: ComplexityResult | null;
   created_at: string;
   updated_at: string;
 }
@@ -335,6 +337,9 @@ export default function PatternDetail() {
                 <span className={`px-3 py-1 text-sm font-medium rounded-full self-start ${getDifficultyColor(pattern.difficulty)}`}>
                   {pattern.difficulty}
                 </span>
+              )}
+              {pattern.complexity && (
+                <ComplexityBadge complexity={pattern.complexity} patternId={pattern.id} />
               )}
             </div>
             {pattern.designer && (
