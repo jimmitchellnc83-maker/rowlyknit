@@ -1,5 +1,6 @@
-import { useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
+import axios from 'axios';
 import { FiArrowLeft, FiPrinter } from 'react-icons/fi';
 import {
   computeBlanket,
@@ -20,7 +21,6 @@ import {
   type ShawlInput,
   type SleeveInput,
   type SockInput,
-  type MeasurementUnit,
 } from '../utils/designerMath';
 import BodySchematic from '../components/designer/BodySchematic';
 import HatSchematic from '../components/designer/HatSchematic';
@@ -29,9 +29,9 @@ import RectSchematic from '../components/designer/RectSchematic';
 import ShawlSchematic from '../components/designer/ShawlSchematic';
 import SleeveSchematic from '../components/designer/SleeveSchematic';
 import SockSchematic from '../components/designer/SockSchematic';
-import type { ColorSwatch } from '../components/designer/ColorPalette';
-import ChartGrid, { type ChartData } from '../components/designer/ChartGrid';
+import ChartGrid from '../components/designer/ChartGrid';
 import { estimateYardageFromArea, formatYardage, type YardageRange } from '../utils/yardageEstimate';
+import { type DesignerFormSnapshot } from '../utils/designerSnapshot';
 
 /**
  * Clean printable pattern write-up. Reads the same localStorage key the
@@ -46,83 +46,9 @@ import { estimateYardageFromArea, formatYardage, type YardageRange } from '../ut
 
 const LS_KEY = 'rowly:designer:current';
 
-// Minimal subset of DesignerForm we need to re-derive inputs. Kept as a
-// local type so the print view doesn't have to import the full form type
-// from the designer page.
-interface DesignerFormSnapshot {
-  unit: MeasurementUnit;
-  gaugeStitches: number | '';
-  gaugeRows: number | '';
-  gaugeMeasurement: number | '';
-  itemType: string;
-  activeSection: string;
-
-  // Body
-  chestCircumference: number | '';
-  easeAtChest: number | '';
-  totalLength: number | '';
-  hemDepth: number | '';
-  useWaistShaping: boolean;
-  waistCircumference: number | '';
-  easeAtWaist: number | '';
-  waistHeightFromHem: number | '';
-  useArmhole: boolean;
-  armholeDepth: number | '';
-  shoulderWidth: number | '';
-  panelType: 'front' | 'back';
-  necklineDepth: number | '';
-  neckOpeningWidth: number | '';
-
-  // Sleeve
-  cuffCircumference: number | '';
-  easeAtCuff: number | '';
-  bicepCircumference: number | '';
-  easeAtBicep: number | '';
-  cuffToUnderarmLength: number | '';
-  cuffDepth: number | '';
-
-  // Hat
-  headCircumference: number | '';
-  negativeEaseAtBrim: number | '';
-  hatTotalHeight: number | '';
-  hatBrimDepth: number | '';
-  hatCrownHeight: number | '';
-
-  // Scarf
-  scarfWidth: number | '';
-  scarfLength: number | '';
-  scarfFringeLength: number | '';
-
-  // Blanket
-  blanketWidth: number | '';
-  blanketLength: number | '';
-  blanketBorderDepth: number | '';
-
-  // Shawl
-  shawlWingspan: number | '';
-  shawlInitialCastOn: number | '';
-
-  // Mittens
-  handCircumference: number | '';
-  negativeEaseAtMittenCuff: number | '';
-  thumbCircumference: number | '';
-  mittenCuffDepth: number | '';
-  cuffToThumbLength: number | '';
-  thumbGussetLength: number | '';
-  thumbToTipLength: number | '';
-  thumbLength: number | '';
-
-  // Socks
-  ankleCircumference: number | '';
-  negativeEaseAtSockCuff: number | '';
-  footCircumference: number | '';
-  sockCuffDepth: number | '';
-  legLength: number | '';
-  footLength: number | '';
-
-  colors: ColorSwatch[];
-  chart: ChartData | null;
-}
+// DesignerFormSnapshot is imported from utils/designerSnapshot — shared
+// with the Designer page (producer), Project Detail (embedder), and this
+// print view (renderer) so they all agree on the shape.
 
 function readForm(): DesignerFormSnapshot | null {
   try {
@@ -180,7 +106,64 @@ const PRINT_STYLES = `
 `;
 
 export default function PatternPrintView() {
-  const form = useMemo(() => readForm(), []);
+  const [searchParams] = useSearchParams();
+  const projectId = searchParams.get('projectId');
+
+  // Default source: localStorage (the in-progress Designer draft).
+  // If a ?projectId=X is passed, fetch that project and read its attached
+  // design snapshot instead. Lets us deep-link to a printable write-up for
+  // any saved project design.
+  const [form, setForm] = useState<DesignerFormSnapshot | null>(() =>
+    projectId ? null : readForm(),
+  );
+  const [loading, setLoading] = useState(!!projectId);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [projectName, setProjectName] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!projectId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await axios.get(`/api/projects/${projectId}`);
+        if (cancelled) return;
+        const project = res.data.data.project;
+        const snapshot = project?.metadata?.designer as DesignerFormSnapshot | undefined;
+        if (!snapshot) {
+          setLoadError('This project has no design attached.');
+        } else {
+          setForm(snapshot);
+          setProjectName(project.name ?? null);
+        }
+      } catch (e: any) {
+        if (!cancelled) {
+          setLoadError(e.response?.data?.message ?? 'Could not load the project.');
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId]);
+
+  if (loading) {
+    return <div className="p-8 text-center text-gray-500">Loading project design…</div>;
+  }
+
+  if (loadError) {
+    return (
+      <div className="p-8 text-center">
+        <p className="text-red-600">{loadError}</p>
+        <p className="mt-2 text-sm text-gray-500">
+          <Link to="/projects" className="text-purple-600 underline">
+            Back to Projects
+          </Link>
+        </p>
+      </div>
+    );
+  }
 
   if (!form) {
     return (
@@ -205,14 +188,24 @@ export default function PatternPrintView() {
 
       {/* Toolbar — hidden in print */}
       <div className="mb-6 flex items-center justify-between" data-print-hide="true">
-        <Link
-          to="/designer"
-          className="inline-flex items-center gap-2 text-sm text-purple-700 hover:underline"
-          aria-label="Back to Designer"
-        >
-          <FiArrowLeft className="h-4 w-4" />
-          Back to Designer
-        </Link>
+        {projectId ? (
+          <Link
+            to={`/projects/${projectId}`}
+            className="inline-flex items-center gap-2 text-sm text-purple-700 hover:underline"
+          >
+            <FiArrowLeft className="h-4 w-4" />
+            Back to project
+          </Link>
+        ) : (
+          <Link
+            to="/designer"
+            className="inline-flex items-center gap-2 text-sm text-purple-700 hover:underline"
+            aria-label="Back to Designer"
+          >
+            <FiArrowLeft className="h-4 w-4" />
+            Back to Designer
+          </Link>
+        )}
         <button
           type="button"
           onClick={() => window.print()}
@@ -226,8 +219,11 @@ export default function PatternPrintView() {
       {/* Pattern header */}
       <header className="mb-6 border-b border-gray-300 pb-4 print-avoid-break">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-          {itemTitle(form.itemType)}
+          {projectName ?? itemTitle(form.itemType)}
         </h1>
+        {projectName && (
+          <p className="text-sm text-gray-500">{itemTitle(form.itemType)}</p>
+        )}
         <p className="mt-1 text-sm text-gray-500">
           Generated {new Date().toLocaleDateString(undefined, {
             year: 'numeric',

@@ -4,6 +4,8 @@ import axios from 'axios';
 import { toast } from 'react-toastify';
 import CounterHierarchy from '../components/counters/CounterHierarchy';
 import PiecesSection from '../components/project-detail/PiecesSection';
+import DesignCard from '../components/designer/DesignCard';
+import type { DesignerFormSnapshot } from '../utils/designerSnapshot';
 import { SessionManager } from '../components/sessions';
 import { useWebSocket } from '../contexts/WebSocketContext';
 import MagicMarkerManager from '../components/magic-markers/MagicMarkerManager';
@@ -56,6 +58,9 @@ interface Project {
   patterns: any[];
   yarn: any[];
   tools: any[];
+  /** Arbitrary per-project blob — stores designer snapshot, future
+   *  integrations (chart-linked counters, etc.). Server returns it parsed. */
+  metadata?: { designer?: unknown; [key: string]: unknown } | null;
 }
 
 export default function ProjectDetail() {
@@ -486,6 +491,18 @@ export default function ProjectDetail() {
           {/* Main Content - Left Column */}
           <div className="lg:col-span-2 space-y-6">
             <ProjectDescription description={project.description} />
+
+            {/* Attached design (saved from the Pattern Designer). The
+                project's metadata.designer field holds a snapshot of the
+                Designer form state at the moment "Save as project" was
+                clicked. If it's present, render a summary card with the
+                schematic + dimensions + yardage + deep links. */}
+            {project.metadata?.designer ? (
+              <DesignCard
+                form={project.metadata.designer as DesignerFormSnapshot}
+                projectId={id!}
+              />
+            ) : null}
 
             {project.patterns && project.patterns.length > 0 && (
               <PatternPreview

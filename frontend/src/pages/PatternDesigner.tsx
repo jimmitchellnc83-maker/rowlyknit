@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { FiTool, FiInfo, FiGrid, FiSquare, FiPrinter } from 'react-icons/fi';
+import { Link, useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
+import { FiTool, FiInfo, FiGrid, FiSquare, FiPrinter, FiFolder } from 'react-icons/fi';
+import { useCreateProject } from '../hooks/useApi';
+import { itemLabel } from '../utils/designerSnapshot';
 import {
   computeBlanket,
   computeBodyBlock,
@@ -540,6 +543,53 @@ function StepCard({
 // erase) that ChartGrid applies on click and drag.
 // ---------------------------------------------------------------------------
 
+/**
+ * Creates a new project with the current design snapshotted into
+ * `metadata.designer`. After creation, navigates to the new project's
+ * detail page where the design renders inline (see ProjectDetail.tsx).
+ *
+ * The form is captured as-is — users can edit the design in the Designer
+ * afterwards, and either overwrite the project's snapshot (future PR) or
+ * leave the project frozen as a point-in-time reference. v1: frozen.
+ */
+function SaveToProjectButton({ form }: { form: DesignerForm }) {
+  const navigate = useNavigate();
+  const createProject = useCreateProject();
+  const label = itemLabel(form.itemType);
+
+  const save = async () => {
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      const project = await createProject.mutateAsync({
+        name: `${label} — ${today}`,
+        projectType: form.itemType === 'sweater' ? 'sweater' : 'other',
+        notes: `Designed in the Pattern Designer on ${today}.`,
+        metadata: {
+          designer: form,
+          designer_snapshot_at: new Date().toISOString(),
+        },
+      });
+      toast.success(`Project "${project.name}" created with this design.`);
+      navigate(`/projects/${project.id}`);
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to save as project');
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={save}
+      disabled={createProject.isPending}
+      className="inline-flex items-center gap-2 rounded-lg bg-purple-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-purple-700 disabled:opacity-70"
+      title="Create a new project with this design attached"
+    >
+      <FiFolder className="h-4 w-4" />
+      {createProject.isPending ? 'Saving…' : 'Save as project'}
+    </button>
+  );
+}
+
 function ChartSection({
   chart,
   onChange,
@@ -793,6 +843,7 @@ export default function PatternDesigner() {
             Beta
           </span>
           <div className="ml-auto flex items-center gap-2">
+            <SaveToProjectButton form={form} />
             <Link
               to="/designer/print"
               target="_blank"
