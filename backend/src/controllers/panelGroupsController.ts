@@ -34,6 +34,181 @@ export async function getPanelGroups(req: Request, res: Response) {
   res.json({ success: true, data: { panelGroups: groups } });
 }
 
+/**
+ * Aggregate "pieces dashboard" — one request returns every group + its
+ * current master row + panel count + current-row-per-panel. Used by the
+ * PanelHub to render all pieces of a multi-piece garment at a glance.
+ */
+export async function getAllPanelGroupsLive(req: Request, res: Response) {
+  const userId = req.user!.userId;
+  const { id: projectId } = req.params;
+
+  await verifyProjectOwnership(projectId, userId);
+
+  const groups = await db('panel_groups')
+    .where({ project_id: projectId })
+    .orderBy('sort_order', 'asc')
+    .orderBy('created_at', 'asc');
+
+  if (groups.length === 0) {
+    res.json({ success: true, data: { groups: [] } });
+    return;
+  }
+
+  const masterIds = groups.map((g: any) => g.master_counter_id);
+  const masters = await db('counters').whereIn('id', masterIds);
+  const mastersById = new Map(masters.map((m: any) => [m.id, m]));
+
+  const allPanels = await db('panels')
+    .whereIn(
+      'panel_group_id',
+      groups.map((g: any) => g.id),
+    )
+    .orderBy('sort_order', 'asc');
+  const panelsByGroupId = new Map<string, any[]>();
+  for (const p of allPanels) {
+    const arr = panelsByGroupId.get(p.panel_group_id) || [];
+    arr.push(p);
+    panelsByGroupId.set(p.panel_group_id, arr);
+  }
+
+  const summaries = groups.map((group: any) => {
+    const master = mastersById.get(group.master_counter_id);
+    const panels = panelsByGroupId.get(group.id) || [];
+    const masterRow = master?.current_value ?? 1;
+    return {
+      id: group.id,
+      name: group.name,
+      masterCounterId: group.master_counter_id,
+      masterRow,
+      panelCount: panels.length,
+      panelSummaries: panels.map((p: any) => {
+        const effective = masterRow - 1 - p.row_offset;
+        if (effective < 0) {
+          return {
+            id: p.id,
+            name: p.name,
+            display_color: p.display_color,
+            started: false,
+          };
+        }
+        return {
+          id: p.id,
+          name: p.name,
+          display_color: p.display_color,
+          started: true,
+          current_row: (effective % p.repeat_length) + 1,
+          repeat_length: p.repeat_length,
+        };
+      }),
+    };
+  });
+
+  res.json({ success: true, data: { groups: summaries } });
+}
+
+/**
+ * Clone every panel + every panel_row from `sourceGroupId` into the panel
+ * group at `groupId`. Use case: a sweater where the right sleeve is a
+ * copy of the left sleeve's panels.
+ */
+export async function copyPanelsFromGroup(req: Request, res: Response) {
+  const userId = req.user!.userId;
+  const { id: projectId, groupId } = req.params;
+  const { sourceGroupId } = req.body;
+
+  if (!sourceGroupId) {
+    throw new ValidationError('sourceGroupId is required');
+  }
+  if (sourceGroupId === groupId) {
+    throw new ValidationError('sourceGroupId must differ from target groupId');
+  }
+
+  await verifyProjectOwnership(projectId, userId);
+
+  const [target, source] = await Promise.all([
+    db('panel_groups').where({ id: groupId, project_id: projectId }).first(),
+    db('panel_groups')
+      .where({ id: sourceGroupId, project_id: projectId })
+      .first(),
+  ]);
+  if (!target) throw new NotFoundError('Target panel group not found');
+  if (!source) throw new NotFoundError('Source panel group not found');
+
+  const sourcePanels = await db('panels')
+    .where({ panel_group_id: sourceGroupId })
+    .orderBy('sort_order', 'asc');
+  if (sourcePanels.length === 0) {
+    throw new ValidationError('Source panel group has no panels to copy');
+  }
+
+  const sourcePanelIds = sourcePanels.map((p: any) => p.id);
+  const sourceRows = await db('panel_rows').whereIn('panel_id', sourcePanelIds);
+  const rowsByPanel = new Map<string, any[]>();
+  for (const r of sourceRows) {
+    const arr = rowsByPanel.get(r.panel_id) || [];
+    arr.push(r);
+    rowsByPanel.set(r.panel_id, arr);
+  }
+
+  // Find the next sort_order on the target so copies don't collide with
+  // panels the user already created on the target.
+  const targetSort = await db('panels')
+    .where({ panel_group_id: groupId })
+    .max('sort_order as maxOrder')
+    .first();
+  let nextSort = (targetSort?.maxOrder ?? -1) + 1;
+
+  const copied: string[] = [];
+  await db.transaction(async (trx) => {
+    for (const panel of sourcePanels) {
+      const [newPanel] = await trx('panels')
+        .insert({
+          panel_group_id: groupId,
+          name: panel.name,
+          repeat_length: panel.repeat_length,
+          row_offset: panel.row_offset,
+          sort_order: nextSort++,
+          display_color: panel.display_color,
+          is_collapsed: panel.is_collapsed,
+          notes: panel.notes,
+          created_at: new Date(),
+          updated_at: new Date(),
+        })
+        .returning('*');
+      copied.push(newPanel.id);
+
+      const rows = rowsByPanel.get(panel.id) || [];
+      if (rows.length > 0) {
+        await trx('panel_rows').insert(
+          rows.map((r: any) => ({
+            panel_id: newPanel.id,
+            row_number: r.row_number,
+            instruction: r.instruction,
+            stitch_count: r.stitch_count,
+            metadata: typeof r.metadata === 'string' ? r.metadata : JSON.stringify(r.metadata ?? {}),
+            created_at: new Date(),
+            updated_at: new Date(),
+          })),
+        );
+      }
+    }
+  });
+
+  await createAuditLog(req, {
+    userId,
+    action: 'panel_group_copied_panels',
+    entityType: 'panel_group',
+    entityId: groupId,
+    newValues: { sourceGroupId, copiedPanelIds: copied },
+  });
+
+  res.json({
+    success: true,
+    data: { copiedPanelCount: copied.length },
+  });
+}
+
 export async function getPanelGroup(req: Request, res: Response) {
   const userId = req.user!.userId;
   const { id: projectId, groupId } = req.params;

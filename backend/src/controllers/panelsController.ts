@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import db from '../config/database';
 import { NotFoundError, ValidationError } from '../utils/errorHandler';
 import { createAuditLog } from '../middleware/auditLog';
+import { parsePatternText } from '../utils/patternParser';
 
 /**
  * Resolve panel → panel_group → project, and verify ownership.
@@ -248,6 +249,24 @@ export async function bulkReplacePanelRows(req: Request, res: Response) {
     success: true,
     data: { panelId, rowCount: toInsert.length },
   });
+}
+
+/**
+ * Stateless pattern text → candidate panels. Used by the paste-and-parse
+ * flow. The response is ALWAYS editable client-side; the server is just a
+ * regex engine here.
+ */
+export async function parsePanelText(req: Request, res: Response) {
+  // Auth-only; no project ownership check because the input is just text.
+  const { text } = req.body;
+  if (typeof text !== 'string') {
+    throw new ValidationError('text must be a string');
+  }
+  if (text.length > 50_000) {
+    throw new ValidationError('Pattern text too long (max 50,000 chars)');
+  }
+  const result = parsePatternText(text);
+  res.json({ success: true, data: result });
 }
 
 function validatePanelRowsShape(rows: unknown[], repeatLength: number) {

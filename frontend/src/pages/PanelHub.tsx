@@ -3,7 +3,6 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { FiArrowLeft, FiPlus } from 'react-icons/fi';
-import type { PanelGroup } from '../types/panel.types';
 
 interface Counter {
   id: string;
@@ -12,11 +11,29 @@ interface Counter {
   type: string;
 }
 
+interface PanelSummary {
+  id: string;
+  name: string;
+  display_color: string | null;
+  started: boolean;
+  current_row?: number;
+  repeat_length?: number;
+}
+
+interface GroupSummary {
+  id: string;
+  name: string;
+  masterCounterId: string;
+  masterRow: number;
+  panelCount: number;
+  panelSummaries: PanelSummary[];
+}
+
 export default function PanelHub() {
   const { id: projectId } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
-  const [groups, setGroups] = useState<PanelGroup[]>([]);
+  const [groups, setGroups] = useState<GroupSummary[]>([]);
   const [counters, setCounters] = useState<Counter[]>([]);
   const [projectName, setProjectName] = useState<string>('');
   const [loading, setLoading] = useState(true);
@@ -31,11 +48,11 @@ export default function PanelHub() {
     if (!projectId) return;
     try {
       const [groupsRes, countersRes, projectRes] = await Promise.all([
-        axios.get(`/api/projects/${projectId}/panel-groups`),
+        axios.get(`/api/projects/${projectId}/panel-groups/live`),
         axios.get(`/api/projects/${projectId}/counters`),
         axios.get(`/api/projects/${projectId}`),
       ]);
-      setGroups(groupsRes.data.data.panelGroups);
+      setGroups(groupsRes.data.data.groups);
       setCounters(countersRes.data.data.counters);
       setProjectName(projectRes.data.data.project?.name || '');
     } catch {
@@ -124,21 +141,63 @@ export default function PanelHub() {
         {groups.length > 0 && (
           <section className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
             <h2 className="px-4 pt-3 text-sm font-semibold text-gray-900 dark:text-gray-100">
-              Your panel groups
+              Your pieces
             </h2>
+            <p className="px-4 text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+              Body, sleeves, collar — each piece has its own master counter.
+              Tap one to knit it.
+            </p>
             <ul className="divide-y divide-gray-200 dark:divide-gray-800 mt-2">
               {groups.map((group) => (
                 <li key={group.id}>
                   <Link
                     to={`/projects/${projectId}/panels/${group.id}`}
-                    className="flex items-center justify-between px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800/70"
+                    className="block px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800/70"
                   >
-                    <span className="font-medium text-gray-900 dark:text-gray-100">
-                      {group.name}
-                    </span>
-                    <span className="text-xs text-gray-500 dark:text-gray-400">
-                      Open →
-                    </span>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-gray-900 dark:text-gray-100 truncate">
+                          {group.name}
+                        </p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                          {group.panelCount === 0
+                            ? 'No panels yet'
+                            : `${group.panelCount} panel${group.panelCount === 1 ? '' : 's'}`}
+                          {' · '}master row {group.masterRow}
+                        </p>
+                        {group.panelSummaries.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 mt-2">
+                            {group.panelSummaries.map((p) => (
+                              <span
+                                key={p.id}
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300"
+                                style={{
+                                  borderLeft: `3px solid ${p.display_color || '#3B82F6'}`,
+                                }}
+                                title={p.name}
+                              >
+                                <span className="truncate max-w-[80px]">
+                                  {p.name}
+                                </span>
+                                {p.started && p.repeat_length && (
+                                  <span className="text-gray-500 dark:text-gray-400 tabular-nums">
+                                    {p.current_row}/{p.repeat_length}
+                                  </span>
+                                )}
+                                {!p.started && (
+                                  <span className="text-gray-500 dark:text-gray-400">
+                                    —
+                                  </span>
+                                )}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <span className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0 mt-1">
+                        Open →
+                      </span>
+                    </div>
                   </Link>
                 </li>
               ))}

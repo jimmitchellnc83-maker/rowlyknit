@@ -2,8 +2,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'react-toastify';
-import { FiArrowLeft, FiPlus, FiTrash2 } from 'react-icons/fi';
+import { FiArrowLeft, FiClipboard, FiGrid, FiPlus, FiTrash2, FiEdit3 } from 'react-icons/fi';
 import type { Panel, PanelGroup, PanelRow } from '../types/panel.types';
+import PastePanelFlow from '../components/panels/PastePanelFlow';
+import TemplatePicker from '../components/panels/TemplatePicker';
 
 interface PanelFormState {
   id: string | null;
@@ -51,16 +53,25 @@ export default function PanelGroupSetup() {
   const [loading, setLoading] = useState(true);
   const [activeForm, setActiveForm] = useState<PanelFormState | null>(null);
   const [saving, setSaving] = useState(false);
+  const [addMode, setAddMode] = useState<'none' | 'picker' | 'paste' | 'template' | 'copy'>(
+    'none',
+  );
+  const [otherGroups, setOtherGroups] = useState<PanelGroup[]>([]);
+  const [copyingFromId, setCopyingFromId] = useState<string | null>(null);
+  const [copyInProgress, setCopyInProgress] = useState(false);
 
   const fetchGroup = useCallback(async () => {
     if (!projectId || !groupId) return;
     try {
-      const res = await axios.get(
-        `/api/projects/${projectId}/panel-groups/${groupId}`,
-      );
-      setGroup(res.data.data.panelGroup);
-      setPanels(res.data.data.panels);
-      setPanelRows(res.data.data.panelRows);
+      const [groupRes, allGroupsRes] = await Promise.all([
+        axios.get(`/api/projects/${projectId}/panel-groups/${groupId}`),
+        axios.get(`/api/projects/${projectId}/panel-groups`),
+      ]);
+      setGroup(groupRes.data.data.panelGroup);
+      setPanels(groupRes.data.data.panels);
+      setPanelRows(groupRes.data.data.panelRows);
+      const allGroups: PanelGroup[] = allGroupsRes.data.data.panelGroups;
+      setOtherGroups(allGroups.filter((g) => g.id !== groupId));
     } catch {
       toast.error('Could not load panel group');
     } finally {
@@ -92,9 +103,50 @@ export default function PanelGroupSetup() {
     });
   }, [panelFromUrl, panels, panelRows, activeForm]);
 
-  const beginCreate = () => setActiveForm(buildEmptyForm());
+  const openPathPicker = () => setAddMode('picker');
 
-  const closeForm = () => setActiveForm(null);
+  const chooseManual = () => {
+    setAddMode('none');
+    setActiveForm(buildEmptyForm());
+  };
+
+  const choosePaste = () => setAddMode('paste');
+  const chooseTemplate = () => setAddMode('template');
+
+  const closeForm = () => {
+    setActiveForm(null);
+    setAddMode('none');
+  };
+
+  const onSavedFromFlow = async () => {
+    setAddMode('none');
+    await fetchGroup();
+  };
+
+  const chooseCopy = () => {
+    setAddMode('copy');
+    setCopyingFromId(otherGroups[0]?.id ?? null);
+  };
+
+  const runCopy = async () => {
+    if (!copyingFromId || !projectId || !groupId) return;
+    setCopyInProgress(true);
+    try {
+      const res = await axios.post(
+        `/api/projects/${projectId}/panel-groups/${groupId}/copy-panels`,
+        { sourceGroupId: copyingFromId },
+      );
+      const n = res.data.data.copiedPanelCount;
+      toast.success(`Copied ${n} panel${n === 1 ? '' : 's'}`);
+      setAddMode('none');
+      await fetchGroup();
+    } catch (err) {
+      const msg = axios.isAxiosError(err) ? err.response?.data?.message : null;
+      toast.error(msg || 'Copy failed');
+    } finally {
+      setCopyInProgress(false);
+    }
+  };
 
   const setFormField = <K extends keyof PanelFormState>(
     key: K,
@@ -249,83 +301,252 @@ export default function PanelGroupSetup() {
             onSave={savePanel}
             onCancel={closeForm}
           />
-        ) : (
-          <>
-            <section className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 mb-4">
-              <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">
-                Panels in this group
-              </h2>
-              {groupedPanels.length === 0 ? (
-                <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
-                  No panels yet. Add your first one below.
-                </p>
-              ) : (
-                <ul className="divide-y divide-gray-200 dark:divide-gray-800 mb-3">
-                  {groupedPanels.map((panel) => (
-                    <li
-                      key={panel.id}
-                      className="py-2.5 flex items-center justify-between gap-3"
-                    >
-                      <div
-                        className="flex items-center gap-3 flex-1 min-w-0"
-                        style={{ borderLeftWidth: 0 }}
-                      >
-                        <span
-                          className="inline-block w-2.5 h-6 rounded-sm flex-shrink-0"
-                          style={{
-                            backgroundColor:
-                              panel.display_color || DEFAULT_COLORS[0],
-                          }}
-                        />
-                        <div className="min-w-0">
-                          <p className="font-medium text-gray-900 dark:text-gray-100 truncate">
-                            {panel.name}
-                          </p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">
-                            Repeat of {panel.repeat_length}
-                            {panel.row_offset > 0
-                              ? ` · offset ${panel.row_offset}`
-                              : ''}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            navigate(
-                              `/projects/${projectId}/panels/${groupId}/setup?panel=${panel.id}`,
-                            )
-                          }
-                          className="text-xs text-blue-600 dark:text-blue-400 hover:underline px-2 py-1"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => deletePanel(panel.id)}
-                          aria-label="Delete panel"
-                          className="p-1 text-gray-400 hover:text-red-600 dark:hover:text-red-400"
-                        >
-                          <FiTrash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </li>
+        ) : addMode === 'paste' ? (
+          <PastePanelFlow
+            projectId={projectId!}
+            groupId={groupId!}
+            displayColor={DEFAULT_COLORS[0]}
+            onSaved={onSavedFromFlow}
+            onCancel={closeForm}
+          />
+        ) : addMode === 'template' ? (
+          <TemplatePicker
+            projectId={projectId!}
+            groupId={groupId!}
+            onSaved={onSavedFromFlow}
+            onCancel={closeForm}
+          />
+        ) : addMode === 'copy' ? (
+          <div className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4">
+            <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">
+              Copy panels from another group
+            </h2>
+            <p className="text-xs text-gray-600 dark:text-gray-400 mb-3">
+              Great for mirror pieces — copy the left sleeve's panels into the
+              right sleeve group. The source is untouched; this group gets
+              duplicates appended.
+            </p>
+            {otherGroups.length === 0 ? (
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                No other groups in this project yet.
+              </p>
+            ) : (
+              <>
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Source group
+                </label>
+                <select
+                  value={copyingFromId ?? ''}
+                  onChange={(e) => setCopyingFromId(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                >
+                  {otherGroups.map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {g.name}
+                    </option>
                   ))}
-                </ul>
-              )}
+                </select>
+              </>
+            )}
+            <div className="flex gap-2 mt-4">
               <button
                 type="button"
-                onClick={beginCreate}
-                className="w-full inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-medium"
+                onClick={closeForm}
+                disabled={copyInProgress}
+                className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50"
               >
-                <FiPlus className="w-4 h-4" />
-                Add panel
+                Cancel
               </button>
-            </section>
-          </>
+              <button
+                type="button"
+                onClick={runCopy}
+                disabled={copyInProgress || !copyingFromId || otherGroups.length === 0}
+                className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium disabled:opacity-50"
+              >
+                {copyInProgress ? 'Copying…' : 'Copy panels'}
+              </button>
+            </div>
+          </div>
+        ) : addMode === 'picker' ? (
+          <PathPicker
+            hasOtherGroups={otherGroups.length > 0}
+            onPaste={choosePaste}
+            onTemplate={chooseTemplate}
+            onManual={chooseManual}
+            onCopy={chooseCopy}
+            onCancel={closeForm}
+          />
+        ) : (
+          <section className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 mb-4">
+            <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">
+              Panels in this group
+            </h2>
+            {groupedPanels.length === 0 ? (
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
+                No panels yet. Add your first one below.
+              </p>
+            ) : (
+              <ul className="divide-y divide-gray-200 dark:divide-gray-800 mb-3">
+                {groupedPanels.map((panel) => (
+                  <li
+                    key={panel.id}
+                    className="py-2.5 flex items-center justify-between gap-3"
+                  >
+                    <div
+                      className="flex items-center gap-3 flex-1 min-w-0"
+                      style={{ borderLeftWidth: 0 }}
+                    >
+                      <span
+                        className="inline-block w-2.5 h-6 rounded-sm flex-shrink-0"
+                        style={{
+                          backgroundColor:
+                            panel.display_color || DEFAULT_COLORS[0],
+                        }}
+                      />
+                      <div className="min-w-0">
+                        <p className="font-medium text-gray-900 dark:text-gray-100 truncate">
+                          {panel.name}
+                        </p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          Repeat of {panel.repeat_length}
+                          {panel.row_offset > 0
+                            ? ` · offset ${panel.row_offset}`
+                            : ''}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          navigate(
+                            `/projects/${projectId}/panels/${groupId}/setup?panel=${panel.id}`,
+                          )
+                        }
+                        className="text-xs text-blue-600 dark:text-blue-400 hover:underline px-2 py-1"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => deletePanel(panel.id)}
+                        aria-label="Delete panel"
+                        className="p-1 text-gray-400 hover:text-red-600 dark:hover:text-red-400"
+                      >
+                        <FiTrash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <button
+              type="button"
+              onClick={openPathPicker}
+              className="w-full inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-medium"
+            >
+              <FiPlus className="w-4 h-4" />
+              Add panel
+            </button>
+          </section>
         )}
       </main>
+    </div>
+  );
+}
+
+interface PathPickerProps {
+  hasOtherGroups: boolean;
+  onPaste: () => void;
+  onTemplate: () => void;
+  onManual: () => void;
+  onCopy: () => void;
+  onCancel: () => void;
+}
+
+function PathPicker({
+  hasOtherGroups,
+  onPaste,
+  onTemplate,
+  onManual,
+  onCopy,
+  onCancel,
+}: PathPickerProps) {
+  const paths: Array<{
+    key: string;
+    label: string;
+    blurb: string;
+    icon: React.ReactNode;
+    onClick: () => void;
+    show: boolean;
+  }> = [
+    {
+      key: 'paste',
+      label: 'Paste pattern text',
+      blurb: 'Fastest. Paste "Row 1: …" lines; Rowly splits them into panels.',
+      icon: <FiClipboard className="w-5 h-5" />,
+      onClick: onPaste,
+      show: true,
+    },
+    {
+      key: 'template',
+      label: 'Pick a template',
+      blurb: 'Common stitch patterns — seed, moss, rib, cables, stockinette.',
+      icon: <FiGrid className="w-5 h-5" />,
+      onClick: onTemplate,
+      show: true,
+    },
+    {
+      key: 'copy',
+      label: 'Copy from another piece',
+      blurb: 'Clone panels from another group — ideal for mirror pieces like sleeves.',
+      icon: <FiPlus className="w-5 h-5 rotate-45" />,
+      onClick: onCopy,
+      show: hasOtherGroups,
+    },
+    {
+      key: 'manual',
+      label: 'Build manually',
+      blurb: 'Set a repeat length and fill each row by hand.',
+      icon: <FiEdit3 className="w-5 h-5" />,
+      onClick: onManual,
+      show: true,
+    },
+  ];
+  return (
+    <div className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4">
+      <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">
+        How do you want to add this panel?
+      </h2>
+      <div className="space-y-2">
+        {paths.filter((p) => p.show).map((p) => (
+          <button
+            key={p.key}
+            type="button"
+            onClick={p.onClick}
+            className="w-full flex items-center gap-3 text-left px-3 py-3 rounded-md border border-gray-200 dark:border-gray-700 hover:border-blue-500 dark:hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors"
+          >
+            <span className="flex items-center justify-center w-9 h-9 rounded-md bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 flex-shrink-0">
+              {p.icon}
+            </span>
+            <span className="flex-1 min-w-0">
+              <span className="block font-medium text-sm text-gray-900 dark:text-gray-100">
+                {p.label}
+              </span>
+              <span className="block text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                {p.blurb}
+              </span>
+            </span>
+          </button>
+        ))}
+      </div>
+      <button
+        type="button"
+        onClick={onCancel}
+        className="w-full mt-3 px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
+      >
+        Cancel
+      </button>
     </div>
   );
 }
