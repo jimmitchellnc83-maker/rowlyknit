@@ -550,6 +550,7 @@ function ChartSection({
   paletteColors: ColorSwatch[];
 }) {
   const [tool, setTool] = useState<ChartTool>({ type: 'symbol', symbolId: 'knit' });
+  const [cellSize, setCellSize] = useState<number>(28);
 
   if (!chart) {
     return (
@@ -559,12 +560,12 @@ function ChartSection({
         </h2>
         <p className="mb-3 text-sm text-gray-600 dark:text-gray-400">
           Design a stitch or colorwork chart to attach to this pattern. Click or drag on the grid
-          to place symbols (knit, purl, yarn-over, decreases) or colors from your palette. The
+          to place symbols (knit, purl, yarn-over, decreases) or colors from the palette. The
           chart rides along with the rest of the design in the print view.
         </p>
         <button
           type="button"
-          onClick={() => onChange(emptyChart(12, 10))}
+          onClick={() => onChange(emptyChart(20, 16))}
           className="rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700"
         >
           Add chart
@@ -575,20 +576,47 @@ function ChartSection({
 
   return (
     <section className="rounded-lg bg-white p-4 shadow dark:bg-gray-800 md:p-6">
-      <div className="mb-3 flex items-center justify-between">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Chart</h2>
-        <button
-          type="button"
-          onClick={() => {
-            if (confirm('Remove the chart entirely? This clears the grid.')) onChange(null);
-          }}
-          className="text-xs text-red-600 hover:underline"
-        >
-          Remove chart
-        </button>
+        <div className="flex items-center gap-4">
+          {/* Zoom toggle — compact, medium, large. Gives knitters a way to
+              scale the grid based on how much detail they're placing. */}
+          <div className="flex items-center gap-1">
+            <span className="text-xs text-gray-500">Zoom</span>
+            {[
+              { label: 'S', px: 22 },
+              { label: 'M', px: 28 },
+              { label: 'L', px: 36 },
+              { label: 'XL', px: 48 },
+            ].map((opt) => (
+              <button
+                key={opt.label}
+                type="button"
+                onClick={() => setCellSize(opt.px)}
+                aria-pressed={cellSize === opt.px}
+                className={`rounded border px-2 py-0.5 text-xs ${
+                  cellSize === opt.px
+                    ? 'border-purple-600 bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-200'
+                    : 'border-gray-300 bg-white text-gray-600 hover:border-purple-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              if (confirm('Remove the chart entirely? This clears the grid.')) onChange(null);
+            }}
+            className="text-xs text-red-600 hover:underline"
+          >
+            Remove chart
+          </button>
+        </div>
       </div>
 
-      <div className="mb-3 grid grid-cols-2 gap-3">
+      <div className="mb-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <label className="block">
           <span className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
             Width (stitches)
@@ -630,7 +658,7 @@ function ChartSection({
       <StitchPalette tool={tool} onChange={setTool} paletteColors={paletteColors} />
 
       <div className="mt-4">
-        <ChartGrid chart={chart} onChange={onChange} tool={tool} />
+        <ChartGrid chart={chart} onChange={onChange} tool={tool} cellSize={cellSize} />
       </div>
 
       <div className="mt-3 flex items-center gap-2">
@@ -863,12 +891,6 @@ export default function PatternDesigner() {
           {/* Color palette — shared across all item types. First color
               becomes MC and is shown alongside the schematic as a preview. */}
           <ColorPalette colors={form.colors} onChange={(next) => update('colors', next)} />
-
-          <ChartSection
-            chart={form.chart}
-            onChange={(next) => update('chart', next)}
-            paletteColors={form.colors}
-          />
 
           {form.itemType === 'sweater' && (
             <>
@@ -1458,6 +1480,17 @@ export default function PatternDesigner() {
           </div>
         </div>
       </div>
+
+      {/* Chart — full-width row below the form+preview grid so the grid
+          canvas gets the whole page width, not just the narrow form column.
+          Supports charts up to 60×60 cells (~1700px wide at 28px cells).
+          Horizontal scroll inside the section handles anything wider than
+          the viewport. */}
+      <ChartSection
+        chart={form.chart}
+        onChange={(next) => update('chart', next)}
+        paletteColors={form.colors}
+      />
     </div>
   );
 }

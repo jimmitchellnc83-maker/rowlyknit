@@ -56,7 +56,7 @@ interface ChartGridProps {
   chart: ChartData;
   onChange: (next: ChartData) => void;
   tool: ChartTool;
-  /** Cell edge length in pixels. Default 22. */
+  /** Cell edge length in pixels. Default 28 (readable on desktop). */
   cellSize?: number;
 }
 
@@ -66,7 +66,7 @@ interface ChartGridProps {
  * RS / WS tags (rightmost shows reading direction — chart rows are knit
  * right-to-left for RS and left-to-right for WS in flat knitting).
  */
-export default function ChartGrid({ chart, onChange, tool, cellSize = 22 }: ChartGridProps) {
+export default function ChartGrid({ chart, onChange, tool, cellSize = 28 }: ChartGridProps) {
   const [painting, setPainting] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -146,15 +146,17 @@ export default function ChartGrid({ chart, onChange, tool, cellSize = 22 }: Char
           {chart.cells.map((cell, i) => {
             const sym = cell.symbolId ? SYMBOL_INDEX.get(cell.symbolId) : undefined;
             const bg = cell.colorHex ?? sym?.color ?? '#FFFFFF';
+            const fontPx = Math.max(10, Math.round(cellSize * 0.55));
             return (
               <div
                 key={i}
                 role="gridcell"
-                className="flex items-center justify-center border border-gray-200 text-[11px] leading-none dark:border-gray-700"
+                className="flex items-center justify-center border border-gray-200 leading-none dark:border-gray-700"
                 style={{
                   backgroundColor: bg,
                   color: luminance(bg) > 0.55 ? '#111' : '#fff',
                   cursor: 'cell',
+                  fontSize: `${fontPx}px`,
                 }}
                 aria-label={sym ? `${sym.name}${cell.colorHex ? `, ${cell.colorHex}` : ''}` : cell.colorHex ?? 'empty'}
               >
