@@ -102,9 +102,16 @@ export default function PatternViewer({ fileUrl, filename, patternId, projectId,
           is_active: boolean;
           parent_counter_id: string | null;
         }>;
+        // Backend persists counter type as 'rows' (plural) despite
+        // frontend counter.types.ts claiming 'row' (singular). Accept
+        // both so we stay compatible if the two sides ever realign.
         const row = counters
           .filter(
-            (c) => c.is_visible && c.is_active && !c.parent_counter_id && c.type === 'row',
+            (c) =>
+              c.is_visible &&
+              c.is_active &&
+              !c.parent_counter_id &&
+              (c.type === 'rows' || c.type === 'row'),
           )
           .sort((a, b) => a.name.localeCompare(b.name))[0];
         if (!cancelled && row) {
