@@ -1,0 +1,64 @@
+name: Deploy to Staging
+
+# Auto-deploy the `staging` branch to the staging droplet.
+#
+# Required GitHub Secrets (Settings → Secrets and variables → Actions):
+#   STAGING_SSH_HOST      — IP or hostname of the staging droplet
+#   STAGING_SSH_USER      — SSH user (usually `root` or `deploy`)
+#   STAGING_SSH_KEY       — Private key authorised on the staging droplet.
+#                           MUST be a PEM-formatted key, NOT the public key.
+#   STAGING_SSH_PORT      — Optional; defaults to 22.
+#
+# The droplet must already have:
+#   - Docker + docker-compose installed
+#   - The repo cloned to /home/user/rowlyknit (or STAGING_REPO_PATH)
+#   - A valid backend/.env with staging credentials
+#   - Nginx configured for staging.rowlyknit.com (see
+#     deployment/nginx/conf.d/rowlyknit-staging.conf)
+#
+# See docs/STAGING_SETUP.md for first-time provisioning steps.
+
+on:
+  push:
+    branches: [staging]
+  workflow_dispatch: {}
+
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: SSH pull + rebuild
+    runs-on: ubuntu-latest
+    environment:
+      name: staging
+      url: https://staging.rowlyknit.com
+    steps:
+      - name: SSH deploy
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.STAGING_SSH_HOST }}
+          username: ${{ secrets.STAGING_SSH_USER }}
+          key: ${{ secrets.STAGING_SSH_KEY }}
+          port: ${{ secrets.STAGING_SSH_PORT || 22 }}
+          script_stop: true
+          script: |
+            set -euo pipefail
+            REPO_PATH="${STAGING_REPO_PATH:-/home/user/rowlyknit}"
+            cd "$REPO_PATH"
+            echo "==> pulling latest staging…"
+            git fetch origin staging
+            git checkout staging
+            git reset --hard origin/staging
+            echo "==> rebuilding frontend + backend…"
+            docker compose build backend frontend
+            echo "==> restarting services…"
+            docker compose up -d backend frontend
+            echo "==> running migrations…"
+            docker compose exec -T backend npm run migrate || true
+            echo "==> health check…"
+            sleep 5
+            curl --silent --fail --max-time 10 https://staging.rowlyknit.com/health \
+              || (echo "health check FAILED"; exit 1)
+            echo "==> done."
