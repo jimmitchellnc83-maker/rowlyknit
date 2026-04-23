@@ -15,6 +15,7 @@ import { useAuthStore } from '../stores/authStore';
 import { useDashboardStats } from '../hooks/useApi';
 import { useMeasurements } from '../hooks/useMeasurements';
 import { LoadingSkeleton, ErrorState } from '../components/LoadingSpinner';
+import CmdKTooltip from '../components/CmdKTooltip';
 import { metersToYards } from '../utils/yarnUnits';
 
 const iconMap: { [key: string]: React.ComponentType<{ className?: string }> } = {
@@ -146,6 +147,8 @@ export default function Dashboard() {
           </div>
         </section>
       )}
+
+      <CmdKTooltip />
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
