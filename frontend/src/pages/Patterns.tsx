@@ -4,12 +4,12 @@ import { FiPlus, FiTrash2, FiBook, FiEdit2, FiSearch, FiMoreVertical, FiRefreshC
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { PDFCollation } from '../components/patterns';
-import ConfirmModal from '../components/ConfirmModal';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import ListControls, { applyListControls, type SortOption } from '../components/ListControls';
 import { LoadingCardGrid, ErrorState } from '../components/LoadingSpinner';
 import { usePatterns, useCreatePattern, useUpdatePattern, useDeletePattern } from '../hooks/useApi';
+import { useUndoableDelete } from '../hooks/useUndoableDelete';
 import RavelryPatternSearch, { type RavelryPatternImportData } from '../components/RavelryPatternSearch';
 import PageHelpButton from '../components/PageHelpButton';
 
@@ -54,14 +54,19 @@ export default function Patterns() {
   };
   const [search, setSearch] = useState('');
   const [sortId, setSortId] = useState<string>('recent');
+  const [pendingDeleteIds, setPendingDeleteIds] = useState<Set<string>>(new Set());
+  const { execute: undoableDelete } = useUndoableDelete();
   const visiblePatterns = useMemo(
     () =>
-      applyListControls(patterns, {
-        search,
-        searchFields: (p) => [p.name, p.designer, p.description, p.category],
-        sort: PATTERN_SORT_OPTIONS.find((s) => s.id === sortId),
-      }),
-    [patterns, search, sortId],
+      applyListControls(
+        patterns.filter((p: Pattern) => !pendingDeleteIds.has(p.id)),
+        {
+          search,
+          searchFields: (p) => [p.name, p.designer, p.description, p.category],
+          sort: PATTERN_SORT_OPTIONS.find((s) => s.id === sortId),
+        },
+      ),
+    [patterns, search, sortId, pendingDeleteIds],
   );
   const createPattern = useCreatePattern();
   const updatePattern = useUpdatePattern();
@@ -86,7 +91,6 @@ export default function Patterns() {
   const [editingPattern, setEditingPattern] = useState<Pattern | null>(null);
   const [patternFiles, setPatternFiles] = useState<File[]>([]);
   const [uploadingFiles, setUploadingFiles] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [pendingRavelryPhotoUrl, setPendingRavelryPhotoUrl] = useState<string | null>(null);
   const [pendingRavelryExtras, setPendingRavelryExtras] = useState<any | null>(null);
   const [formData, setFormData] = useState({
@@ -247,16 +251,32 @@ export default function Patterns() {
     });
   };
 
-  const handleDeletePattern = async (id: string, _name: string) => {
-    deletePatternMutation.mutate(id, {
-      onSuccess: () => {
-        toast.success('Pattern deleted successfully');
-      },
-      onError: () => {
-        toast.error('Failed to delete pattern');
-      },
-      onSettled: () => {
-        setDeleteTarget(null);
+  const handleDeletePattern = (pattern: { id: string; name: string }) => {
+    undoableDelete({
+      id: pattern.id,
+      label: pattern.name,
+      optimisticHide: () =>
+        setPendingDeleteIds((prev) => {
+          const next = new Set(prev);
+          next.add(pattern.id);
+          return next;
+        }),
+      rollback: () =>
+        setPendingDeleteIds((prev) => {
+          const next = new Set(prev);
+          next.delete(pattern.id);
+          return next;
+        }),
+      commit: async () => {
+        try {
+          await deletePatternMutation.mutateAsync(pattern.id);
+        } finally {
+          setPendingDeleteIds((prev) => {
+            const next = new Set(prev);
+            next.delete(pattern.id);
+            return next;
+          });
+        }
       },
     });
   };
@@ -500,7 +520,7 @@ export default function Patterns() {
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      setDeleteTarget({ id: pattern.id, name: pattern.name });
+                      handleDeletePattern({ id: pattern.id, name: pattern.name });
                     }}
                     className="flex-1 px-3 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition flex items-center justify-center text-sm"
                   >
@@ -814,16 +834,6 @@ export default function Patterns() {
             </div>
           </div>
         </div>
-      )}
-
-      {deleteTarget && (
-        <ConfirmModal
-          title="Delete Pattern"
-          message={`Are you sure you want to delete "${deleteTarget.name}"? This action cannot be undone.`}
-          confirmLabel="Delete"
-          onConfirm={() => handleDeletePattern(deleteTarget.id, deleteTarget.name)}
-          onCancel={() => setDeleteTarget(null)}
-        />
       )}
 
       <RavelryPatternSearch
