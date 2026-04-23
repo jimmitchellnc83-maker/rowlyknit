@@ -7,6 +7,7 @@ import ThemeToggle from '../ThemeToggle';
 import { SyncIndicator } from '../offline/SyncIndicator';
 import { ConflictResolver, DataConflict } from '../offline/ConflictResolver';
 import PageHelp from '../help/PageHelp';
+import QuickCreate from '../quick-create/QuickCreate';
 import {
   FiHome,
   FiFolder,
@@ -202,6 +203,7 @@ function MainLayoutInner() {
         </main>
       </div>
 
+      <QuickCreate />
       <PageHelp />
     </div>
   );
