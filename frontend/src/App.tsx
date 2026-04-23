@@ -13,6 +13,9 @@ import AuthLayout from './components/layouts/AuthLayout';
 import Dashboard from './pages/Dashboard';
 import Projects from './pages/Projects';
 import ProjectDetail from './pages/ProjectDetail';
+import PanelHub from './pages/PanelHub';
+import PanelKnittingView from './pages/PanelKnittingView';
+import PanelGroupSetup from './pages/PanelGroupSetup';
 import Patterns from './pages/Patterns';
 import PatternDetail from './pages/PatternDetail';
 import YarnStash from './pages/YarnStash';
@@ -143,6 +146,9 @@ function App() {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/projects" element={<Projects />} />
         <Route path="/projects/:id" element={<ErrorBoundary><ProjectDetail /></ErrorBoundary>} />
+        <Route path="/projects/:id/panels" element={<ErrorBoundary><PanelHub /></ErrorBoundary>} />
+        <Route path="/projects/:id/panels/:groupId" element={<ErrorBoundary><PanelKnittingView /></ErrorBoundary>} />
+        <Route path="/projects/:id/panels/:groupId/setup" element={<ErrorBoundary><PanelGroupSetup /></ErrorBoundary>} />
         <Route path="/patterns" element={<Patterns />} />
         <Route path="/patterns/:id" element={<ErrorBoundary><PatternDetail /></ErrorBoundary>} />
         <Route path="/yarn" element={<ErrorBoundary><YarnStash /></ErrorBoundary>} />
