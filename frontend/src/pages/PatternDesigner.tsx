@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { FiTool, FiInfo, FiGrid, FiSquare, FiPrinter, FiFolder } from 'react-icons/fi';
-import { useCreateProject } from '../hooks/useApi';
+import { FiTool, FiInfo, FiGrid, FiSquare, FiPrinter, FiFolder, FiBook } from 'react-icons/fi';
+import { useCreatePattern, useCreateProject } from '../hooks/useApi';
 import { itemLabel } from '../utils/designerSnapshot';
 import {
   computeBlanket,
@@ -590,6 +590,60 @@ function SaveToProjectButton({ form }: { form: DesignerForm }) {
   );
 }
 
+/**
+ * Save the current design as a pattern in the user's library. The pattern
+ * carries the Designer snapshot in `metadata.designer`, plus the item type
+ * as the name and basic gauge text in the `gauge` field so it shows up in
+ * pattern searches correctly.
+ *
+ * Differs from SaveToProjectButton in that a *pattern* is a reusable
+ * template — the user can start multiple projects from the same pattern
+ * later. A project is a single knitted item.
+ */
+function SaveAsPatternButton({ form }: { form: DesignerForm }) {
+  const navigate = useNavigate();
+  const createPattern = useCreatePattern();
+  const label = itemLabel(form.itemType);
+
+  const save = async () => {
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      const gaugeText =
+        form.gaugeStitches && form.gaugeRows && form.gaugeMeasurement
+          ? `${form.gaugeStitches} sts × ${form.gaugeRows} rows over ${form.gaugeMeasurement} ${form.unit}`
+          : undefined;
+      const pattern = await createPattern.mutateAsync({
+        name: `${label} — ${today}`,
+        designer: 'Me (via Designer)',
+        category: form.itemType,
+        gauge: gaugeText,
+        notes: `Created in the Pattern Designer on ${today}.`,
+        metadata: {
+          designer: form,
+          designer_snapshot_at: new Date().toISOString(),
+        },
+      });
+      toast.success(`Pattern "${pattern.name}" saved to library.`);
+      navigate(`/patterns/${pattern.id}`);
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to save as pattern');
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={save}
+      disabled={createPattern.isPending}
+      className="inline-flex items-center gap-2 rounded-lg border border-purple-300 bg-white px-3 py-1.5 text-sm font-medium text-purple-700 hover:bg-purple-50 disabled:opacity-70 dark:border-purple-800 dark:bg-gray-800 dark:text-purple-300 dark:hover:bg-purple-900/30"
+      title="Save this design as a reusable pattern in your library"
+    >
+      <FiBook className="h-4 w-4" />
+      {createPattern.isPending ? 'Saving…' : 'Save as pattern'}
+    </button>
+  );
+}
+
 function ChartSection({
   chart,
   onChange,
@@ -842,7 +896,8 @@ export default function PatternDesigner() {
           <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium uppercase tracking-wide text-purple-700">
             Beta
           </span>
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            <SaveAsPatternButton form={form} />
             <SaveToProjectButton form={form} />
             <Link
               to="/designer/print"

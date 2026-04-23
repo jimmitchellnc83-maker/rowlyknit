@@ -108,36 +108,46 @@ const PRINT_STYLES = `
 export default function PatternPrintView() {
   const [searchParams] = useSearchParams();
   const projectId = searchParams.get('projectId');
+  const patternId = searchParams.get('patternId');
 
-  // Default source: localStorage (the in-progress Designer draft).
-  // If a ?projectId=X is passed, fetch that project and read its attached
-  // design snapshot instead. Lets us deep-link to a printable write-up for
-  // any saved project design.
+  // Source precedence: ?patternId > ?projectId > localStorage (in-progress
+  // Designer draft). Pattern + project modes fetch the saved snapshot
+  // from the server; localStorage mode is the default when neither is set.
+  const remoteMode = projectId || patternId;
   const [form, setForm] = useState<DesignerFormSnapshot | null>(() =>
-    projectId ? null : readForm(),
+    remoteMode ? null : readForm(),
   );
-  const [loading, setLoading] = useState(!!projectId);
+  const [loading, setLoading] = useState(!!remoteMode);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [projectName, setProjectName] = useState<string | null>(null);
+  const [sourceTitle, setSourceTitle] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!projectId) return;
+    if (!remoteMode) return;
     let cancelled = false;
     (async () => {
       try {
-        const res = await axios.get(`/api/projects/${projectId}`);
+        const url = projectId
+          ? `/api/projects/${projectId}`
+          : `/api/patterns/${patternId}`;
+        const res = await axios.get(url);
         if (cancelled) return;
-        const project = res.data.data.project;
-        const snapshot = project?.metadata?.designer as DesignerFormSnapshot | undefined;
+        const obj = projectId
+          ? res.data.data.project
+          : res.data.data.pattern;
+        const snapshot = obj?.metadata?.designer as DesignerFormSnapshot | undefined;
         if (!snapshot) {
-          setLoadError('This project has no design attached.');
+          setLoadError(
+            projectId
+              ? 'This project has no design attached.'
+              : 'This pattern has no design attached.',
+          );
         } else {
           setForm(snapshot);
-          setProjectName(project.name ?? null);
+          setSourceTitle(obj.name ?? null);
         }
       } catch (e: any) {
         if (!cancelled) {
-          setLoadError(e.response?.data?.message ?? 'Could not load the project.');
+          setLoadError(e.response?.data?.message ?? 'Could not load the source.');
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -146,7 +156,7 @@ export default function PatternPrintView() {
     return () => {
       cancelled = true;
     };
-  }, [projectId]);
+  }, [projectId, patternId, remoteMode]);
 
   if (loading) {
     return <div className="p-8 text-center text-gray-500">Loading project design…</div>;
@@ -196,6 +206,14 @@ export default function PatternPrintView() {
             <FiArrowLeft className="h-4 w-4" />
             Back to project
           </Link>
+        ) : patternId ? (
+          <Link
+            to={`/patterns/${patternId}`}
+            className="inline-flex items-center gap-2 text-sm text-purple-700 hover:underline"
+          >
+            <FiArrowLeft className="h-4 w-4" />
+            Back to pattern
+          </Link>
         ) : (
           <Link
             to="/designer"
@@ -219,9 +237,9 @@ export default function PatternPrintView() {
       {/* Pattern header */}
       <header className="mb-6 border-b border-gray-300 pb-4 print-avoid-break">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-          {projectName ?? itemTitle(form.itemType)}
+          {sourceTitle ?? itemTitle(form.itemType)}
         </h1>
-        {projectName && (
+        {sourceTitle && (
           <p className="text-sm text-gray-500">{itemTitle(form.itemType)}</p>
         )}
         <p className="mt-1 text-sm text-gray-500">
