@@ -1,3 +1,4 @@
+import { Suspense, lazy } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from './stores/authStore';
 import PWAInstallPrompt from './components/PWAInstallPrompt';
@@ -41,7 +42,10 @@ import RavelryBookmarks from './pages/RavelryBookmarks';
 import RavelryBookmarksSync from './pages/RavelryBookmarksSync';
 import RavelryFavorites from './pages/RavelryFavorites';
 import NotFound from './pages/NotFound';
-import Landing from './pages/Landing';
+
+// Lazy-load the public Landing page so unauthenticated visitors don't pay
+// for the full authenticated-app bundle just to read marketing copy.
+const Landing = lazy(() => import('./pages/Landing'));
 
 // Protected route wrapper
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -60,7 +64,18 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
 // public marketing page with signup CTAs.
 function LandingOrDashboard() {
   const { isAuthenticated } = useAuthStore();
-  return isAuthenticated ? <Navigate to="/dashboard" replace /> : <Landing />;
+  if (isAuthenticated) return <Navigate to="/dashboard" replace />;
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+          <div className="h-10 w-10 animate-spin rounded-full border-2 border-purple-600 border-t-transparent" />
+        </div>
+      }
+    >
+      <Landing />
+    </Suspense>
+  );
 }
 
 function App() {

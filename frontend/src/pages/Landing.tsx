@@ -20,12 +20,24 @@ import ThemeToggle from '../components/ThemeToggle';
 export default function Landing() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-white via-purple-50 to-white text-gray-900 dark:from-gray-900 dark:via-purple-950 dark:to-gray-900 dark:text-gray-100">
+      {/* Skip link — keyboard users land here first and can jump past nav */}
+      <a
+        href="#main"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded focus:bg-white focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-purple-700 focus:shadow dark:focus:bg-gray-900 dark:focus:text-purple-300"
+      >
+        Skip to main content
+      </a>
+
       {/* Top nav */}
       <header className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
-        <Link to="/" className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+        <Link
+          to="/"
+          className="text-2xl font-bold text-purple-600 dark:text-purple-400"
+          aria-label="Rowly — home"
+        >
           Rowly
         </Link>
-        <div className="flex items-center gap-2">
+        <nav aria-label="Primary" className="flex items-center gap-2">
           <ThemeToggle />
           <Link
             to="/login"
@@ -39,15 +51,16 @@ export default function Landing() {
           >
             Sign up
           </Link>
-        </div>
+        </nav>
       </header>
 
+      <main id="main">
       {/* Hero */}
-      <section className="mx-auto max-w-5xl px-6 pt-10 pb-16 text-center sm:pt-16">
+      <section aria-labelledby="hero-heading" className="mx-auto max-w-5xl px-6 pt-10 pb-16 text-center sm:pt-16">
         <span className="inline-block px-3 py-1 text-xs font-semibold text-purple-700 bg-purple-100 rounded-full dark:text-purple-200 dark:bg-purple-900/40">
           For hand knitters who care about the craft
         </span>
-        <h1 className="mt-5 text-4xl sm:text-6xl font-bold tracking-tight">
+        <h1 id="hero-heading" className="mt-5 text-4xl sm:text-6xl font-bold tracking-tight">
           Design it. Validate it.{' '}
           <span className="text-purple-600 dark:text-purple-400">Knit it live.</span>
         </h1>
@@ -76,7 +89,10 @@ export default function Landing() {
       </section>
 
       {/* Three pillars — matches our moat-widener story */}
-      <section className="mx-auto max-w-6xl px-6 pb-20">
+      <section aria-labelledby="pillars-heading" className="mx-auto max-w-6xl px-6 pb-20">
+        <h2 id="pillars-heading" className="sr-only">
+          How Rowly helps you knit
+        </h2>
         <div className="grid gap-6 md:grid-cols-3">
           <Pillar
             icon={<FiTool className="h-6 w-6" />}
@@ -97,8 +113,8 @@ export default function Landing() {
       </section>
 
       {/* Feature highlights — secondary grid with the concrete differentiators */}
-      <section className="mx-auto max-w-6xl px-6 pb-20">
-        <h2 className="text-center text-2xl sm:text-3xl font-bold">The whole workbench, one app</h2>
+      <section aria-labelledby="features-heading" className="mx-auto max-w-6xl px-6 pb-20">
+        <h2 id="features-heading" className="text-center text-2xl sm:text-3xl font-bold">The whole workbench, one app</h2>
         <p className="text-center mt-2 text-gray-600 dark:text-gray-400">
           What makes knitters stay.
         </p>
@@ -137,9 +153,9 @@ export default function Landing() {
       </section>
 
       {/* Closing CTA */}
-      <section className="mx-auto max-w-3xl px-6 pb-20 text-center">
+      <section aria-labelledby="closing-cta-heading" className="mx-auto max-w-3xl px-6 pb-20 text-center">
         <div className="rounded-2xl border border-purple-200 bg-purple-50 p-10 dark:border-purple-900/40 dark:bg-purple-900/20">
-          <h2 className="text-2xl sm:text-3xl font-bold">Start knitting with Rowly</h2>
+          <h2 id="closing-cta-heading" className="text-2xl sm:text-3xl font-bold">Start knitting with Rowly</h2>
           <p className="mt-3 text-gray-600 dark:text-gray-300">
             Early access is open. Bring a project in progress — or start your first design in
             five minutes.
@@ -152,6 +168,7 @@ export default function Landing() {
           </Link>
         </div>
       </section>
+      </main>
 
       {/* Footer */}
       <footer className="border-t border-gray-200 dark:border-gray-800">
