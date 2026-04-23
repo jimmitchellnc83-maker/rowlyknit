@@ -17,6 +17,7 @@ import {
 } from '../utils/errorHandler';
 import emailService from '../services/emailService';
 import { createAuditLog } from '../middleware/auditLog';
+import logger from '../config/logger';
 import validator from 'validator';
 
 /**
@@ -63,13 +64,26 @@ export async function register(req: Request, res: Response) {
     })
     .returning(['id', 'email', 'first_name', 'last_name', 'created_at']);
 
-  // Send verification email
+  // Send verification email — log and swallow failures so a flaky mail
+  // provider can't orphan a user: the DB row is already created above,
+  // and throwing here would leave the caller with a 500 and no way to
+  // finish registration. The token is persisted so we can re-send later.
   const verificationUrl = `${process.env.APP_URL}/verify-email?token=${verificationToken}`;
-  await emailService.sendWelcomeEmail(
-    email,
-    firstName || 'there',
-    verificationUrl
-  );
+  let welcomeEmailSent = true;
+  try {
+    await emailService.sendWelcomeEmail(
+      email,
+      firstName || 'there',
+      verificationUrl
+    );
+  } catch (err) {
+    welcomeEmailSent = false;
+    logger.error('Welcome email failed during registration', {
+      userId: user.id,
+      email,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
 
   // Log audit
   await createAuditLog(req, {
@@ -82,7 +96,9 @@ export async function register(req: Request, res: Response) {
 
   res.status(201).json({
     success: true,
-    message: 'Registration successful. Please check your email to verify your account.',
+    message: welcomeEmailSent
+      ? 'Registration successful. Please check your email to verify your account.'
+      : 'Registration successful. We could not send the verification email right now — contact support if you do not receive it shortly.',
     data: {
       user: {
         id: user.id,
@@ -91,6 +107,7 @@ export async function register(req: Request, res: Response) {
         lastName: user.last_name,
         preferences: user.preferences,
       },
+      welcomeEmailSent,
     },
   });
 }
@@ -578,13 +595,24 @@ export async function requestPasswordReset(req: Request, res: Response) {
       updated_at: new Date(),
     });
 
-  // Send email
+  // Send email — swallow failures for the same reason as register: the
+  // reset token is persisted and auditable, so a failed send shouldn't
+  // 500 the caller. The success message is intentionally identical on
+  // either path to avoid leaking account existence.
   const resetUrl = `${process.env.APP_URL}/reset-password?token=${resetToken}`;
-  await emailService.sendPasswordResetEmail(
-    email,
-    user.first_name || 'there',
-    resetUrl
-  );
+  try {
+    await emailService.sendPasswordResetEmail(
+      email,
+      user.first_name || 'there',
+      resetUrl
+    );
+  } catch (err) {
+    logger.error('Password reset email failed', {
+      userId: user.id,
+      email,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
 
   // Log audit
   await createAuditLog(req, {
