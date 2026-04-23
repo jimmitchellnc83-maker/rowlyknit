@@ -10,6 +10,7 @@ import path from 'path';
 import { sanitizeSearchQuery } from '../utils/inputSanitizer';
 import { assertPublicUrl } from '../utils/ssrfGuard';
 import { getFeasibility } from '../services/feasibilityService';
+import { calculatePatternComplexity } from '../services/patternComplexityService';
 
 /**
  * Serialize pattern fields for frontend.
@@ -166,12 +167,19 @@ export async function getPattern(req: Request, res: Response) {
   // Serialize JSONB fields to strings for frontend
   const serializedPattern = serializePattern(pattern);
 
+  const complexity = calculatePatternComplexity({
+    notes: serializedPattern.notes,
+    sizes_available: serializedPattern.sizes_available,
+    gauge: serializedPattern.gauge,
+  });
+
   res.json({
     success: true,
     data: {
       pattern: {
         ...serializedPattern,
         projects,
+        complexity,
       },
     },
   });
