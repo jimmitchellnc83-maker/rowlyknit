@@ -2,11 +2,13 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'react-toastify';
-import { FiArrowLeft, FiMic, FiMicOff, FiRotateCcw, FiSettings } from 'react-icons/fi';
+import { FiArrowLeft, FiClock, FiMic, FiMicOff, FiRotateCcw, FiSettings } from 'react-icons/fi';
 import { useWebSocket } from '../contexts/WebSocketContext';
 import type { LivePanelGroupResponse } from '../types/panel.types';
 import MasterCounterControl from '../components/panels/MasterCounterControl';
 import PanelCard from '../components/panels/PanelCard';
+import HistoryScrubber from '../components/panels/HistoryScrubber';
+import PanelMarkerBanner from '../components/panels/PanelMarkerBanner';
 import {
   speakAlways,
   usePanelVoiceControl,
@@ -26,6 +28,7 @@ export default function PanelKnittingView() {
   const [loading, setLoading] = useState(true);
   const [advancing, setAdvancing] = useState(false);
   const [localCollapsed, setLocalCollapsed] = useState<Record<string, boolean>>({});
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   const fetchLive = useCallback(async () => {
     if (!projectId || !groupId) return;
@@ -257,6 +260,12 @@ export default function PanelKnittingView() {
       </header>
 
       <main className="max-w-2xl mx-auto px-4 pt-4">
+        <PanelMarkerBanner
+          projectId={projectId!}
+          counterId={live.master.counter_id}
+          currentRow={live.master.current_row}
+        />
+
         <MasterCounterControl
           currentRow={live.master.current_row}
           onAdvance={() => advance(1)}
@@ -311,6 +320,14 @@ export default function PanelKnittingView() {
             <FiRotateCcw className="w-4 h-4" />
             Undo last row
           </button>
+          <button
+            type="button"
+            onClick={() => setHistoryOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-800 rounded-md"
+          >
+            <FiClock className="w-4 h-4" />
+            History
+          </button>
           {voice.isSupported && (
             <button
               type="button"
@@ -360,6 +377,16 @@ export default function PanelKnittingView() {
           </div>
         )}
       </main>
+
+      {historyOpen && (
+        <HistoryScrubber
+          projectId={projectId!}
+          counterId={live.master.counter_id}
+          currentRow={live.master.current_row}
+          onClose={() => setHistoryOpen(false)}
+          onReverted={fetchLive}
+        />
+      )}
     </div>
   );
 }
