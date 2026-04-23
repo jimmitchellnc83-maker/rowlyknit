@@ -1,6 +1,7 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import Cropper, { Area } from 'react-easy-crop';
 import { FiX, FiCheck } from 'react-icons/fi';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 interface Props {
   imageSrc: string;
@@ -65,6 +66,18 @@ export default function ImageCropperModal({
   const [zoom, setZoom] = useState(1);
   const [croppedPixels, setCroppedPixels] = useState<Area | null>(null);
   const [applying, setApplying] = useState(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const cancelRef = useRef<HTMLButtonElement>(null);
+
+  useFocusTrap(dialogRef, true, cancelRef);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !applying) onCancel();
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [applying, onCancel]);
 
   const onCropComplete = useCallback((_area: Area, pixels: Area) => {
     setCroppedPixels(pixels);
@@ -84,14 +97,22 @@ export default function ImageCropperModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black bg-opacity-80 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl flex flex-col" style={{ maxHeight: '90vh' }}>
+    <div
+      className="fixed inset-0 z-50 bg-black bg-opacity-80 flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="image-cropper-title"
+      onClick={(e) => { if (e.target === e.currentTarget && !applying) onCancel(); }}
+    >
+      <div ref={dialogRef} className="bg-white rounded-lg shadow-xl w-full max-w-3xl flex flex-col" style={{ maxHeight: '90vh' }}>
         <div className="flex items-center justify-between p-4 border-b">
-          <h3 className="text-lg font-semibold text-gray-900">Crop photo</h3>
+          <h3 id="image-cropper-title" className="text-lg font-semibold text-gray-900">Crop photo</h3>
           <button
+            ref={cancelRef}
             onClick={onCancel}
             className="p-1 hover:bg-gray-100 rounded text-gray-500"
             title="Cancel"
+            aria-label="Close crop dialog"
           >
             <FiX className="h-5 w-5" />
           </button>
