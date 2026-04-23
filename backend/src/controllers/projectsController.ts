@@ -4,6 +4,7 @@ import { NotFoundError, ValidationError } from '../utils/errorHandler';
 import { createAuditLog } from '../middleware/auditLog';
 import { sanitizeSearchQuery } from '../utils/inputSanitizer';
 import { getFeasibilityBatch } from '../services/feasibilityService';
+import { checkNeedleInventory } from '../services/needleInventoryService';
 
 export const ALLOWED_PROJECT_TYPES = [
   'sweater',
@@ -101,8 +102,9 @@ export async function getProject(req: Request, res: Response) {
     throw new NotFoundError('Project not found');
   }
 
-  // Get related data
-  const [photos, counters, pieces, patterns, yarn, tools] = await Promise.all([
+  // Get related data (plus the user's full tool inventory for the
+  // needle-inventory cross-check — not just tools attached to this project).
+  const [photos, counters, pieces, patterns, yarn, tools, allUserTools] = await Promise.all([
     db('project_photos').where({ project_id: id }).orderBy('sort_order'),
     db('counters').where({ project_id: id }).orderBy('sort_order'),
     db('project_pieces').where({ project_id: id }).orderBy('sort_order'),
@@ -118,7 +120,10 @@ export async function getProject(req: Request, res: Response) {
       .join('tools as t', 'pt.tool_id', 't.id')
       .where({ 'pt.project_id': id })
       .select('t.*'),
+    db('tools').where({ user_id: userId }).whereNull('deleted_at'),
   ]);
+
+  const needleCheck = checkNeedleInventory(patterns, allUserTools);
 
   res.json({
     success: true,
@@ -131,6 +136,7 @@ export async function getProject(req: Request, res: Response) {
         patterns,
         yarn,
         tools,
+        needleCheck,
       },
     },
   });
