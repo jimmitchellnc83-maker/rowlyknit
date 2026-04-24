@@ -74,13 +74,29 @@ export default function GuidedTour() {
   const handleCallback = useCallback(
     (data: CallBackProps) => {
       const { status, type, index, action } = data;
-      if (type === EVENTS.STEP_AFTER || type === EVENTS.TARGET_NOT_FOUND) {
-        setStepIndex(action === ACTIONS.PREV ? index - 1 : index + 1);
+
+      // Explicit exit: X (close) or "Skip tour" → end the tour, never advance.
+      // Previously STEP_AFTER fired for CLOSE actions too, which advanced the
+      // step index BEFORE the status check ended it — so clicking X felt like
+      // Next.
+      if (action === ACTIONS.CLOSE || action === ACTIONS.SKIP) {
+        setRun(false);
+        setStepIndex(0);
+        void markComplete();
+        return;
       }
+
+      // Finished or skipped via any other mechanism (e.g. Finish on last step).
       if (status === STATUS.FINISHED || status === STATUS.SKIPPED) {
         setRun(false);
         setStepIndex(0);
         void markComplete();
+        return;
+      }
+
+      // Normal step progression — Next / Back advance the index.
+      if (type === EVENTS.STEP_AFTER || type === EVENTS.TARGET_NOT_FOUND) {
+        setStepIndex(action === ACTIONS.PREV ? index - 1 : index + 1);
       }
     },
     [markComplete],
