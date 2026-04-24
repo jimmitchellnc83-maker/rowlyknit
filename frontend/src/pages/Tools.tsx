@@ -652,8 +652,10 @@ export default function Tools() {
       {tools.length === 0 ? (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-12 text-center">
           <FiTool className="mx-auto h-16 w-16 text-gray-400 mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No tools yet</h3>
-          <p className="text-gray-500 dark:text-gray-400 mb-4">Start tracking your knitting and crochet tools</p>
+          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">Tag the needles and hooks you own</h3>
+          <p className="text-gray-500 dark:text-gray-400 mb-4 mx-auto max-w-md">
+            Rowly cross-checks a pattern's needle size against your inventory so you know before casting on whether you're ready to knit.
+          </p>
           <button
             onClick={() => {
               setFormData({ ...EMPTY_FORM });
@@ -663,7 +665,7 @@ export default function Tools() {
             className="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
           >
             <FiPlus className="mr-2" />
-            Add Your First Tool
+            Add a tool
           </button>
         </div>
       ) : visibleTools.length === 0 ? (

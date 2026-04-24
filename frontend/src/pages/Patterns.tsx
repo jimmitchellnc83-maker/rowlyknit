@@ -400,14 +400,16 @@ export default function Patterns() {
       {patterns.length === 0 ? (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-12 text-center">
           <FiBook className="mx-auto h-16 w-16 text-gray-400 mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No patterns yet</h3>
-          <p className="text-gray-500 dark:text-gray-400 mb-4">Start building your pattern library</p>
+          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">Save patterns for every cast-on</h3>
+          <p className="text-gray-500 dark:text-gray-400 mb-4 mx-auto max-w-md">
+            Upload PDFs, paste from the web, or OCR a photo — Rowly keeps your place row-by-row while you knit.
+          </p>
           <button
             onClick={() => setShowCreateModal(true)}
             className="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
           >
             <FiPlus className="mr-2" />
-            Add Your First Pattern
+            Add a pattern
           </button>
         </div>
       ) : (

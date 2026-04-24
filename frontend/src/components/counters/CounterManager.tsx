@@ -168,13 +168,16 @@ export default function CounterManager({ projectId }: CounterManagerProps) {
       {/* Counter Grid */}
       {visibleCounters.length === 0 ? (
         <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-          <p className="text-gray-500 mb-4">No counters yet. Add your first counter to get started!</p>
+          <p className="text-gray-700 font-medium mb-1">Add a counter to unlock Knitting Mode</p>
+          <p className="text-sm text-gray-500 mb-4 mx-auto max-w-md">
+            A basic row counter is enough to start — Rowly tracks your place and steps on voice or keyboard.
+          </p>
           <button
             onClick={() => setShowForm(true)}
             className="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition inline-flex items-center gap-2"
           >
             <FiPlus className="h-5 w-5" />
-            Add Counter
+            Add row counter
           </button>
         </div>
       ) : (

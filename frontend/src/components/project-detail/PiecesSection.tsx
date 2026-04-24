@@ -181,7 +181,7 @@ export default function PiecesSection({ projectId, initialPieces }: Props) {
           ({completedCount}/{pieces.length} done)
         </span>
         <span className="ml-auto text-sm text-purple-600">
-          {pieces.length === 0 ? 'Click to add pieces (front, back, sleeve…)' : ''}
+          {pieces.length === 0 ? 'Break out front, back, sleeves — track them separately' : ''}
         </span>
       </summary>
 

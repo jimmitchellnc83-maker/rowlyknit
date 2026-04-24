@@ -76,7 +76,13 @@ export default function ProjectQuickNotes({ currentNotes, onSave }: Props) {
       ) : currentNotes ? (
         <p className="text-sm text-gray-700 whitespace-pre-wrap">{currentNotes}</p>
       ) : (
-        <p className="text-sm text-gray-500 italic">No notes added yet</p>
+        <button
+          type="button"
+          onClick={handleEditNotes}
+          className="w-full text-left text-sm text-gray-500 italic hover:text-purple-700 dark:hover:text-purple-300"
+        >
+          Jot decisions, mods, and reminders — they stay visible here every session.
+        </button>
       )}
     </div>
   );
