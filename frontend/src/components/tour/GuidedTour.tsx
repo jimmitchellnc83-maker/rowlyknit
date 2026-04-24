@@ -127,25 +127,13 @@ export default function GuidedTour() {
         tooltip: {
           borderRadius: 10,
           padding: 16,
-          // Cap tooltip height so content scrolls instead of pushing the
-          // footer (Back / Next / Skip) off the viewport on small screens.
-          maxWidth: 'min(360px, calc(100vw - 32px))',
-          maxHeight: 'calc(100vh - 32px)',
-          overflowY: 'auto',
+          // Cap the bubble so it can't push the footer off the viewport
+          // on short phone screens.
+          maxWidth: 'min(320px, calc(100vw - 32px))',
+          fontSize: 14,
         },
         tooltipTitle: { fontSize: 16, fontWeight: 600, marginBottom: 6 },
         tooltipContent: { fontSize: 14, lineHeight: 1.5, padding: 0 },
-        tooltipFooter: {
-          // Keep the footer pinned inside the tooltip so Next is always
-          // reachable even when content scrolls.
-          marginTop: 12,
-          paddingTop: 8,
-        },
-      }}
-      floaterProps={{
-        // Let the floater re-anchor to wherever has room — no more
-        // cut-off tooltip when a bottom-right anchor gets placement: 'left'.
-        disableAnimation: false,
       }}
     />
   );
@@ -162,20 +150,20 @@ const STEPS: Step[] = [
   },
   {
     target: '[data-tour="quick-create"]',
-    // 'auto' lets Joyride pick the side with the most room — both the +
-    // and ? buttons live in the bottom-right corner, where 'left' would
-    // squish the tooltip off the viewport on narrow screens.
-    placement: 'auto',
+    // `top` explicitly — both the + and ? buttons live in the bottom-right
+    // corner. `auto` was mistakenly picking bottom/right on some viewports
+    // and clipping the tooltip footer (Next/Back/Skip) off-screen.
+    placement: 'top',
     title: 'Quick-create',
     content:
-      'Tap this + button from any page (or press C) to add a project, yarn, pattern, or tool in 1–3 fields. No menu-diving.',
+      'Tap this + button (or press C) to add a project, yarn, pattern, or tool fast.',
   },
   {
     target: '[data-tour="page-help"]',
-    placement: 'auto',
+    placement: 'top',
     title: 'Contextual help',
     content:
-      'The ? button is on every page. It opens a step-by-step how-to for each tool on whatever page you\'re looking at.',
+      'The ? button opens a step-by-step how-to for every tool on whatever page you are on.',
   },
   {
     target: 'body',
