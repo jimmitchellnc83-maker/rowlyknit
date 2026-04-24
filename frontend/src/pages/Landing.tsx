@@ -7,6 +7,9 @@ import {
   FiBookOpen,
   FiLayers,
   FiArrowRight,
+  FiCheckSquare,
+  FiPackage,
+  FiTrendingUp,
 } from 'react-icons/fi';
 import ThemeToggle from '../components/ThemeToggle';
 
@@ -61,62 +64,62 @@ export default function Landing() {
           For hand knitters who care about the craft
         </span>
         <h1 id="hero-heading" className="mt-5 text-4xl sm:text-6xl font-bold tracking-tight">
-          Design it. Validate it.{' '}
-          <span className="text-purple-600 dark:text-purple-400">Knit it live.</span>
+          Run your knitting projects{' '}
+          <span className="text-purple-600 dark:text-purple-400">without losing your place.</span>
         </h1>
         <p className="mx-auto mt-6 max-w-2xl text-lg text-gray-600 dark:text-gray-300">
-          Rowly is the one workbench for the whole job — designing your own garment, checking
-          it against the yarn you own, and following the pattern row-by-row with voice and
-          multi-device sync as you knit.
+          Track rows, manage complex pieces, plan with your stash, and actually finish what
+          you cast on — all in one workspace built for makers.
         </p>
         <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
           <Link
             to="/register"
             className="inline-flex items-center justify-center gap-2 px-6 py-3 text-base font-semibold bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition shadow-lg shadow-purple-600/20"
           >
-            Create your account <FiArrowRight className="h-4 w-4" />
+            Start your next project <FiArrowRight className="h-4 w-4" />
           </Link>
-          <Link
-            to="/login"
+          <a
+            href="#pillar-plan"
             className="inline-flex items-center justify-center px-6 py-3 text-base font-medium text-gray-700 hover:bg-gray-100 rounded-lg border border-gray-200 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
           >
-            I already have an account
-          </Link>
+            Browse the calculators
+          </a>
         </div>
         <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">
           Free while we're in early access. No credit card.
         </p>
       </section>
 
-      {/* Three pillars — matches our moat-widener story */}
+      {/* Three pillars — what Rowly helps you do */}
       <section aria-labelledby="pillars-heading" className="mx-auto max-w-6xl px-6 pb-20">
         <h2 id="pillars-heading" className="sr-only">
           How Rowly helps you knit
         </h2>
         <div className="grid gap-6 md:grid-cols-3">
           <Pillar
-            icon={<FiTool className="h-6 w-6" />}
-            title="Design it"
-            body="A parametric garment designer built around your gauge. Sweaters, hats, scarves, blankets, shawls, mittens, and socks — all with live schematics, cast-on math, and yardage estimates."
+            icon={<FiCheckSquare className="h-6 w-6" />}
+            title="Run the project"
+            body="Knitting Mode locks onto your active row. Counters, Panel Mode for complex pieces, PDF and chart row markers, notes and checklists — everything works together so you never lose your place."
           />
           <Pillar
-            icon={<FiCheckCircle className="h-6 w-6" />}
-            title="Validate it"
-            body="Feasibility checks every pattern against the yarn you actually own. Substitution finder. Color palette drawn from your real stash. No more ordering extra skeins you already have."
+            id="pillar-plan"
+            icon={<FiPackage className="h-6 w-6" />}
+            title="Plan with what you own"
+            body="Start with the calculators — gauge, gift size, yarn substitution, project cost. Then feasibility checks against your real stash and tools, recipient profiles, project history — so you decide with numbers, not guesses."
           />
           <Pillar
-            icon={<FiMic className="h-6 w-6" />}
-            title="Knit it live"
-            body={'Chart follower and PDF row-marker with voice control and multi-device sync. Say "next" — the counter ticks, the chart row advances, every device catches up.'}
+            icon={<FiTrendingUp className="h-6 w-6" />}
+            title="Grow into advanced workflows"
+            body="Panel Mode for full garments with shaping. Parametric designer with live schematics and cast-on math. Pattern imports via OCR, barcode, or Ravelry. Rowly grows with you as projects get bigger."
           />
         </div>
       </section>
 
       {/* Feature highlights — secondary grid with the concrete differentiators */}
       <section aria-labelledby="features-heading" className="mx-auto max-w-6xl px-6 pb-20">
-        <h2 id="features-heading" className="text-center text-2xl sm:text-3xl font-bold">The whole workbench, one app</h2>
+        <h2 id="features-heading" className="text-center text-2xl sm:text-3xl font-bold">What makes knitters stay</h2>
         <p className="text-center mt-2 text-gray-600 dark:text-gray-400">
-          What makes knitters stay.
+          Every feature shaped around how knitting actually works.
         </p>
         <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           <Feature
@@ -157,8 +160,8 @@ export default function Landing() {
         <div className="rounded-2xl border border-purple-200 bg-purple-50 p-10 dark:border-purple-900/40 dark:bg-purple-900/20">
           <h2 id="closing-cta-heading" className="text-2xl sm:text-3xl font-bold">Start knitting with Rowly</h2>
           <p className="mt-3 text-gray-600 dark:text-gray-300">
-            Early access is open. Bring a project in progress — or start your first design in
-            five minutes.
+            Early access is open. Bring a project in progress — or start a new one in five
+            minutes.
           </p>
           <Link
             to="/register"
@@ -195,16 +198,21 @@ export default function Landing() {
 }
 
 function Pillar({
+  id,
   icon,
   title,
   body,
 }: {
+  id?: string;
   icon: React.ReactNode;
   title: string;
   body: string;
 }) {
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-800/50">
+    <div
+      id={id}
+      className="scroll-mt-24 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-800/50"
+    >
       <div className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300">
         {icon}
       </div>
