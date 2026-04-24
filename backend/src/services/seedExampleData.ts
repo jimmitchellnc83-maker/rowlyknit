@@ -112,12 +112,11 @@ export async function seedExampleDataForUser(userId: string): Promise<SeedResult
       .returning('id');
     result.projects += 1;
 
-    await trx('projects')
-      .where({ id: project1.id })
-      .update({ recipient_id: recipientId })
-      .catch(() => {
-        // recipient_id column may not exist across all migrations; swallow.
-      });
+    // NOTE: projects has no recipient_id column — the recipient relationship
+    // is handled via the `gifts` junction table if needed. Leave the example
+    // project without an explicit recipient link; it still references
+    // recipientId conceptually via notes.
+    void recipientId;
 
     await trx('project_patterns').insert({
       project_id: project1.id,
@@ -263,9 +262,8 @@ export async function seedExampleDataForUser(userId: string): Promise<SeedResult
     // Magic markers on project 1 (row 52 one-off + repeat every 10)
     const markerRows = await trx('magic_markers')
       .insert(magicMarkerSeeds(project1.id, bodyCounterId))
-      .returning('id')
-      .catch(() => [] as any[]);
-    result.magicMarkers += Array.isArray(markerRows) ? markerRows.length : 0;
+      .returning('id');
+    result.magicMarkers += markerRows.length;
 
     // Knitting sessions — 8 scattered over the last 3 weeks
     const sessionInserts: any[] = [];
@@ -343,17 +341,14 @@ export async function seedExampleDataForUser(userId: string): Promise<SeedResult
     });
     await trx('project_tools').insert({ project_id: project3.id, tool_id: dpn375 });
 
-    // Rating on project 3 — table is project_ratings (migration 52)
-    await trx('project_ratings')
-      .insert({
-        project_id: project3.id,
-        user_id: userId,
-        rating: 5,
-        comment: 'So cozy. Will make these again in every colour.',
-      })
-      .catch(() => {
-        // project_ratings table added in migration 052 — should exist. Swallow to be safe.
-      });
+    // Rating on project 3 — table is project_ratings (migration 52).
+    // Column is `notes` (not `comment`).
+    await trx('project_ratings').insert({
+      project_id: project3.id,
+      user_id: userId,
+      rating: 5,
+      notes: 'So cozy. Will make these again in every colour.',
+    });
 
     // Mark the user as seeded so register doesn't double-seed.
     await trx('users').where({ id: userId }).update({
