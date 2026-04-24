@@ -5,6 +5,7 @@ import { toast } from 'react-toastify';
 import CounterHierarchy from '../components/counters/CounterHierarchy';
 import PiecesSection from '../components/project-detail/PiecesSection';
 import SectionNav from '../components/project-detail/SectionNav';
+import ReadinessStrip from '../components/project-detail/ReadinessStrip';
 import DesignCard from '../components/designer/DesignCard';
 import type { DesignerFormSnapshot } from '../utils/designerSnapshot';
 import { SessionManager } from '../components/sessions';
@@ -498,6 +499,18 @@ export default function ProjectDetail() {
         />
       ) : (
         <>
+          <ReadinessStrip
+            patterns={project.patterns || []}
+            counters={project.counters || []}
+            yarn={project.yarn || []}
+            tools={project.tools || []}
+            pieces={project.pieces}
+            notes={project.notes}
+            needleCheck={project.needleCheck}
+            onAddPattern={() => setShowAddPatternModal(true)}
+            onAddYarn={() => setShowAddYarnModal(true)}
+            onAddTool={() => setShowAddToolModal(true)}
+          />
           <SectionNav
             sections={[
               { id: 'description', label: 'About', visible: !!project.description },
@@ -634,16 +647,20 @@ export default function ProjectDetail() {
               onUploadClick={() => setShowUploadPatternModal(true)}
             />
             <NeedleInventoryAlert check={project.needleCheck} />
-            <ProjectToolsList
-              tools={project.tools || []}
-              onRemove={handleRemoveTool}
-              onAddClick={() => setShowAddToolModal(true)}
-            />
-            <ProjectYarnUsage
-              yarn={project.yarn || []}
-              onRemove={handleRemoveYarn}
-              onAddClick={() => setShowAddYarnModal(true)}
-            />
+            <div id="section-tools">
+              <ProjectToolsList
+                tools={project.tools || []}
+                onRemove={handleRemoveTool}
+                onAddClick={() => setShowAddToolModal(true)}
+              />
+            </div>
+            <div id="section-yarn">
+              <ProjectYarnUsage
+                yarn={project.yarn || []}
+                onRemove={handleRemoveYarn}
+                onAddClick={() => setShowAddYarnModal(true)}
+              />
+            </div>
           </div>
         </div>
         </>
