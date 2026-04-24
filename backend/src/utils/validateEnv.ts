@@ -17,7 +17,11 @@ const REQUIRED_ENV_VARS: EnvVar[] = [
 ];
 
 const PRODUCTION_ENV_VARS: EnvVar[] = [
-  { name: 'EMAIL_API_KEY', required: true, description: 'Email service API key (required for production)' },
+  // EMAIL_API_KEY is recommended once a real provider (e.g., sendgrid) is wired
+  // up; until then we don't block boot so the app can serve traffic before
+  // transactional email is configured. The email service itself surfaces the
+  // error on the first send attempt.
+  { name: 'EMAIL_API_KEY', required: false, description: 'Email service API key (optional until a live email provider is configured)' },
   { name: 'SENTRY_DSN', required: false, description: 'Sentry error monitoring DSN (optional but recommended)' },
   { name: 'REDIS_PASSWORD', required: true, description: 'Redis password (required for production)' },
 ];
