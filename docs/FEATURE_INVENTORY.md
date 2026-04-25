@@ -1,6 +1,6 @@
 # Rowly feature inventory
 
-Comprehensive user-facing feature list with functional status. Last synced **2026-04-23**.
+Comprehensive user-facing feature list with functional status. Last synced **2026-04-25**.
 
 **Legend:**
 - **SOLID** — fully functional + polished, no known gaps.
@@ -20,6 +20,7 @@ Comprehensive user-facing feature list with functional status. Last synced **202
 | Create project | SOLID | Dashboard **+** / Projects list / `c` shortcut | New project in 1–2 fields | `POST /api/projects` — quick-create modal with name + status |
 | Project detail | SOLID | `/projects/:id` | Hub for everything attached to a project | Fetches project + counters + panels + sessions + notes; 9 sections nav |
 | Sticky section nav | SOLID | ProjectDetail | One-tap jump to any section on the long page | IntersectionObserver highlights active chip; smooth scroll |
+| Readiness strip | SOLID | ProjectDetail (above the fold) | Six chips — Pattern / Counter / Yarn / Tools / Pieces / Notes — show ready/missing/conflict/optional at a glance, click to scroll-to-section or open add-modal | Pure derivation from existing project data; needle-conflict surfaces from `project.needleCheck.status === 'red'` |
 | Edit project metadata | SOLID | ProjectDetail → pencil | Name, status, dates, description, tags | `PUT /api/projects/:id` |
 | Archive / delete project | SOLID | Project actions | Soft-delete with 5s undo toast | `useUndoableDelete` hook — toast cancels DELETE if undo within window |
 | Project photos | SOLID | ProjectDetail → Photos | WIP / finished photos with thumbnails | Multer upload, Sharp-generated thumbnail, stored in uploads volume |
@@ -155,6 +156,8 @@ Comprehensive user-facing feature list with functional status. Last synced **202
 | Clear example data | SOLID | Profile → Getting started | Two-step-confirm "Clear N example items" | `DELETE /api/users/me/examples` — cascades |
 | Guided tour | SOLID | Auto-fires on first Dashboard visit | 5-step Joyride walkthrough of Quick-create, ?, examples, Profile | react-joyride v2.9 + `tour_completed_at` gate |
 | Restart tour | SOLID | Profile → Getting started | Resets tour_completed_at | `PUT /api/users/me/tour` |
+| Goal-pick card | SOLID | First Dashboard visit (until answered) | One card asks what the user wants to do first; 5 options route to /projects, /yarn, /patterns, /designer, or stay on /dashboard for example-data | `users.onboarding_goal` text column; `PUT /api/users/me/onboarding-goal`; logs `onboarding_goal_selected` to `usage_events`. Skip persists `track_project` so the card doesn't reshow |
+| Reset onboarding goal | SOLID | Profile → Getting started | Clears `users.onboarding_goal` so the goal-pick card shows again | `PUT /api/users/me/onboarding-goal` with `{goal: null}` |
 | Quick-create (+) | SOLID | Floating button + `c` shortcut on every page | Create project/yarn/pattern/tool in 1–3 fields | `QuickCreate` component with 4 minimal forms |
 | Contextual page help (?) | SOLID | Floating ? on every page | Tool-by-tool how-to drawer keyed by route | `PageHelp` + `pageHelpContent.ts` route-registry |
 | /help hub page | SOLID | `/help` | FAQ + cross-app reference | Static content |
@@ -323,3 +326,12 @@ For traceability:
 - **#183** — Profile "Getting started" tab
 - **#184** — Guided tour (react-joyride)
 - **#185–186** — Backfill existing users + seed-schema fixes
+
+## 2026-04-25 product-UX sprint PRs
+
+- **#191** — Landing hero + pillar swap (calculators-first, no Ravelry positioning)
+- **#192** — Demote `EMAIL_API_KEY` to non-required in `validateEnv` (recovery — sendgrid not yet wired)
+- **#193** — ProjectDetail readiness strip (six chips, ready/missing/conflict/optional)
+- **#194** — Empty-state pass — eight surfaces rewritten to "why + next action"
+- **#195** — `users.onboarding_goal` migration (standalone)
+- **#196** — Goal-pick card on first Dashboard visit (5 options, persists, routes, logs)

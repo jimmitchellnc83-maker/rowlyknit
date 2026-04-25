@@ -9,9 +9,6 @@ import {
   FiPlus,
   FiAlertCircle,
   FiHelpCircle,
-  FiTool,
-  FiArrowRight,
-  FiDownload,
 } from 'react-icons/fi';
 import { useAuthStore } from '../stores/authStore';
 import { useDashboardStats } from '../hooks/useApi';
@@ -96,17 +93,6 @@ export default function Dashboard() {
   const recentProjects = dashboardData?.recentProjects ?? [];
   const lowStockYarn = dashboardData?.lowStockYarn ?? [];
 
-  // A brand-new user has empty counts across the board. We show a dedicated
-  // "get started" hero only in that state so returning users aren't nagged
-  // with onboarding content. We rely on the stats payload when present and
-  // fall back to the recent-projects list to avoid a flash of onboarding
-  // during initial fetch for existing users.
-  const isBrandNewUser =
-    !loading &&
-    dashboardData !== undefined &&
-    stats.every((s) => String(s.value) === '0') &&
-    recentProjects.length === 0;
-
   const quickActions = [
     {
       name: 'New Project',
@@ -162,57 +148,16 @@ export default function Dashboard() {
       )}
 
       {/* Goal-pick card — shown once after registration until answered. Skip
-          persists `track_project` so we don't reshow it. */}
+          persists `track_project` so we don't reshow it. Replaces the old
+          three-card "Get started with Rowly" hero, which was duplicative once
+          this card began driving routing. Profile → Onboarding lets the user
+          reset the goal if they want the card back. */}
       {onboardingGoal === null && (
         <OnboardingGoalCard
           saving={savingGoal}
           onSelect={persistGoal}
           onSkip={() => persistGoal('track_project')}
         />
-      )}
-
-      {/* First-run onboarding — visible only when the user has no data yet. */}
-      {isBrandNewUser && (
-        <section
-          aria-labelledby="onboarding-heading"
-          className="mb-8 rounded-2xl border border-purple-200 bg-gradient-to-br from-purple-50 to-white p-6 shadow-sm dark:border-purple-900/40 dark:from-purple-900/20 dark:to-gray-800 md:p-8"
-        >
-          <h2
-            id="onboarding-heading"
-            className="text-2xl font-bold text-gray-900 dark:text-gray-100"
-          >
-            Get started with Rowly
-          </h2>
-          <p className="mt-2 text-gray-600 dark:text-gray-300">
-            Pick the door that matches what you're doing right now. You can always come back.
-          </p>
-          <div className="mt-6 grid gap-4 md:grid-cols-3">
-            <OnboardingAction
-              icon={<FiFolder className="h-5 w-5" />}
-              title="Start a project"
-              body="Log what you're knitting right now — counters, notes, photos, pattern files."
-              cta="New project"
-              to="/projects"
-              accent="purple"
-            />
-            <OnboardingAction
-              icon={<FiTool className="h-5 w-5" />}
-              title="Design a pattern"
-              body="Gauge + measurements → cast-on, shaping, schematic. Eight item types."
-              cta="Open Designer"
-              to="/designer"
-              accent="blue"
-            />
-            <OnboardingAction
-              icon={<FiDownload className="h-5 w-5" />}
-              title="Import from Ravelry"
-              body="Bring in projects, stash, favorite yarns, and bookmarks from your Ravelry account."
-              cta="Connect Ravelry"
-              to="/ravelry/sync"
-              accent="amber"
-            />
-          </div>
-        </section>
       )}
 
       <CmdKTooltip />
@@ -407,50 +352,3 @@ export default function Dashboard() {
   );
 }
 
-const ACTION_ACCENTS = {
-  purple: {
-    icon: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300',
-    cta: 'text-purple-700 dark:text-purple-300 hover:underline',
-  },
-  blue: {
-    icon: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
-    cta: 'text-blue-700 dark:text-blue-300 hover:underline',
-  },
-  amber: {
-    icon: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
-    cta: 'text-amber-700 dark:text-amber-300 hover:underline',
-  },
-} as const;
-
-function OnboardingAction({
-  icon,
-  title,
-  body,
-  cta,
-  to,
-  accent,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  body: string;
-  cta: string;
-  to: string;
-  accent: keyof typeof ACTION_ACCENTS;
-}) {
-  const a = ACTION_ACCENTS[accent];
-  return (
-    <Link
-      to={to}
-      className="block rounded-xl border border-gray-200 bg-white p-5 transition hover:border-purple-300 hover:shadow-md dark:border-gray-700 dark:bg-gray-800/70 dark:hover:border-purple-500"
-    >
-      <div className={`inline-flex h-9 w-9 items-center justify-center rounded-lg ${a.icon}`}>
-        {icon}
-      </div>
-      <h3 className="mt-3 font-semibold text-gray-900 dark:text-gray-100">{title}</h3>
-      <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">{body}</p>
-      <span className={`mt-3 inline-flex items-center gap-1 text-sm font-medium ${a.cta}`}>
-        {cta} <FiArrowRight className="h-4 w-4" />
-      </span>
-    </Link>
-  );
-}
