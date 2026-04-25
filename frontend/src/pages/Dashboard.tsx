@@ -19,6 +19,7 @@ import OnboardingGoalCard, {
   type OnboardingGoal,
 } from '../components/dashboard/OnboardingGoalCard';
 import { metersToYards } from '../utils/yarnUnits';
+import { formatDate } from '../utils/formatDate';
 
 const GOAL_DESTINATION: Record<OnboardingGoal, string> = {
   track_project: '/projects',
@@ -341,7 +342,7 @@ export default function Dashboard() {
                   </div>
                 </div>
                 <div className="text-sm text-gray-500 dark:text-gray-400">
-                  {new Date(project.created_at).toLocaleDateString()}
+                  {formatDate(project.created_at)}
                 </div>
               </Link>
             ))}

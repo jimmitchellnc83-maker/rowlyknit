@@ -6,6 +6,7 @@ import { toast } from 'react-toastify';
 import ConfirmModal from '../components/ConfirmModal';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { useMeasurements } from '../hooks/useMeasurements';
+import { formatDate } from '../utils/formatDate';
 
 interface Yarn {
   id: string;
@@ -458,7 +459,7 @@ export default function YarnDetail() {
                 {yarn.purchase_date && (
                   <div>
                     <dt className="text-sm text-gray-500">Purchase Date</dt>
-                    <dd className="text-gray-900 dark:text-gray-100">{new Date(yarn.purchase_date).toLocaleDateString()}</dd>
+                    <dd className="text-gray-900 dark:text-gray-100">{formatDate(yarn.purchase_date)}</dd>
                   </div>
                 )}
                 {yarn.purchase_location && (

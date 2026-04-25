@@ -1,4 +1,5 @@
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
+import { formatDate } from './formatDate';
 
 // Export project to PDF
 export async function exportProjectToPDF(project: any): Promise<void> {
@@ -57,7 +58,7 @@ export async function exportProjectToPDF(project: any): Promise<void> {
 
   // Dates
   if (project.start_date) {
-    page.drawText(`Started: ${new Date(project.start_date).toLocaleDateString()}`, {
+    page.drawText(`Started: ${formatDate(project.start_date)}`, {
       x: leftMargin,
       y: yPosition,
       size: 12,
@@ -67,7 +68,7 @@ export async function exportProjectToPDF(project: any): Promise<void> {
   }
 
   if (project.target_completion_date) {
-    page.drawText(`Target: ${new Date(project.target_completion_date).toLocaleDateString()}`, {
+    page.drawText(`Target: ${formatDate(project.target_completion_date)}`, {
       x: leftMargin,
       y: yPosition,
       size: 12,

@@ -11,6 +11,7 @@ import { LoadingCardGrid, ErrorState } from '../components/LoadingSpinner';
 import { useProjects, useCreateProject, useDeleteProject, useUpdateProject } from '../hooks/useApi';
 import { useUndoableDelete } from '../hooks/useUndoableDelete';
 import PageHelpButton from '../components/PageHelpButton';
+import { formatDate } from '../utils/formatDate';
 import { FeasibilityBadge } from '../components/projects';
 import type { LightLevel } from '../components/projects/FeasibilityBadge';
 
@@ -265,11 +266,6 @@ export default function Projects() {
       default:
         return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200';
     }
-  };
-
-  const formatDate = (dateString: string) => {
-    if (!dateString) return 'Not set';
-    return new Date(dateString).toLocaleDateString();
   };
 
   if (loading) {
