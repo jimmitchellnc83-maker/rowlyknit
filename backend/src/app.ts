@@ -51,6 +51,7 @@ import ravelryRoutes from './routes/ravelry';
 import usageEventsRoutes from './routes/usage-events';
 import panelsRoutes from './routes/panels';
 import userExamplesRoutes from './routes/user-examples';
+import ogRenderRoutes from './routes/og-render';
 
 // Create Express app
 const app: Application = express();
@@ -171,6 +172,7 @@ app.use('/api/ravelry', ravelryRoutes);
 app.use('/api/usage-events', usageEventsRoutes);
 app.use('/api/users', userExamplesRoutes);
 app.use('/shared', sharedRoutes); // Public shared content routes
+app.use('/', ogRenderRoutes); // Server-side OG meta for /p/:slug
 
 // API documentation
 app.get('/api', (req, res) => {
