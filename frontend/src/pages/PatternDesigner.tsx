@@ -41,6 +41,11 @@ import SleeveSchematic from '../components/designer/SleeveSchematic';
 import SockSchematic from '../components/designer/SockSchematic';
 import StitchPalette from '../components/designer/StitchPalette';
 import PageHelpButton from '../components/PageHelpButton';
+import {
+  DESIGNER_TEMPLATES,
+  mergeTemplateIntoForm,
+  type DesignerTemplate,
+} from '../data/designerTemplates';
 
 type NumField = number | '';
 type DesignerSection = 'body' | 'sleeve';
@@ -898,6 +903,13 @@ export default function PatternDesigner() {
 
   const unitLabel = form.unit === 'in' ? 'in' : 'cm';
 
+  const applyTemplate = (template: DesignerTemplate) => {
+    setForm((prev) => mergeTemplateIntoForm(template, prev));
+    toast.success(`Applied template: ${template.name}`);
+  };
+
+  const visibleTemplates = DESIGNER_TEMPLATES.filter((t) => t.itemType === form.itemType);
+
   return (
     <div className="space-y-4 md:space-y-6">
       <div>
@@ -1006,6 +1018,40 @@ export default function PatternDesigner() {
               </select>
             </label>
           </section>
+
+          {/* Quick-start templates — clicking a chip replaces the
+              measurement fields for the current itemType. Gauge, colors,
+              and the chart are preserved so the knitter doesn't lose
+              setup work. Values are stored in inches in the catalog and
+              converted on apply when the user is in cm mode. */}
+          {visibleTemplates.length > 0 && (
+            <section className="rounded-lg bg-white p-4 shadow dark:bg-gray-800">
+              <h2 className="mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                Quick start
+              </h2>
+              <p className="mb-3 text-xs text-gray-500 dark:text-gray-400">
+                Pick a starting point — measurements load into the form below and you can adjust from there.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {visibleTemplates.map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => applyTemplate(t)}
+                    className="group rounded-lg border border-purple-200 bg-purple-50/40 px-3 py-2 text-left transition hover:border-purple-400 hover:bg-purple-50 dark:border-purple-900/40 dark:bg-purple-900/10 dark:hover:border-purple-600 dark:hover:bg-purple-900/30"
+                    title={`Apply: ${t.name}`}
+                  >
+                    <div className="text-sm font-medium text-purple-800 dark:text-purple-200">
+                      {t.name}
+                    </div>
+                    <div className="text-xs text-gray-600 dark:text-gray-400">
+                      {t.description}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
 
           {/* Color palette — shared across all item types. First color
               becomes MC and is shown alongside the schematic as a preview. */}
