@@ -19,8 +19,11 @@ name: Deploy to Staging
 # See docs/STAGING_SETUP.md for first-time provisioning steps.
 
 on:
-  push:
-    branches: [staging]
+  # Auto-trigger on push to `staging` is intentionally disabled until the
+  # staging droplet + DNS + GitHub secrets exist. Once provisioned (see
+  # docs/STAGING_SETUP.md), restore:
+  #   push:
+  #     branches: [staging]
   workflow_dispatch: {}
 
 concurrency:
