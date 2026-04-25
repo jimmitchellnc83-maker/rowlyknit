@@ -17,32 +17,32 @@ interface GoalOption {
 
 const OPTIONS: GoalOption[] = [
   {
-    goal: 'track_project',
-    title: 'Track an active project',
-    body: 'Log row counts, attach yarn, snap photos — for a project you have on the needles right now.',
-    icon: FiFolder,
-  },
-  {
-    goal: 'organize_stash',
-    title: 'Organize my stash',
-    body: 'Inventory yarn so feasibility, substitutions, and project planning all pull from what you actually own.',
-    icon: FiPackage,
-  },
-  {
     goal: 'follow_pattern',
-    title: 'Follow a pattern without losing my place',
+    title: 'Follow a pattern step by step',
     body: 'Upload a PDF or paste from the web. Knitting Mode keeps you on the active row.',
     icon: FiBookOpen,
   },
   {
+    goal: 'track_project',
+    title: 'Track my current project',
+    body: 'Log row counts, attach yarn, snap photos — for a project you have on the needles right now.',
+    icon: FiFolder,
+  },
+  {
     goal: 'design_new',
-    title: 'Design something new',
+    title: 'Design a pattern or garment',
     body: 'Parametric Designer turns your gauge + measurements into cast-on numbers and a schematic.',
     icon: FiTool,
   },
   {
+    goal: 'organize_stash',
+    title: 'Organize yarn, tools, and supplies',
+    body: 'Inventory what you own so feasibility, substitutions, and project planning all pull from your real stash.',
+    icon: FiPackage,
+  },
+  {
     goal: 'explore_examples',
-    title: 'Explore with example data',
+    title: 'Show me how Rowly works',
     body: 'Poke around the seeded showcase before you bring in real projects. Clear it any time.',
     icon: FiCompass,
   },
