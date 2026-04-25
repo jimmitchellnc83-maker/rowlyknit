@@ -30,9 +30,11 @@ import RectSchematic from '../components/designer/RectSchematic';
 import ShawlSchematic from '../components/designer/ShawlSchematic';
 import SleeveSchematic from '../components/designer/SleeveSchematic';
 import SockSchematic from '../components/designer/SockSchematic';
+import CustomSchematic from '../components/designer/CustomSchematic';
 import ChartGrid from '../components/designer/ChartGrid';
 import { estimateYardageFromArea, formatYardage, type YardageRange } from '../utils/yardageEstimate';
 import { type DesignerFormSnapshot } from '../utils/designerSnapshot';
+import { DEFAULT_CUSTOM_SHAPE } from '../types/customShape';
 
 /**
  * Clean printable pattern write-up. Reads the same localStorage key the
@@ -78,6 +80,7 @@ function itemTitle(t: string): string {
     shawl: 'Shawl',
     mittens: 'Mittens',
     socks: 'Socks',
+    custom: 'Custom shape',
   };
   return map[t] ?? 'Pattern';
 }
@@ -285,6 +288,7 @@ export default function PatternPrintView() {
       {form.itemType === 'shawl' && <ShawlPrint form={form} gauge={gauge} />}
       {form.itemType === 'mittens' && <MittensPrint form={form} gauge={gauge} />}
       {form.itemType === 'socks' && <SocksPrint form={form} gauge={gauge} />}
+      {form.itemType === 'custom' && <CustomPrint form={form} gauge={gauge} />}
 
       {form.chart && (
         <div className="print-page-break mt-8">
@@ -668,6 +672,46 @@ function SocksPrint({ form, gauge }: PrintProps) {
       </Section>
       <Section title="Instructions">
         <StepList steps={out.steps} />
+      </Section>
+    </>
+  );
+}
+
+function CustomPrint({ form, gauge }: PrintProps) {
+  const shape = form.custom ?? DEFAULT_CUSTOM_SHAPE;
+  const yardage = estimateYardageFromArea(
+    shape.widthInches * shape.heightInches * 0.7,
+    gauge,
+  );
+  return (
+    <>
+      <Section title="Finished measurements">
+        <ul className="text-sm space-y-1">
+          <li>
+            Bounding box: {formatLength(shape.widthInches, form.unit)} ×{' '}
+            {formatLength(shape.heightInches, form.unit)}
+          </li>
+          <li>{shape.vertices.length} vertices defining the silhouette</li>
+        </ul>
+      </Section>
+      <Section title="Yarn">
+        <YardageCard yardage={yardage} />
+      </Section>
+      <Section title="Schematic">
+        <CustomSchematic
+          shape={shape}
+          unit={form.unit}
+          chart={form.chart}
+          stitchesPerInch={gauge.stitchesPer4in / 4}
+          rowsPerInch={gauge.rowsPer4in / 4}
+        />
+      </Section>
+      <Section title="Notes">
+        <p className="text-sm text-gray-700 dark:text-gray-300">
+          Custom shapes don't generate row-by-row instructions. Use the
+          schematic + your gauge to plan cast-ons and shaping by hand.
+          The chart (if set) tiles across the silhouette as colorwork.
+        </p>
       </Section>
     </>
   );

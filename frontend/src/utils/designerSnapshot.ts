@@ -30,6 +30,7 @@ import {
 } from './designerMath';
 import type { ChartData } from '../components/designer/ChartGrid';
 import type { ColorSwatch } from '../components/designer/ColorPalette';
+import { DEFAULT_CUSTOM_SHAPE, type CustomShape } from '../types/customShape';
 
 /**
  * Serialized Designer form + chart. Written to:
@@ -106,6 +107,11 @@ export interface DesignerFormSnapshot {
 
   colors: ColorSwatch[];
   chart: ChartData | null;
+
+  /** User-defined polygon for itemType === 'custom'. Optional in the
+   *  snapshot type so older saved snapshots without a custom shape still
+   *  round-trip; consumers should fall back to DEFAULT_CUSTOM_SHAPE. */
+  custom?: CustomShape;
 }
 
 /** Convert form gauge + unit to the normalized DesignerGauge expected by
@@ -266,6 +272,8 @@ export interface DesignCompute {
   shawl?: ShawlOutput;
   mittens?: MittenOutput;
   socks?: SockOutput;
+  /** User-defined polygon for itemType === 'custom'. */
+  custom?: CustomShape;
 }
 
 const ITEM_LABELS: Record<string, string> = {
@@ -276,6 +284,7 @@ const ITEM_LABELS: Record<string, string> = {
   shawl: 'Shawl',
   mittens: 'Mittens',
   socks: 'Socks',
+  custom: 'Custom shape',
 };
 
 export function itemLabel(type: string): string {
@@ -393,6 +402,20 @@ export function computeDesign(form: DesignerFormSnapshot): DesignCompute {
           castOnStitches: socks.castOnStitches,
         },
         socks,
+      };
+    }
+    if (form.itemType === 'custom') {
+      const custom = form.custom ?? DEFAULT_CUSTOM_SHAPE;
+      return {
+        summary: {
+          itemType: form.itemType,
+          itemLabel: labelOf,
+          dimensions: [
+            `${formatLength(custom.widthInches, form.unit)} × ${formatLength(custom.heightInches, form.unit)} (${custom.vertices.length} vertices)`,
+          ],
+          castOnStitches: null,
+        },
+        custom,
       };
     }
   } catch (e) {

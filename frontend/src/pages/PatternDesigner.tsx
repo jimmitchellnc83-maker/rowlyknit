@@ -46,10 +46,13 @@ import {
   mergeTemplateIntoForm,
   type DesignerTemplate,
 } from '../data/designerTemplates';
+import CustomShapeEditor from '../components/designer/CustomShapeEditor';
+import CustomSchematic from '../components/designer/CustomSchematic';
+import { DEFAULT_CUSTOM_SHAPE, type CustomShape } from '../types/customShape';
 
 type NumField = number | '';
 type DesignerSection = 'body' | 'sleeve';
-type ItemType = 'sweater' | 'hat' | 'scarf' | 'blanket' | 'shawl' | 'mittens' | 'socks';
+type ItemType = 'sweater' | 'hat' | 'scarf' | 'blanket' | 'shawl' | 'mittens' | 'socks' | 'custom';
 
 interface ItemTypeOption {
   value: ItemType | string;
@@ -68,6 +71,7 @@ const ITEM_TYPE_OPTIONS: ItemTypeOption[] = [
   { value: 'shawl', label: 'Shawl' },
   { value: 'mittens', label: 'Mittens' },
   { value: 'socks', label: 'Socks' },
+  { value: 'custom', label: 'Custom shape' },
 ];
 
 interface DesignerForm {
@@ -157,6 +161,11 @@ interface DesignerForm {
   easeAtBicep: NumField;
   cuffToUnderarmLength: NumField;
   cuffDepth: NumField;
+
+  // Custom shape — user-defined polygon. Always present in form state so
+  // toggling to 'custom' itemType has something to show. Default vertices
+  // form a 24×24 square that the user can then drag into any shape.
+  custom: CustomShape;
 }
 
 const DEFAULT_FORM: DesignerForm = {
@@ -224,6 +233,8 @@ const DEFAULT_FORM: DesignerForm = {
 
   colors: [],
   chart: null,
+
+  custom: DEFAULT_CUSTOM_SHAPE,
 };
 
 const LS_KEY = 'rowly:designer:current';
@@ -1490,6 +1501,48 @@ export default function PatternDesigner() {
               </p>
             </section>
           )}
+
+          {form.itemType === 'custom' && (
+            <section className="rounded-lg bg-white p-4 shadow dark:bg-gray-800 md:p-6">
+              <h2 className="mb-3 text-lg font-semibold text-gray-900 dark:text-gray-100">
+                Custom shape
+              </h2>
+              <div className="mb-3 grid grid-cols-2 gap-3">
+                <NumberInput
+                  label="Width"
+                  value={form.custom.widthInches}
+                  onChange={(v) =>
+                    update('custom', {
+                      ...form.custom,
+                      widthInches: typeof v === 'number' ? v : form.custom.widthInches,
+                    })
+                  }
+                  step={0.5}
+                  suffix={unitLabel}
+                />
+                <NumberInput
+                  label="Height"
+                  value={form.custom.heightInches}
+                  onChange={(v) =>
+                    update('custom', {
+                      ...form.custom,
+                      heightInches: typeof v === 'number' ? v : form.custom.heightInches,
+                    })
+                  }
+                  step={0.5}
+                  suffix={unitLabel}
+                />
+              </div>
+              <CustomShapeEditor
+                shape={form.custom}
+                onChange={(next) => update('custom', next)}
+              />
+              <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+                Build any silhouette by dragging the corners. Click between two dots to add a vertex.
+                The pattern chart (if you've set one) tiles across the shape and clips to its outline.
+              </p>
+            </section>
+          )}
         </div>
 
         {/* Preview */}
@@ -1509,9 +1562,11 @@ export default function PatternDesigner() {
                         ? 'Mittens'
                         : form.itemType === 'socks'
                           ? 'Socks'
-                          : form.activeSection === 'body'
-                            ? 'Body block'
-                            : 'Sleeve'}
+                          : form.itemType === 'custom'
+                            ? 'Custom shape'
+                            : form.activeSection === 'body'
+                              ? 'Body block'
+                              : 'Sleeve'}
             </h2>
             {form.itemType === 'hat' && hatOutput ? (
               <HatSchematic output={hatOutput} unit={form.unit} chart={form.chart} />
@@ -1553,6 +1608,18 @@ export default function PatternDesigner() {
                 output={sleeveOutput}
                 unit={form.unit}
                 chart={form.chart}
+              />
+            ) : form.itemType === 'custom' ? (
+              <CustomSchematic
+                shape={form.custom}
+                unit={form.unit}
+                chart={form.chart}
+                stitchesPerInch={
+                  gaugeReady(form) ? normalizedGauge(form).stitchesPer4in / 4 : undefined
+                }
+                rowsPerInch={
+                  gaugeReady(form) ? normalizedGauge(form).rowsPer4in / 4 : undefined
+                }
               />
             ) : (
               <div className="flex min-h-[280px] items-center justify-center rounded-lg border border-dashed border-gray-300 bg-gray-50 p-6 text-center text-sm italic text-gray-500">

@@ -9,7 +9,9 @@ import MittenSchematic from './MittenSchematic';
 import RectSchematic from './RectSchematic';
 import ShawlSchematic from './ShawlSchematic';
 import SockSchematic from './SockSchematic';
+import CustomSchematic from './CustomSchematic';
 import { buildBodyInput } from '../../utils/designerSnapshot';
+import { DEFAULT_CUSTOM_SHAPE } from '../../types/customShape';
 
 interface DesignCardProps {
   form: DesignerFormSnapshot;
@@ -84,6 +86,15 @@ export default function DesignCard({ form, projectId, patternId }: DesignCardPro
     yardageLabel = formatYardage(
       estimateYardageFromArea(
         2 * compute.socks.finishedAnkleCircumference * compute.socks.finishedTotalLength,
+        gauge,
+      ),
+    );
+  } else if (compute.custom) {
+    // Rough rectangle area × 0.7 to account for non-convex shapes pulling
+    // less yarn than the bounding box would imply.
+    yardageLabel = formatYardage(
+      estimateYardageFromArea(
+        compute.custom.widthInches * compute.custom.heightInches * 0.7,
         gauge,
       ),
     );
@@ -204,5 +215,16 @@ function renderThumbnailSchematic(
   if (compute.shawl) return <ShawlSchematic output={compute.shawl} unit={form.unit} />;
   if (compute.mittens) return <MittenSchematic output={compute.mittens} unit={form.unit} />;
   if (compute.socks) return <SockSchematic output={compute.socks} unit={form.unit} />;
+  if (form.itemType === 'custom') {
+    return (
+      <CustomSchematic
+        shape={form.custom ?? DEFAULT_CUSTOM_SHAPE}
+        unit={form.unit}
+        chart={form.chart}
+        stitchesPerInch={gauge.stitchesPer4in / 4}
+        rowsPerInch={gauge.rowsPer4in / 4}
+      />
+    );
+  }
   return null;
 }
