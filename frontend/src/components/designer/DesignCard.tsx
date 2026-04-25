@@ -9,6 +9,7 @@ import MittenSchematic from './MittenSchematic';
 import RectSchematic from './RectSchematic';
 import ShawlSchematic from './ShawlSchematic';
 import SockSchematic from './SockSchematic';
+import CustomDraftSchematic from './CustomDraftSchematic';
 import { buildBodyInput } from '../../utils/designerSnapshot';
 
 interface DesignCardProps {
@@ -84,6 +85,15 @@ export default function DesignCard({ form, projectId, patternId }: DesignCardPro
     yardageLabel = formatYardage(
       estimateYardageFromArea(
         2 * compute.socks.finishedAnkleCircumference * compute.socks.finishedTotalLength,
+        gauge,
+      ),
+    );
+  } else if (compute.customDraft) {
+    // Approximate area as starting width × total height; multiply by 0.85 to
+    // account for shaped sections that aren't full-width the whole way up.
+    yardageLabel = formatYardage(
+      estimateYardageFromArea(
+        compute.customDraft.startingWidthInches * compute.customDraft.totalHeightInches * 0.85,
         gauge,
       ),
     );
@@ -204,5 +214,14 @@ function renderThumbnailSchematic(
   if (compute.shawl) return <ShawlSchematic output={compute.shawl} unit={form.unit} chart={form.chart} />;
   if (compute.mittens) return <MittenSchematic output={compute.mittens} unit={form.unit} chart={form.chart} />;
   if (compute.socks) return <SockSchematic output={compute.socks} unit={form.unit} chart={form.chart} />;
+  if (compute.customDraft) {
+    return (
+      <CustomDraftSchematic
+        output={compute.customDraft}
+        unit={form.unit}
+        chart={form.chart}
+      />
+    );
+  }
   return null;
 }
