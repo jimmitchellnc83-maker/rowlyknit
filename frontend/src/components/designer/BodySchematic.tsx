@@ -1,9 +1,13 @@
+import { useId } from 'react';
 import { formatLength, type BodyBlockInput, type BodyBlockOutput, type MeasurementUnit } from '../../utils/designerMath';
+import type { ChartData } from './ChartGrid';
+import ChartOverlay from './ChartOverlay';
 
 interface BodySchematicProps {
   input: BodyBlockInput;
   output: BodyBlockOutput;
   unit: MeasurementUnit;
+  chart?: ChartData | null;
 }
 
 /**
@@ -18,7 +22,8 @@ interface BodySchematicProps {
  * is pure — it reads everything from the precomputed `output` struct and
  * rerenders instantly when inputs change.
  */
-export default function BodySchematic({ input, output, unit }: BodySchematicProps) {
+export default function BodySchematic({ input, output, unit, chart }: BodySchematicProps) {
+  const clipId = useId();
   const viewW = 320;
   const viewH = 420;
 
@@ -123,6 +128,15 @@ export default function BodySchematic({ input, output, unit }: BodySchematicProp
         stroke="#7C3AED"
         strokeWidth="1.5"
         strokeLinejoin="round"
+      />
+
+      <ChartOverlay
+        chart={chart ?? null}
+        clipPath={outline}
+        bounds={{ x: marginX, y: marginY, width: areaW, height: areaH }}
+        stitchToPx={stitchToPx}
+        rowToPx={rowToPx}
+        clipId={clipId}
       />
 
       {/* Hem fill — slightly darker band at cast-on edge */}
