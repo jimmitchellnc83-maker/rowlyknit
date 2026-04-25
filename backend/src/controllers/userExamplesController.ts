@@ -9,12 +9,18 @@ import { createAuditLog } from '../middleware/auditLog';
 /**
  * Read the current count + per-type breakdown of example rows for the
  * logged-in user. Drives the "Clear N example items" button in Profile:
- * when total hits 0, the button is hidden.
+ * when total hits 0, the button is hidden. Also returns the onboarding
+ * goal so Dashboard can decide whether to surface the goal-pick card.
  */
 export async function getExampleCount(req: Request, res: Response) {
   const userId = req.user!.userId;
   const user = await db('users')
-    .select(['examples_seeded_at', 'examples_cleared_at', 'tour_completed_at'])
+    .select([
+      'examples_seeded_at',
+      'examples_cleared_at',
+      'tour_completed_at',
+      'onboarding_goal',
+    ])
     .where({ id: userId })
     .first();
   const { total, breakdown } = await countExampleData(userId);
@@ -26,6 +32,7 @@ export async function getExampleCount(req: Request, res: Response) {
       seededAt: user?.examples_seeded_at ?? null,
       clearedAt: user?.examples_cleared_at ?? null,
       tourCompletedAt: user?.tour_completed_at ?? null,
+      onboardingGoal: user?.onboarding_goal ?? null,
     },
   });
 }
@@ -67,5 +74,49 @@ export async function setTourCompleted(req: Request, res: Response) {
   res.json({
     success: true,
     data: { tourCompletedAt: timestamp },
+  });
+}
+
+/**
+ * Whitelisted onboarding-goal values. Anything else is rejected at the
+ * route layer and again here as a defensive check. The set is small and
+ * stable; if it grows past ~10 entries, lift it into a dedicated module.
+ */
+export const ONBOARDING_GOALS = [
+  'track_project',
+  'organize_stash',
+  'follow_pattern',
+  'design_new',
+  'explore_examples',
+] as const;
+export type OnboardingGoal = (typeof ONBOARDING_GOALS)[number];
+
+/**
+ * Persist the answer to the post-registration "What do you want to do
+ * first?" card. Called once per user under normal use; passing null
+ * resets so the card shows again (used by Profile → Onboarding).
+ */
+export async function setOnboardingGoal(req: Request, res: Response) {
+  const userId = req.user!.userId;
+  const { goal } = req.body as { goal?: string | null };
+  const value: OnboardingGoal | null =
+    goal === null || goal === undefined
+      ? null
+      : (ONBOARDING_GOALS as readonly string[]).includes(goal)
+        ? (goal as OnboardingGoal)
+        : null;
+  if (goal && value === null) {
+    res.status(400).json({
+      success: false,
+      error: { message: `Unknown onboarding goal: ${goal}` },
+    });
+    return;
+  }
+  await db('users')
+    .where({ id: userId })
+    .update({ onboarding_goal: value, updated_at: new Date() });
+  res.json({
+    success: true,
+    data: { onboardingGoal: value },
   });
 }

@@ -1,4 +1,6 @@
-import { Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import {
   FiFolder,
   FiBook,
@@ -16,7 +18,18 @@ import { useDashboardStats } from '../hooks/useApi';
 import { useMeasurements } from '../hooks/useMeasurements';
 import { LoadingSkeleton, ErrorState } from '../components/LoadingSpinner';
 import CmdKTooltip from '../components/CmdKTooltip';
+import OnboardingGoalCard, {
+  type OnboardingGoal,
+} from '../components/dashboard/OnboardingGoalCard';
 import { metersToYards } from '../utils/yarnUnits';
+
+const GOAL_DESTINATION: Record<OnboardingGoal, string> = {
+  track_project: '/projects',
+  organize_stash: '/yarn',
+  follow_pattern: '/patterns',
+  design_new: '/designer',
+  explore_examples: '/dashboard',
+};
 
 const iconMap: { [key: string]: React.ComponentType<{ className?: string }> } = {
   FiFolder,
@@ -27,8 +40,52 @@ const iconMap: { [key: string]: React.ComponentType<{ className?: string }> } = 
 
 export default function Dashboard() {
   const { user } = useAuthStore();
+  const navigate = useNavigate();
   const { data: dashboardData, isLoading: loading, isError, refetch } = useDashboardStats();
   const { fmt } = useMeasurements();
+
+  // Onboarding goal — null until the user answers the goal-pick card or
+  // skips it. Initialised to undefined so the card doesn't flash before
+  // we know the persisted value. Skip persists `track_project` per spec.
+  const [onboardingGoal, setOnboardingGoal] = useState<OnboardingGoal | null | undefined>(
+    undefined,
+  );
+  const [savingGoal, setSavingGoal] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    axios
+      .get('/api/users/me/examples')
+      .then((res) => {
+        if (cancelled) return;
+        setOnboardingGoal(res.data?.data?.onboardingGoal ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) setOnboardingGoal(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const persistGoal = async (goal: OnboardingGoal) => {
+    setSavingGoal(true);
+    try {
+      await axios.put('/api/users/me/onboarding-goal', { goal });
+      setOnboardingGoal(goal);
+      // Best-effort usage event — never block the UX on telemetry failures.
+      axios
+        .post('/api/usage-events', {
+          eventName: 'onboarding_goal_selected',
+          metadata: { goal },
+        })
+        .catch(() => undefined);
+      const dest = GOAL_DESTINATION[goal];
+      if (dest && dest !== '/dashboard') navigate(dest);
+    } finally {
+      setSavingGoal(false);
+    }
+  };
 
   const stats = dashboardData?.stats ?? [
     { name: 'Active Projects', value: '0', iconName: 'FiFolder', href: '/projects', color: 'bg-purple-500' },
@@ -101,6 +158,16 @@ export default function Dashboard() {
           message="We hit an error fetching your dashboard data. Some numbers below may be stale or missing."
           onRetry={() => refetch()}
           className="mb-8 bg-white dark:bg-gray-800 rounded-lg shadow"
+        />
+      )}
+
+      {/* Goal-pick card — shown once after registration until answered. Skip
+          persists `track_project` so we don't reshow it. */}
+      {onboardingGoal === null && (
+        <OnboardingGoalCard
+          saving={savingGoal}
+          onSelect={persistGoal}
+          onSkip={() => persistGoal('track_project')}
         />
       )}
 
