@@ -1468,13 +1468,13 @@ export default function PatternDesigner() {
                             : 'Sleeve'}
             </h2>
             {form.itemType === 'hat' && hatOutput ? (
-              <HatSchematic output={hatOutput} />
+              <HatSchematic output={hatOutput} unit={form.unit} />
             ) : form.itemType === 'mittens' && mittenOutput ? (
-              <MittenSchematic output={mittenOutput} />
+              <MittenSchematic output={mittenOutput} unit={form.unit} />
             ) : form.itemType === 'socks' && sockOutput ? (
-              <SockSchematic output={sockOutput} />
+              <SockSchematic output={sockOutput} unit={form.unit} />
             ) : form.itemType === 'shawl' && shawlOutput ? (
-              <ShawlSchematic output={shawlOutput} />
+              <ShawlSchematic output={shawlOutput} unit={form.unit} />
             ) : form.itemType === 'scarf' && scarfOutput ? (
               <RectSchematic
                 label="Scarf"
@@ -1483,6 +1483,7 @@ export default function PatternDesigner() {
                 lengthInches={scarfOutput.finishedLength}
                 castOnStitches={scarfOutput.castOnStitches}
                 fringeInches={scarfOutput.fringeLength}
+                unit={form.unit}
               />
             ) : form.itemType === 'blanket' && blanketOutput ? (
               <RectSchematic
@@ -1494,13 +1495,15 @@ export default function PatternDesigner() {
                 borderInches={
                   typeof form.blanketBorderDepth === 'number' ? form.blanketBorderDepth : 0
                 }
+                unit={form.unit}
               />
             ) : form.itemType === 'sweater' && form.activeSection === 'body' && bodyOutput ? (
-              <BodySchematic input={buildBodyInput(form)} output={bodyOutput} />
+              <BodySchematic input={buildBodyInput(form)} output={bodyOutput} unit={form.unit} />
             ) : form.itemType === 'sweater' && form.activeSection === 'sleeve' && sleeveOutput ? (
               <SleeveSchematic
                 input={buildSleeveInput(form, bodyOutput?.armholeInitialBindOffPerSide ?? null)}
                 output={sleeveOutput}
+                unit={form.unit}
               />
             ) : (
               <div className="flex min-h-[280px] items-center justify-center rounded-lg border border-dashed border-gray-300 bg-gray-50 p-6 text-center text-sm italic text-gray-500">

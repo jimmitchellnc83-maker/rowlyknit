@@ -1,7 +1,8 @@
-import type { MittenOutput } from '../../utils/designerMath';
+import { formatLength, type MittenOutput, type MeasurementUnit } from '../../utils/designerMath';
 
 interface MittenSchematicProps {
   output: MittenOutput;
+  unit: MeasurementUnit;
 }
 
 /**
@@ -10,7 +11,7 @@ interface MittenSchematicProps {
  * schematic — proportions don't try to match hand anatomy exactly; they
  * just show which dimension lives where so the labels are legible.
  */
-export default function MittenSchematic({ output }: MittenSchematicProps) {
+export default function MittenSchematic({ output, unit }: MittenSchematicProps) {
   const viewW = 340;
   const viewH = 380;
   const cx = viewW / 2;
@@ -71,10 +72,10 @@ export default function MittenSchematic({ output }: MittenSchematicProps) {
       </text>
 
       <text x={cx + handHalfWidth + 8} y={handTop + 20} textAnchor="start" className="fill-gray-500 text-[11px]">
-        hand: {output.finishedHandCircumference} in
+        hand: {formatLength(output.finishedHandCircumference, unit)}
       </text>
       <text x={cx + handHalfWidth + 8} y={handBottom + 4} textAnchor="start" className="fill-gray-500 text-[11px]">
-        total: {output.finishedLength} in
+        total: {formatLength(output.finishedLength, unit)}
       </text>
     </svg>
   );

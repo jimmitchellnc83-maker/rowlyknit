@@ -1,3 +1,5 @@
+import { formatLength, type MeasurementUnit } from '../../utils/designerMath';
+
 interface RectSchematicProps {
   /** Finished width in inches (outer dimension). */
   widthInches: number;
@@ -13,6 +15,8 @@ interface RectSchematicProps {
   accent?: 'purple' | 'green' | 'teal';
   /** Human-friendly label that appears as the schematic's title. */
   label: string;
+  /** Unit to display measurements in (values are stored in inches). */
+  unit: MeasurementUnit;
 }
 
 const ACCENTS: Record<NonNullable<RectSchematicProps['accent']>, { fill: string; stroke: string; band: string }> = {
@@ -36,6 +40,7 @@ export default function RectSchematic({
   fringeInches = 0,
   accent = 'purple',
   label,
+  unit,
 }: RectSchematicProps) {
   const viewW = 320;
   const viewH = 380;
@@ -147,7 +152,7 @@ export default function RectSchematic({
         textAnchor="middle"
         className="fill-gray-600 text-[11px]"
       >
-        {widthInches} in wide
+        {formatLength(widthInches, unit)} wide
       </text>
 
       {/* Length (right side, rotated) */}
@@ -158,7 +163,7 @@ export default function RectSchematic({
         transform={`rotate(90 ${rectRight + 14} ${(rectTop + rectBottom) / 2})`}
         className="fill-gray-500 text-[11px]"
       >
-        {lengthInches} in long
+        {formatLength(lengthInches, unit)} long
       </text>
 
       {/* Border note */}
@@ -168,7 +173,7 @@ export default function RectSchematic({
           y={rectTop + borderInsetY + 12}
           className="fill-gray-500 text-[10px]"
         >
-          {borderInches} in border
+          {formatLength(borderInches, unit)} border
         </text>
       )}
     </svg>

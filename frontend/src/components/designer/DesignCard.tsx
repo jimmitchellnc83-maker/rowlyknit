@@ -172,9 +172,9 @@ function renderThumbnailSchematic(
   const gauge = normalizedGauge(form);
 
   if (compute.body) {
-    return <BodySchematic input={buildBodyInput(form, gauge)} output={compute.body} />;
+    return <BodySchematic input={buildBodyInput(form, gauge)} output={compute.body} unit={form.unit} />;
   }
-  if (compute.hat) return <HatSchematic output={compute.hat} />;
+  if (compute.hat) return <HatSchematic output={compute.hat} unit={form.unit} />;
   if (compute.scarf)
     return (
       <RectSchematic
@@ -184,6 +184,7 @@ function renderThumbnailSchematic(
         lengthInches={compute.scarf.finishedLength}
         castOnStitches={compute.scarf.castOnStitches}
         fringeInches={compute.scarf.fringeLength}
+        unit={form.unit}
       />
     );
   if (compute.blanket)
@@ -195,10 +196,11 @@ function renderThumbnailSchematic(
         lengthInches={compute.blanket.finishedLength}
         castOnStitches={compute.blanket.castOnStitches}
         borderInches={typeof form.blanketBorderDepth === 'number' ? form.blanketBorderDepth : 0}
+        unit={form.unit}
       />
     );
-  if (compute.shawl) return <ShawlSchematic output={compute.shawl} />;
-  if (compute.mittens) return <MittenSchematic output={compute.mittens} />;
-  if (compute.socks) return <SockSchematic output={compute.socks} />;
+  if (compute.shawl) return <ShawlSchematic output={compute.shawl} unit={form.unit} />;
+  if (compute.mittens) return <MittenSchematic output={compute.mittens} unit={form.unit} />;
+  if (compute.socks) return <SockSchematic output={compute.socks} unit={form.unit} />;
   return null;
 }
