@@ -212,9 +212,9 @@ function renderThumbnailSchematic(
         chart={form.chart}
       />
     );
-  if (compute.shawl) return <ShawlSchematic output={compute.shawl} unit={form.unit} />;
-  if (compute.mittens) return <MittenSchematic output={compute.mittens} unit={form.unit} />;
-  if (compute.socks) return <SockSchematic output={compute.socks} unit={form.unit} />;
+  if (compute.shawl) return <ShawlSchematic output={compute.shawl} unit={form.unit} chart={form.chart} />;
+  if (compute.mittens) return <MittenSchematic output={compute.mittens} unit={form.unit} chart={form.chart} />;
+  if (compute.socks) return <SockSchematic output={compute.socks} unit={form.unit} chart={form.chart} />;
   if (form.itemType === 'custom') {
     return (
       <CustomSchematic

@@ -1571,11 +1571,11 @@ export default function PatternDesigner() {
             {form.itemType === 'hat' && hatOutput ? (
               <HatSchematic output={hatOutput} unit={form.unit} chart={form.chart} />
             ) : form.itemType === 'mittens' && mittenOutput ? (
-              <MittenSchematic output={mittenOutput} unit={form.unit} />
+              <MittenSchematic output={mittenOutput} unit={form.unit} chart={form.chart} />
             ) : form.itemType === 'socks' && sockOutput ? (
-              <SockSchematic output={sockOutput} unit={form.unit} />
+              <SockSchematic output={sockOutput} unit={form.unit} chart={form.chart} />
             ) : form.itemType === 'shawl' && shawlOutput ? (
-              <ShawlSchematic output={shawlOutput} unit={form.unit} />
+              <ShawlSchematic output={shawlOutput} unit={form.unit} chart={form.chart} />
             ) : form.itemType === 'scarf' && scarfOutput ? (
               <RectSchematic
                 label="Scarf"
