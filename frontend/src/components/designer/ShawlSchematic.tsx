@@ -1,8 +1,12 @@
+import { useId } from 'react';
 import { formatLength, type ShawlOutput, type MeasurementUnit } from '../../utils/designerMath';
+import type { ChartData } from './ChartGrid';
+import ChartOverlay from './ChartOverlay';
 
 interface ShawlSchematicProps {
   output: ShawlOutput;
   unit: MeasurementUnit;
+  chart?: ChartData | null;
 }
 
 /**
@@ -13,7 +17,8 @@ interface ShawlSchematicProps {
  * gauge — we render whatever ratio the math produced rather than forcing a
  * specific shape.
  */
-export default function ShawlSchematic({ output, unit }: ShawlSchematicProps) {
+export default function ShawlSchematic({ output, unit, chart }: ShawlSchematicProps) {
+  const clipId = useId();
   const viewW = 340;
   const viewH = 300;
   const marginX = 40;
@@ -50,6 +55,15 @@ export default function ShawlSchematic({ output, unit }: ShawlSchematicProps) {
       className="w-full max-w-sm mx-auto"
     >
       <path d={outline} fill="#FDF2F8" stroke="#DB2777" strokeWidth="1.5" strokeLinejoin="round" />
+
+      <ChartOverlay
+        chart={chart ?? null}
+        clipPath={outline}
+        bounds={{ x: leftX, y: topY, width: width, height: depth }}
+        stitchToPx={width / Math.max(1, output.finalStitches)}
+        rowToPx={width / Math.max(1, output.finalStitches)}
+        clipId={clipId}
+      />
 
       {/* Center spine marker */}
       <line

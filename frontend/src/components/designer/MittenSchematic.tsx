@@ -1,8 +1,12 @@
+import { useId } from 'react';
 import { formatLength, type MittenOutput, type MeasurementUnit } from '../../utils/designerMath';
+import type { ChartData } from './ChartGrid';
+import ChartOverlay from './ChartOverlay';
 
 interface MittenSchematicProps {
   output: MittenOutput;
   unit: MeasurementUnit;
+  chart?: ChartData | null;
 }
 
 /**
@@ -11,7 +15,8 @@ interface MittenSchematicProps {
  * schematic — proportions don't try to match hand anatomy exactly; they
  * just show which dimension lives where so the labels are legible.
  */
-export default function MittenSchematic({ output, unit }: MittenSchematicProps) {
+export default function MittenSchematic({ output, unit, chart }: MittenSchematicProps) {
+  const clipId = useId();
   const viewW = 340;
   const viewH = 380;
   const cx = viewW / 2;
@@ -22,31 +27,50 @@ export default function MittenSchematic({ output, unit }: MittenSchematicProps) 
   const thumbTop = 180;
   const thumbBottom = 230;
 
-  return (
-    <svg viewBox={`0 0 ${viewW} ${viewH}`} role="img" aria-label="Mitten schematic" className="w-full max-w-sm mx-auto">
-      {/* Hand: rounded-top rect */}
-      <path
-        d={`M ${cx - handHalfWidth} ${handBottom}
+  const handPath = `M ${cx - handHalfWidth} ${handBottom}
             L ${cx - handHalfWidth} ${handTop + 40}
             Q ${cx - handHalfWidth} ${handTop} ${cx} ${handTop}
             Q ${cx + handHalfWidth} ${handTop} ${cx + handHalfWidth} ${handTop + 40}
             L ${cx + handHalfWidth} ${handBottom}
-            Z`}
+            Z`;
+  const thumbPath = `M ${thumbLeft} ${thumbBottom}
+            L ${thumbLeft} ${thumbTop + 16}
+            Q ${thumbLeft} ${thumbTop} ${thumbLeft + 20} ${thumbTop}
+            Q ${cx - handHalfWidth} ${thumbTop} ${cx - handHalfWidth} ${thumbTop + 10}
+            L ${cx - handHalfWidth} ${thumbBottom}
+            Z`;
+  // Compound path so the chart overlay clips to both hand + thumb regions.
+  const mittenPath = `${handPath} ${thumbPath}`;
+  // Cell size: derive from hand stitch count if available, else use a
+  // reasonable default that tiles a 10×10 chart a few times across the hand.
+  const stitchToPx =
+    output.handStitches > 0 ? (handHalfWidth * 2) / output.handStitches : 4;
+  const rowToPx = stitchToPx;
+
+  return (
+    <svg viewBox={`0 0 ${viewW} ${viewH}`} role="img" aria-label="Mitten schematic" className="w-full max-w-sm mx-auto">
+      {/* Hand: rounded-top rect */}
+      <path
+        d={handPath}
         fill="#FEF3C7"
         stroke="#D97706"
         strokeWidth="1.5"
       />
       {/* Thumb: smaller rounded rect off to the left */}
       <path
-        d={`M ${thumbLeft} ${thumbBottom}
-            L ${thumbLeft} ${thumbTop + 16}
-            Q ${thumbLeft} ${thumbTop} ${thumbLeft + 20} ${thumbTop}
-            Q ${cx - handHalfWidth} ${thumbTop} ${cx - handHalfWidth} ${thumbTop + 10}
-            L ${cx - handHalfWidth} ${thumbBottom}
-            Z`}
+        d={thumbPath}
         fill="#FEF3C7"
         stroke="#D97706"
         strokeWidth="1.5"
+      />
+
+      <ChartOverlay
+        chart={chart ?? null}
+        clipPath={mittenPath}
+        bounds={{ x: thumbLeft, y: handTop, width: cx + handHalfWidth - thumbLeft, height: handBottom - handTop }}
+        stitchToPx={stitchToPx}
+        rowToPx={rowToPx}
+        clipId={clipId}
       />
 
       {/* Cuff dashed band at bottom */}
