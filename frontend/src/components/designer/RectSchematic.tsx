@@ -1,4 +1,7 @@
+import { useId } from 'react';
 import { formatLength, type MeasurementUnit } from '../../utils/designerMath';
+import type { ChartData } from './ChartGrid';
+import ChartOverlay from './ChartOverlay';
 
 interface RectSchematicProps {
   /** Finished width in inches (outer dimension). */
@@ -17,6 +20,8 @@ interface RectSchematicProps {
   label: string;
   /** Unit to display measurements in (values are stored in inches). */
   unit: MeasurementUnit;
+  /** Optional knitting chart to tile across the rectangle. */
+  chart?: ChartData | null;
 }
 
 const ACCENTS: Record<NonNullable<RectSchematicProps['accent']>, { fill: string; stroke: string; band: string }> = {
@@ -41,7 +46,9 @@ export default function RectSchematic({
   accent = 'purple',
   label,
   unit,
+  chart,
 }: RectSchematicProps) {
+  const clipId = useId();
   const viewW = 320;
   const viewH = 380;
   const marginX = 50;
@@ -66,6 +73,13 @@ export default function RectSchematic({
   const borderInsetX = borderInches > 0 ? (borderInches / widthInches) * maxW : 0;
   const borderInsetY = borderInches > 0 ? (borderInches / lengthInches) * maxH : 0;
 
+  // For chart tiling: stitchToPx maps a stitch column to pixels, rowToPx
+  // maps a knitted row to pixels. The rect doesn't carry gauge, so we
+  // assume square cells (typical chart presentation).
+  const stitchToPx = castOnStitches > 0 ? maxW / castOnStitches : 0;
+  const rowToPx = stitchToPx;
+  const rectClipPath = `M ${rectLeft} ${rectTop} L ${rectRight} ${rectTop} L ${rectRight} ${rectBottom} L ${rectLeft} ${rectBottom} Z`;
+
   return (
     <svg
       viewBox={`0 0 ${viewW} ${viewH}`}
@@ -82,6 +96,15 @@ export default function RectSchematic({
         fill={colors.fill}
         stroke={colors.stroke}
         strokeWidth="1.5"
+      />
+
+      <ChartOverlay
+        chart={chart ?? null}
+        clipPath={rectClipPath}
+        bounds={{ x: rectLeft, y: rectTop, width: maxW, height: maxH }}
+        stitchToPx={stitchToPx}
+        rowToPx={rowToPx}
+        clipId={clipId}
       />
 
       {/* Border frame (dashed inner rectangle) */}

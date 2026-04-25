@@ -1,8 +1,12 @@
+import { useId } from 'react';
 import { formatLength, type HatOutput, type MeasurementUnit } from '../../utils/designerMath';
+import type { ChartData } from './ChartGrid';
+import ChartOverlay from './ChartOverlay';
 
 interface HatSchematicProps {
   output: HatOutput;
   unit: MeasurementUnit;
+  chart?: ChartData | null;
 }
 
 /**
@@ -11,7 +15,8 @@ interface HatSchematicProps {
  * decreases tapering to the closed point. Brim is shaded as a band at the
  * cast-on edge.
  */
-export default function HatSchematic({ output, unit }: HatSchematicProps) {
+export default function HatSchematic({ output, unit, chart }: HatSchematicProps) {
+  const clipId = useId();
   const viewW = 320;
   const viewH = 380;
   const marginX = 60;
@@ -51,6 +56,15 @@ export default function HatSchematic({ output, unit }: HatSchematicProps) {
       className="w-full max-w-sm mx-auto"
     >
       <path d={outline} fill="#EFF6FF" stroke="#2563EB" strokeWidth="1.5" strokeLinejoin="round" />
+
+      <ChartOverlay
+        chart={chart ?? null}
+        clipPath={outline}
+        bounds={{ x: marginX, y: marginY, width: areaW, height: areaH }}
+        stitchToPx={stitchToPx}
+        rowToPx={rowToPx}
+        clipId={clipId}
+      />
 
       {/* Brim band */}
       <rect

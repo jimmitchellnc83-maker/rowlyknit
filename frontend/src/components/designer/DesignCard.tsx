@@ -172,9 +172,9 @@ function renderThumbnailSchematic(
   const gauge = normalizedGauge(form);
 
   if (compute.body) {
-    return <BodySchematic input={buildBodyInput(form, gauge)} output={compute.body} unit={form.unit} />;
+    return <BodySchematic input={buildBodyInput(form, gauge)} output={compute.body} unit={form.unit} chart={form.chart} />;
   }
-  if (compute.hat) return <HatSchematic output={compute.hat} unit={form.unit} />;
+  if (compute.hat) return <HatSchematic output={compute.hat} unit={form.unit} chart={form.chart} />;
   if (compute.scarf)
     return (
       <RectSchematic
@@ -185,6 +185,7 @@ function renderThumbnailSchematic(
         castOnStitches={compute.scarf.castOnStitches}
         fringeInches={compute.scarf.fringeLength}
         unit={form.unit}
+        chart={form.chart}
       />
     );
   if (compute.blanket)
@@ -197,6 +198,7 @@ function renderThumbnailSchematic(
         castOnStitches={compute.blanket.castOnStitches}
         borderInches={typeof form.blanketBorderDepth === 'number' ? form.blanketBorderDepth : 0}
         unit={form.unit}
+        chart={form.chart}
       />
     );
   if (compute.shawl) return <ShawlSchematic output={compute.shawl} unit={form.unit} />;
