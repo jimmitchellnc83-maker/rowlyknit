@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { body } from 'express-validator';
 import * as userExamplesController from '../controllers/userExamplesController';
+import { ONBOARDING_GOALS } from '../controllers/userExamplesController';
 import { authenticate } from '../middleware/auth';
 import { validate } from '../middleware/validator';
 import { asyncHandler } from '../utils/errorHandler';
@@ -10,7 +11,7 @@ router.use(authenticate);
 
 /**
  * @route   GET /api/users/me/examples
- * @desc    Count + breakdown of example rows + tour status for the current user.
+ * @desc    Count + breakdown of example rows + tour status + onboarding goal for the current user.
  * @access  Private
  */
 router.get('/me/examples', asyncHandler(userExamplesController.getExampleCount));
@@ -32,6 +33,18 @@ router.put(
   [body('completed').optional({ values: 'null' }).isBoolean()],
   validate,
   asyncHandler(userExamplesController.setTourCompleted),
+);
+
+/**
+ * @route   PUT /api/users/me/onboarding-goal
+ * @desc    Persist the user's answer to the goal-pick card on Dashboard.
+ * @access  Private
+ */
+router.put(
+  '/me/onboarding-goal',
+  [body('goal').optional({ values: 'null' }).isIn(ONBOARDING_GOALS as readonly string[])],
+  validate,
+  asyncHandler(userExamplesController.setOnboardingGoal),
 );
 
 export default router;
