@@ -65,27 +65,6 @@ export async function register(req: Request, res: Response) {
     })
     .returning(['id', 'email', 'first_name', 'last_name', 'created_at']);
 
-  // Send verification email — log and swallow failures so a flaky mail
-  // provider can't orphan a user: the DB row is already created above,
-  // and throwing here would leave the caller with a 500 and no way to
-  // finish registration. The token is persisted so we can re-send later.
-  const verificationUrl = `${process.env.APP_URL}/verify-email?token=${verificationToken}`;
-  let welcomeEmailSent = true;
-  try {
-    await emailService.sendWelcomeEmail(
-      email,
-      firstName || 'there',
-      verificationUrl
-    );
-  } catch (err) {
-    welcomeEmailSent = false;
-    logger.error('Welcome email failed during registration', {
-      userId: user.id,
-      email,
-      error: err instanceof Error ? err.message : String(err),
-    });
-  }
-
   // Log audit
   await createAuditLog(req, {
     userId: user.id,
@@ -95,11 +74,24 @@ export async function register(req: Request, res: Response) {
     newValues: { email, firstName, lastName },
   });
 
-  // Seed showcase content so first-login Dashboard isn't an empty room.
-  // Fire-and-forget so a seeding hiccup never blocks registration —
-  // the seed function is idempotent (examples_seeded_at gate) and logs
-  // its own failures. The user can also re-seed later via admin tools
-  // if this fails silently.
+  // Fire-and-forget the welcome email. Awaiting it would block the response
+  // on the SMTP handshake — when EMAIL_API_KEY is unset or the provider is
+  // slow, that handshake outlasts the nginx 30s proxy timeout and the client
+  // sees a 502 even though the user IS created in the DB. The verification
+  // token is persisted, so resend-verification recovers the path if this
+  // fails silently.
+  const verificationUrl = `${process.env.APP_URL}/verify-email?token=${verificationToken}`;
+  void emailService
+    .sendWelcomeEmail(email, firstName || 'there', verificationUrl)
+    .catch((err) => {
+      logger.error('Welcome email failed during registration', {
+        userId: user.id,
+        email,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    });
+
+  // Same pattern: idempotent (examples_seeded_at gate) and self-logging.
   void seedExampleDataForUser(user.id).catch((err) => {
     logger.error('Example data seeding failed during registration', {
       userId: user.id,
@@ -109,9 +101,7 @@ export async function register(req: Request, res: Response) {
 
   res.status(201).json({
     success: true,
-    message: welcomeEmailSent
-      ? 'Registration successful. Please check your email to verify your account.'
-      : 'Registration successful. We could not send the verification email right now — contact support if you do not receive it shortly.',
+    message: 'Registration successful. Please check your email to verify your account.',
     data: {
       user: {
         id: user.id,
@@ -120,7 +110,6 @@ export async function register(req: Request, res: Response) {
         lastName: user.last_name,
         preferences: user.preferences,
       },
-      welcomeEmailSent,
     },
   });
 }
