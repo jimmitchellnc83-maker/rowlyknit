@@ -82,7 +82,13 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        VITE_API_URL: ${VITE_API_URL:-https://api.rowlyknit.com}
+        # Empty default so the frontend bundle's axios falls back to
+        # `window.location.origin` (same-origin) for API calls. The previous
+        # default of `https://api.rowlyknit.com` baked a non-existent
+        # subdomain into the build, which got CSP-blocked + broke login the
+        # moment the docker layer cache invalidated and the value was
+        # actually re-baked into the bundle.
+        VITE_API_URL: ${VITE_API_URL-}
     container_name: rowly_frontend
     restart: unless-stopped
     ports:
