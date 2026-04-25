@@ -16,6 +16,7 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import ConfirmModal from '../components/ConfirmModal';
 import { ChartImageUpload } from '../components/charts';
 import { useFocusTrap } from '../hooks/useFocusTrap';
+import { formatDate } from '../utils/formatDate';
 import { parsePatternDetailTab, type PatternDetailTab } from './patternDetailTabs';
 
 interface Pattern {
@@ -494,12 +495,12 @@ export default function PatternDetail() {
               </div>
               <div className="pt-3 border-t border-gray-200">
                 <div className="text-xs text-gray-500 uppercase tracking-wide">Created</div>
-                <div className="text-sm text-gray-700 dark:text-gray-300">{new Date(pattern.created_at).toLocaleDateString()}</div>
+                <div className="text-sm text-gray-700 dark:text-gray-300">{formatDate(pattern.created_at)}</div>
               </div>
               {pattern.updated_at && pattern.updated_at !== pattern.created_at && (
                 <div>
                   <div className="text-xs text-gray-500 uppercase tracking-wide">Last Updated</div>
-                  <div className="text-sm text-gray-700 dark:text-gray-300">{new Date(pattern.updated_at).toLocaleDateString()}</div>
+                  <div className="text-sm text-gray-700 dark:text-gray-300">{formatDate(pattern.updated_at)}</div>
                 </div>
               )}
             </div>
@@ -662,7 +663,7 @@ export default function PatternDetail() {
                         </p>
                         {chart.updated_at && (
                           <p className="text-xs text-gray-400 mt-1">
-                            Updated {new Date(chart.updated_at).toLocaleDateString()}
+                            Updated {formatDate(chart.updated_at)}
                           </p>
                         )}
                       </div>
