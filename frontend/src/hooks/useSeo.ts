@@ -1,9 +1,16 @@
 import { useEffect } from 'react';
 
+type JsonLd = Record<string, unknown>;
+
 interface SeoOptions {
   title: string;
   description: string;
   canonicalPath?: string;
+  // Optional schema.org JSON-LD blocks. Each object becomes a separate
+  // <script type="application/ld+json"> tag in <head>. Pass one for a
+  // single schema, an array when a page needs multiple (e.g. a
+  // WebApplication + a BreadcrumbList).
+  structuredData?: JsonLd | JsonLd[];
 }
 
 const APP_URL = (import.meta.env.VITE_APP_URL as string | undefined) ?? 'https://rowlyknit.com';
@@ -52,9 +59,22 @@ function setCanonical(url: string): () => void {
   };
 }
 
-// Sets <title>, meta description, canonical link, and og/twitter equivalents.
-// Restores the previous values on unmount so page transitions stay clean.
-export function useSeo({ title, description, canonicalPath }: SeoOptions): void {
+function appendJsonLd(payload: JsonLd): () => void {
+  const el = document.createElement('script');
+  el.type = 'application/ld+json';
+  el.text = JSON.stringify(payload);
+  document.head.appendChild(el);
+  return () => {
+    el.remove();
+  };
+}
+
+// Sets <title>, meta description, canonical link, og/twitter equivalents,
+// and (optionally) schema.org JSON-LD blocks. Restores prior state on
+// unmount so page transitions stay clean.
+export function useSeo({ title, description, canonicalPath, structuredData }: SeoOptions): void {
+  // Stable key so identical schemas don't trigger re-runs on every render.
+  const structuredDataKey = structuredData ? JSON.stringify(structuredData) : '';
   useEffect(() => {
     if (typeof document === 'undefined') return;
 
@@ -76,9 +96,14 @@ export function useSeo({ title, description, canonicalPath }: SeoOptions): void 
       cleanups.push(setMeta('name', 'twitter:url', url));
     }
 
+    if (structuredData) {
+      const blocks = Array.isArray(structuredData) ? structuredData : [structuredData];
+      for (const block of blocks) cleanups.push(appendJsonLd(block));
+    }
+
     return () => {
       document.title = previousTitle;
       for (const cleanup of cleanups) cleanup();
     };
-  }, [title, description, canonicalPath]);
+  }, [title, description, canonicalPath, structuredDataKey]);
 }
