@@ -1,6 +1,7 @@
 import {
   computeBlanket,
   computeBodyBlock,
+  computeCustomDraft,
   computeHat,
   computeMittens,
   computeScarf,
@@ -13,6 +14,7 @@ import {
   type BlanketOutput,
   type BodyBlockInput,
   type BodyBlockOutput,
+  type CustomDraftOutput,
   type DesignerGauge,
   type HatInput,
   type HatOutput,
@@ -30,6 +32,7 @@ import {
 } from './designerMath';
 import type { ChartData } from '../components/designer/ChartGrid';
 import type { ColorSwatch } from '../components/designer/ColorPalette';
+import { DEFAULT_CUSTOM_DRAFT, type CustomDraft } from '../types/customDraft';
 
 /**
  * Serialized Designer form + chart. Written to:
@@ -106,6 +109,11 @@ export interface DesignerFormSnapshot {
 
   colors: ColorSwatch[];
   chart: ChartData | null;
+
+  /** Section-based custom draft (when itemType === 'custom'). Optional in
+   *  the snapshot type so older saved snapshots still round-trip;
+   *  consumers fall back to DEFAULT_CUSTOM_DRAFT. */
+  customDraft?: CustomDraft;
 }
 
 /** Convert form gauge + unit to the normalized DesignerGauge expected by
@@ -266,6 +274,7 @@ export interface DesignCompute {
   shawl?: ShawlOutput;
   mittens?: MittenOutput;
   socks?: SockOutput;
+  customDraft?: CustomDraftOutput;
 }
 
 const ITEM_LABELS: Record<string, string> = {
@@ -276,6 +285,7 @@ const ITEM_LABELS: Record<string, string> = {
   shawl: 'Shawl',
   mittens: 'Mittens',
   socks: 'Socks',
+  custom: 'Custom shape',
 };
 
 export function itemLabel(type: string): string {
@@ -393,6 +403,22 @@ export function computeDesign(form: DesignerFormSnapshot): DesignCompute {
           castOnStitches: socks.castOnStitches,
         },
         socks,
+      };
+    }
+    if (form.itemType === 'custom') {
+      const draft = form.customDraft ?? DEFAULT_CUSTOM_DRAFT;
+      const out = computeCustomDraft({ draft, gauge });
+      return {
+        summary: {
+          itemType: form.itemType,
+          itemLabel: labelOf,
+          dimensions: [
+            `${out.sections.length} section${out.sections.length === 1 ? '' : 's'} · ${formatLength(out.startingWidthInches, form.unit)} wide × ${formatLength(out.totalHeightInches, form.unit)} tall`,
+            `${out.totalRows} rows · ${draft.craftMode === 'machine' ? 'machine' : 'hand'} knitting`,
+          ],
+          castOnStitches: out.startingStitches,
+        },
+        customDraft: out,
       };
     }
   } catch (e) {

@@ -46,10 +46,14 @@ import {
   mergeTemplateIntoForm,
   type DesignerTemplate,
 } from '../data/designerTemplates';
+import CustomDraftEditor from '../components/designer/CustomDraftEditor';
+import CustomDraftSchematic from '../components/designer/CustomDraftSchematic';
+import { computeCustomDraft } from '../utils/designerMath';
+import { DEFAULT_CUSTOM_DRAFT, type CustomDraft } from '../types/customDraft';
 
 type NumField = number | '';
 type DesignerSection = 'body' | 'sleeve';
-type ItemType = 'sweater' | 'hat' | 'scarf' | 'blanket' | 'shawl' | 'mittens' | 'socks';
+type ItemType = 'sweater' | 'hat' | 'scarf' | 'blanket' | 'shawl' | 'mittens' | 'socks' | 'custom';
 
 interface ItemTypeOption {
   value: ItemType | string;
@@ -68,6 +72,7 @@ const ITEM_TYPE_OPTIONS: ItemTypeOption[] = [
   { value: 'shawl', label: 'Shawl' },
   { value: 'mittens', label: 'Mittens' },
   { value: 'socks', label: 'Socks' },
+  { value: 'custom', label: 'Custom shape (section-based)' },
 ];
 
 interface DesignerForm {
@@ -157,6 +162,11 @@ interface DesignerForm {
   easeAtBicep: NumField;
   cuffToUnderarmLength: NumField;
   cuffDepth: NumField;
+
+  // Custom — section-based draft for shapes that don't fit any of the
+  // 7 preset itemTypes. Always present in form state so toggling to
+  // 'custom' has something coherent to render.
+  customDraft: CustomDraft;
 }
 
 const DEFAULT_FORM: DesignerForm = {
@@ -224,6 +234,8 @@ const DEFAULT_FORM: DesignerForm = {
 
   colors: [],
   chart: null,
+
+  customDraft: DEFAULT_CUSTOM_DRAFT,
 };
 
 const LS_KEY = 'rowly:designer:current';
@@ -898,6 +910,19 @@ export default function PatternDesigner() {
     }
   }, [form]);
 
+  const customDraftOutput = useMemo(() => {
+    if (!gaugeReady(form)) return null;
+    try {
+      return computeCustomDraft({
+        draft: form.customDraft,
+        gauge: normalizedGauge(form),
+      });
+    } catch (e) {
+      console.error('[Designer] custom-draft compute error:', e);
+      return null;
+    }
+  }, [form]);
+
   const update = <K extends keyof DesignerForm>(key: K, value: DesignerForm[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }));
 
@@ -1490,6 +1515,24 @@ export default function PatternDesigner() {
               </p>
             </section>
           )}
+
+          {form.itemType === 'custom' && (
+            <section className="rounded-lg bg-white p-4 shadow dark:bg-gray-800 md:p-6">
+              <h2 className="mb-3 text-lg font-semibold text-gray-900 dark:text-gray-100">
+                Custom shape — section draft
+              </h2>
+              <p className="mb-4 text-xs text-gray-500 dark:text-gray-400">
+                Build any garment piece by stacking knitting sections. Each section sets how many
+                rows you work, what kind of work (straight, ribbing, increase, decrease, cast off,
+                bind off), and how many stitches change at each edge. Stitch counts thread
+                automatically from the cast-on through every section.
+              </p>
+              <CustomDraftEditor
+                draft={form.customDraft}
+                onChange={(next) => update('customDraft', next)}
+              />
+            </section>
+          )}
         </div>
 
         {/* Preview */}
@@ -1509,9 +1552,11 @@ export default function PatternDesigner() {
                         ? 'Mittens'
                         : form.itemType === 'socks'
                           ? 'Socks'
-                          : form.activeSection === 'body'
-                            ? 'Body block'
-                            : 'Sleeve'}
+                          : form.itemType === 'custom'
+                            ? 'Custom shape'
+                            : form.activeSection === 'body'
+                              ? 'Body block'
+                              : 'Sleeve'}
             </h2>
             {form.itemType === 'hat' && hatOutput ? (
               <HatSchematic output={hatOutput} unit={form.unit} chart={form.chart} />
@@ -1551,6 +1596,12 @@ export default function PatternDesigner() {
               <SleeveSchematic
                 input={buildSleeveInput(form, bodyOutput?.armholeInitialBindOffPerSide ?? null)}
                 output={sleeveOutput}
+                unit={form.unit}
+                chart={form.chart}
+              />
+            ) : form.itemType === 'custom' && customDraftOutput ? (
+              <CustomDraftSchematic
+                output={customDraftOutput}
                 unit={form.unit}
                 chart={form.chart}
               />

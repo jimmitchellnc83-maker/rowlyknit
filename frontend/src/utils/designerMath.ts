@@ -1458,3 +1458,208 @@ export function computeSocks(input: SockInput): SockOutput {
     steps,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Custom draft: section-based parametric editor for any garment shape that
+// doesn't fit the 7 preset itemTypes. The user lists sections (straight /
+// ribbing / inc / dec / cast off both edges / bind off) and the compute
+// function walks them, threading stitch counts and producing per-section
+// instructions + a trapezoid-stack schematic.
+// ---------------------------------------------------------------------------
+
+import type {
+  CraftMode,
+  CustomDraft,
+  DraftSection,
+  DraftSectionType,
+} from '../types/customDraft';
+
+export interface DraftSectionOutput {
+  id: string;
+  index: number;
+  name: string;
+  type: DraftSectionType;
+  rows: number;
+  startStitches: number;
+  endStitches: number;
+  /** 1-indexed first row of this section in the overall piece. */
+  startRow: number;
+  /** 1-indexed last row (inclusive). */
+  endRow: number;
+  startWidthInches: number;
+  endWidthInches: number;
+  heightInches: number;
+  /** Knitter-readable instruction line, vocabulary varies by craftMode. */
+  instruction: string;
+  note: string;
+}
+
+export interface CustomDraftOutput {
+  sections: DraftSectionOutput[];
+  totalRows: number;
+  finalStitches: number;
+  totalHeightInches: number;
+  startingStitches: number;
+  startingWidthInches: number;
+  /** Non-fatal issues (e.g. shaping reduces below zero stitches). */
+  warnings: string[];
+}
+
+export interface CustomDraftInput {
+  draft: CustomDraft;
+  gauge: DesignerGauge;
+}
+
+function pluralRows(rows: number): string {
+  return rows === 1 ? 'row' : 'rows';
+}
+
+function pluralStitches(n: number): string {
+  return n === 1 ? 'stitch' : 'stitches';
+}
+
+function buildSectionInstruction(
+  section: DraftSection,
+  startStitches: number,
+  endStitches: number,
+  craftMode: CraftMode,
+): string {
+  const isHand = craftMode === 'hand';
+  const workVerb = isHand ? 'Work' : 'Knit';
+  const bindOffTerm = isHand ? 'Bind off' : 'Cast off';
+  const change = Math.max(0, Math.round(section.changePerSide));
+  const rows = Math.max(0, Math.round(section.rows));
+
+  switch (section.type) {
+    case 'increase':
+      if (change === 0) {
+        return `${workVerb} ${rows} ${pluralRows(rows)} with no shaping.`;
+      }
+      return (
+        `Increase ${change} ${pluralStitches(change)} at each edge evenly over ${rows} ` +
+        `${pluralRows(rows)}. ` +
+        (isHand
+          ? 'Use mirrored increases such as kfb or M1L/M1R as preferred.'
+          : 'Use the machine increase method preferred for your setup.')
+      );
+    case 'decrease':
+      if (change === 0) {
+        return `${workVerb} ${rows} ${pluralRows(rows)} with no shaping.`;
+      }
+      return (
+        `Decrease ${change} ${pluralStitches(change)} at each edge evenly over ${rows} ` +
+        `${pluralRows(rows)}. ` +
+        (isHand
+          ? 'Use mirrored shaping where appropriate, such as k2tog at one edge and ssk at the other.'
+          : 'Use the machine shaping method preferred for your setup.')
+      );
+    case 'cast_off_each_side': {
+      const remaining = Math.max(0, rows - 2);
+      return (
+        `${bindOffTerm} ${change} ${pluralStitches(change)} at each side, ` +
+        `then ${workVerb.toLowerCase()} ${remaining} ` +
+        `remaining ${pluralRows(remaining)}.`
+      );
+    }
+    case 'bind_off':
+      return `${bindOffTerm} all ${startStitches} ${pluralStitches(startStitches)}.`;
+    case 'ribbing':
+      return (
+        `Work ${rows} ${pluralRows(rows)} in ribbing across ${startStitches} ` +
+        `${pluralStitches(startStitches)}` +
+        (isHand ? ', such as k1, p1 or k2, p2.' : '. Transfer stitches if needed.')
+      );
+    case 'straight':
+    default:
+      return (
+        `${workVerb} ${rows} ${pluralRows(rows)} straight across ${startStitches} ` +
+        `${pluralStitches(startStitches)}.`
+      );
+  }
+  // Voids the unused-section-output flag for any future enum addition.
+  void endStitches;
+}
+
+export function computeCustomDraft(input: CustomDraftInput): CustomDraftOutput {
+  const { draft, gauge } = input;
+  const stitchesPerInch = gauge.stitchesPer4in / 4;
+  const startingStitches = Math.max(0, Math.round(draft.startingStitches));
+
+  let current = startingStitches;
+  let totalRows = 0;
+  const warnings: string[] = [];
+  const sections: DraftSectionOutput[] = [];
+
+  draft.sections.forEach((section, index) => {
+    const startStitches = Math.max(0, Math.round(current));
+    const rows = Math.max(0, Math.round(section.rows));
+    const change = Math.max(0, Math.round(section.changePerSide));
+    let endStitches = startStitches;
+
+    switch (section.type) {
+      case 'increase':
+        endStitches = startStitches + change * 2;
+        break;
+      case 'decrease':
+      case 'cast_off_each_side':
+        endStitches = startStitches - change * 2;
+        break;
+      case 'bind_off':
+        endStitches = 0;
+        break;
+      case 'straight':
+      case 'ribbing':
+      default:
+        endStitches = startStitches;
+        break;
+    }
+
+    if (endStitches < 0) {
+      warnings.push(
+        `${section.name || `Section ${index + 1}`} reduces below zero stitches — ` +
+          `clamped to 0. Reduce shaping amount or split into multiple sections.`,
+      );
+      endStitches = 0;
+    }
+
+    const heightInches =
+      gauge.rowsPer4in > 0 ? round025(rows / (gauge.rowsPer4in / 4)) : 0;
+    const startWidthInches = stitchesPerInch > 0 ? round025(startStitches / stitchesPerInch) : 0;
+    const endWidthInches = stitchesPerInch > 0 ? round025(endStitches / stitchesPerInch) : 0;
+
+    sections.push({
+      id: section.id,
+      index,
+      name: section.name,
+      type: section.type,
+      rows,
+      startStitches,
+      endStitches,
+      startRow: totalRows + 1,
+      endRow: totalRows + rows,
+      startWidthInches,
+      endWidthInches,
+      heightInches,
+      instruction: buildSectionInstruction(section, startStitches, endStitches, draft.craftMode),
+      note: section.note,
+    });
+
+    totalRows += rows;
+    current = endStitches;
+  });
+
+  const totalHeightInches =
+    gauge.rowsPer4in > 0 ? round025(totalRows / (gauge.rowsPer4in / 4)) : 0;
+  const startingWidthInches =
+    stitchesPerInch > 0 ? round025(startingStitches / stitchesPerInch) : 0;
+
+  return {
+    sections,
+    totalRows,
+    finalStitches: current,
+    totalHeightInches,
+    startingStitches,
+    startingWidthInches,
+    warnings,
+  };
+}
