@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { body } from 'express-validator';
 import * as usageEventsController from '../controllers/usageEventsController';
 import { authenticate } from '../middleware/auth';
+import { requireOwner } from '../middleware/requireOwner';
 import { validate } from '../middleware/validator';
 import { asyncHandler } from '../utils/errorHandler';
 
@@ -26,10 +27,13 @@ router.post(
 
 /**
  * @route   GET /api/usage-events/summary
- * @desc    Global event + unique-user counts per event_name
+ * @desc    Global event + unique-user counts per event_name. Owner-only
+ *          — this rolls up across the whole user base, so we can't
+ *          expose it to every authenticated user.
  */
 router.get(
   '/summary',
+  requireOwner,
   asyncHandler(usageEventsController.getUsageSummary),
 );
 

@@ -33,6 +33,7 @@ import Recipients from './pages/Recipients';
 import Profile from './pages/Profile';
 import Stats from './pages/Stats';
 import Help from './pages/Help';
+import AdminUsage from './pages/AdminUsage';
 import PublicProjectPage from './pages/PublicProjectPage';
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
@@ -184,6 +185,7 @@ function App() {
         <Route path="/ravelry/favorites" element={<RavelryFavorites />} />
         <Route path="/stats" element={<Stats />} />
         <Route path="/help" element={<Help />} />
+        <Route path="/admin/usage" element={<ErrorBoundary><AdminUsage /></ErrorBoundary>} />
       </Route>
 
       {/* 404 */}
