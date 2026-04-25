@@ -54,7 +54,6 @@ User-facing labels matter. Renames that have shipped — don't revert in copy:
 - Long-form SEO content per calculator (current copy is intentionally minimal).
 - Founder-facing analytics dashboard (combines `usage_events` table + Plausible API).
 - JSON-LD structured data on calculator pages (`HowTo` / `WebApplication`) for richer SERPs.
-- Async `seedExampleData` so `POST /api/auth/register` returns 201 inside nginx timeout (currently the user IS created but the client sees a 502).
 - Certbot deploy-hook to auto-copy renewed certs into `deployment/ssl/` and reload nginx.
 
 ## Time-sensitive state
