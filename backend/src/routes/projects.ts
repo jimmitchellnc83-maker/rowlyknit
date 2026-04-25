@@ -116,6 +116,22 @@ router.delete(
 );
 
 /**
+ * @route   POST /api/projects/:id/duplicate
+ * @desc    Duplicate a project ("make this again") — new project starts
+ *          fresh (no yarn, photos, notes, sessions); structure carries over.
+ * @access  Private
+ */
+router.post(
+  '/:id/duplicate',
+  [
+    validateUUID('id'),
+    body('newName').optional({ values: 'null' }).isString().isLength({ min: 1, max: 255 }),
+  ],
+  validate,
+  asyncHandler(projectsController.duplicateProject)
+);
+
+/**
  * @route   PATCH /api/projects/:id/visibility
  * @desc    Toggle whether a project is publicly viewable; generates a
  *          stable share slug on first publish.

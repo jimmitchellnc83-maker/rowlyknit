@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { FiArrowLeft, FiEdit2, FiTrash2, FiUser, FiEye, FiEyeOff, FiShare2 } from 'react-icons/fi';
+import { FiArrowLeft, FiEdit2, FiTrash2, FiUser, FiEye, FiEyeOff, FiShare2, FiCopy } from 'react-icons/fi';
 import { toast } from 'react-toastify';
 import HelpTooltip from '../HelpTooltip';
 import { useKnittingMode } from '../../contexts/KnittingModeContext';
@@ -23,6 +23,8 @@ interface ProjectHeaderProps {
   onEdit: () => void;
   onDelete: () => void;
   onShare: () => void;
+  onDuplicate: () => void;
+  duplicating?: boolean;
   isPublic: boolean;
 }
 
@@ -48,6 +50,8 @@ export default function ProjectHeader({
   onEdit,
   onDelete,
   onShare,
+  onDuplicate,
+  duplicating = false,
   isPublic,
 }: ProjectHeaderProps) {
   const { knittingMode, setKnittingMode } = useKnittingMode();
@@ -124,6 +128,15 @@ export default function ProjectHeader({
           >
             <FiShare2 className="mr-2 h-5 w-5 md:h-4 md:w-4" />
             <span className="text-base md:text-sm">{isPublic ? 'Public' : 'Share'}</span>
+          </button>
+          <button
+            onClick={onDuplicate}
+            disabled={duplicating}
+            title="Make a fresh copy with the same pattern, tools, counters, and pieces — but no yarn, photos, or row history."
+            className="px-4 py-3 md:py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition flex items-center min-h-[48px] md:min-h-0 disabled:opacity-60"
+          >
+            <FiCopy className="mr-2 h-5 w-5 md:h-4 md:w-4" />
+            <span className="text-base md:text-sm">{duplicating ? 'Copying…' : 'Make this again'}</span>
           </button>
           <button
             onClick={onEdit}

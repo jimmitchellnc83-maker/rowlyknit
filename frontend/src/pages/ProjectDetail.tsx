@@ -174,6 +174,28 @@ export default function ProjectDetail() {
   };
 
   const [showDeleteProjectConfirm, setShowDeleteProjectConfirm] = useState(false);
+  const [duplicating, setDuplicating] = useState(false);
+
+  const handleDuplicate = async () => {
+    if (duplicating || !id) return;
+    setDuplicating(true);
+    try {
+      const res = await axios.post(`/api/projects/${id}/duplicate`);
+      const newId = res.data?.data?.project?.id;
+      const newName = res.data?.data?.project?.name ?? 'project';
+      toast.success(`Copied to "${newName}". Starting at row 1.`);
+      if (newId) {
+        navigate(`/projects/${newId}`);
+      } else {
+        await fetchProject();
+      }
+    } catch (error: any) {
+      console.error('Error duplicating project:', error);
+      toast.error(error.response?.data?.message || 'Failed to duplicate project');
+    } finally {
+      setDuplicating(false);
+    }
+  };
 
   const handleDelete = async () => {
     try {
@@ -488,6 +510,8 @@ export default function ProjectDetail() {
         onEdit={() => setShowEditModal(true)}
         onDelete={() => setShowDeleteProjectConfirm(true)}
         onShare={() => setShowShareModal(true)}
+        onDuplicate={handleDuplicate}
+        duplicating={duplicating}
         isPublic={!!project.is_public}
       />
 
