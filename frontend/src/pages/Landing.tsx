@@ -99,7 +99,7 @@ export default function Landing() {
           <Pillar
             icon={<FiCheckSquare className="h-6 w-6" />}
             title="Run the project"
-            body="Knitting Mode locks onto your active row. Counters, Panel Mode for complex pieces, PDF and chart row markers, notes and checklists — everything works together so you never lose your place."
+            body="Knitting Mode locks onto your active row. Counters, Guided Pieces for multi-panel patterns, PDF and chart row markers, notes and checklists — everything works together so you never lose your place."
           />
           <Pillar
             id="pillar-plan"
@@ -110,7 +110,7 @@ export default function Landing() {
           <Pillar
             icon={<FiTrendingUp className="h-6 w-6" />}
             title="Grow into advanced workflows"
-            body="Panel Mode for full garments with shaping. Parametric designer with live schematics and cast-on math. Pattern imports via OCR, barcode, or Ravelry. Rowly grows with you as projects get bigger."
+            body="Guided Pieces for full garments with shaping. Parametric designer with live schematics and cast-on math. Pattern imports via OCR, barcode, or Ravelry. Rowly grows with you as projects get bigger."
           />
         </div>
       </section>

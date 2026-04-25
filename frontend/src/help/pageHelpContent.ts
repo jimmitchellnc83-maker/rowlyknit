@@ -37,7 +37,7 @@ export const PAGE_HELP: PageHelpRoute[] = [
   {
     pattern: /^\/projects\/[^/]+\/panels\/[^/]+\/setup$/,
     help: {
-      title: 'Panel setup',
+      title: 'Set up your pieces',
       tagline: 'Every tool on this page, step by step.',
       sections: [
         {
@@ -86,7 +86,7 @@ export const PAGE_HELP: PageHelpRoute[] = [
   {
     pattern: /^\/projects\/[^/]+\/panels\/[^/]+$/,
     help: {
-      title: 'Panel knitting view',
+      title: 'Knit view',
       tagline: 'Every tool on this page, step by step.',
       sections: [
         {
@@ -150,7 +150,7 @@ export const PAGE_HELP: PageHelpRoute[] = [
   {
     pattern: /^\/projects\/[^/]+\/panels$/,
     help: {
-      title: 'Panel Mode',
+      title: 'Guided Pieces',
       tagline: 'Every tool on this page, step by step.',
       sections: [
         {
@@ -212,15 +212,15 @@ export const PAGE_HELP: PageHelpRoute[] = [
             '1. Scroll to the **Counters** card.\n2. Tap **New Counter**.\n3. Type a **Name**.\n4. Pick a **Type** (rows, stitches, repeats, custom).\n5. Set **Start value** (usually 1 or 0).\n6. (Optional) Set a **Target** and enable **Auto-reset** to cycle the counter.\n7. Pick a color.\n8. Tap **Save**.\n\nTo use: tap **+** to advance, **–** to retreat. Long-press to reset.',
         },
         {
-          heading: 'Panel Mode link',
+          heading: 'Guided Pieces link',
           body:
-            'Below the counters card, tap **Panel Mode →**. Opens the Panel Hub where you can track multi-panel patterns with one master counter.',
-          tip: 'Use Panel Mode when your pattern has multiple stitch-pattern sections repeating on different cycles (e.g. cables + borders + lace).',
+            'Below the counters card, tap **Guided Pieces →**. Opens the hub where you can track every piece of a multi-panel pattern with one master counter.',
+          tip: 'Use Guided Pieces when your pattern has multiple stitch-pattern sections repeating on different cycles (e.g. cables + borders + lace).',
         },
         {
           heading: 'Magic markers',
           body:
-            '1. Scroll to the **Magic Markers** card.\n2. Tap **+ New Marker**.\n3. Pick a **Trigger type**:\n   • **Row range** — fires between rows X and Y\n   • **Counter value** — fires at exact row N\n   • **Row interval** — fires every N rows\n4. Set the trigger condition.\n5. Type the **Alert message**.\n6. Pick **Alert type** (notification / sound / vibration).\n7. Tap **Save**. The marker will fire at the configured row in Panel Mode and counter views.',
+            '1. Scroll to the **Magic Markers** card.\n2. Tap **+ New Marker**.\n3. Pick a **Trigger type**:\n   • **Row range** — fires between rows X and Y\n   • **Counter value** — fires at exact row N\n   • **Row interval** — fires every N rows\n4. Set the trigger condition.\n5. Type the **Alert message**.\n6. Pick **Alert type** (notification / sound / vibration).\n7. Tap **Save**. The marker will fire at the configured row in Guided Pieces and counter views.',
         },
         {
           heading: 'Sessions',

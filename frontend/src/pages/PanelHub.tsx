@@ -118,7 +118,7 @@ export default function PanelHub() {
             Project
           </Link>
           <h1 className="text-base font-semibold text-gray-900 dark:text-gray-100 truncate">
-            Panel Mode
+            Guided Pieces
           </h1>
           <span className="w-16" />
         </div>
@@ -132,9 +132,9 @@ export default function PanelHub() {
                 For <span className="font-medium">{projectName}</span>.{' '}
               </>
             )}
-            Panel Mode tracks multi-panel patterns. Advance the master counter
-            once and every panel's current instruction updates itself — no PDF
-            flipping.
+            Guided Pieces tracks multi-panel patterns. Advance the master
+            counter once and every piece's current instruction updates itself —
+            no PDF flipping.
           </p>
         </section>
 
