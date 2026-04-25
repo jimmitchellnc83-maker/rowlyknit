@@ -6,7 +6,23 @@ import {
   FiRefreshCw,
   FiCompass,
   FiAlertTriangle,
+  FiTarget,
 } from 'react-icons/fi';
+
+type OnboardingGoal =
+  | 'track_project'
+  | 'organize_stash'
+  | 'follow_pattern'
+  | 'design_new'
+  | 'explore_examples';
+
+const GOAL_LABEL: Record<OnboardingGoal, string> = {
+  track_project: 'Track an active project',
+  organize_stash: 'Organize my stash',
+  follow_pattern: 'Follow a pattern without losing my place',
+  design_new: 'Design something new',
+  explore_examples: 'Explore with example data',
+};
 
 interface ExampleStatus {
   total: number;
@@ -20,6 +36,7 @@ interface ExampleStatus {
   seededAt: string | null;
   clearedAt: string | null;
   tourCompletedAt: string | null;
+  onboardingGoal: OnboardingGoal | null;
 }
 
 /**
@@ -38,6 +55,7 @@ export default function OnboardingTab() {
   const [clearing, setClearing] = useState(false);
   const [confirmingClear, setConfirmingClear] = useState(false);
   const [resettingTour, setResettingTour] = useState(false);
+  const [resettingGoal, setResettingGoal] = useState(false);
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -80,6 +98,19 @@ export default function OnboardingTab() {
       toast.error('Could not reset the tour');
     } finally {
       setResettingTour(false);
+    }
+  };
+
+  const resetGoal = async () => {
+    setResettingGoal(true);
+    try {
+      await axios.put('/api/users/me/onboarding-goal', { goal: null });
+      toast.success('Goal cleared — the goal-pick card will show on your next Dashboard visit.');
+      await fetchStatus();
+    } catch {
+      toast.error('Could not reset the goal');
+    } finally {
+      setResettingGoal(false);
     }
   };
 
@@ -206,6 +237,35 @@ export default function OnboardingTab() {
           <FiRefreshCw className="w-4 h-4" />
           {resettingTour ? 'Resetting…' : 'Restart the tour'}
         </button>
+      </section>
+
+      <section className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+        <div className="flex items-start gap-3 mb-4">
+          <div className="flex items-center justify-center w-10 h-10 rounded-md bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 flex-shrink-0">
+            <FiTarget className="w-5 h-5" />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+              First-visit goal
+            </h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+              {status.onboardingGoal
+                ? <>You picked <b>{GOAL_LABEL[status.onboardingGoal]}</b>. Reset it to see the goal-pick card again on the Dashboard.</>
+                : 'You haven\'t picked a goal yet — the card will show on your next Dashboard visit.'}
+            </p>
+          </div>
+        </div>
+        {status.onboardingGoal && (
+          <button
+            type="button"
+            onClick={resetGoal}
+            disabled={resettingGoal}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-900 text-purple-700 dark:text-purple-300 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-950/50 font-medium text-sm disabled:opacity-50"
+          >
+            <FiRefreshCw className="w-4 h-4" />
+            {resettingGoal ? 'Clearing…' : 'Clear goal'}
+          </button>
+        )}
       </section>
     </div>
   );
