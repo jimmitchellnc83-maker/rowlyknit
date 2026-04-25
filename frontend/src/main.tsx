@@ -7,6 +7,7 @@ import * as Sentry from '@sentry/react';
 import App from './App';
 import ErrorBoundary from './components/ErrorBoundary';
 import { WebSocketProvider } from './contexts/WebSocketContext';
+import { initAnalytics } from './lib/analytics';
 import './lib/axios'; // Initialize axios configuration with withCredentials
 import './styles/index.css';
 import 'react-toastify/dist/ReactToastify.css';
@@ -18,6 +19,8 @@ if (import.meta.env.VITE_SENTRY_DSN) {
     environment: import.meta.env.MODE,
   });
 }
+
+initAnalytics();
 
 // Global error handlers for debugging
 window.addEventListener('error', (event) => {

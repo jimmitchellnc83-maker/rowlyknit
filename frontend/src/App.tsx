@@ -1,6 +1,7 @@
 import { Suspense, lazy } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from './stores/authStore';
+import { usePageviews } from './hooks/usePageviews';
 import PWAInstallPrompt from './components/PWAInstallPrompt';
 import OfflineIndicator from './components/OfflineIndicator';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -93,6 +94,7 @@ function LandingOrDashboard() {
 }
 
 function App() {
+  usePageviews();
   return (
     <>
       <OfflineIndicator />
