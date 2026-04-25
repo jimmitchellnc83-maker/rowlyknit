@@ -221,6 +221,28 @@ export const apiLimiterHourly = createDynamicLimiter('perHour');
 export const apiLimiterDaily = createDynamicLimiter('perDay');
 
 /**
+ * Public shared-content rate limiter — keyed by IP, applied to the
+ * `/shared/*` routes which serve unauthenticated finished-object pages
+ * and chart links. Generous enough that someone genuinely sharing a link
+ * to a small group never hits it; tight enough to make scraping
+ * impractical. 60/min per IP.
+ */
+export const publicSharedLimiter = rateLimit({
+  store: new RedisStore({
+    sendCommand: ((...args: any[]) => redisClient.call(args[0], ...args.slice(1))) as any,
+  }),
+  windowMs: 60000,
+  max: parseInt(process.env.PUBLIC_SHARED_RATE_LIMIT_MAX || '60'),
+  message: {
+    success: false,
+    message: 'Too many requests for shared content, please try again later',
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => `shared:${req.ip || 'unknown'}`,
+});
+
+/**
  * Get current rate limit status for a user
  * Can be used in an API endpoint to show users their current usage
  */

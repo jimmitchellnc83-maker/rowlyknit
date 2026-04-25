@@ -21,7 +21,7 @@ import './config/redis';
 import { morganStream } from './config/logger';
 
 // Import middleware
-import { apiLimiter } from './middleware/rateLimiter';
+import { apiLimiter, publicSharedLimiter } from './middleware/rateLimiter';
 import { sanitizeInput } from './middleware/validator';
 import { auditMiddleware } from './middleware/auditLog';
 import { errorHandler, notFoundHandler } from './utils/errorHandler';
@@ -123,6 +123,7 @@ app.use(auditMiddleware);
 
 // Rate limiting
 app.use('/api/', apiLimiter);
+app.use('/shared/', publicSharedLimiter);
 
 // Static files (uploads)
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
