@@ -1,7 +1,8 @@
-import type { HatOutput } from '../../utils/designerMath';
+import { formatLength, type HatOutput, type MeasurementUnit } from '../../utils/designerMath';
 
 interface HatSchematicProps {
   output: HatOutput;
+  unit: MeasurementUnit;
 }
 
 /**
@@ -10,7 +11,7 @@ interface HatSchematicProps {
  * decreases tapering to the closed point. Brim is shaded as a band at the
  * cast-on edge.
  */
-export default function HatSchematic({ output }: HatSchematicProps) {
+export default function HatSchematic({ output, unit }: HatSchematicProps) {
   const viewW = 320;
   const viewH = 380;
   const marginX = 60;
@@ -108,7 +109,7 @@ export default function HatSchematic({ output }: HatSchematicProps) {
         textAnchor="start"
         className="fill-gray-600 text-[11px]"
       >
-        circ: {output.finishedCircumference} in
+        circ: {formatLength(output.finishedCircumference, unit)}
       </text>
 
       {/* Brim label */}
@@ -139,7 +140,7 @@ export default function HatSchematic({ output }: HatSchematicProps) {
         transform={`rotate(90 ${viewW - 10} ${viewH / 2})`}
         className="fill-gray-500 text-[11px]"
       >
-        {output.finishedHeight} in total
+        {formatLength(output.finishedHeight, unit)} total
       </text>
     </svg>
   );

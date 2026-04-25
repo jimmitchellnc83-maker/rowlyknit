@@ -130,6 +130,16 @@ export function toInches(value: number, unit: MeasurementUnit): number {
   return unit === 'cm' ? value / 2.54 : value;
 }
 
+/** Format an inches-valued length for display in the user's chosen unit.
+ *  Inches pass through as-is (math layer already rounds to 0.25"); cm are
+ *  rounded to the nearest 0.5 cm so the schematic shows a clean number that
+ *  reflects what the math actually computed. */
+export function formatLength(inches: number, unit: MeasurementUnit): string {
+  if (unit === 'in') return `${inches} in`;
+  const cm = Math.round(inches * 2.54 * 2) / 2;
+  return `${cm} cm`;
+}
+
 /** Round up to the nearest even number — pattern convention for side-seam
  *  shaping so decreases/increases can pair one-on-each-end. */
 function roundToEven(n: number): number {

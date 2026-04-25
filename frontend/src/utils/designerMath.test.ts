@@ -9,6 +9,7 @@ import {
   computeShawl,
   computeSleeve,
   computeSocks,
+  formatLength,
   toInches,
   type BlanketInput,
   type BodyBlockInput,
@@ -32,6 +33,21 @@ describe('toInches', () => {
   });
   it('converts cm to inches', () => {
     expect(toInches(25.4, 'cm')).toBeCloseTo(10, 5);
+  });
+});
+
+describe('formatLength', () => {
+  it('passes inches through with an "in" suffix', () => {
+    expect(formatLength(36, 'in')).toBe('36 in');
+    expect(formatLength(36.25, 'in')).toBe('36.25 in');
+  });
+  it('converts inches to cm and rounds to nearest 0.5', () => {
+    expect(formatLength(36, 'cm')).toBe('91.5 cm');
+    expect(formatLength(10, 'cm')).toBe('25.5 cm');
+  });
+  it('handles zero', () => {
+    expect(formatLength(0, 'in')).toBe('0 in');
+    expect(formatLength(0, 'cm')).toBe('0 cm');
   });
 });
 

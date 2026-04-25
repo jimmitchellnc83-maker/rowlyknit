@@ -1,8 +1,9 @@
-import type { SleeveInput, SleeveOutput } from '../../utils/designerMath';
+import { formatLength, type SleeveInput, type SleeveOutput, type MeasurementUnit } from '../../utils/designerMath';
 
 interface SleeveSchematicProps {
   input: SleeveInput;
   output: SleeveOutput;
+  unit: MeasurementUnit;
 }
 
 /**
@@ -13,7 +14,7 @@ interface SleeveSchematicProps {
  * taper (narrows) → cap top (narrow bind-off). The whole outline becomes an
  * elongated hexagon with a clear "shoulder-ball" silhouette at the top.
  */
-export default function SleeveSchematic({ input: _input, output }: SleeveSchematicProps) {
+export default function SleeveSchematic({ input: _input, output, unit }: SleeveSchematicProps) {
   const viewW = 320;
   const viewH = 440;
 
@@ -119,7 +120,7 @@ export default function SleeveSchematic({ input: _input, output }: SleeveSchemat
           textAnchor="start"
           className="fill-gray-600 text-[11px]"
         >
-          bicep: {output.finishedBicep} in ({output.bicepStitches} sts)
+          bicep: {formatLength(output.finishedBicep, unit)} ({output.bicepStitches} sts)
         </text>
       ) : (
         <text
@@ -128,7 +129,7 @@ export default function SleeveSchematic({ input: _input, output }: SleeveSchemat
           textAnchor="start"
           className="fill-gray-600 text-[11px]"
         >
-          bicep: {output.finishedBicep} in
+          bicep: {formatLength(output.finishedBicep, unit)}
         </text>
       )}
 
@@ -144,7 +145,7 @@ export default function SleeveSchematic({ input: _input, output }: SleeveSchemat
         textAnchor="end"
         className="fill-gray-600 text-[11px]"
       >
-        cuff: {output.finishedCuff} in
+        cuff: {formatLength(output.finishedCuff, unit)}
       </text>
 
       {/* Length label (right, rotated) */}
@@ -156,8 +157,8 @@ export default function SleeveSchematic({ input: _input, output }: SleeveSchemat
         className="fill-gray-500 text-[11px]"
       >
         {hasCap
-          ? `${output.finishedTotalLength} in total (incl. cap)`
-          : `${output.finishedLength} in to underarm`}
+          ? `${formatLength(output.finishedTotalLength, unit)} total (incl. cap)`
+          : `${formatLength(output.finishedLength, unit)} to underarm`}
       </text>
     </svg>
   );

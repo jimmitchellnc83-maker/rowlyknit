@@ -11,6 +11,7 @@ import {
   computeShawl,
   computeSleeve,
   computeSocks,
+  formatLength,
   toInches,
   type BlanketInput,
   type BodyBlockInput,
@@ -412,11 +413,11 @@ function SweaterPrint({ form, gauge }: PrintProps) {
     <>
       <Section title="Finished measurements">
         <ul className="text-sm space-y-1">
-          <li>Chest: {body.finishedChest} in (cast-on {body.castOnStitches} sts)</li>
-          <li>Total length: {body.finishedLength} in</li>
-          {body.finishedWaist !== null && <li>Waist: {body.finishedWaist} in</li>}
-          <li>Sleeve: {sleeve.finishedTotalLength} in ({sleeve.bicepStitches} sts at bicep)</li>
-          <li>Cuff: {sleeve.finishedCuff} in</li>
+          <li>Chest: {formatLength(body.finishedChest, form.unit)} (cast-on {body.castOnStitches} sts)</li>
+          <li>Total length: {formatLength(body.finishedLength, form.unit)}</li>
+          {body.finishedWaist !== null && <li>Waist: {formatLength(body.finishedWaist, form.unit)}</li>}
+          <li>Sleeve: {formatLength(sleeve.finishedTotalLength, form.unit)} ({sleeve.bicepStitches} sts at bicep)</li>
+          <li>Cuff: {formatLength(sleeve.finishedCuff, form.unit)}</li>
         </ul>
       </Section>
 
@@ -425,7 +426,7 @@ function SweaterPrint({ form, gauge }: PrintProps) {
       </Section>
 
       <Section title="Body — schematic">
-        <BodySchematic input={bodyInput} output={body} />
+        <BodySchematic input={bodyInput} output={body} unit={form.unit} />
       </Section>
       <Section title="Body — instructions">
         <StepList steps={body.steps} />
@@ -433,7 +434,7 @@ function SweaterPrint({ form, gauge }: PrintProps) {
 
       <div className="print-page-break">
         <Section title="Sleeve — schematic">
-          <SleeveSchematic input={sleeveInput} output={sleeve} />
+          <SleeveSchematic input={sleeveInput} output={sleeve} unit={form.unit} />
         </Section>
         <Section title="Sleeve — instructions">
           <StepList steps={sleeve.steps} />
@@ -462,15 +463,15 @@ function HatPrint({ form, gauge }: PrintProps) {
     <>
       <Section title="Finished measurements">
         <ul className="text-sm space-y-1">
-          <li>Circumference: {out.finishedCircumference} in ({out.castOnStitches} sts)</li>
-          <li>Total height: {out.finishedHeight} in</li>
+          <li>Circumference: {formatLength(out.finishedCircumference, form.unit)} ({out.castOnStitches} sts)</li>
+          <li>Total height: {formatLength(out.finishedHeight, form.unit)}</li>
         </ul>
       </Section>
       <Section title="Yarn">
         <YardageCard yardage={yardage} />
       </Section>
       <Section title="Schematic">
-        <HatSchematic output={out} />
+        <HatSchematic output={out} unit={form.unit} />
       </Section>
       <Section title="Instructions">
         <StepList steps={out.steps} />
@@ -492,9 +493,9 @@ function ScarfPrint({ form, gauge }: PrintProps) {
     <>
       <Section title="Finished measurements">
         <ul className="text-sm space-y-1">
-          <li>Width: {out.finishedWidth} in ({out.castOnStitches} sts)</li>
-          <li>Length: {out.finishedLength} in ({out.totalRows} rows)</li>
-          {out.fringeLength > 0 && <li>Fringe: {out.fringeLength} in per side</li>}
+          <li>Width: {formatLength(out.finishedWidth, form.unit)} ({out.castOnStitches} sts)</li>
+          <li>Length: {formatLength(out.finishedLength, form.unit)} ({out.totalRows} rows)</li>
+          {out.fringeLength > 0 && <li>Fringe: {formatLength(out.fringeLength, form.unit)} per side</li>}
         </ul>
       </Section>
       <Section title="Yarn">
@@ -508,6 +509,7 @@ function ScarfPrint({ form, gauge }: PrintProps) {
           lengthInches={out.finishedLength}
           castOnStitches={out.castOnStitches}
           fringeInches={out.fringeLength}
+          unit={form.unit}
         />
       </Section>
       <Section title="Instructions">
@@ -530,8 +532,8 @@ function BlanketPrint({ form, gauge }: PrintProps) {
     <>
       <Section title="Finished measurements">
         <ul className="text-sm space-y-1">
-          <li>Width: {out.finishedWidth} in ({out.castOnStitches} sts)</li>
-          <li>Length: {out.finishedLength} in ({out.totalRows} rows)</li>
+          <li>Width: {formatLength(out.finishedWidth, form.unit)} ({out.castOnStitches} sts)</li>
+          <li>Length: {formatLength(out.finishedLength, form.unit)} ({out.totalRows} rows)</li>
           {out.borderStitchesPerSide > 0 && (
             <li>Border: {out.borderStitchesPerSide} sts each side</li>
           )}
@@ -548,6 +550,7 @@ function BlanketPrint({ form, gauge }: PrintProps) {
           lengthInches={out.finishedLength}
           castOnStitches={out.castOnStitches}
           borderInches={typeof form.blanketBorderDepth === 'number' ? form.blanketBorderDepth : 0}
+          unit={form.unit}
         />
       </Section>
       <Section title="Instructions">
@@ -573,15 +576,15 @@ function ShawlPrint({ form, gauge }: PrintProps) {
     <>
       <Section title="Finished measurements">
         <ul className="text-sm space-y-1">
-          <li>Wingspan: {out.finishedWingspan} in ({out.finalStitches} sts)</li>
-          <li>Depth at center spine: {out.finishedDepth} in</li>
+          <li>Wingspan: {formatLength(out.finishedWingspan, form.unit)} ({out.finalStitches} sts)</li>
+          <li>Depth at center spine: {formatLength(out.finishedDepth, form.unit)}</li>
         </ul>
       </Section>
       <Section title="Yarn">
         <YardageCard yardage={yardage} />
       </Section>
       <Section title="Schematic">
-        <ShawlSchematic output={out} />
+        <ShawlSchematic output={out} unit={form.unit} />
       </Section>
       <Section title="Instructions">
         <StepList steps={out.steps} />
@@ -612,16 +615,16 @@ function MittensPrint({ form, gauge }: PrintProps) {
     <>
       <Section title="Finished measurements">
         <ul className="text-sm space-y-1">
-          <li>Hand: {out.finishedHandCircumference} in ({out.handStitches} sts)</li>
-          <li>Thumb: {out.finishedThumbCircumference} in ({out.thumbStitches} sts)</li>
-          <li>Total length: {out.finishedLength} in</li>
+          <li>Hand: {formatLength(out.finishedHandCircumference, form.unit)} ({out.handStitches} sts)</li>
+          <li>Thumb: {formatLength(out.finishedThumbCircumference, form.unit)} ({out.thumbStitches} sts)</li>
+          <li>Total length: {formatLength(out.finishedLength, form.unit)}</li>
         </ul>
       </Section>
       <Section title="Yarn (pair)">
         <YardageCard yardage={yardage} />
       </Section>
       <Section title="Schematic">
-        <MittenSchematic output={out} />
+        <MittenSchematic output={out} unit={form.unit} />
       </Section>
       <Section title="Instructions">
         <StepList steps={out.steps} />
@@ -650,16 +653,16 @@ function SocksPrint({ form, gauge }: PrintProps) {
     <>
       <Section title="Finished measurements">
         <ul className="text-sm space-y-1">
-          <li>Ankle: {out.finishedAnkleCircumference} in ({out.castOnStitches} sts)</li>
-          <li>Foot: {out.finishedFootCircumference} in</li>
-          <li>Total length: {out.finishedTotalLength} in</li>
+          <li>Ankle: {formatLength(out.finishedAnkleCircumference, form.unit)} ({out.castOnStitches} sts)</li>
+          <li>Foot: {formatLength(out.finishedFootCircumference, form.unit)}</li>
+          <li>Total length: {formatLength(out.finishedTotalLength, form.unit)}</li>
         </ul>
       </Section>
       <Section title="Yarn (pair)">
         <YardageCard yardage={yardage} />
       </Section>
       <Section title="Schematic">
-        <SockSchematic output={out} />
+        <SockSchematic output={out} unit={form.unit} />
       </Section>
       <Section title="Instructions">
         <StepList steps={out.steps} />

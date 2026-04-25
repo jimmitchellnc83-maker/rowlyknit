@@ -1,7 +1,8 @@
-import type { ShawlOutput } from '../../utils/designerMath';
+import { formatLength, type ShawlOutput, type MeasurementUnit } from '../../utils/designerMath';
 
 interface ShawlSchematicProps {
   output: ShawlOutput;
+  unit: MeasurementUnit;
 }
 
 /**
@@ -12,7 +13,7 @@ interface ShawlSchematicProps {
  * gauge — we render whatever ratio the math produced rather than forcing a
  * specific shape.
  */
-export default function ShawlSchematic({ output }: ShawlSchematicProps) {
+export default function ShawlSchematic({ output, unit }: ShawlSchematicProps) {
   const viewW = 340;
   const viewH = 300;
   const marginX = 40;
@@ -70,7 +71,7 @@ export default function ShawlSchematic({ output }: ShawlSchematicProps) {
 
       {/* Wingspan label across the bottom */}
       <text x={cx} y={bottomY + 18} textAnchor="middle" className="fill-gray-700 text-[13px] font-semibold">
-        ← {output.finishedWingspan} in wingspan · {output.finalStitches} sts →
+        ← {formatLength(output.finishedWingspan, unit)} wingspan · {output.finalStitches} sts →
       </text>
 
       {/* Depth label on right */}
@@ -81,7 +82,7 @@ export default function ShawlSchematic({ output }: ShawlSchematicProps) {
         transform={`rotate(90 ${rightX + 10} ${(topY + bottomY) / 2})`}
         className="fill-gray-500 text-[11px]"
       >
-        depth: {output.finishedDepth} in
+        depth: {formatLength(output.finishedDepth, unit)}
       </text>
     </svg>
   );

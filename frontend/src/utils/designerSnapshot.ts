@@ -7,6 +7,7 @@ import {
   computeShawl,
   computeSleeve,
   computeSocks,
+  formatLength,
   toInches,
   type BlanketInput,
   type BlanketOutput,
@@ -301,10 +302,10 @@ export function computeDesign(form: DesignerFormSnapshot): DesignCompute {
           itemType: form.itemType,
           itemLabel: labelOf,
           dimensions: [
-            `Chest ${body.finishedChest} in, length ${body.finishedLength} in`,
-            `Sleeve to underarm ${sleeve.finishedLength} in${
+            `Chest ${formatLength(body.finishedChest, form.unit)}, length ${formatLength(body.finishedLength, form.unit)}`,
+            `Sleeve to underarm ${formatLength(sleeve.finishedLength, form.unit)}${
               sleeve.finishedTotalLength !== sleeve.finishedLength
-                ? ` (+ cap = ${sleeve.finishedTotalLength} in)`
+                ? ` (+ cap = ${formatLength(sleeve.finishedTotalLength, form.unit)})`
                 : ''
             }`,
           ],
@@ -321,7 +322,7 @@ export function computeDesign(form: DesignerFormSnapshot): DesignCompute {
           itemType: form.itemType,
           itemLabel: labelOf,
           dimensions: [
-            `Circumference ${hat.finishedCircumference} in, height ${hat.finishedHeight} in`,
+            `Circumference ${formatLength(hat.finishedCircumference, form.unit)}, height ${formatLength(hat.finishedHeight, form.unit)}`,
           ],
           castOnStitches: hat.castOnStitches,
         },
@@ -334,7 +335,7 @@ export function computeDesign(form: DesignerFormSnapshot): DesignCompute {
         summary: {
           itemType: form.itemType,
           itemLabel: labelOf,
-          dimensions: [`${scarf.finishedWidth} × ${scarf.finishedLength} in`],
+          dimensions: [`${formatLength(scarf.finishedWidth, form.unit)} × ${formatLength(scarf.finishedLength, form.unit)}`],
           castOnStitches: scarf.castOnStitches,
         },
         scarf,
@@ -346,7 +347,7 @@ export function computeDesign(form: DesignerFormSnapshot): DesignCompute {
         summary: {
           itemType: form.itemType,
           itemLabel: labelOf,
-          dimensions: [`${blanket.finishedWidth} × ${blanket.finishedLength} in`],
+          dimensions: [`${formatLength(blanket.finishedWidth, form.unit)} × ${formatLength(blanket.finishedLength, form.unit)}`],
           castOnStitches: blanket.castOnStitches,
         },
         blanket,
@@ -359,7 +360,7 @@ export function computeDesign(form: DesignerFormSnapshot): DesignCompute {
           itemType: form.itemType,
           itemLabel: labelOf,
           dimensions: [
-            `Wingspan ${shawl.finishedWingspan} in, depth ${shawl.finishedDepth} in`,
+            `Wingspan ${formatLength(shawl.finishedWingspan, form.unit)}, depth ${formatLength(shawl.finishedDepth, form.unit)}`,
           ],
           castOnStitches: shawl.castOnStitches,
         },
@@ -373,7 +374,7 @@ export function computeDesign(form: DesignerFormSnapshot): DesignCompute {
           itemType: form.itemType,
           itemLabel: labelOf,
           dimensions: [
-            `Hand ${mittens.finishedHandCircumference} in, total ${mittens.finishedLength} in`,
+            `Hand ${formatLength(mittens.finishedHandCircumference, form.unit)}, total ${formatLength(mittens.finishedLength, form.unit)}`,
           ],
           castOnStitches: mittens.castOnStitches,
         },
@@ -387,7 +388,7 @@ export function computeDesign(form: DesignerFormSnapshot): DesignCompute {
           itemType: form.itemType,
           itemLabel: labelOf,
           dimensions: [
-            `Ankle ${socks.finishedAnkleCircumference} in, length ${socks.finishedTotalLength} in`,
+            `Ankle ${formatLength(socks.finishedAnkleCircumference, form.unit)}, length ${formatLength(socks.finishedTotalLength, form.unit)}`,
           ],
           castOnStitches: socks.castOnStitches,
         },

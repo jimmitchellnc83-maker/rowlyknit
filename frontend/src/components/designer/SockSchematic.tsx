@@ -1,14 +1,15 @@
-import type { SockOutput } from '../../utils/designerMath';
+import { formatLength, type SockOutput, type MeasurementUnit } from '../../utils/designerMath';
 
 interface SockSchematicProps {
   output: SockOutput;
+  unit: MeasurementUnit;
 }
 
 /**
  * L-shaped sock silhouette: vertical leg tube + horizontal foot tube joined
  * by a heel corner. Key stitch-count labels placed at cuff, heel, and toe.
  */
-export default function SockSchematic({ output }: SockSchematicProps) {
+export default function SockSchematic({ output, unit }: SockSchematicProps) {
   const viewW = 340;
   const viewH = 340;
 
@@ -71,10 +72,10 @@ export default function SockSchematic({ output }: SockSchematicProps) {
         leg
       </text>
       <text x={(footLeft + footRight) / 2} y={footBottom + 18} textAnchor="middle" className="fill-gray-500 text-[11px]">
-        foot · ankle {output.finishedAnkleCircumference} in
+        foot · ankle {formatLength(output.finishedAnkleCircumference, unit)}
       </text>
       <text x={(footLeft + footRight) / 2} y={footBottom + 32} textAnchor="middle" className="fill-gray-500 text-[11px]">
-        total length: {output.finishedTotalLength} in
+        total length: {formatLength(output.finishedTotalLength, unit)}
       </text>
     </svg>
   );

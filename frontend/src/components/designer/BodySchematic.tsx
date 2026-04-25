@@ -1,8 +1,9 @@
-import type { BodyBlockInput, BodyBlockOutput } from '../../utils/designerMath';
+import { formatLength, type BodyBlockInput, type BodyBlockOutput, type MeasurementUnit } from '../../utils/designerMath';
 
 interface BodySchematicProps {
   input: BodyBlockInput;
   output: BodyBlockOutput;
+  unit: MeasurementUnit;
 }
 
 /**
@@ -17,7 +18,7 @@ interface BodySchematicProps {
  * is pure — it reads everything from the precomputed `output` struct and
  * rerenders instantly when inputs change.
  */
-export default function BodySchematic({ input, output }: BodySchematicProps) {
+export default function BodySchematic({ input, output, unit }: BodySchematicProps) {
   const viewW = 320;
   const viewH = 420;
 
@@ -209,7 +210,7 @@ export default function BodySchematic({ input, output }: BodySchematicProps) {
         textAnchor="start"
         className="fill-gray-600 text-[11px]"
       >
-        chest: {output.finishedChest} in
+        chest: {formatLength(output.finishedChest, unit)}
       </text>
 
       {/* Finished length */}
@@ -220,7 +221,7 @@ export default function BodySchematic({ input, output }: BodySchematicProps) {
         transform={`rotate(90 ${viewW - 10} ${viewH / 2})`}
         className="fill-gray-500 text-[11px]"
       >
-        {output.finishedLength} in total
+        {formatLength(output.finishedLength, unit)} total
       </text>
 
       <text
