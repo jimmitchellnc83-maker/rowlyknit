@@ -396,7 +396,7 @@ export async function createStructuredMemo(req: Request, res: Response) {
     throw new ValidationError('Template type and data are required');
   }
 
-  const validTemplateTypes = ['gauge_swatch', 'fit_adjustment', 'yarn_substitution', 'finishing', 'finishing_techniques'];
+  const validTemplateTypes = ['gauge_swatch', 'fit_adjustment', 'yarn_substitution', 'finishing', 'finishing_techniques', 'calculator_result'];
   if (!validTemplateTypes.includes(templateType)) {
     throw new ValidationError(`Template type must be one of: ${validTemplateTypes.join(', ')}`);
   }

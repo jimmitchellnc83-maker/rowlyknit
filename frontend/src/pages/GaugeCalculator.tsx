@@ -7,6 +7,7 @@ import {
   FiArrowUp,
   FiArrowDown,
   FiMinus,
+  FiSave,
 } from 'react-icons/fi';
 import {
   compareGauge,
@@ -18,6 +19,7 @@ import {
 import { useSeo } from '../hooks/useSeo';
 import { useAuthStore } from '../stores/authStore';
 import { trackEvent } from '../lib/analytics';
+import SaveCalcToProjectModal, { type CalculatorMemoPayload } from '../components/calculators/SaveCalcToProjectModal';
 
 type NumField = number | '';
 
@@ -177,6 +179,7 @@ export default function GaugeCalculator() {
   const [actual, setActual] = useState<FormGauge>(DEFAULT_ACTUAL);
   const [patternWidth, setPatternWidth] = useState<NumField>('');
   const [patternHeight, setPatternHeight] = useState<NumField>('');
+  const [showSaveModal, setShowSaveModal] = useState(false);
 
   const ready = isComplete(target) && isComplete(actual);
   const result = useMemo(() => {
@@ -205,6 +208,40 @@ export default function GaugeCalculator() {
 
   const StatusIcon = result ? statusIcon[result.status] : FiMinus;
   const NeedleIcon = result ? needleIcon[result.needleChange] : FiMinus;
+
+  const memoPayload: CalculatorMemoPayload | null = useMemo(() => {
+    if (!result) return null;
+    const targetMeasure = `${target.measurement} ${target.unit}`;
+    const actualMeasure = `${actual.measurement} ${actual.unit}`;
+    const summaryStatus =
+      result.status === 'on-gauge'
+        ? 'On gauge'
+        : result.status === 'too-tight'
+          ? 'Swatch too tight'
+          : result.status === 'too-loose'
+            ? 'Swatch too loose'
+            : 'Mixed gauge';
+    return {
+      calculator: 'gauge',
+      inputs: {
+        pattern_target: `${target.stitches} sts × ${target.rows} rows over ${targetMeasure}`,
+        your_swatch: `${actual.stitches} sts × ${actual.rows} rows over ${actualMeasure}`,
+        pattern_width: typeof patternWidth === 'number' ? `${patternWidth} ${target.unit}` : '—',
+        pattern_length: typeof patternHeight === 'number' ? `${patternHeight} ${target.unit}` : '—',
+      },
+      outputs: {
+        status: summaryStatus,
+        stitch_diff_pct: `${result.stitchPercentDiff > 0 ? '+' : ''}${result.stitchPercentDiff}%`,
+        row_diff_pct: `${result.rowPercentDiff > 0 ? '+' : ''}${result.rowPercentDiff}%`,
+        needle_recommendation: needleLabel[result.needleChange],
+        predicted_width:
+          widthPrediction !== null ? `${widthPrediction} ${target.unit}` : '—',
+        predicted_length:
+          heightPrediction !== null ? `${heightPrediction} ${target.unit}` : '—',
+      },
+      summary: `Gauge check: ${summaryStatus}. ${result.message}`,
+    };
+  }, [result, target, actual, patternWidth, patternHeight, widthPrediction, heightPrediction]);
 
   return (
     <div className="space-y-4 md:space-y-6">
@@ -342,6 +379,27 @@ export default function GaugeCalculator() {
         </>
       ) : null}
 
+      {isAuthenticated && memoPayload ? (
+        <section className="flex flex-col items-start gap-3 rounded-lg border border-purple-200 bg-purple-50 p-4 dark:border-purple-800 dark:bg-purple-900/20 md:flex-row md:items-center md:justify-between md:p-6">
+          <div>
+            <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">
+              Save this calculation to a project
+            </h2>
+            <p className="mt-1 text-sm text-gray-700 dark:text-gray-300">
+              Captures your gauge inputs and recommendation under that project&apos;s structured notes.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowSaveModal(true)}
+            className="inline-flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700"
+          >
+            <FiSave className="h-4 w-4" />
+            Save to project
+          </button>
+        </section>
+      ) : null}
+
       {!isAuthenticated ? (
         <section className="rounded-lg border border-purple-200 bg-purple-50 p-6 dark:border-purple-800 dark:bg-purple-900/20 md:p-8">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
@@ -411,6 +469,15 @@ export default function GaugeCalculator() {
           </div>
         </dl>
       </section>
+
+      {memoPayload ? (
+        <SaveCalcToProjectModal
+          open={showSaveModal}
+          payload={memoPayload}
+          title="Gauge calculation"
+          onClose={() => setShowSaveModal(false)}
+        />
+      ) : null}
     </div>
   );
 }

@@ -8,7 +8,7 @@ import ConfirmModal from '../ConfirmModal';
 import { useMeasurements } from '../../hooks/useMeasurements';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
 
-type TemplateType = 'gauge_swatch' | 'fit_adjustment' | 'yarn_substitution' | 'finishing_techniques';
+type TemplateType = 'gauge_swatch' | 'fit_adjustment' | 'yarn_substitution' | 'finishing_techniques' | 'calculator_result';
 
 interface GaugeSwatchData {
   needle_size: string;
@@ -45,7 +45,15 @@ interface FinishingTechniquesData {
   notes?: string;
 }
 
-type MemoData = GaugeSwatchData | FitAdjustmentData | YarnSubstitutionData | FinishingTechniquesData;
+interface CalculatorResultData {
+  calculator: 'gauge' | 'gift_size' | 'yarn_sub';
+  inputs: Record<string, unknown>;
+  outputs: Record<string, unknown>;
+  summary: string;
+  notes?: string;
+}
+
+type MemoData = GaugeSwatchData | FitAdjustmentData | YarnSubstitutionData | FinishingTechniquesData | CalculatorResultData;
 
 interface StructuredMemo {
   id: string;
@@ -83,7 +91,22 @@ const TEMPLATE_INFO = {
     icon: '✨',
     description: 'Notes on bind-off, seaming, and blocking',
   },
+  calculator_result: {
+    name: 'Calculator Result',
+    icon: '🧮',
+    description: 'Saved from the public calculators',
+  },
 };
+
+// Templates the user can pick from the "+ New memo" grid. Calculator
+// results are produced by the calculator pages themselves, so we don't
+// expose them here as a blank-form option.
+const PICKABLE_TEMPLATES: TemplateType[] = [
+  'gauge_swatch',
+  'fit_adjustment',
+  'yarn_substitution',
+  'finishing_techniques',
+];
 
 export const StructuredMemoTemplates: React.FC<StructuredMemoTemplatesProps> = ({
   projectId,
@@ -191,6 +214,25 @@ export const StructuredMemoTemplates: React.FC<StructuredMemoTemplatesProps> = (
         content += `Seaming Technique: ${finish.seaming_technique}\n`;
         content += `Blocking Instructions: ${finish.blocking_instructions}\n`;
         if (finish.notes) content += `\nNotes: ${finish.notes}\n`;
+        break;
+      }
+
+      case 'calculator_result': {
+        const calc = memo.data as CalculatorResultData;
+        content += `${calc.summary}\n\n`;
+        if (calc.inputs && Object.keys(calc.inputs).length > 0) {
+          content += `Inputs:\n`;
+          for (const [k, v] of Object.entries(calc.inputs)) {
+            content += `  ${k}: ${v}\n`;
+          }
+        }
+        if (calc.outputs && Object.keys(calc.outputs).length > 0) {
+          content += `\nOutputs:\n`;
+          for (const [k, v] of Object.entries(calc.outputs)) {
+            content += `  ${k}: ${v}\n`;
+          }
+        }
+        if (calc.notes) content += `\nNotes: ${calc.notes}\n`;
         break;
       }
     }
@@ -595,8 +637,9 @@ export const StructuredMemoTemplates: React.FC<StructuredMemoTemplatesProps> = (
 
       {/* Template Selection */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6">
-        {(Object.entries(TEMPLATE_INFO) as [TemplateType, typeof TEMPLATE_INFO[TemplateType]][]).map(
-          ([type, info]) => (
+        {PICKABLE_TEMPLATES.map((type) => {
+          const info = TEMPLATE_INFO[type];
+          return (
             <button
               key={type}
               onClick={() => handleOpenNewMemo(type)}
@@ -610,8 +653,8 @@ export const StructuredMemoTemplates: React.FC<StructuredMemoTemplatesProps> = (
                 </div>
               </div>
             </button>
-          )
-        )}
+          );
+        })}
       </div>
 
       {/* Saved Memos */}
