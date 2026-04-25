@@ -23,7 +23,7 @@ function fillSwatch(stitches: number, rows: number) {
 
 describe('GaugeCalculator save-to-project CTA', () => {
   beforeEach(() => {
-    useAuthStore.setState({ isAuthenticated: false, user: null, token: null });
+    useAuthStore.setState({ isAuthenticated: false, user: null, accessToken: null });
   });
 
   it('does not show the Save-to-project button for anonymous visitors', () => {
@@ -41,7 +41,7 @@ describe('GaugeCalculator save-to-project CTA', () => {
     useAuthStore.setState({
       isAuthenticated: true,
       user: { id: 'u1', email: 'a@b.c', firstName: 'A', lastName: 'B' } as any,
-      token: 't',
+      accessToken: 't',
     });
     renderPage();
     expect(screen.queryByRole('button', { name: /save to project/i })).not.toBeInTheDocument();

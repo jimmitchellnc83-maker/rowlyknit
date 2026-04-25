@@ -5,6 +5,7 @@ import { createAuditLog } from '../middleware/auditLog';
 import { sanitizeSearchQuery } from '../utils/inputSanitizer';
 import { getFeasibilityBatch } from '../services/feasibilityService';
 import { checkNeedleInventory } from '../services/needleInventoryService';
+import { duplicateProject as duplicateProjectService } from '../services/projectDuplicationService';
 
 export const ALLOWED_PROJECT_TYPES = [
   'sweater',
@@ -866,5 +867,40 @@ export async function removeToolFromProject(req: Request, res: Response) {
   res.json({
     success: true,
     message: 'Tool removed from project successfully',
+  });
+}
+
+/**
+ * Duplicate a project ("make this again"). The new project starts at row 1
+ * with no yarn/photos/notes/sessions; structure (counters, panels, pattern
+ * + tool links, designer metadata) carries over.
+ */
+export async function duplicateProject(req: Request, res: Response) {
+  const userId = req.user!.userId;
+  const { id } = req.params;
+  const { newName } = req.body ?? {};
+
+  if (newName !== undefined && newName !== null) {
+    if (typeof newName !== 'string' || !newName.trim()) {
+      throw new ValidationError('newName must be a non-empty string');
+    }
+  }
+
+  const result = await duplicateProjectService(userId, id, {
+    newName: typeof newName === 'string' && newName.trim() ? newName.trim() : undefined,
+  });
+
+  await createAuditLog(req, {
+    userId,
+    action: 'project_duplicated',
+    entityType: 'project',
+    entityId: result.id,
+    newValues: { sourceProjectId: id, newProjectId: result.id, newName: result.name },
+  });
+
+  res.status(201).json({
+    success: true,
+    message: 'Project duplicated successfully',
+    data: { project: result },
   });
 }
