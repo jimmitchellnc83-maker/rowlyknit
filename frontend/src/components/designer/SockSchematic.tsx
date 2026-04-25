@@ -1,15 +1,20 @@
+import { useId } from 'react';
 import { formatLength, type SockOutput, type MeasurementUnit } from '../../utils/designerMath';
+import type { ChartData } from './ChartGrid';
+import ChartOverlay from './ChartOverlay';
 
 interface SockSchematicProps {
   output: SockOutput;
   unit: MeasurementUnit;
+  chart?: ChartData | null;
 }
 
 /**
  * L-shaped sock silhouette: vertical leg tube + horizontal foot tube joined
  * by a heel corner. Key stitch-count labels placed at cuff, heel, and toe.
  */
-export default function SockSchematic({ output, unit }: SockSchematicProps) {
+export default function SockSchematic({ output, unit, chart }: SockSchematicProps) {
+  const clipId = useId();
   const viewW = 340;
   const viewH = 340;
 
@@ -25,22 +30,38 @@ export default function SockSchematic({ output, unit }: SockSchematicProps) {
   const footTop = legBottom;
   const footBottom = legBottom + 50;
 
-  // Heel corner is at (legLeft, legBottom) — bottom-left of leg + top-left of foot
-  return (
-    <svg viewBox={`0 0 ${viewW} ${viewH}`} role="img" aria-label="Sock schematic" className="w-full max-w-sm mx-auto">
-      <path
-        d={`M ${legLeft} ${legTop}
+  const sockPath = `M ${legLeft} ${legTop}
             L ${legRight} ${legTop}
             L ${legRight} ${footTop}
             L ${footRight - 20} ${footTop}
             Q ${footRight} ${footTop} ${footRight} ${(footTop + footBottom) / 2}
             Q ${footRight} ${footBottom} ${footRight - 20} ${footBottom}
             L ${footLeft} ${footBottom}
-            Z`}
+            Z`;
+  // Half-circumference is what the leg tube width represents at the cuff;
+  // map that to the cast-on stitch count to get a per-stitch pixel size.
+  const stitchToPx =
+    output.castOnStitches > 0 ? (legRight - legLeft) / (output.castOnStitches / 2) : 4;
+  const rowToPx = stitchToPx;
+
+  // Heel corner is at (legLeft, legBottom) — bottom-left of leg + top-left of foot
+  return (
+    <svg viewBox={`0 0 ${viewW} ${viewH}`} role="img" aria-label="Sock schematic" className="w-full max-w-sm mx-auto">
+      <path
+        d={sockPath}
         fill="#DBEAFE"
         stroke="#2563EB"
         strokeWidth="1.5"
         strokeLinejoin="round"
+      />
+
+      <ChartOverlay
+        chart={chart ?? null}
+        clipPath={sockPath}
+        bounds={{ x: legLeft, y: legTop, width: footRight - legLeft, height: footBottom - legTop }}
+        stitchToPx={stitchToPx}
+        rowToPx={rowToPx}
+        clipId={clipId}
       />
 
       {/* Cuff dashed band */}
