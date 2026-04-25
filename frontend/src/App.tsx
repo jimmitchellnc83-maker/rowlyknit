@@ -9,6 +9,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 // Layouts
 import MainLayout from './components/layouts/MainLayout';
 import AuthLayout from './components/layouts/AuthLayout';
+import PublicLayout from './components/layouts/PublicLayout';
 
 // Pages
 import Dashboard from './pages/Dashboard';
@@ -107,6 +108,16 @@ function App() {
       <Route path="/privacy" element={<PublicSuspense><Privacy /></PublicSuspense>} />
       <Route path="/terms" element={<PublicSuspense><Terms /></PublicSuspense>} />
 
+      {/* Public, indexable calculator pages. Drives organic search ("knitting
+          gauge calculator") and surfaces Rowly to knitters who haven't
+          signed up yet. Yarn-substitution stays auth-only because it scores
+          the user's stash. */}
+      <Route element={<PublicLayout />}>
+        <Route path="/calculators" element={<Calculators />} />
+        <Route path="/calculators/gauge" element={<ErrorBoundary><GaugeCalculator /></ErrorBoundary>} />
+        <Route path="/calculators/gift-size" element={<ErrorBoundary><GiftSizeCalculator /></ErrorBoundary>} />
+      </Route>
+
         {/* Auth routes */}
       <Route element={<AuthLayout />}>
         <Route
@@ -156,10 +167,7 @@ function App() {
         <Route path="/yarn" element={<ErrorBoundary><YarnStash /></ErrorBoundary>} />
         <Route path="/yarn/:id" element={<ErrorBoundary><YarnDetail /></ErrorBoundary>} />
         <Route path="/tools" element={<Tools />} />
-        <Route path="/calculators" element={<Calculators />} />
-        <Route path="/calculators/gauge" element={<ErrorBoundary><GaugeCalculator /></ErrorBoundary>} />
         <Route path="/calculators/yarn-sub" element={<ErrorBoundary><YarnSubstitutionCalculator /></ErrorBoundary>} />
-        <Route path="/calculators/gift-size" element={<ErrorBoundary><GiftSizeCalculator /></ErrorBoundary>} />
         <Route path="/designer" element={<ErrorBoundary><PatternDesigner /></ErrorBoundary>} />
         <Route path="/designer/print" element={<ErrorBoundary><PatternPrintView /></ErrorBoundary>} />
         <Route path="/recipients" element={<Recipients />} />
