@@ -62,19 +62,19 @@ describe('mergeTemplateIntoForm', () => {
   it('keeps inch values unchanged when form is in inches', () => {
     const out = mergeTemplateIntoForm(beanie, makeForm('in'));
     expect(out.itemType).toBe('hat');
-    expect((out as { headCircumference: number }).headCircumference).toBe(22);
-    expect((out as { hatTotalHeight: number }).hatTotalHeight).toBe(9);
-    expect((out as { hatBrimDepth: number }).hatBrimDepth).toBe(2);
+    expect((out as unknown as { headCircumference: number }).headCircumference).toBe(22);
+    expect((out as unknown as { hatTotalHeight: number }).hatTotalHeight).toBe(9);
+    expect((out as unknown as { hatBrimDepth: number }).hatBrimDepth).toBe(2);
   });
 
   it('converts inch values to cm when form is in cm mode', () => {
     const out = mergeTemplateIntoForm(beanie, makeForm('cm'));
     // 22 in × 2.54 = 55.88 → rounds to 56 (nearest 0.25)
-    expect((out as { headCircumference: number }).headCircumference).toBe(56);
+    expect((out as unknown as { headCircumference: number }).headCircumference).toBe(56);
     // 9 in × 2.54 = 22.86 → rounds to 22.75
-    expect((out as { hatTotalHeight: number }).hatTotalHeight).toBe(22.75);
+    expect((out as unknown as { hatTotalHeight: number }).hatTotalHeight).toBe(22.75);
     // 2 in × 2.54 = 5.08 → rounds to 5
-    expect((out as { hatBrimDepth: number }).hatBrimDepth).toBe(5);
+    expect((out as unknown as { hatBrimDepth: number }).hatBrimDepth).toBe(5);
   });
 
   it('preserves user gauge, colors, chart, and unit', () => {
@@ -90,14 +90,14 @@ describe('mergeTemplateIntoForm', () => {
 
   it('does not convert booleans or enum strings', () => {
     const out = mergeTemplateIntoForm(fitted, makeForm('cm'));
-    expect((out as { useWaistShaping: boolean }).useWaistShaping).toBe(true);
-    expect((out as { useArmhole: boolean }).useArmhole).toBe(true);
-    expect((out as { panelType: string }).panelType).toBe('front');
+    expect((out as unknown as { useWaistShaping: boolean }).useWaistShaping).toBe(true);
+    expect((out as unknown as { useArmhole: boolean }).useArmhole).toBe(true);
+    expect((out as unknown as { panelType: string }).panelType).toBe('front');
   });
 
   it('does not convert stitch counts (shawlInitialCastOn)', () => {
     const out = mergeTemplateIntoForm(triangle, makeForm('cm'));
-    expect((out as { shawlInitialCastOn: number }).shawlInitialCastOn).toBe(7);
+    expect((out as unknown as { shawlInitialCastOn: number }).shawlInitialCastOn).toBe(7);
   });
 
   it('overwrites the matching itemType section without leaking previous values', () => {
@@ -105,10 +105,10 @@ describe('mergeTemplateIntoForm', () => {
     expect(out.itemType).toBe('hat');
     // Sweater fields stay (the form has them all together) but the hat
     // measurements have been replaced with template values.
-    expect((out as { headCircumference: number }).headCircumference).toBe(22);
+    expect((out as unknown as { headCircumference: number }).headCircumference).toBe(22);
     // chestCircumference wasn't in the hat template's fields, so it
     // remains at the form's value (this is correct — the form holds all
     // itemType field families and switching itemType doesn't wipe them).
-    expect((out as { chestCircumference: number }).chestCircumference).toBe(99);
+    expect((out as unknown as { chestCircumference: number }).chestCircumference).toBe(99);
   });
 });
