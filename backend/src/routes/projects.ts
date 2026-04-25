@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { body } from 'express-validator';
 import * as projectsController from '../controllers/projectsController';
+import * as projectSharingController from '../controllers/projectSharingController';
 import * as gaugeAdjustmentController from '../controllers/gaugeAdjustmentController';
 import * as chartProgressController from '../controllers/chartProgressController';
 import * as markerAnalyticsController from '../controllers/markerAnalyticsController';
@@ -112,6 +113,19 @@ router.delete(
   '/:id',
   validateUUID('id'),
   asyncHandler(projectsController.deleteProject)
+);
+
+/**
+ * @route   PATCH /api/projects/:id/visibility
+ * @desc    Toggle whether a project is publicly viewable; generates a
+ *          stable share slug on first publish.
+ * @access  Private
+ */
+router.patch(
+  '/:id/visibility',
+  [validateUUID('id'), body('isPublic').isBoolean()],
+  validate,
+  asyncHandler(projectSharingController.updateProjectVisibility)
 );
 
 /**

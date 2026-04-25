@@ -33,6 +33,7 @@ import Recipients from './pages/Recipients';
 import Profile from './pages/Profile';
 import Stats from './pages/Stats';
 import Help from './pages/Help';
+import PublicProjectPage from './pages/PublicProjectPage';
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
 import ForgotPassword from './pages/auth/ForgotPassword';
@@ -116,6 +117,7 @@ function App() {
         <Route path="/calculators" element={<Calculators />} />
         <Route path="/calculators/gauge" element={<ErrorBoundary><GaugeCalculator /></ErrorBoundary>} />
         <Route path="/calculators/gift-size" element={<ErrorBoundary><GiftSizeCalculator /></ErrorBoundary>} />
+        <Route path="/p/:slug" element={<ErrorBoundary><PublicProjectPage /></ErrorBoundary>} />
       </Route>
 
         {/* Auth routes */}

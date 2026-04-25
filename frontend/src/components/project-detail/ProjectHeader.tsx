@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { FiArrowLeft, FiEdit2, FiTrash2, FiUser, FiEye, FiEyeOff } from 'react-icons/fi';
+import { FiArrowLeft, FiEdit2, FiTrash2, FiUser, FiEye, FiEyeOff, FiShare2 } from 'react-icons/fi';
 import { toast } from 'react-toastify';
 import HelpTooltip from '../HelpTooltip';
 import { useKnittingMode } from '../../contexts/KnittingModeContext';
@@ -22,6 +22,8 @@ interface ProjectHeaderProps {
   selectedRecipient: RecipientSummary | undefined;
   onEdit: () => void;
   onDelete: () => void;
+  onShare: () => void;
+  isPublic: boolean;
 }
 
 function getStatusColor(status: string) {
@@ -45,6 +47,8 @@ export default function ProjectHeader({
   selectedRecipient,
   onEdit,
   onDelete,
+  onShare,
+  isPublic,
 }: ProjectHeaderProps) {
   const { knittingMode, setKnittingMode } = useKnittingMode();
 
@@ -109,6 +113,18 @@ export default function ProjectHeader({
             </span>
           </button>
           <HelpTooltip text="A focused view with just your pattern, counters, and timer. Great for active knitting sessions." />
+          <button
+            onClick={onShare}
+            aria-label={isPublic ? 'Share — currently public' : 'Share — currently private'}
+            className={`px-4 py-3 md:py-2 rounded-lg transition flex items-center min-h-[48px] md:min-h-0 ${
+              isPublic
+                ? 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+            }`}
+          >
+            <FiShare2 className="mr-2 h-5 w-5 md:h-4 md:w-4" />
+            <span className="text-base md:text-sm">{isPublic ? 'Public' : 'Share'}</span>
+          </button>
           <button
             onClick={onEdit}
             className="px-4 py-3 md:py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition flex items-center min-h-[48px] md:min-h-0"
