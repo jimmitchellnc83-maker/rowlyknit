@@ -586,7 +586,7 @@ function ShawlPrint({ form, gauge }: PrintProps) {
         <YardageCard yardage={yardage} />
       </Section>
       <Section title="Schematic">
-        <ShawlSchematic output={out} unit={form.unit} />
+        <ShawlSchematic output={out} unit={form.unit} chart={form.chart} />
       </Section>
       <Section title="Instructions">
         <StepList steps={out.steps} />
@@ -626,7 +626,7 @@ function MittensPrint({ form, gauge }: PrintProps) {
         <YardageCard yardage={yardage} />
       </Section>
       <Section title="Schematic">
-        <MittenSchematic output={out} unit={form.unit} />
+        <MittenSchematic output={out} unit={form.unit} chart={form.chart} />
       </Section>
       <Section title="Instructions">
         <StepList steps={out.steps} />
@@ -664,7 +664,7 @@ function SocksPrint({ form, gauge }: PrintProps) {
         <YardageCard yardage={yardage} />
       </Section>
       <Section title="Schematic">
-        <SockSchematic output={out} unit={form.unit} />
+        <SockSchematic output={out} unit={form.unit} chart={form.chart} />
       </Section>
       <Section title="Instructions">
         <StepList steps={out.steps} />
