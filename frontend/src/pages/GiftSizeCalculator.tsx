@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { FiArrowLeft, FiUsers, FiCheck } from 'react-icons/fi';
+import { FiArrowLeft, FiUsers, FiCheck, FiSave } from 'react-icons/fi';
 import {
   recommendSizes,
   FIT_EASE_INCHES,
@@ -14,6 +14,7 @@ import {
 import { useSeo } from '../hooks/useSeo';
 import { useAuthStore } from '../stores/authStore';
 import { trackEvent } from '../lib/analytics';
+import SaveCalcToProjectModal, { type CalculatorMemoPayload } from '../components/calculators/SaveCalcToProjectModal';
 
 type NumField = number | '';
 
@@ -113,6 +114,7 @@ export default function GiftSizeCalculator() {
   const [fit, setFit] = useState<FitStyle>('classic');
   const [useCustomEase, setUseCustomEase] = useState(false);
   const [customEaseIn, setCustomEaseIn] = useState<NumField>(2);
+  const [showSaveModal, setShowSaveModal] = useState(false);
 
   const ready = typeof bodyChest === 'number' && bodyChest > 0;
   const result = useMemo(() => {
@@ -132,6 +134,27 @@ export default function GiftSizeCalculator() {
       trackEvent('Calculator Used', { calculator: 'gift-size', fit });
     }
   }, [result, fit]);
+
+  const memoPayload: CalculatorMemoPayload | null = useMemo(() => {
+    if (!result) return null;
+    const recs = result.recommendations
+      .map((r) => `${SCHEME_LABELS[r.scheme]}: ${r.recommended ? r.recommended.label : 'out of range'}`)
+      .join(' · ');
+    return {
+      calculator: 'gift_size',
+      inputs: {
+        body_chest: `${result.bodyChestIn} in`,
+        unit,
+        fit_style: useCustomEase ? `custom (${result.easeIn} in ease)` : `${fit} (${FIT_LABELS[fit]})`,
+      },
+      outputs: {
+        finished_chest: `${result.finishedChestIn} in`,
+        ease: `${result.easeIn >= 0 ? '+' : ''}${result.easeIn} in`,
+        recommendations: recs,
+      },
+      summary: `Recommended sizes for a ${result.bodyChestIn}-in chest with ${result.easeIn >= 0 ? '+' : ''}${result.easeIn}-in ease (finished chest ${result.finishedChestIn} in).`,
+    };
+  }, [result, unit, fit, useCustomEase]);
 
   return (
     <div className="space-y-4 md:space-y-6">
@@ -270,6 +293,27 @@ export default function GiftSizeCalculator() {
         </p>
       )}
 
+      {isAuthenticated && memoPayload ? (
+        <section className="flex flex-col items-start gap-3 rounded-lg border border-purple-200 bg-purple-50 p-4 dark:border-purple-800 dark:bg-purple-900/20 md:flex-row md:items-center md:justify-between md:p-6">
+          <div>
+            <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">
+              Save this size recommendation to a project
+            </h2>
+            <p className="mt-1 text-sm text-gray-700 dark:text-gray-300">
+              Pins it under that project&apos;s structured notes so you&apos;ve got the math when you cast on.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowSaveModal(true)}
+            className="inline-flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700"
+          >
+            <FiSave className="h-4 w-4" />
+            Save to project
+          </button>
+        </section>
+      ) : null}
+
       {!isAuthenticated ? (
         <section className="rounded-lg border border-purple-200 bg-purple-50 p-6 dark:border-purple-800 dark:bg-purple-900/20 md:p-8">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
@@ -337,6 +381,15 @@ export default function GiftSizeCalculator() {
           </div>
         </dl>
       </section>
+
+      {memoPayload ? (
+        <SaveCalcToProjectModal
+          open={showSaveModal}
+          payload={memoPayload}
+          title="Size recommendation"
+          onClose={() => setShowSaveModal(false)}
+        />
+      ) : null}
     </div>
   );
 }

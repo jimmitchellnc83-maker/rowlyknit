@@ -128,7 +128,7 @@ router.post(
   '/projects/:id/memos',
   [
     validateUUID('id'),
-    body('templateType').notEmpty().isIn(['gauge_swatch', 'fit_adjustment', 'yarn_substitution', 'finishing', 'finishing_techniques']),
+    body('templateType').notEmpty().isIn(['gauge_swatch', 'fit_adjustment', 'yarn_substitution', 'finishing', 'finishing_techniques', 'calculator_result']),
     body('data').notEmpty().isObject(),
     body('title').optional({ values: 'null' }).isString().isLength({ max: 500 }),
   ],
@@ -139,7 +139,7 @@ router.post(
   '/projects/:id/structured-memos',
   [
     validateUUID('id'),
-    body('templateType').notEmpty().isIn(['gauge_swatch', 'fit_adjustment', 'yarn_substitution', 'finishing', 'finishing_techniques']),
+    body('templateType').notEmpty().isIn(['gauge_swatch', 'fit_adjustment', 'yarn_substitution', 'finishing', 'finishing_techniques', 'calculator_result']),
     body('data').notEmpty().isObject(),
     body('title').optional({ values: 'null' }).isString().isLength({ max: 500 }),
   ],

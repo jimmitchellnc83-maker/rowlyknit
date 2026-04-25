@@ -67,9 +67,22 @@ export interface AudioNote {
 export interface StructuredMemo {
   id: string;
   project_id: string;
-  template_type: 'gauge_swatch' | 'fit_adjustment' | 'yarn_substitution' | 'finishing';
-  data: GaugeSwatchData | FitAdjustmentData | YarnSubstitutionData | FinishingData;
+  template_type:
+    | 'gauge_swatch'
+    | 'fit_adjustment'
+    | 'yarn_substitution'
+    | 'finishing'
+    | 'calculator_result';
+  data: GaugeSwatchData | FitAdjustmentData | YarnSubstitutionData | FinishingData | CalculatorResultData;
   created_at: string;
+}
+
+export interface CalculatorResultData {
+  calculator: 'gauge' | 'gift_size' | 'yarn_sub';
+  inputs: Record<string, unknown>;
+  outputs: Record<string, unknown>;
+  summary: string;
+  notes?: string;
 }
 
 export interface GaugeSwatchData {
