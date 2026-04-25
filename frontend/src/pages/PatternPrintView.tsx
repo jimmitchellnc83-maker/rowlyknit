@@ -5,6 +5,7 @@ import { FiArrowLeft, FiPrinter } from 'react-icons/fi';
 import {
   computeBlanket,
   computeBodyBlock,
+  computeCustomDraft,
   computeHat,
   computeMittens,
   computeScarf,
@@ -30,9 +31,11 @@ import RectSchematic from '../components/designer/RectSchematic';
 import ShawlSchematic from '../components/designer/ShawlSchematic';
 import SleeveSchematic from '../components/designer/SleeveSchematic';
 import SockSchematic from '../components/designer/SockSchematic';
+import CustomDraftSchematic from '../components/designer/CustomDraftSchematic';
 import ChartGrid from '../components/designer/ChartGrid';
 import { estimateYardageFromArea, formatYardage, type YardageRange } from '../utils/yardageEstimate';
 import { type DesignerFormSnapshot } from '../utils/designerSnapshot';
+import { DEFAULT_CUSTOM_DRAFT } from '../types/customDraft';
 
 /**
  * Clean printable pattern write-up. Reads the same localStorage key the
@@ -78,6 +81,7 @@ function itemTitle(t: string): string {
     shawl: 'Shawl',
     mittens: 'Mittens',
     socks: 'Socks',
+    custom: 'Custom shape',
   };
   return map[t] ?? 'Pattern';
 }
@@ -285,6 +289,7 @@ export default function PatternPrintView() {
       {form.itemType === 'shawl' && <ShawlPrint form={form} gauge={gauge} />}
       {form.itemType === 'mittens' && <MittensPrint form={form} gauge={gauge} />}
       {form.itemType === 'socks' && <SocksPrint form={form} gauge={gauge} />}
+      {form.itemType === 'custom' && <CustomDraftPrint form={form} gauge={gauge} />}
 
       {form.chart && (
         <div className="print-page-break mt-8">
@@ -668,6 +673,74 @@ function SocksPrint({ form, gauge }: PrintProps) {
       </Section>
       <Section title="Instructions">
         <StepList steps={out.steps} />
+      </Section>
+    </>
+  );
+}
+
+function CustomDraftPrint({ form, gauge }: PrintProps) {
+  const draft = form.customDraft ?? DEFAULT_CUSTOM_DRAFT;
+  const out = computeCustomDraft({ draft, gauge });
+  const yardage = estimateYardageFromArea(
+    out.startingWidthInches * out.totalHeightInches * 0.85,
+    gauge,
+  );
+  return (
+    <>
+      <Section title="Finished measurements">
+        <ul className="text-sm space-y-1">
+          <li>
+            Cast on: {out.startingStitches} sts ({formatLength(out.startingWidthInches, form.unit)} wide)
+          </li>
+          <li>
+            Total: {out.totalRows} rows ({formatLength(out.totalHeightInches, form.unit)} tall)
+          </li>
+          <li>
+            Final stitches at top: {out.finalStitches}
+          </li>
+          <li>
+            {draft.craftMode === 'machine' ? 'Machine knitting' : 'Hand knitting'} · {out.sections.length} section{out.sections.length === 1 ? '' : 's'}
+          </li>
+        </ul>
+      </Section>
+      <Section title="Yarn">
+        <YardageCard yardage={yardage} />
+      </Section>
+      <Section title="Schematic">
+        <CustomDraftSchematic output={out} unit={form.unit} chart={form.chart} />
+      </Section>
+      <Section title="Instructions">
+        <ol className="text-sm space-y-3 list-none p-0">
+          {out.sections.map((section) => (
+            <li key={section.id} className="border-t pt-3">
+              <div className="flex items-baseline justify-between">
+                <span className="font-semibold">
+                  {section.index + 1}. {section.name}
+                </span>
+                <span className="text-xs text-gray-500">
+                  Rows {section.startRow}–{section.endRow} · {section.rows} {section.rows === 1 ? 'row' : 'rows'}
+                </span>
+              </div>
+              <p className="mt-1 text-gray-800 dark:text-gray-200">{section.instruction}</p>
+              <p className="mt-1 text-xs text-gray-500">
+                Starts at {section.startStitches} sts ({formatLength(section.startWidthInches, form.unit)}). Ends at {section.endStitches} sts ({formatLength(section.endWidthInches, form.unit)}). Height {formatLength(section.heightInches, form.unit)}.
+              </p>
+              {section.note && (
+                <p className="mt-1 text-sm italic text-gray-700 dark:text-gray-300">Note: {section.note}</p>
+              )}
+            </li>
+          ))}
+        </ol>
+        {out.warnings.length > 0 && (
+          <div className="mt-4 rounded border border-amber-300 bg-amber-50 p-3 text-sm">
+            <strong className="text-amber-900">Check shaping:</strong>
+            <ul className="ml-5 mt-1 list-disc">
+              {out.warnings.map((w) => (
+                <li key={w}>{w}</li>
+              ))}
+            </ul>
+          </div>
+        )}
       </Section>
     </>
   );
