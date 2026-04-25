@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   FiArrowLeft,
@@ -15,6 +15,9 @@ import {
   type GaugeStatus,
   type NeedleChange,
 } from '../utils/gaugeMath';
+import { useSeo } from '../hooks/useSeo';
+import { useAuthStore } from '../stores/authStore';
+import { trackEvent } from '../lib/analytics';
 
 type NumField = number | '';
 
@@ -162,6 +165,14 @@ function GaugeForm({
 }
 
 export default function GaugeCalculator() {
+  useSeo({
+    title: 'Knitting Gauge Calculator — Free Swatch Checker | Rowly',
+    description:
+      "Free knitting gauge calculator. Enter your pattern's target and your swatch measurements to see whether you're on-gauge and how much your finished piece will drift.",
+    canonicalPath: '/calculators/gauge',
+  });
+
+  const { isAuthenticated } = useAuthStore();
   const [target, setTarget] = useState<FormGauge>(DEFAULT_TARGET);
   const [actual, setActual] = useState<FormGauge>(DEFAULT_ACTUAL);
   const [patternWidth, setPatternWidth] = useState<NumField>('');
@@ -172,6 +183,16 @@ export default function GaugeCalculator() {
     if (!ready) return null;
     return compareGauge(toGauge(target), toGauge(actual));
   }, [ready, target, actual]);
+
+  // Fire one Plausible event the first time a result computes in a session.
+  // Lets us see how many anonymous visitors actually use the calculator.
+  const trackedRef = useRef(false);
+  useEffect(() => {
+    if (result && !trackedRef.current) {
+      trackedRef.current = true;
+      trackEvent('Calculator Used', { calculator: 'gauge', status: result.status });
+    }
+  }, [result]);
 
   const widthPrediction =
     result && typeof patternWidth === 'number' && patternWidth > 0
@@ -195,12 +216,13 @@ export default function GaugeCalculator() {
           <FiArrowLeft className="mr-2 h-4 w-4" />
           Back to Calculators
         </Link>
-        <h1 className="mt-2 text-2xl font-bold text-gray-900 dark:text-gray-100 md:text-3xl">
-          Gauge Calculator
+        <h1 className="mt-2 text-3xl font-bold text-gray-900 dark:text-gray-100 md:text-4xl">
+          Knitting Gauge Calculator
         </h1>
-        <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-          Enter your pattern&apos;s target gauge and your swatch measurements to see whether
-          you&apos;re on-gauge, and how much your finished piece will drift if you aren&apos;t.
+        <p className="mt-2 max-w-2xl text-base text-gray-600 dark:text-gray-400">
+          Knit a swatch, enter the numbers below, and see whether your gauge matches the
+          pattern. If you&apos;re off, the calculator tells you whether to size your needles
+          up or down — and how much your finished piece will drift if you knit anyway.
         </p>
       </div>
 
@@ -319,6 +341,76 @@ export default function GaugeCalculator() {
           </section>
         </>
       ) : null}
+
+      {!isAuthenticated ? (
+        <section className="rounded-lg border border-purple-200 bg-purple-50 p-6 dark:border-purple-800 dark:bg-purple-900/20 md:p-8">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+            Save your gauge to a project
+          </h2>
+          <p className="mt-2 max-w-2xl text-sm text-gray-700 dark:text-gray-300">
+            Rowly stores your gauge with each project, so the row counter knows exactly when
+            you&apos;ve hit a target dimension. Free while we&apos;re in early access — no
+            credit card.
+          </p>
+          <Link
+            to="/register"
+            className="mt-4 inline-block rounded-lg bg-purple-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-purple-700"
+          >
+            Sign up free
+          </Link>
+        </section>
+      ) : null}
+
+      <section className="rounded-lg bg-white p-6 shadow dark:bg-gray-800 md:p-8">
+        <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+          Frequently asked questions
+        </h2>
+        <dl className="mt-4 space-y-5">
+          <div>
+            <dt className="font-medium text-gray-900 dark:text-gray-100">
+              What is gauge in knitting?
+            </dt>
+            <dd className="mt-1 text-sm text-gray-700 dark:text-gray-300">
+              Gauge is how many stitches and rows fit in a fixed area — usually a 4&nbsp;in
+              (10&nbsp;cm) square. It&apos;s set by your yarn, needles, and tension. Two
+              knitters using the same pattern can produce wildly different sizes if their
+              gauges don&apos;t match.
+            </dd>
+          </div>
+          <div>
+            <dt className="font-medium text-gray-900 dark:text-gray-100">
+              How do I measure gauge?
+            </dt>
+            <dd className="mt-1 text-sm text-gray-700 dark:text-gray-300">
+              Knit a swatch at least 6&nbsp;in (15&nbsp;cm) wide, in the same stitch pattern as
+              the project. Block it the way you&apos;ll wash the finished piece. Lay it flat,
+              then count stitches and rows across a 4&nbsp;in section in the middle — avoid
+              the edges, they distort.
+            </dd>
+          </div>
+          <div>
+            <dt className="font-medium text-gray-900 dark:text-gray-100">
+              What if I&apos;m off-gauge?
+            </dt>
+            <dd className="mt-1 text-sm text-gray-700 dark:text-gray-300">
+              Too many stitches per inch = swatch is tight, go up a needle size. Too few = swatch
+              is loose, go down. If only the row gauge is off, you can usually live with it for
+              flat shapes (just track length by inches, not rows). For shaped pieces — sweater
+              yokes, hat decreases — match both.
+            </dd>
+          </div>
+          <div>
+            <dt className="font-medium text-gray-900 dark:text-gray-100">
+              Should I block my swatch first?
+            </dt>
+            <dd className="mt-1 text-sm text-gray-700 dark:text-gray-300">
+              Yes. Most yarns relax or grow when wet, sometimes by 5–10%. Measuring an unblocked
+              swatch gives you a number that won&apos;t match the finished garment. Wash and lay
+              flat to dry exactly as you&apos;ll launder it.
+            </dd>
+          </div>
+        </dl>
+      </section>
     </div>
   );
 }

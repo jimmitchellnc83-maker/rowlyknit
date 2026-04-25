@@ -1,6 +1,7 @@
 import { Suspense, lazy } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from './stores/authStore';
+import { usePageviews } from './hooks/usePageviews';
 import PWAInstallPrompt from './components/PWAInstallPrompt';
 import OfflineIndicator from './components/OfflineIndicator';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -8,6 +9,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 // Layouts
 import MainLayout from './components/layouts/MainLayout';
 import AuthLayout from './components/layouts/AuthLayout';
+import PublicLayout from './components/layouts/PublicLayout';
 
 // Pages
 import Dashboard from './pages/Dashboard';
@@ -31,6 +33,7 @@ import Recipients from './pages/Recipients';
 import Profile from './pages/Profile';
 import Stats from './pages/Stats';
 import Help from './pages/Help';
+import PublicProjectPage from './pages/PublicProjectPage';
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
 import ForgotPassword from './pages/auth/ForgotPassword';
@@ -93,6 +96,7 @@ function LandingOrDashboard() {
 }
 
 function App() {
+  usePageviews();
   return (
     <>
       <OfflineIndicator />
@@ -104,6 +108,17 @@ function App() {
       {/* Public legal pages — accessible regardless of auth state */}
       <Route path="/privacy" element={<PublicSuspense><Privacy /></PublicSuspense>} />
       <Route path="/terms" element={<PublicSuspense><Terms /></PublicSuspense>} />
+
+      {/* Public, indexable calculator pages. Drives organic search ("knitting
+          gauge calculator") and surfaces Rowly to knitters who haven't
+          signed up yet. Yarn-substitution stays auth-only because it scores
+          the user's stash. */}
+      <Route element={<PublicLayout />}>
+        <Route path="/calculators" element={<Calculators />} />
+        <Route path="/calculators/gauge" element={<ErrorBoundary><GaugeCalculator /></ErrorBoundary>} />
+        <Route path="/calculators/gift-size" element={<ErrorBoundary><GiftSizeCalculator /></ErrorBoundary>} />
+        <Route path="/p/:slug" element={<ErrorBoundary><PublicProjectPage /></ErrorBoundary>} />
+      </Route>
 
         {/* Auth routes */}
       <Route element={<AuthLayout />}>
@@ -154,10 +169,7 @@ function App() {
         <Route path="/yarn" element={<ErrorBoundary><YarnStash /></ErrorBoundary>} />
         <Route path="/yarn/:id" element={<ErrorBoundary><YarnDetail /></ErrorBoundary>} />
         <Route path="/tools" element={<Tools />} />
-        <Route path="/calculators" element={<Calculators />} />
-        <Route path="/calculators/gauge" element={<ErrorBoundary><GaugeCalculator /></ErrorBoundary>} />
         <Route path="/calculators/yarn-sub" element={<ErrorBoundary><YarnSubstitutionCalculator /></ErrorBoundary>} />
-        <Route path="/calculators/gift-size" element={<ErrorBoundary><GiftSizeCalculator /></ErrorBoundary>} />
         <Route path="/designer" element={<ErrorBoundary><PatternDesigner /></ErrorBoundary>} />
         <Route path="/designer/print" element={<ErrorBoundary><PatternPrintView /></ErrorBoundary>} />
         <Route path="/recipients" element={<Recipients />} />

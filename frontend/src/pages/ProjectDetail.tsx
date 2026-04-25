@@ -21,6 +21,7 @@ import {
   AddYarnModal,
   AddToolModal,
 } from '../components/project-detail/modals';
+import ShareProjectModal from '../components/project-detail/modals/ShareProjectModal';
 import type {
   EditProjectFormData,
   NewPatternData,
@@ -58,6 +59,9 @@ interface Project {
   completion_date: string;
   notes: string;
   recipient_id?: string;
+  is_public?: boolean;
+  share_slug?: string | null;
+  published_at?: string | null;
   photos: any[];
   counters: any[];
   pieces?: any[];
@@ -80,6 +84,7 @@ export default function ProjectDetail() {
   const [photos, setPhotos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
 
   // Knitting Mode state (sourced from context so MainLayout can dim the sidebar)
   const { knittingMode, setKnittingMode } = useKnittingMode();
@@ -482,6 +487,8 @@ export default function ProjectDetail() {
         selectedRecipient={selectedRecipient}
         onEdit={() => setShowEditModal(true)}
         onDelete={() => setShowDeleteProjectConfirm(true)}
+        onShare={() => setShowShareModal(true)}
+        isPublic={!!project.is_public}
       />
 
       {knittingMode ? (
@@ -672,6 +679,28 @@ export default function ProjectDetail() {
           availableRecipients={availableRecipients}
           onClose={() => setShowEditModal(false)}
           onSubmit={handleUpdateProject}
+        />
+      )}
+
+      {showShareModal && (
+        <ShareProjectModal
+          projectId={id!}
+          projectName={project.name}
+          initialIsPublic={!!project.is_public}
+          initialShareSlug={project.share_slug ?? null}
+          onClose={() => setShowShareModal(false)}
+          onChange={(next) =>
+            setProject((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    is_public: next.isPublic,
+                    share_slug: next.shareSlug,
+                    published_at: next.publishedAt,
+                  }
+                : prev,
+            )
+          }
         />
       )}
 

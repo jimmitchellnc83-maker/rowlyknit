@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FiArrowLeft, FiUsers, FiCheck } from 'react-icons/fi';
 import {
@@ -11,6 +11,9 @@ import {
   type SizeRecommendation,
   type SizeScheme,
 } from '../utils/giftSizeMath';
+import { useSeo } from '../hooks/useSeo';
+import { useAuthStore } from '../stores/authStore';
+import { trackEvent } from '../lib/analytics';
 
 type NumField = number | '';
 
@@ -97,6 +100,14 @@ function SchemeCard({ rec }: { rec: SizeRecommendation }) {
 }
 
 export default function GiftSizeCalculator() {
+  useSeo({
+    title: 'Knitting Size Calculator — Find the Right Sweater Size | Rowly',
+    description:
+      'Free knitting size calculator. Enter a chest measurement and a fit style; get a recommended size across women, men, children, and baby schemes.',
+    canonicalPath: '/calculators/gift-size',
+  });
+
+  const { isAuthenticated } = useAuthStore();
   const [bodyChest, setBodyChest] = useState<NumField>(36);
   const [unit, setUnit] = useState<MeasurementUnit>('in');
   const [fit, setFit] = useState<FitStyle>('classic');
@@ -114,6 +125,14 @@ export default function GiftSizeCalculator() {
     });
   }, [ready, bodyChest, unit, fit, useCustomEase, customEaseIn]);
 
+  const trackedRef = useRef(false);
+  useEffect(() => {
+    if (result && !trackedRef.current) {
+      trackedRef.current = true;
+      trackEvent('Calculator Used', { calculator: 'gift-size', fit });
+    }
+  }, [result, fit]);
+
   return (
     <div className="space-y-4 md:space-y-6">
       <div>
@@ -124,14 +143,15 @@ export default function GiftSizeCalculator() {
           <FiArrowLeft className="mr-2 h-4 w-4" />
           Back to Calculators
         </Link>
-        <h1 className="mt-2 text-2xl font-bold text-gray-900 dark:text-gray-100 md:text-3xl">
-          Size Calculator
+        <h1 className="mt-2 text-3xl font-bold text-gray-900 dark:text-gray-100 md:text-4xl">
+          Knitting Size Calculator
         </h1>
-        <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-          Enter a chest or bust measurement and pick a fit style — we&apos;ll recommend a size
-          across common pattern sizing schemes (women, men, children, baby) and show how the
-          finished garment will measure. Works for gifts, your own projects, or anyone
-          you&apos;re knitting for.
+        <p className="mt-2 max-w-2xl text-base text-gray-600 dark:text-gray-400">
+          Enter a chest or bust measurement and pick a fit style — the calculator recommends a
+          size across common pattern schemes (women, men, children, baby) and shows how the
+          finished garment will measure. Useful when you&apos;re knitting for a gift recipient
+          you can&apos;t measure, sizing up for a child who&apos;ll grow into the piece, or
+          just deciding between two pattern sizes.
         </p>
       </div>
 
@@ -249,6 +269,74 @@ export default function GiftSizeCalculator() {
           Enter a chest/bust measurement to see size recommendations.
         </p>
       )}
+
+      {!isAuthenticated ? (
+        <section className="rounded-lg border border-purple-200 bg-purple-50 p-6 dark:border-purple-800 dark:bg-purple-900/20 md:p-8">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+            Track who you&apos;re knitting for
+          </h2>
+          <p className="mt-2 max-w-2xl text-sm text-gray-700 dark:text-gray-300">
+            Save recipients with their measurements, gift history, and preferences in Rowly so
+            you never have to ask &quot;what size again?&quot; mid-project. Free in early access.
+          </p>
+          <Link
+            to="/register"
+            className="mt-4 inline-block rounded-lg bg-purple-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-purple-700"
+          >
+            Sign up free
+          </Link>
+        </section>
+      ) : null}
+
+      <section className="rounded-lg bg-white p-6 shadow dark:bg-gray-800 md:p-8">
+        <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+          Frequently asked questions
+        </h2>
+        <dl className="mt-4 space-y-5">
+          <div>
+            <dt className="font-medium text-gray-900 dark:text-gray-100">
+              How do I size a sweater for someone I can&apos;t measure?
+            </dt>
+            <dd className="mt-1 text-sm text-gray-700 dark:text-gray-300">
+              Estimate their chest measurement from a similar-sized garment in their closet (lay
+              it flat, measure across the chest just below the armholes, then double). Pick a
+              fit style that matches what they normally wear. The calculator handles the rest.
+            </dd>
+          </div>
+          <div>
+            <dt className="font-medium text-gray-900 dark:text-gray-100">
+              What&apos;s the difference between fitted, classic, and oversized?
+            </dt>
+            <dd className="mt-1 text-sm text-gray-700 dark:text-gray-300">
+              Fit style controls ease — how much bigger the finished garment is than the body.
+              Close-fit is negative (stretches over the body), classic is +2&nbsp;in, relaxed is
+              +4&nbsp;in, and oversized is +6&nbsp;in or more. Pick the same style as a sweater
+              they already wear and like.
+            </dd>
+          </div>
+          <div>
+            <dt className="font-medium text-gray-900 dark:text-gray-100">
+              Can I use this for hats, baby clothes, or other knitted gifts?
+            </dt>
+            <dd className="mt-1 text-sm text-gray-700 dark:text-gray-300">
+              The calculator targets sweaters and pullovers (chest-based sizing). For hats, the
+              right reference is head circumference, not chest — most pattern designers list it
+              in the size chart. Baby sweaters use chest-based sizing too, and the baby scheme
+              is included.
+            </dd>
+          </div>
+          <div>
+            <dt className="font-medium text-gray-900 dark:text-gray-100">
+              Why does the recommendation differ between schemes?
+            </dt>
+            <dd className="mt-1 text-sm text-gray-700 dark:text-gray-300">
+              Different sizing systems use different chest-range bands. A 38&nbsp;in chest might
+              be a Women&apos;s M but a Men&apos;s S — patterns published in different schemes
+              are calibrated to different reference bodies. Pick the scheme your pattern uses.
+            </dd>
+          </div>
+        </dl>
+      </section>
     </div>
   );
 }

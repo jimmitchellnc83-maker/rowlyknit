@@ -13,6 +13,7 @@ import { useUndoableDelete } from '../hooks/useUndoableDelete';
 import PageHelpButton from '../components/PageHelpButton';
 import { formatDate } from '../utils/formatDate';
 import { FeasibilityBadge } from '../components/projects';
+import { trackEvent } from '../lib/analytics';
 import type { LightLevel } from '../components/projects/FeasibilityBadge';
 
 interface FeasibilitySummary {
@@ -207,6 +208,7 @@ export default function Projects() {
     e.preventDefault();
     createProject.mutate(formData, {
       onSuccess: () => {
+        trackEvent('Project Created', { type: formData.projectType });
         toast.success('Project created successfully!');
         setShowCreateModal(false);
         setFormData({

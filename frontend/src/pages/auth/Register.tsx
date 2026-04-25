@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { toast } from 'react-toastify';
 import { useNoIndex } from '../../hooks/useNoIndex';
+import { trackEvent } from '../../lib/analytics';
 
 export default function Register() {
   useNoIndex();
@@ -37,6 +38,7 @@ export default function Register() {
 
     try {
       await register({ email, password, firstName, lastName });
+      trackEvent('Signup');
       toast.success('Registration successful! Please check your email to verify your account.');
       navigate('/login');
     } catch (error: any) {
