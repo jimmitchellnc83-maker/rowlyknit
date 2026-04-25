@@ -513,14 +513,16 @@ export default function YarnStash() {
       {yarn.length === 0 ? (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-12 text-center">
           <FiPackage className="mx-auto h-16 w-16 text-gray-400 mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No yarn in stash</h3>
-          <p className="text-gray-500 dark:text-gray-400 mb-4">Start tracking your yarn collection</p>
+          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">Build your yarn stash</h3>
+          <p className="text-gray-500 dark:text-gray-400 mb-4 mx-auto max-w-md">
+            Scan labels with OCR, photograph a barcode, or add manually. Then Rowly can run feasibility for any pattern against what you actually own.
+          </p>
           <button
             onClick={() => setShowCreateModal(true)}
             className="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
           >
             <FiPlus className="mr-2" />
-            Add Your First Yarn
+            Add yarn
           </button>
         </div>
       ) : (

@@ -193,14 +193,16 @@ export default function Recipients() {
       {recipients.length === 0 ? (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-12 text-center">
           <FiUsers className="mx-auto h-16 w-16 text-gray-400 mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No recipients yet</h3>
-          <p className="text-gray-500 dark:text-gray-400 mb-4">Start tracking people you knit for</p>
+          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">Who are you knitting for?</h3>
+          <p className="text-gray-500 dark:text-gray-400 mb-4 mx-auto max-w-md">
+            Save recipient profiles with sizes, favorite colors, and gift deadlines so your next gift project starts already sized and scheduled.
+          </p>
           <button
             onClick={() => setShowCreateModal(true)}
             className="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
           >
             <FiPlus className="mr-2" />
-            Add Your First Recipient
+            Add a recipient
           </button>
         </div>
       ) : (

@@ -371,15 +371,15 @@ export default function Projects() {
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-12 text-center">
           <FiClock className="mx-auto h-16 w-16 text-gray-400 mb-4" />
           <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
-            {statusFilter ? `No ${(STATUS_LABELS[statusFilter] || statusFilter).toLowerCase()} projects` : 'No projects yet'}
+            {statusFilter ? `No ${(STATUS_LABELS[statusFilter] || statusFilter).toLowerCase()} projects` : 'Start your next project'}
           </h3>
-          <p className="text-gray-500 dark:text-gray-400 mb-4">
+          <p className="text-gray-500 dark:text-gray-400 mb-4 mx-auto max-w-md">
             {statusFilter ? (
               <button type="button" onClick={clearStatusFilter} className="text-purple-600 hover:text-purple-700 dark:text-purple-400">
                 Clear filter
               </button>
             ) : (
-              'Start tracking your knitting projects'
+              'Every project lives here — row counts, yarn, photos, notes — so you can pick it back up without hunting for your place.'
             )}
           </p>
           <button
@@ -387,7 +387,7 @@ export default function Projects() {
             className="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
           >
             <FiPlus className="mr-2" />
-            Create Your First Project
+            Create a project
           </button>
         </div>
       ) : (
