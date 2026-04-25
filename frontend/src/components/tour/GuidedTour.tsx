@@ -186,7 +186,7 @@ const STEPS: Step[] = [
     placement: 'center',
     title: 'Explore the examples',
     content:
-      "Open the Harvest Pullover project to see everything wired up — counters, Panel Mode, magic markers, sessions. Then check out the yarn stash, patterns library, and calculators from the nav. The ? button on each page walks you through what's there.",
+      "Open the Harvest Pullover project to see everything wired up — counters, Guided Pieces, magic markers, sessions. Then check out the yarn stash, patterns library, and calculators from the nav. The ? button on each page walks you through what's there.",
     disableBeacon: true,
   },
   {

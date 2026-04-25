@@ -589,10 +589,10 @@ export default function ProjectDetail() {
                   to={`/projects/${id}/panels`}
                   className="inline-flex items-center gap-1.5 text-sm text-blue-600 dark:text-blue-400 hover:underline"
                 >
-                  Panel Mode →
+                  Guided Pieces →
                 </Link>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  Track multi-panel patterns with one master counter.
+                  Track every piece of a multi-panel pattern with one master counter.
                 </p>
               </div>
             </section>
