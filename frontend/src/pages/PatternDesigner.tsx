@@ -1514,7 +1514,7 @@ export default function PatternDesigner() {
                             : 'Sleeve'}
             </h2>
             {form.itemType === 'hat' && hatOutput ? (
-              <HatSchematic output={hatOutput} unit={form.unit} />
+              <HatSchematic output={hatOutput} unit={form.unit} chart={form.chart} />
             ) : form.itemType === 'mittens' && mittenOutput ? (
               <MittenSchematic output={mittenOutput} unit={form.unit} />
             ) : form.itemType === 'socks' && sockOutput ? (
@@ -1530,6 +1530,7 @@ export default function PatternDesigner() {
                 castOnStitches={scarfOutput.castOnStitches}
                 fringeInches={scarfOutput.fringeLength}
                 unit={form.unit}
+                chart={form.chart}
               />
             ) : form.itemType === 'blanket' && blanketOutput ? (
               <RectSchematic
@@ -1542,14 +1543,16 @@ export default function PatternDesigner() {
                   typeof form.blanketBorderDepth === 'number' ? form.blanketBorderDepth : 0
                 }
                 unit={form.unit}
+                chart={form.chart}
               />
             ) : form.itemType === 'sweater' && form.activeSection === 'body' && bodyOutput ? (
-              <BodySchematic input={buildBodyInput(form)} output={bodyOutput} unit={form.unit} />
+              <BodySchematic input={buildBodyInput(form)} output={bodyOutput} unit={form.unit} chart={form.chart} />
             ) : form.itemType === 'sweater' && form.activeSection === 'sleeve' && sleeveOutput ? (
               <SleeveSchematic
                 input={buildSleeveInput(form, bodyOutput?.armholeInitialBindOffPerSide ?? null)}
                 output={sleeveOutput}
                 unit={form.unit}
+                chart={form.chart}
               />
             ) : (
               <div className="flex min-h-[280px] items-center justify-center rounded-lg border border-dashed border-gray-300 bg-gray-50 p-6 text-center text-sm italic text-gray-500">

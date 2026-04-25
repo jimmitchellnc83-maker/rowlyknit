@@ -1,9 +1,13 @@
+import { useId } from 'react';
 import { formatLength, type SleeveInput, type SleeveOutput, type MeasurementUnit } from '../../utils/designerMath';
+import type { ChartData } from './ChartGrid';
+import ChartOverlay from './ChartOverlay';
 
 interface SleeveSchematicProps {
   input: SleeveInput;
   output: SleeveOutput;
   unit: MeasurementUnit;
+  chart?: ChartData | null;
 }
 
 /**
@@ -14,7 +18,8 @@ interface SleeveSchematicProps {
  * taper (narrows) → cap top (narrow bind-off). The whole outline becomes an
  * elongated hexagon with a clear "shoulder-ball" silhouette at the top.
  */
-export default function SleeveSchematic({ input: _input, output, unit }: SleeveSchematicProps) {
+export default function SleeveSchematic({ input: _input, output, unit, chart }: SleeveSchematicProps) {
+  const clipId = useId();
   const viewW = 320;
   const viewH = 440;
 
@@ -80,6 +85,15 @@ export default function SleeveSchematic({ input: _input, output, unit }: SleeveS
       className="w-full max-w-sm mx-auto"
     >
       <path d={outline} fill="#ECFDF5" stroke="#059669" strokeWidth="1.5" strokeLinejoin="round" />
+
+      <ChartOverlay
+        chart={chart ?? null}
+        clipPath={outline}
+        bounds={{ x: marginX, y: marginY, width: areaW, height: areaH }}
+        stitchToPx={stitchToPx}
+        rowToPx={rowToPx}
+        clipId={clipId}
+      />
 
       {/* Cuff band (dashed line at top of ribbing) */}
       <line

@@ -426,7 +426,7 @@ function SweaterPrint({ form, gauge }: PrintProps) {
       </Section>
 
       <Section title="Body — schematic">
-        <BodySchematic input={bodyInput} output={body} unit={form.unit} />
+        <BodySchematic input={bodyInput} output={body} unit={form.unit} chart={form.chart} />
       </Section>
       <Section title="Body — instructions">
         <StepList steps={body.steps} />
@@ -434,7 +434,7 @@ function SweaterPrint({ form, gauge }: PrintProps) {
 
       <div className="print-page-break">
         <Section title="Sleeve — schematic">
-          <SleeveSchematic input={sleeveInput} output={sleeve} unit={form.unit} />
+          <SleeveSchematic input={sleeveInput} output={sleeve} unit={form.unit} chart={form.chart} />
         </Section>
         <Section title="Sleeve — instructions">
           <StepList steps={sleeve.steps} />
@@ -471,7 +471,7 @@ function HatPrint({ form, gauge }: PrintProps) {
         <YardageCard yardage={yardage} />
       </Section>
       <Section title="Schematic">
-        <HatSchematic output={out} unit={form.unit} />
+        <HatSchematic output={out} unit={form.unit} chart={form.chart} />
       </Section>
       <Section title="Instructions">
         <StepList steps={out.steps} />
@@ -510,6 +510,7 @@ function ScarfPrint({ form, gauge }: PrintProps) {
           castOnStitches={out.castOnStitches}
           fringeInches={out.fringeLength}
           unit={form.unit}
+          chart={form.chart}
         />
       </Section>
       <Section title="Instructions">
@@ -551,6 +552,7 @@ function BlanketPrint({ form, gauge }: PrintProps) {
           castOnStitches={out.castOnStitches}
           borderInches={typeof form.blanketBorderDepth === 'number' ? form.blanketBorderDepth : 0}
           unit={form.unit}
+          chart={form.chart}
         />
       </Section>
       <Section title="Instructions">
