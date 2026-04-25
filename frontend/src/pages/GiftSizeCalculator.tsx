@@ -106,6 +106,33 @@ export default function GiftSizeCalculator() {
     description:
       'Free knitting size calculator. Enter a chest measurement and a fit style; get a recommended size across women, men, children, and baby schemes.',
     canonicalPath: '/calculators/gift-size',
+    structuredData: [
+      {
+        '@context': 'https://schema.org',
+        '@type': 'WebApplication',
+        name: 'Knitting Size Calculator',
+        url: 'https://rowlyknit.com/calculators/gift-size',
+        description:
+          'Enter a chest or bust measurement and a fit style; get a recommended size across women, men, children, and baby schemes.',
+        applicationCategory: 'UtilitiesApplication',
+        operatingSystem: 'Any',
+        offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+        publisher: {
+          '@type': 'Organization',
+          name: 'Rowly',
+          url: 'https://rowlyknit.com/',
+        },
+      },
+      {
+        '@context': 'https://schema.org',
+        '@type': 'BreadcrumbList',
+        itemListElement: [
+          { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://rowlyknit.com/' },
+          { '@type': 'ListItem', position: 2, name: 'Calculators', item: 'https://rowlyknit.com/calculators' },
+          { '@type': 'ListItem', position: 3, name: 'Size Calculator', item: 'https://rowlyknit.com/calculators/gift-size' },
+        ],
+      },
+    ],
   });
 
   const { isAuthenticated } = useAuthStore();

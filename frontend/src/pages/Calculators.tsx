@@ -42,6 +42,38 @@ export default function Calculators() {
     description:
       'Free knitting calculators: check your gauge swatch, find size recommendations, substitute yarn. No account needed for gauge or sizing.',
     canonicalPath: '/calculators',
+    structuredData: [
+      {
+        '@context': 'https://schema.org',
+        '@type': 'CollectionPage',
+        name: 'Free Knitting Calculators',
+        url: 'https://rowlyknit.com/calculators',
+        description:
+          'Free knitting calculators for gauge, sizing, and yarn substitution.',
+        hasPart: CALCULATORS.map((c) => ({
+          '@type': 'WebApplication',
+          name: c.title,
+          url: `https://rowlyknit.com${c.href}`,
+          description: c.description,
+          applicationCategory: 'UtilitiesApplication',
+          operatingSystem: 'Any',
+          offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+        })),
+        publisher: {
+          '@type': 'Organization',
+          name: 'Rowly',
+          url: 'https://rowlyknit.com/',
+        },
+      },
+      {
+        '@context': 'https://schema.org',
+        '@type': 'BreadcrumbList',
+        itemListElement: [
+          { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://rowlyknit.com/' },
+          { '@type': 'ListItem', position: 2, name: 'Calculators', item: 'https://rowlyknit.com/calculators' },
+        ],
+      },
+    ],
   });
 
   return (

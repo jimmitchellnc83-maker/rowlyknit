@@ -172,6 +172,33 @@ export default function GaugeCalculator() {
     description:
       "Free knitting gauge calculator. Enter your pattern's target and your swatch measurements to see whether you're on-gauge and how much your finished piece will drift.",
     canonicalPath: '/calculators/gauge',
+    structuredData: [
+      {
+        '@context': 'https://schema.org',
+        '@type': 'WebApplication',
+        name: 'Knitting Gauge Calculator',
+        url: 'https://rowlyknit.com/calculators/gauge',
+        description:
+          "Compare your knitted swatch against a pattern's target gauge. See whether you're on-gauge and how the finished piece will drift.",
+        applicationCategory: 'UtilitiesApplication',
+        operatingSystem: 'Any',
+        offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+        publisher: {
+          '@type': 'Organization',
+          name: 'Rowly',
+          url: 'https://rowlyknit.com/',
+        },
+      },
+      {
+        '@context': 'https://schema.org',
+        '@type': 'BreadcrumbList',
+        itemListElement: [
+          { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://rowlyknit.com/' },
+          { '@type': 'ListItem', position: 2, name: 'Calculators', item: 'https://rowlyknit.com/calculators' },
+          { '@type': 'ListItem', position: 3, name: 'Gauge Calculator', item: 'https://rowlyknit.com/calculators/gauge' },
+        ],
+      },
+    ],
   });
 
   const { isAuthenticated } = useAuthStore();
