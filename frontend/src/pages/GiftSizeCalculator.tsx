@@ -22,6 +22,27 @@ const FIT_ORDER: FitStyle[] = ['close', 'fitted', 'classic', 'relaxed', 'oversiz
 
 const SCHEME_ORDER: SizeScheme[] = ['women', 'men', 'child', 'baby'];
 
+// Single source of truth — rendered as a <dl> AND emitted as FAQPage
+// JSON-LD so Google can pull these into the rich FAQ accordion in SERPs.
+const FAQS: Array<{ q: string; a: string }> = [
+  {
+    q: "How do I size a sweater for someone I can't measure?",
+    a: 'Estimate their chest measurement from a similar-sized garment in their closet (lay it flat, measure across the chest just below the armholes, then double). Pick a fit style that matches what they normally wear. The calculator handles the rest.',
+  },
+  {
+    q: "What's the difference between fitted, classic, and oversized?",
+    a: 'Fit style controls ease — how much bigger the finished garment is than the body. Close-fit is negative (stretches over the body), classic is +2 in, relaxed is +4 in, and oversized is +6 in or more. Pick the same style as a sweater they already wear and like.',
+  },
+  {
+    q: 'Can I use this for hats, baby clothes, or other knitted gifts?',
+    a: 'The calculator targets sweaters and pullovers (chest-based sizing). For hats, the right reference is head circumference, not chest — most pattern designers list it in the size chart. Baby sweaters use chest-based sizing too, and the baby scheme is included.',
+  },
+  {
+    q: 'Why does the recommendation differ between schemes?',
+    a: "Different sizing systems use different chest-range bands. A 38 in chest might be a Women's M but a Men's S — patterns published in different schemes are calibrated to different reference bodies. Pick the scheme your pattern uses.",
+  },
+];
+
 function RangeCell({ label, minChest, maxChest }: { label: string; minChest: number; maxChest: number }) {
   return (
     <div>
@@ -131,6 +152,15 @@ export default function GiftSizeCalculator() {
           { '@type': 'ListItem', position: 2, name: 'Calculators', item: 'https://rowlyknit.com/calculators' },
           { '@type': 'ListItem', position: 3, name: 'Size Calculator', item: 'https://rowlyknit.com/calculators/gift-size' },
         ],
+      },
+      {
+        '@context': 'https://schema.org',
+        '@type': 'FAQPage',
+        mainEntity: FAQS.map(({ q, a }) => ({
+          '@type': 'Question',
+          name: q,
+          acceptedAnswer: { '@type': 'Answer', text: a },
+        })),
       },
     ],
   });
@@ -364,49 +394,35 @@ export default function GiftSizeCalculator() {
           Frequently asked questions
         </h2>
         <dl className="mt-4 space-y-5">
-          <div>
-            <dt className="font-medium text-gray-900 dark:text-gray-100">
-              How do I size a sweater for someone I can&apos;t measure?
-            </dt>
-            <dd className="mt-1 text-sm text-gray-700 dark:text-gray-300">
-              Estimate their chest measurement from a similar-sized garment in their closet (lay
-              it flat, measure across the chest just below the armholes, then double). Pick a
-              fit style that matches what they normally wear. The calculator handles the rest.
-            </dd>
-          </div>
-          <div>
-            <dt className="font-medium text-gray-900 dark:text-gray-100">
-              What&apos;s the difference between fitted, classic, and oversized?
-            </dt>
-            <dd className="mt-1 text-sm text-gray-700 dark:text-gray-300">
-              Fit style controls ease — how much bigger the finished garment is than the body.
-              Close-fit is negative (stretches over the body), classic is +2&nbsp;in, relaxed is
-              +4&nbsp;in, and oversized is +6&nbsp;in or more. Pick the same style as a sweater
-              they already wear and like.
-            </dd>
-          </div>
-          <div>
-            <dt className="font-medium text-gray-900 dark:text-gray-100">
-              Can I use this for hats, baby clothes, or other knitted gifts?
-            </dt>
-            <dd className="mt-1 text-sm text-gray-700 dark:text-gray-300">
-              The calculator targets sweaters and pullovers (chest-based sizing). For hats, the
-              right reference is head circumference, not chest — most pattern designers list it
-              in the size chart. Baby sweaters use chest-based sizing too, and the baby scheme
-              is included.
-            </dd>
-          </div>
-          <div>
-            <dt className="font-medium text-gray-900 dark:text-gray-100">
-              Why does the recommendation differ between schemes?
-            </dt>
-            <dd className="mt-1 text-sm text-gray-700 dark:text-gray-300">
-              Different sizing systems use different chest-range bands. A 38&nbsp;in chest might
-              be a Women&apos;s M but a Men&apos;s S — patterns published in different schemes
-              are calibrated to different reference bodies. Pick the scheme your pattern uses.
-            </dd>
-          </div>
+          {FAQS.map(({ q, a }) => (
+            <div key={q}>
+              <dt className="font-medium text-gray-900 dark:text-gray-100">{q}</dt>
+              <dd className="mt-1 text-sm text-gray-700 dark:text-gray-300">{a}</dd>
+            </div>
+          ))}
         </dl>
+      </section>
+
+      <section className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm dark:border-gray-700 dark:bg-gray-800/40 md:p-6">
+        <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">
+          Related knitting calculators
+        </h2>
+        <ul className="mt-2 space-y-1 text-purple-700 dark:text-purple-400">
+          <li>
+            <Link to="/calculators/gauge" className="hover:underline">
+              Knitting gauge calculator
+            </Link>{' '}
+            <span className="text-gray-600 dark:text-gray-400">
+              — check whether your swatch matches the pattern.
+            </span>
+          </li>
+          <li>
+            <Link to="/calculators" className="hover:underline">
+              All knitting calculators
+            </Link>{' '}
+            <span className="text-gray-600 dark:text-gray-400">— gauge, sizing, yarn substitution.</span>
+          </li>
+        </ul>
       </section>
 
       {memoPayload ? (
