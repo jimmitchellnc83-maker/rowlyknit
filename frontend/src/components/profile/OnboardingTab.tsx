@@ -17,11 +17,11 @@ type OnboardingGoal =
   | 'explore_examples';
 
 const GOAL_LABEL: Record<OnboardingGoal, string> = {
-  track_project: 'Track an active project',
-  organize_stash: 'Organize my stash',
-  follow_pattern: 'Follow a pattern without losing my place',
-  design_new: 'Design something new',
-  explore_examples: 'Explore with example data',
+  track_project: 'Track my current project',
+  organize_stash: 'Organize yarn, tools, and supplies',
+  follow_pattern: 'Follow a pattern step by step',
+  design_new: 'Design a pattern or garment',
+  explore_examples: 'Show me how Rowly works',
 };
 
 interface ExampleStatus {
