@@ -20,6 +20,10 @@ export interface ChartData {
   height: number;
   /** Row-major. First `width` cells are row 1 (top of chart). */
   cells: ChartCell[];
+  /** When true, every row is RS (chart is worked circularly: rounds, not
+   *  rows). Drives chart-to-text generation and the row-label gutter
+   *  (shows "Rnd" instead of "RS/WS"). Defaults to false (flat work). */
+  workedInRound?: boolean;
 }
 
 export type ChartTool =
@@ -35,6 +39,7 @@ export function emptyChart(width: number, height: number): ChartData {
       symbolId: null,
       colorHex: null,
     })),
+    workedInRound: false,
   };
 }
 
@@ -51,7 +56,7 @@ export function resizeChart(prev: ChartData, width: number, height: number): Cha
       }
     }
   }
-  return { width: w, height: h, cells: next };
+  return { ...prev, width: w, height: h, cells: next };
 }
 
 interface ChartGridProps {
@@ -310,6 +315,7 @@ export default function ChartGrid({
         <div className="flex flex-col-reverse text-[10px] font-mono text-gray-500" style={{ gap: 0 }}>
           {Array.from({ length: chart.height }).map((_, i) => {
             const isActive = highlightedRowIndex === i + 1;
+            const sideLabel = chart.workedInRound ? 'Rnd' : i % 2 === 0 ? 'RS' : 'WS';
             return (
               <span
                 key={i}
@@ -317,7 +323,7 @@ export default function ChartGrid({
                 style={{ height: cellSize }}
               >
                 <span className="ml-1">{i + 1}</span>
-                <span className="ml-1 text-[9px] text-gray-400">{i % 2 === 0 ? 'RS' : 'WS'}</span>
+                <span className="ml-1 text-[9px] text-gray-400">{sideLabel}</span>
               </span>
             );
           })}

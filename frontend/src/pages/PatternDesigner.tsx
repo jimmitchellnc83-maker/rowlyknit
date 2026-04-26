@@ -42,6 +42,8 @@ import SleeveSchematic from '../components/designer/SleeveSchematic';
 import SockSchematic from '../components/designer/SockSchematic';
 import StitchPalette from '../components/designer/StitchPalette';
 import PageHelpButton from '../components/PageHelpButton';
+import { useChartSymbols } from '../hooks/useChartSymbols';
+import { buildChartInstructions } from '../utils/chartInstruction';
 import {
   DESIGNER_TEMPLATES,
   mergeTemplateIntoForm,
@@ -136,6 +138,10 @@ interface DesignerForm {
   // Null means "no chart yet"; when the user opens the Chart section the
   // first time we initialize a small default grid.
   chart: ChartData | null;
+
+  // Chart instruction mode — drives how the chart appears in the written
+  // instructions. See DesignerFormSnapshot.chartInstructionMode for detail.
+  chartInstructionMode: 'shape-only' | 'with-chart-ref' | 'with-chart-text';
 
   // Body block
   chestCircumference: NumField;
@@ -239,6 +245,7 @@ const DEFAULT_FORM: DesignerForm = {
 
   colors: [],
   chart: null,
+  chartInstructionMode: 'with-chart-text',
 
   customDraft: DEFAULT_CUSTOM_DRAFT,
 };
@@ -740,11 +747,15 @@ function ChartSection({
   onChange,
   paletteColors,
   craft,
+  instructionMode,
+  onInstructionModeChange,
 }: {
   chart: ChartData | null;
   onChange: (next: ChartData | null) => void;
   paletteColors: ColorSwatch[];
   craft: Craft;
+  instructionMode: DesignerForm['chartInstructionMode'];
+  onInstructionModeChange: (next: DesignerForm['chartInstructionMode']) => void;
 }) {
   const defaultSymbolId = craft === 'crochet' ? 'sc' : 'k';
   const [tool, setTool] = useState<ChartTool>({ type: 'symbol', symbolId: defaultSymbolId });
@@ -872,6 +883,36 @@ function ChartSection({
         </label>
       </div>
 
+      {/* Construction toggle — flat work has alternating RS/WS rows; in
+          the round every row is a Round (RS only). Drives the row-label
+          gutter on the grid + the chart-to-text generator. */}
+      <div className="mb-3 flex flex-wrap items-center gap-3">
+        <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Worked</span>
+        <div className="inline-flex rounded-md border border-gray-300 dark:border-gray-600">
+          {[
+            { value: false, label: 'Flat (rows)' },
+            { value: true, label: 'In the round' },
+          ].map((opt) => {
+            const active = (chart.workedInRound ?? false) === opt.value;
+            return (
+              <button
+                key={String(opt.value)}
+                type="button"
+                onClick={() => onChange({ ...chart, workedInRound: opt.value })}
+                aria-pressed={active}
+                className={`px-3 py-1 text-xs ${
+                  active
+                    ? 'bg-purple-600 text-white'
+                    : 'bg-white text-gray-700 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-200'
+                }`}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       <StitchPalette
         tool={tool}
         onChange={setTool}
@@ -893,10 +934,122 @@ function ChartSection({
           Clear all cells
         </button>
         <span className="text-xs text-gray-500">
-          Max 60×60. Row 1 (bottom, RS) is the first row you knit.
+          Max 60×60.{' '}
+          {chart.workedInRound
+            ? 'Round 1 is the first round you knit.'
+            : 'Row 1 (bottom, RS) is the first row you knit.'}
         </span>
       </div>
+
+      <ChartInstructionsPanel
+        chart={chart}
+        craft={craft}
+        mode={instructionMode}
+        onModeChange={onInstructionModeChange}
+      />
     </section>
+  );
+}
+
+/**
+ * Mode picker + (when applicable) the row-by-row chart text. Lives directly
+ * under the chart grid in the live Designer. The same engine drives the
+ * print view (PatternPrintView) so what knitters preview here matches what
+ * prints.
+ */
+function ChartInstructionsPanel({
+  chart,
+  craft,
+  mode,
+  onModeChange,
+}: {
+  chart: ChartData;
+  craft: Craft;
+  mode: DesignerForm['chartInstructionMode'];
+  onModeChange: (next: DesignerForm['chartInstructionMode']) => void;
+}) {
+  const palette = useChartSymbols(craft);
+  const symbols = useMemo(() => {
+    const sys = palette.data?.system ?? [];
+    const cust = palette.data?.custom ?? [];
+    return [...sys, ...cust];
+  }, [palette.data]);
+
+  const rows = useMemo(() => {
+    if (mode !== 'with-chart-text') return [];
+    if (!palette.data) return [];
+    return buildChartInstructions({ chart, symbols });
+  }, [chart, mode, palette.data, symbols]);
+
+  return (
+    <div className="mt-5 border-t border-gray-200 pt-4 dark:border-gray-700">
+      <div className="mb-2 flex flex-wrap items-center gap-2">
+        <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+          Chart in instructions
+        </h3>
+        <div className="inline-flex rounded-md border border-gray-300 dark:border-gray-600">
+          {[
+            { value: 'shape-only' as const, label: 'Shape only' },
+            { value: 'with-chart-ref' as const, label: '+ Chart ref' },
+            { value: 'with-chart-text' as const, label: '+ Chart text' },
+          ].map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => onModeChange(opt.value)}
+              aria-pressed={mode === opt.value}
+              className={`px-3 py-1 text-xs ${
+                mode === opt.value
+                  ? 'bg-purple-600 text-white'
+                  : 'bg-white text-gray-700 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-200'
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      {mode === 'shape-only' && (
+        <p className="text-xs text-gray-500">
+          The chart appears in the print view but the written instructions don't reference it.
+        </p>
+      )}
+      {mode === 'with-chart-ref' && (
+        <p className="text-xs text-gray-500">
+          Instructions read "Work Chart for {chart.height}{' '}
+          {chart.workedInRound ? 'rounds' : 'rows'}." The chart itself is printed alongside.
+        </p>
+      )}
+      {mode === 'with-chart-text' && (
+        <>
+          {palette.isLoading && (
+            <p className="text-xs text-gray-500">Loading stitch templates…</p>
+          )}
+          {palette.isError && (
+            <p className="text-xs text-red-600">Couldn't load stitch templates.</p>
+          )}
+          {!palette.isLoading && !palette.isError && rows.length > 0 && (
+            <ol className="space-y-1 text-sm">
+              {rows.map((r) => (
+                <li key={r.rowNumber} className="flex flex-wrap gap-2">
+                  <span className="font-mono text-xs font-semibold text-gray-700 dark:text-gray-300">
+                    {r.prefix}
+                  </span>
+                  <span className="text-gray-800 dark:text-gray-200">
+                    {r.isEmpty ? <em className="text-gray-400">(empty row)</em> : r.body}
+                  </span>
+                  {r.warnings.length > 0 && (
+                    <span className="text-xs text-amber-700 dark:text-amber-400">
+                      ⚠ {r.warnings.join('; ')}
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ol>
+          )}
+        </>
+      )}
+    </div>
   );
 }
 
@@ -1883,6 +2036,8 @@ export default function PatternDesigner() {
         onChange={(next) => update('chart', next)}
         paletteColors={form.colors}
         craft={form.craft}
+        instructionMode={form.chartInstructionMode ?? 'with-chart-text'}
+        onInstructionModeChange={(next) => update('chartInstructionMode', next)}
       />
     </div>
   );

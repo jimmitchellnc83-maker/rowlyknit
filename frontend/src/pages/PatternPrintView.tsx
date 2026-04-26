@@ -36,6 +36,8 @@ import ChartGrid from '../components/designer/ChartGrid';
 import { estimateYardageFromArea, formatYardage, type YardageRange } from '../utils/yardageEstimate';
 import { type DesignerFormSnapshot } from '../utils/designerSnapshot';
 import { DEFAULT_CUSTOM_DRAFT } from '../types/customDraft';
+import { useChartSymbols } from '../hooks/useChartSymbols';
+import { buildChartInstructions } from '../utils/chartInstruction';
 
 /**
  * Clean printable pattern write-up. Reads the same localStorage key the
@@ -295,12 +297,15 @@ export default function PatternPrintView() {
         <div className="print-page-break mt-8">
           <Section title="Chart">
             <p className="mb-2 text-xs text-gray-500">
-              Read the chart from the bottom up. RS rows read right-to-left; WS rows left-to-right.
+              {form.chart.workedInRound
+                ? 'Read the chart from the bottom up. Every round reads right-to-left.'
+                : 'Read the chart from the bottom up. RS rows read right-to-left; WS rows left-to-right.'}
             </p>
             {/* Non-interactive render — tool is "erase" but the grid itself
                 doesn't matter since we don't care about interactions here. */}
             <ChartGrid chart={form.chart} onChange={() => {}} tool={{ type: 'erase' }} />
           </Section>
+          <ChartInstructionsSection form={form} />
         </div>
       )}
     </div>
@@ -357,6 +362,70 @@ function YardageCard({ yardage }: { yardage: YardageRange }) {
         Buy a bit extra for swatching and weaving in ends.
       </p>
     </div>
+  );
+}
+
+/**
+ * Renders the chart's written instructions per the snapshot's
+ * `chartInstructionMode`:
+ *   - shape-only      → nothing (the chart still appears separately)
+ *   - with-chart-ref  → a one-line "Work Chart for N rows/rounds." reference
+ *   - with-chart-text → a numbered row-by-row list (Row 1 (RS): k2, p2, ...)
+ *
+ * Mirrors the live preview in the Designer's ChartInstructionsPanel — same
+ * engine, same output, so what knitters see in the editor matches the
+ * print-view deliverable.
+ */
+function ChartInstructionsSection({ form }: { form: DesignerFormSnapshot }) {
+  const mode = form.chartInstructionMode ?? 'with-chart-text';
+  const craft = form.craft ?? 'knit';
+  const palette = useChartSymbols(craft);
+  const chart = form.chart;
+
+  if (!chart || mode === 'shape-only') return null;
+
+  if (mode === 'with-chart-ref') {
+    return (
+      <Section title="Chart — instructions">
+        <p className="text-sm text-gray-800 dark:text-gray-200">
+          Work Chart for {chart.height} {chart.workedInRound ? 'rounds' : 'rows'}.
+        </p>
+      </Section>
+    );
+  }
+
+  if (palette.isLoading) {
+    return (
+      <Section title="Chart — instructions">
+        <p className="text-sm text-gray-500">Loading stitch templates…</p>
+      </Section>
+    );
+  }
+  if (palette.isError || !palette.data) {
+    return (
+      <Section title="Chart — instructions">
+        <p className="text-sm text-red-600">Couldn't load stitch templates.</p>
+      </Section>
+    );
+  }
+
+  const symbols = [...palette.data.system, ...palette.data.custom];
+  const rows = buildChartInstructions({ chart, symbols });
+
+  return (
+    <Section title="Chart — instructions">
+      <ol className="space-y-1 text-sm">
+        {rows.map((r) => (
+          <li key={r.rowNumber} className="print-avoid-break">
+            <span className="font-mono font-semibold">{r.prefix}</span>{' '}
+            <span>{r.isEmpty ? '(empty row)' : r.body}</span>
+            {r.warnings.length > 0 && (
+              <span className="ml-2 text-xs text-amber-700">⚠ {r.warnings.join('; ')}</span>
+            )}
+          </li>
+        ))}
+      </ol>
+    </Section>
   );
 }
 
