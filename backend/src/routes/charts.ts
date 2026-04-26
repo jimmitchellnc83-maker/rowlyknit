@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { body, query } from 'express-validator';
 import multer from 'multer';
+import * as chartController from '../controllers/chartController';
 import * as chartDetectionController from '../controllers/chartDetectionController';
 import * as chartSharingController from '../controllers/chartSharingController';
 import * as chartSymbolController from '../controllers/chartSymbolController';
@@ -286,6 +287,135 @@ router.delete(
 router.get(
   '/exports/history',
   asyncHandler(chartSharingController.getExportHistory)
+);
+
+/**
+ * Personal chart library CRUD (Session 4 of the Designer roadmap).
+ *
+ * The wildcard `/:chartId` routes below MUST be declared after every
+ * specific GET / POST / DELETE path that lives at /api/charts/...
+ * (symbols, detection/..., shares, exports/history) — otherwise Express
+ * will try the wildcard first and 404 with "Chart not found" on a path
+ * that should have matched a specific handler.
+ */
+
+/**
+ * @route   GET /api/charts
+ * @desc    List the user's charts (active by default; ?archived=true
+ *          flips to the archive). Supports ?projectId, ?patternId, ?q
+ *          substring search, and ?limit/?offset pagination.
+ * @access  Private
+ */
+router.get(
+  '/',
+  [
+    query('archived').optional().isBoolean(),
+    query('projectId').optional({ values: 'falsy' }).isUUID(),
+    query('patternId').optional({ values: 'falsy' }).isUUID(),
+    query('q').optional({ values: 'falsy' }).isString().isLength({ max: 200 }),
+    query('limit').optional({ values: 'falsy' }).isInt({ min: 1, max: 200 }),
+    query('offset').optional({ values: 'falsy' }).isInt({ min: 0 }),
+  ],
+  validate,
+  asyncHandler(chartController.list)
+);
+
+/**
+ * @route   POST /api/charts
+ * @desc    Create a chart from grid data. project_id / pattern_id
+ *          optional — leaving both null = library-only chart.
+ * @access  Private
+ */
+router.post(
+  '/',
+  [
+    body('name').isString().isLength({ min: 1, max: 255 }),
+    body('grid').isObject(),
+    body('description').optional({ values: 'null' }).isString().isLength({ max: 5000 }),
+    body('project_id').optional({ values: 'null' }).isUUID(),
+    body('pattern_id').optional({ values: 'null' }).isUUID(),
+    body('source').optional({ values: 'null' }).isIn(['manual', 'image_import', 'duplicate']),
+    body('symbol_legend').optional({ values: 'null' }).isObject(),
+  ],
+  validate,
+  asyncHandler(chartController.create)
+);
+
+/**
+ * @route   GET /api/charts/:chartId
+ * @desc    Get a single chart (full grid + metadata).
+ * @access  Private (chart owner only)
+ */
+router.get(
+  '/:chartId',
+  validateUUID('chartId'),
+  asyncHandler(chartController.getOne)
+);
+
+/**
+ * @route   PUT /api/charts/:chartId
+ * @desc    Update name / description / grid / project / pattern / legend.
+ * @access  Private (chart owner only)
+ */
+router.put(
+  '/:chartId',
+  [
+    validateUUID('chartId'),
+    body('name').optional({ values: 'falsy' }).isString().isLength({ min: 1, max: 255 }),
+    body('grid').optional({ values: 'null' }).isObject(),
+    body('description').optional({ values: 'null' }).isString().isLength({ max: 5000 }),
+    body('project_id').optional({ values: 'null' }).isUUID(),
+    body('pattern_id').optional({ values: 'null' }).isUUID(),
+    body('symbol_legend').optional({ values: 'null' }).isObject(),
+  ],
+  validate,
+  asyncHandler(chartController.update)
+);
+
+/**
+ * @route   DELETE /api/charts/:chartId
+ * @desc    Hard-delete a chart. Prefer POST /:chartId/archive for
+ *          user-facing flows; this is the irreversible escape hatch.
+ * @access  Private (chart owner only)
+ */
+router.delete(
+  '/:chartId',
+  validateUUID('chartId'),
+  asyncHandler(chartController.remove)
+);
+
+/**
+ * @route   POST /api/charts/:chartId/archive
+ * @desc    Soft-archive (sets archived_at). Idempotent.
+ * @access  Private (chart owner only)
+ */
+router.post(
+  '/:chartId/archive',
+  validateUUID('chartId'),
+  asyncHandler(chartController.archive)
+);
+
+/**
+ * @route   POST /api/charts/:chartId/restore
+ * @desc    Un-archive (clears archived_at). Idempotent.
+ * @access  Private (chart owner only)
+ */
+router.post(
+  '/:chartId/restore',
+  validateUUID('chartId'),
+  asyncHandler(chartController.restore)
+);
+
+/**
+ * @route   POST /api/charts/:chartId/duplicate
+ * @desc    Copy a chart. The duplicate detaches from project / pattern
+ *          (becomes a library-only chart) and gets a "(copy)" suffix.
+ * @access  Private (chart owner only)
+ */
+router.post(
+  '/:chartId/duplicate',
+  validateUUID('chartId'),
+  asyncHandler(chartController.duplicate)
 );
 
 export default router;
