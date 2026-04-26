@@ -245,10 +245,20 @@ export default function PatternPrintView() {
       {/* Pattern header */}
       <header className="mb-6 border-b border-gray-300 pb-4 print-avoid-break">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-          {sourceTitle ?? itemTitle(form.itemType)}
+          {form.patternTitle?.trim() || sourceTitle || itemTitle(form.itemType)}
         </h1>
-        {sourceTitle && (
+        {form.patternSubtitle?.trim() && (
+          <p className="mt-1 text-base text-gray-700 dark:text-gray-300">
+            {form.patternSubtitle}
+          </p>
+        )}
+        {!form.patternTitle && sourceTitle && (
           <p className="text-sm text-gray-500">{itemTitle(form.itemType)}</p>
+        )}
+        {form.patternDesignerName?.trim() && (
+          <p className="mt-2 text-sm text-gray-700 dark:text-gray-300">
+            Designed by {form.patternDesignerName}
+          </p>
         )}
         <p className="mt-1 text-sm text-gray-500">
           Generated {new Date().toLocaleDateString(undefined, {
@@ -260,6 +270,10 @@ export default function PatternPrintView() {
           Gauge {form.gaugeStitches} sts × {form.gaugeRows} rows over {form.gaugeMeasurement}{' '}
           {unitLabel}
         </p>
+
+        {form.patternSummary?.trim() && (
+          <p className="mt-3 text-sm text-gray-800 dark:text-gray-200">{form.patternSummary}</p>
+        )}
 
         {form.colors.length > 0 && (
           <div className="mt-3">
@@ -283,6 +297,14 @@ export default function PatternPrintView() {
           </div>
         )}
       </header>
+
+      {form.patternNotes?.trim() && (
+        <Section title="Notes from the designer">
+          <p className="whitespace-pre-line text-sm text-gray-800 dark:text-gray-200">
+            {form.patternNotes}
+          </p>
+        </Section>
+      )}
 
       {/* Render by item type */}
       {form.itemType === 'sweater' && <SweaterPrint form={form} gauge={gauge} />}
@@ -309,6 +331,12 @@ export default function PatternPrintView() {
           <ChartInstructionsSection form={form} />
           <ChartGlossarySection form={form} />
         </div>
+      )}
+
+      {form.patternCopyright?.trim() && (
+        <footer className="mt-10 border-t border-gray-300 pt-3 text-xs text-gray-500 print-avoid-break">
+          {form.patternCopyright}
+        </footer>
       )}
     </div>
   );
