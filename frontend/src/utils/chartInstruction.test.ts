@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildChartInstructions } from './chartInstruction';
+import { buildChartInstructions, collectChartSymbols } from './chartInstruction';
 import type { ChartData, ChartCell } from '../components/designer/ChartGrid';
 import type { ChartSymbolTemplate } from '../types/chartSymbol';
 
@@ -211,5 +211,42 @@ describe('buildChartInstructions', () => {
     const out = buildChartInstructions({ chart, symbols: KNIT_SYMBOLS });
     // RS reads right-to-left: k, _, _, k → "k1, (no st) 2 times, k1"
     expect(out[0].body).toBe('k1, (no st) 2 times, k1');
+  });
+});
+
+describe('collectChartSymbols', () => {
+  it('returns unique symbols in bottom-up reading order', () => {
+    // Top-of-array = top-of-chart. Knitter row 1 = the LAST array row.
+    const chart = chartOf([
+      ['p', 'p'], // row 2
+      ['k', 'p'], // row 1 — first read
+    ]);
+    expect(collectChartSymbols(chart)).toEqual(['k', 'p']);
+  });
+
+  it('skips blanks and no-stitch placeholders', () => {
+    const chart = chartOf([['k', null, 'no-stitch', 'no_stitch', 'p']]);
+    expect(collectChartSymbols(chart)).toEqual(['k', 'p']);
+  });
+
+  it('resolves legacy ids to their canonical key', () => {
+    const chart = chartOf([['knit', 'purl', 'yarn_over']]);
+    expect(collectChartSymbols(chart)).toEqual(['k', 'p', 'yo']);
+  });
+
+  it('returns an empty list for a fully blank chart', () => {
+    const chart = chartOf([
+      [null, null],
+      [null, null],
+    ]);
+    expect(collectChartSymbols(chart)).toEqual([]);
+  });
+
+  it('dedupes when the same symbol appears across multiple rows', () => {
+    const chart = chartOf([
+      ['k', 'k', 'k'],
+      ['k', 'k', 'k'],
+    ]);
+    expect(collectChartSymbols(chart)).toEqual(['k']);
   });
 });

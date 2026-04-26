@@ -308,3 +308,38 @@ function formatRowBody(parts: CompressedOp[]): string {
 export function defaultChartLabel(): string {
   return 'Chart';
 }
+
+// ---------------------------------------------------------------------------
+// Glossary support — collect the unique used symbol ids from a chart, in
+// chart-reading order (left-to-right, bottom-to-top). Used by the print
+// view to build a "Glossary" table (Session 2 PR 2.2).
+// ---------------------------------------------------------------------------
+
+/**
+ * Walks a chart and returns the set of canonical symbol ids actually painted
+ * on it, in stable order (first-seen wins). `null` cells and the
+ * placeholder `no-stitch` (or its legacy alias `no_stitch`) are excluded —
+ * they're not real stitches and shouldn't appear in the glossary.
+ *
+ * Pure: no React / DOM / network. Caller passes the resulting list to
+ * useChartSymbols-loaded templates to render a glossary table.
+ */
+export function collectChartSymbols(chart: ChartData): string[] {
+  const seen = new Set<string>();
+  const order: string[] = [];
+  // Bottom-to-top for ordering matches knitter reading order: the first
+  // stitch in the glossary is whatever appears at row 1.
+  for (let knitRow = 1; knitRow <= chart.height; knitRow++) {
+    const cellRow = chart.height - knitRow;
+    for (let c = 0; c < chart.width; c++) {
+      const cell = chart.cells[cellRow * chart.width + c];
+      if (!cell?.symbolId) continue;
+      const canonical = resolveStitchKey(cell.symbolId) ?? cell.symbolId;
+      if (canonical === 'no-stitch') continue;
+      if (seen.has(canonical)) continue;
+      seen.add(canonical);
+      order.push(canonical);
+    }
+  }
+  return order;
+}
