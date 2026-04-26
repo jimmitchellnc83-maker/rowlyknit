@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { FiTool, FiInfo, FiGrid, FiSquare, FiPrinter, FiFolder, FiBook } from 'react-icons/fi';
+import type { Craft } from '../types/chartSymbol';
 import { useCreatePattern, useCreateProject } from '../hooks/useApi';
 import { itemLabel } from '../utils/designerSnapshot';
 import {
@@ -79,6 +80,8 @@ const ITEM_TYPE_OPTIONS: ItemTypeOption[] = [
 interface DesignerForm {
   // Shared
   unit: MeasurementUnit;
+  /** Active craft. Drives the stitch palette + future construction math. */
+  craft: Craft;
   gaugeStitches: NumField;
   gaugeRows: NumField;
   gaugeMeasurement: NumField;
@@ -172,6 +175,7 @@ interface DesignerForm {
 
 const DEFAULT_FORM: DesignerForm = {
   unit: 'in',
+  craft: 'knit',
   gaugeStitches: 20,
   gaugeRows: 28,
   gaugeMeasurement: 4,
@@ -735,12 +739,22 @@ function ChartSection({
   chart,
   onChange,
   paletteColors,
+  craft,
 }: {
   chart: ChartData | null;
   onChange: (next: ChartData | null) => void;
   paletteColors: ColorSwatch[];
+  craft: Craft;
 }) {
-  const [tool, setTool] = useState<ChartTool>({ type: 'symbol', symbolId: 'knit' });
+  const defaultSymbolId = craft === 'crochet' ? 'sc' : 'k';
+  const [tool, setTool] = useState<ChartTool>({ type: 'symbol', symbolId: defaultSymbolId });
+  // Reset the active symbol when the user flips crafts so we never paint a
+  // knit stitch while the crochet palette is showing (and vice versa).
+  useEffect(() => {
+    setTool((prev) =>
+      prev.type === 'symbol' ? { type: 'symbol', symbolId: defaultSymbolId } : prev,
+    );
+  }, [craft, defaultSymbolId]);
   const [cellSize, setCellSize] = useState<number>(28);
   const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
 
@@ -858,7 +872,13 @@ function ChartSection({
         </label>
       </div>
 
-      <StitchPalette tool={tool} onChange={setTool} paletteColors={paletteColors} />
+      <StitchPalette
+        tool={tool}
+        onChange={setTool}
+        paletteColors={paletteColors}
+        craft={craft}
+        chart={chart}
+      />
 
       <div className="mt-4">
         <ChartGrid chart={chart} onChange={onChange} tool={tool} cellSize={cellSize} />
@@ -1034,6 +1054,32 @@ export default function PatternDesigner() {
           <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium uppercase tracking-wide text-purple-700">
             Beta
           </span>
+          {/* Craft toggle — drives which stitch palette shows + future
+              construction-math forks. Persisted with the rest of the form. */}
+          <div
+            className="ml-2 inline-flex overflow-hidden rounded-full border border-purple-300 text-xs font-medium dark:border-purple-700"
+            role="group"
+            aria-label="Craft"
+          >
+            {(['knit', 'crochet'] as const).map((c) => {
+              const active = form.craft === c;
+              return (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => update('craft', c)}
+                  aria-pressed={active}
+                  className={`px-3 py-1 transition ${
+                    active
+                      ? 'bg-purple-600 text-white'
+                      : 'bg-white text-purple-700 hover:bg-purple-50 dark:bg-gray-800 dark:text-purple-200 dark:hover:bg-purple-900/30'
+                  }`}
+                >
+                  {c === 'knit' ? 'Knit' : 'Crochet'}
+                </button>
+              );
+            })}
+          </div>
           <div className="ml-auto flex flex-wrap items-center gap-2">
             <SaveAsPatternButton form={form} />
             <SaveToProjectButton form={form} />
@@ -1836,6 +1882,7 @@ export default function PatternDesigner() {
         chart={form.chart}
         onChange={(next) => update('chart', next)}
         paletteColors={form.colors}
+        craft={form.craft}
       />
     </div>
   );

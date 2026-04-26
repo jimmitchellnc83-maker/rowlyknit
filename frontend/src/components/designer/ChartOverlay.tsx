@@ -1,16 +1,12 @@
 import type { ReactElement } from 'react';
-import { KNITTING_SYMBOLS } from '../../data/knittingSymbols';
+import { getCellSpan, renderStitchInto } from '../../data/stitchSvgLibrary';
 import type { ChartData } from './ChartGrid';
-
-const SYMBOL_INDEX = new Map(KNITTING_SYMBOLS.map((s) => [s.id, s]));
 
 interface ChartOverlayProps {
   chart: ChartData | null;
   /** SVG path string defining the silhouette to clip the overlay to. */
   clipPath: string;
-  /** Bounding rectangle of the area to tile chart cells within. The
-   *  clipPath does the final masking so this can safely be a generous
-   *  bounding box (e.g. the schematic's full draw area). */
+  /** Bounding rectangle of the area to tile chart cells within. */
   bounds: { x: number; y: number; width: number; height: number };
   /** Pixel size of one stitch (chart cell width). */
   stitchToPx: number;
@@ -18,31 +14,16 @@ interface ChartOverlayProps {
   rowToPx: number;
   /** Unique id for the clipPath element (must be unique within the page). */
   clipId: string;
-  /** When true, also tile cells that have a symbolId but no colorHex, and
-   *  draw the symbol character inside each cell. Default false preserves
-   *  the legacy color-only overlay used by tests. */
+  /** When true, draws the symbol artwork on top of the color fills. Default
+   *  false preserves the legacy color-only overlay used by tests. */
   renderSymbols?: boolean;
-  /** Minimum cell edge length in pixels. When stitchToPx (or rowToPx) is
-   *  below this, the overlay tiles at this larger size so symbols and
-   *  colors are legible at schematic scale. Default 0 = strict 1-cell-per-stitch. */
+  /** Minimum cell edge length in pixels. */
   minCellSize?: number;
 }
 
 /**
- * Tiles a knitting chart over a schematic silhouette. Cells with a colorHex
- * are filled; when `renderSymbols` is on, cells with a symbolId are also
- * drawn (using the symbol's default color when no override is set) and the
- * symbol character is overlaid.
- *
- * Tiling anchors at the bottom of the bounds (cast-on edge in knitting),
- * with each chart copy stacking above the previous and copies repeating
- * to the right. The result is then clipped to the silhouette path so
- * cells outside the garment outline are hidden.
- *
- * `minCellSize` lets schematic callers force a readable cell size — at
- * schematic scale a single stitch is often 1–3px, which makes the chart
- * unreadable. Using a larger minimum draws the chart as a "pattern repeat"
- * preview rather than a 1:1 stitch grid.
+ * Tiles a knitting chart over a schematic silhouette. Multi-cell stitches
+ * (cables, shells) draw as one wide artwork spanning their full cell run.
  */
 export default function ChartOverlay({
   chart,
@@ -65,8 +46,6 @@ export default function ChartOverlay({
   const chartH = chart.height * cellH;
   if (cellW <= 0 || cellH <= 0 || chartW <= 0 || chartH <= 0) return null;
 
-  const fontPx = renderSymbols ? Math.max(8, Math.round(Math.min(cellW, cellH) * 0.6)) : 0;
-
   const nodes: ReactElement[] = [];
   let copyBottomY = bounds.y + bounds.height;
   let copyIdx = 0;
@@ -74,42 +53,66 @@ export default function ChartOverlay({
     const copyTopY = copyBottomY - chartH;
     let copyLeftX = bounds.x;
     while (copyLeftX < bounds.x + bounds.width) {
+      // Color fills first — every cell with a colorHex paints a rect.
+      // When renderSymbols is on, also fill a white rect for symbol-only
+      // cells so the stitch artwork has a background to sit on against the
+      // schematic silhouette.
       for (let r = 0; r < chart.height; r++) {
         for (let c = 0; c < chart.width; c++) {
           const cell = chart.cells[r * chart.width + c];
           if (!cell) continue;
-          const sym = cell.symbolId ? SYMBOL_INDEX.get(cell.symbolId) : undefined;
-          const fill = cell.colorHex ?? (renderSymbols && sym ? sym.color : null);
-          if (!fill && !(renderSymbols && sym)) continue;
-          const x = copyLeftX + c * cellW;
-          const y = copyTopY + r * cellH;
-          if (fill) {
-            nodes.push(
-              <rect
-                key={`r-${copyIdx}-${r}-${c}`}
-                x={x}
-                y={y}
-                width={cellW}
-                height={cellH}
-                fill={fill}
-              />,
-            );
-          }
-          if (renderSymbols && sym?.symbol) {
-            nodes.push(
-              <text
-                key={`s-${copyIdx}-${r}-${c}`}
-                x={x + cellW / 2}
-                y={y + cellH / 2}
-                textAnchor="middle"
-                dominantBaseline="central"
-                fontSize={fontPx}
-                fill={fill && luminance(fill) > 0.55 ? '#111' : '#FFF'}
-                style={{ pointerEvents: 'none', fontFamily: 'monospace' }}
-              >
-                {sym.symbol}
-              </text>,
-            );
+          const fill = cell.colorHex ?? (renderSymbols && cell.symbolId ? '#FFFFFF' : null);
+          if (!fill) continue;
+          nodes.push(
+            <rect
+              key={`r-${copyIdx}-${r}-${c}`}
+              x={copyLeftX + c * cellW}
+              y={copyTopY + r * cellH}
+              width={cellW}
+              height={cellH}
+              fill={fill}
+            />,
+          );
+        }
+      }
+      // Symbol overlay — walk runs per row, draw each leader once.
+      if (renderSymbols) {
+        for (let r = 0; r < chart.height; r++) {
+          let c = 0;
+          while (c < chart.width) {
+            const cell = chart.cells[r * chart.width + c];
+            const sym = cell?.symbolId ?? null;
+            if (!sym) {
+              c++;
+              continue;
+            }
+            let runLen = 1;
+            while (
+              c + runLen < chart.width &&
+              chart.cells[r * chart.width + c + runLen]?.symbolId === sym
+            ) {
+              runLen++;
+            }
+            const span = getCellSpan(sym, 1);
+            let consumed = 0;
+            while (consumed < runLen) {
+              const drawSpan = Math.min(span, runLen - consumed);
+              const leaderC = c + consumed;
+              const fill = cell?.colorHex ?? '#FFFFFF';
+              const stroke = luminance(fill) > 0.55 ? '#111111' : '#FFFFFF';
+              const node = renderStitchInto({
+                id: sym,
+                x: copyLeftX + leaderC * cellW,
+                y: copyTopY + r * cellH,
+                width: drawSpan * cellW,
+                height: cellH,
+                stroke,
+                keyPrefix: `s-${copyIdx}-${r}-${leaderC}`,
+              });
+              if (node) nodes.push(node);
+              consumed += drawSpan;
+            }
+            c += runLen;
           }
         }
       }
