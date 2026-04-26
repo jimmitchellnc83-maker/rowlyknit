@@ -143,6 +143,15 @@ interface DesignerForm {
   // instructions. See DesignerFormSnapshot.chartInstructionMode for detail.
   chartInstructionMode: 'shape-only' | 'with-chart-ref' | 'with-chart-text';
 
+  // Pattern metadata — drives the printed pattern's title block and
+  // (Session 3 PR 2) the publishing-copy cover page. Empty strings = unset.
+  patternTitle: string;
+  patternSubtitle: string;
+  patternDesignerName: string;
+  patternCopyright: string;
+  patternSummary: string;
+  patternNotes: string;
+
   // Body block
   chestCircumference: NumField;
   easeAtChest: NumField;
@@ -246,6 +255,13 @@ const DEFAULT_FORM: DesignerForm = {
   colors: [],
   chart: null,
   chartInstructionMode: 'with-chart-text',
+
+  patternTitle: '',
+  patternSubtitle: '',
+  patternDesignerName: '',
+  patternCopyright: '',
+  patternSummary: '',
+  patternNotes: '',
 
   customDraft: DEFAULT_CUSTOM_DRAFT,
 };
@@ -739,6 +755,121 @@ function SaveAsPatternButton({ form }: { form: DesignerForm }) {
       <FiBook className="h-4 w-4" />
       {createPattern.isPending ? 'Saving…' : 'Save as pattern'}
     </button>
+  );
+}
+
+/**
+ * Optional metadata for the printed pattern: title, subtitle, designer
+ * name, copyright line, summary blurb, designer notes. Stored on the
+ * draft snapshot, surfaced by the print view's title block (and the
+ * Session 3 PR 2 publishing-copy cover page).
+ *
+ * Rendered as a collapsed <details> so the form stays uncluttered for
+ * casual users; designers shipping patterns expand it once and the field
+ * values persist with the rest of the draft.
+ */
+function PatternMetadataPanel({
+  form,
+  update,
+}: {
+  form: DesignerForm;
+  update: <K extends keyof DesignerForm>(key: K, value: DesignerForm[K]) => void;
+}) {
+  // Auto-expand whenever any metadata field is non-empty so a returning
+  // user sees their values without having to click the disclosure.
+  const hasAny =
+    !!form.patternTitle ||
+    !!form.patternSubtitle ||
+    !!form.patternDesignerName ||
+    !!form.patternCopyright ||
+    !!form.patternSummary ||
+    !!form.patternNotes;
+
+  return (
+    <section className="rounded-lg bg-white p-4 shadow dark:bg-gray-800">
+      <details open={hasAny}>
+        <summary className="cursor-pointer select-none text-sm font-medium text-gray-700 dark:text-gray-300">
+          Pattern info <span className="text-xs font-normal text-gray-500">(optional)</span>
+        </summary>
+        <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+          Used in the printed pattern's title block. Leave blank to skip.
+        </p>
+        <div className="mt-3 space-y-3">
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">
+              Title
+            </span>
+            <input
+              type="text"
+              value={form.patternTitle}
+              onChange={(e) => update('patternTitle', e.target.value)}
+              placeholder="e.g. Cobblestone Pullover"
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+            />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">
+              Subtitle
+            </span>
+            <input
+              type="text"
+              value={form.patternSubtitle}
+              onChange={(e) => update('patternSubtitle', e.target.value)}
+              placeholder="e.g. Worsted-weight unisex sweater"
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+            />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">
+              Designer name
+            </span>
+            <input
+              type="text"
+              value={form.patternDesignerName}
+              onChange={(e) => update('patternDesignerName', e.target.value)}
+              placeholder="Your name or studio"
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+            />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">
+              Copyright
+            </span>
+            <input
+              type="text"
+              value={form.patternCopyright}
+              onChange={(e) => update('patternCopyright', e.target.value)}
+              placeholder={`© ${new Date().getFullYear()} <Your name>. All rights reserved.`}
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+            />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">
+              Summary
+            </span>
+            <textarea
+              value={form.patternSummary}
+              onChange={(e) => update('patternSummary', e.target.value)}
+              rows={2}
+              placeholder="One-paragraph description of the design"
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+            />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">
+              Designer notes
+            </span>
+            <textarea
+              value={form.patternNotes}
+              onChange={(e) => update('patternNotes', e.target.value)}
+              rows={3}
+              placeholder="Construction notes, special techniques, suggested mods…"
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+            />
+          </label>
+        </div>
+      </details>
+    </section>
   );
 }
 
@@ -1362,6 +1493,11 @@ export default function PatternDesigner() {
           {/* Color palette — shared across all item types. First color
               becomes MC and is shown alongside the schematic as a preview. */}
           <ColorPalette colors={form.colors} onChange={(next) => update('colors', next)} />
+
+          {/* Pattern info — optional metadata used by the printed pattern's
+              title block (and Session 3 PR 2's publishing-copy cover page).
+              Collapsed by default to keep the form quiet for casual users. */}
+          <PatternMetadataPanel form={form} update={update} />
 
           {form.itemType === 'sweater' && (
             <>

@@ -121,6 +121,16 @@ export interface DesignerFormSnapshot {
    *  Optional so older saved snapshots default to with-chart-text. */
   chartInstructionMode?: 'shape-only' | 'with-chart-ref' | 'with-chart-text';
 
+  /** Pattern metadata used by the print view's publishing copy. All
+   *  optional — leaving them blank just omits the matching slot in the
+   *  printed pattern. */
+  patternTitle?: string;
+  patternSubtitle?: string;
+  patternDesignerName?: string;
+  patternCopyright?: string;
+  patternSummary?: string;
+  patternNotes?: string;
+
   /** Section-based custom draft (when itemType === 'custom'). Optional in
    *  the snapshot type so older saved snapshots still round-trip;
    *  consumers fall back to DEFAULT_CUSTOM_DRAFT. */
