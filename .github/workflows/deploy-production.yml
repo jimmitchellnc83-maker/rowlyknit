@@ -1,0 +1,87 @@
+name: Deploy to Production
+
+# Auto-deploy `main` to the production droplet (rowlyknit.com).
+#
+# Required GitHub Secrets (Settings → Secrets and variables → Actions):
+#   PROD_SSH_HOST   — IP or hostname of the production droplet
+#   PROD_SSH_USER   — SSH user with rights to the rowly user / pm2 process
+#   PROD_SSH_KEY    — Private key authorised on the production droplet.
+#                     MUST be PEM-formatted (the private key, not the public).
+#   PROD_SSH_PORT   — Optional; defaults to 22.
+#
+# Required GitHub Variables (optional, for non-default paths):
+#   PROD_REPO_PATH  — Defaults to /home/rowly/rowlyknit (matches
+#                     ecosystem.config.js cwd).
+#
+# The droplet must already have:
+#   - Node + pm2 installed; `pm2 startup` configured to autorestart on reboot
+#   - The repo cloned at PROD_REPO_PATH, owned by the deploy user
+#   - backend/.env populated with production secrets (DB_*, JWT_*, etc.)
+#   - frontend/.env.production populated (incl. VITE_PLAUSIBLE_DOMAIN)
+#   - Nginx serving frontend/dist as the document root for rowlyknit.com
+#   - Postgres + Redis reachable from the host
+#
+# Triggers: every push to `main` (auto), plus a manual `workflow_dispatch`
+# button in the Actions tab for re-deploying the current main without an
+# empty commit. Concurrency lock prevents overlapping deploys.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: SSH pull + build + reload
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://rowlyknit.com
+    steps:
+      - name: SSH deploy
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.PROD_SSH_HOST }}
+          username: ${{ secrets.PROD_SSH_USER }}
+          key: ${{ secrets.PROD_SSH_KEY }}
+          port: ${{ secrets.PROD_SSH_PORT || 22 }}
+          script_stop: true
+          envs: PROD_REPO_PATH
+          script: |
+            set -euo pipefail
+            REPO_PATH="${PROD_REPO_PATH:-/home/rowly/rowlyknit}"
+            cd "$REPO_PATH"
+
+            echo "==> pulling latest main…"
+            git fetch origin main
+            git checkout main
+            git reset --hard origin/main
+
+            echo "==> backend: install + build + migrate…"
+            cd backend
+            npm ci
+            npm run build
+            npm run migrate
+
+            echo "==> backend: pm2 reload (clusters drain gracefully)…"
+            # ecosystem file lives at the repo root; reload-via-config
+            # handles both first-deploy (start) and subsequent (reload).
+            pm2 reload "$REPO_PATH/ecosystem.config.js" --update-env
+            pm2 save
+
+            cd ..
+            echo "==> frontend: install + build static bundle…"
+            cd frontend
+            npm ci
+            npm run build
+
+            cd ..
+            echo "==> health check…"
+            sleep 5
+            curl --silent --fail --max-time 10 https://rowlyknit.com/health \
+              || (echo "health check FAILED"; exit 1)
+            echo "==> done."
