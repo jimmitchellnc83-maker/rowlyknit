@@ -132,7 +132,8 @@ describe('ChartOverlay', () => {
     const chart: ChartData = {
       width: 1,
       height: 1,
-      cells: [{ symbolId: 'purl', colorHex: null }],
+      // Purl ('p') renders as a small filled circle in the SVG library.
+      cells: [{ symbolId: 'p', colorHex: null }],
     };
     const { container } = renderInSvg(
       <ChartOverlay
@@ -145,12 +146,43 @@ describe('ChartOverlay', () => {
         renderSymbols
       />,
     );
-    // The purl symbol should appear as <text> inside the overlay.
-    const texts = Array.from(container.querySelectorAll('text'));
-    expect(texts.length).toBeGreaterThan(0);
-    // The symbol's default color should fill the cell since no colorHex is set.
+    // Symbol-only cells get a white background rect for legibility.
     const rects = Array.from(container.querySelectorAll('rect'));
     expect(rects.length).toBeGreaterThan(0);
+    // The purl SVG draws at least one <circle> as the artwork.
+    const circles = Array.from(container.querySelectorAll('circle'));
+    expect(circles.length).toBeGreaterThan(0);
+  });
+
+  it('renders multi-cell stitches as one wide artwork', () => {
+    // 'c4f' is a span-4 cable. Painted across 4 consecutive cells in the
+    // same row, it should produce a single <g> for the cable artwork
+    // (drawn into a 4-cell-wide rect).
+    const chart: ChartData = {
+      width: 4,
+      height: 1,
+      cells: [
+        { symbolId: 'c4f', colorHex: null },
+        { symbolId: 'c4f', colorHex: null },
+        { symbolId: 'c4f', colorHex: null },
+        { symbolId: 'c4f', colorHex: null },
+      ],
+    };
+    const { container } = renderInSvg(
+      <ChartOverlay
+        chart={chart}
+        clipPath={SQUARE_PATH}
+        bounds={{ x: 0, y: 0, width: 80, height: 20 }}
+        stitchToPx={20}
+        rowToPx={20}
+        clipId="t-cable"
+        renderSymbols
+      />,
+    );
+    // Two curves cross to draw the cable — both <path> elements live in a
+    // single <g>. We assert at least one <path> rendered.
+    const paths = Array.from(container.querySelectorAll('path'));
+    expect(paths.length).toBeGreaterThan(0);
   });
 
   it('honours minCellSize so symbols stay legible at schematic scale', () => {
