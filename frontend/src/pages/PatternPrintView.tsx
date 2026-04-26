@@ -113,10 +113,24 @@ const PRINT_STYLES = `
   }
 `;
 
+type PrintMode = 'knitting' | 'publishing';
+
+function readMode(raw: string | null): PrintMode {
+  return raw === 'publishing' ? 'publishing' : 'knitting';
+}
+
 export default function PatternPrintView() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const projectId = searchParams.get('projectId');
   const patternId = searchParams.get('patternId');
+  const mode: PrintMode = readMode(searchParams.get('mode'));
+
+  const setMode = (next: PrintMode) => {
+    const sp = new URLSearchParams(searchParams);
+    if (next === 'knitting') sp.delete('mode');
+    else sp.set('mode', next);
+    setSearchParams(sp, { replace: true });
+  };
 
   // Source precedence: ?patternId > ?projectId > localStorage (in-progress
   // Designer draft). Pattern + project modes fetch the saved snapshot
@@ -232,15 +246,50 @@ export default function PatternPrintView() {
             Back to Designer
           </Link>
         )}
-        <button
-          type="button"
-          onClick={() => window.print()}
-          className="flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700"
-        >
-          <FiPrinter className="h-4 w-4" />
-          Print / Save as PDF
-        </button>
+        <div className="flex items-center gap-3">
+          <div
+            className="inline-flex rounded-md border border-gray-300 dark:border-gray-600"
+            role="group"
+            aria-label="Print mode"
+          >
+            {[
+              { value: 'knitting' as const, label: 'Knitting copy' },
+              { value: 'publishing' as const, label: 'Publishing copy' },
+            ].map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setMode(opt.value)}
+                aria-pressed={mode === opt.value}
+                className={`px-3 py-1.5 text-xs font-medium ${
+                  mode === opt.value
+                    ? 'bg-purple-600 text-white'
+                    : 'bg-white text-gray-700 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-200'
+                }`}
+                title={
+                  opt.value === 'knitting'
+                    ? 'Compact, knitter-focused — no cover page'
+                    : 'Sellable PDF with cover page + sectioned layout'
+                }
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={() => window.print()}
+            className="flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700"
+          >
+            <FiPrinter className="h-4 w-4" />
+            Print / Save as PDF
+          </button>
+        </div>
       </div>
+
+      {mode === 'publishing' && (
+        <PublishingCover form={form} sourceTitle={sourceTitle} />
+      )}
 
       {/* Pattern header */}
       <header className="mb-6 border-b border-gray-300 pb-4 print-avoid-break">
@@ -350,6 +399,65 @@ type PrintProps<F = DesignerFormSnapshot> = {
   form: F;
   gauge: { stitchesPer4in: number; rowsPer4in: number };
 };
+
+/**
+ * Publishing-mode cover page. Renders title, subtitle, designer name,
+ * summary, and copyright on its own first page (page-break-after) so
+ * the rest of the document starts on page 2 in PDF / print output.
+ *
+ * Falls back to the source title (project name / pattern name) when
+ * `patternTitle` isn't set, since otherwise an unfilled-out cover would
+ * read literally as "Sweater" — fine for a knitting copy but not for a
+ * sellable publishing copy.
+ */
+function PublishingCover({
+  form,
+  sourceTitle,
+}: {
+  form: DesignerFormSnapshot;
+  sourceTitle: string | null;
+}) {
+  const title = form.patternTitle?.trim() || sourceTitle || itemTitle(form.itemType);
+  return (
+    <section
+      className="print-page-break flex min-h-[80vh] flex-col items-center justify-center gap-4 border-b border-gray-300 px-6 py-12 text-center print-avoid-break"
+      style={{ pageBreakAfter: 'always' }}
+    >
+      <p className="text-xs font-medium uppercase tracking-[0.3em] text-gray-500">
+        {itemTitle(form.itemType)}
+      </p>
+      <h1 className="text-5xl font-bold leading-tight text-gray-900 dark:text-gray-100">
+        {title}
+      </h1>
+      {form.patternSubtitle?.trim() && (
+        <p className="max-w-xl text-lg text-gray-700 dark:text-gray-300">{form.patternSubtitle}</p>
+      )}
+      {form.patternDesignerName?.trim() && (
+        <p className="mt-4 text-base text-gray-800 dark:text-gray-200">
+          Designed by <strong>{form.patternDesignerName}</strong>
+        </p>
+      )}
+      {form.patternSummary?.trim() && (
+        <p className="mt-6 max-w-2xl text-base leading-relaxed text-gray-800 dark:text-gray-200">
+          {form.patternSummary}
+        </p>
+      )}
+      <div className="mt-auto pt-12 text-xs text-gray-500">
+        {form.patternCopyright?.trim() || (
+          <>
+            Generated{' '}
+            {new Date().toLocaleDateString(undefined, {
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric',
+            })}{' '}
+            with Rowly Designer
+          </>
+        )}
+      </div>
+    </section>
+  );
+}
 
 function StepList({ steps }: { steps: BodyBlockOutput['steps'] }) {
   return (
