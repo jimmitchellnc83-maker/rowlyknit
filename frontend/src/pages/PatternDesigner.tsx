@@ -50,6 +50,7 @@ import CustomDraftEditor from '../components/designer/CustomDraftEditor';
 import CustomDraftSchematic from '../components/designer/CustomDraftSchematic';
 import { computeCustomDraft } from '../utils/designerMath';
 import { DEFAULT_CUSTOM_DRAFT, type CustomDraft } from '../types/customDraft';
+import { useMeasurementPrefs } from '../hooks/useMeasurementPrefs';
 
 type NumField = number | '';
 type DesignerSection = 'body' | 'sleeve';
@@ -884,12 +885,26 @@ function ChartSection({
 // ---------------------------------------------------------------------------
 
 export default function PatternDesigner() {
-  const [form, setForm] = useState<DesignerForm>(() => readSavedForm());
+  const { prefs } = useMeasurementPrefs();
+  // Designer only renders in/cm. Profile pref may be 'mm' (used for needle
+  // sizing); fall back to cm since body measurements in mm aren't meaningful.
+  const desiredUnit: MeasurementUnit = prefs.lengthDisplayUnit === 'cm' || prefs.lengthDisplayUnit === 'mm' ? 'cm' : 'in';
+
+  const [form, setForm] = useState<DesignerForm>(() => {
+    const saved = readSavedForm();
+    return saved.unit === desiredUnit ? saved : convertFormUnits(saved, desiredUnit);
+  });
   // Zoom level for the schematic preview. 1 = default 24rem cap, larger
   // values let the silhouette grow so colorwork and stitch symbols are
   // legible. Container handles horizontal scroll past the viewport.
   const [schematicZoom, setSchematicZoom] = useState<number>(1);
   const mainColor = form.colors[0]?.hex ?? null;
+
+  // Re-convert the form whenever the user's profile preference changes so
+  // the Designer always reflects their global setting.
+  useEffect(() => {
+    setForm((prev) => (prev.unit === desiredUnit ? prev : convertFormUnits(prev, desiredUnit)));
+  }, [desiredUnit]);
 
   useEffect(() => {
     try {
@@ -1044,27 +1059,21 @@ export default function PatternDesigner() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:gap-6 lg:grid-cols-5">
-        {/* Inputs — always show shared Units + Gauge; switch Body/Sleeve inputs below */}
+        {/* Inputs — Gauge first; unit comes from the user's profile preference */}
         <div className="space-y-4 lg:col-span-2">
-          <section className="rounded-lg bg-white p-4 shadow dark:bg-gray-800 md:p-6">
-            <h2 className="mb-3 text-lg font-semibold text-gray-900 dark:text-gray-100">Units</h2>
-            <div className="flex gap-2">
-              {(['in', 'cm'] as const).map((u) => (
-                <button
-                  key={u}
-                  type="button"
-                  onClick={() => setForm((prev) => convertFormUnits(prev, u))}
-                  className={`flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition ${
-                    form.unit === u
-                      ? 'border-purple-600 bg-purple-600 text-white'
-                      : 'border-gray-300 bg-white text-gray-700 hover:border-purple-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200'
-                  }`}
-                >
-                  {u === 'in' ? 'Inches' : 'Centimeters'}
-                </button>
-              ))}
-            </div>
-          </section>
+          <p className="px-1 text-xs text-gray-500 dark:text-gray-400">
+            Measurements shown in{' '}
+            <strong className="font-medium">
+              {form.unit === 'in' ? 'inches' : 'centimeters'}
+            </strong>
+            .{' '}
+            <Link
+              to="/profile?tab=units"
+              className="text-purple-600 hover:underline dark:text-purple-300"
+            >
+              Change in Profile
+            </Link>
+          </p>
 
           <section className="rounded-lg bg-white p-4 shadow dark:bg-gray-800 md:p-6">
             <h2 className="mb-3 text-lg font-semibold text-gray-900 dark:text-gray-100">
