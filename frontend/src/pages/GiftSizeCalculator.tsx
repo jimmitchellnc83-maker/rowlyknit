@@ -44,6 +44,11 @@ const FAQS: Array<{ q: string; a: string }> = [
   },
 ];
 
+/** Sizing-table cell. Scheme bands (CYC standards etc.) are stored in
+ *  inches by industry convention; the value below the label keeps them
+ *  in inches so designers can match a published pattern's chart at a
+ *  glance. The pattern itself shows finished + body chest in the user's
+ *  selected unit elsewhere on the page. */
 function RangeCell({ label, minChest, maxChest }: { label: string; minChest: number; maxChest: number }) {
   return (
     <div>
@@ -198,6 +203,17 @@ export default function GiftSizeCalculator() {
     }
   }, [result, fit]);
 
+  // Convert an inches-stored value to the user-selected unit for display.
+  // Math runs in inches end-to-end; this is purely a presentation step.
+  const toUnit = (inches: number): number =>
+    unit === 'cm' ? Math.round(inches * 2.54 * 10) / 10 : inches;
+  const formatLen = (inches: number): string => `${toUnit(inches)} ${unit}`;
+  const signedFormatLen = (inches: number): string => {
+    const v = toUnit(inches);
+    const sign = v >= 0 ? '+' : '';
+    return `${sign}${v} ${unit}`;
+  };
+
   const memoPayload: CalculatorMemoPayload | null = useMemo(() => {
     if (!result) return null;
     const recs = result.recommendations
@@ -206,17 +222,18 @@ export default function GiftSizeCalculator() {
     return {
       calculator: 'gift_size',
       inputs: {
-        body_chest: `${result.bodyChestIn} in`,
+        body_chest: formatLen(result.bodyChestIn),
         unit,
-        fit_style: useCustomEase ? `custom (${result.easeIn} in ease)` : `${fit} (${FIT_LABELS[fit]})`,
+        fit_style: useCustomEase ? `custom (${signedFormatLen(result.easeIn)} ease)` : `${fit} (${FIT_LABELS[fit]})`,
       },
       outputs: {
-        finished_chest: `${result.finishedChestIn} in`,
-        ease: `${result.easeIn >= 0 ? '+' : ''}${result.easeIn} in`,
+        finished_chest: formatLen(result.finishedChestIn),
+        ease: signedFormatLen(result.easeIn),
         recommendations: recs,
       },
-      summary: `Recommended sizes for a ${result.bodyChestIn}-in chest with ${result.easeIn >= 0 ? '+' : ''}${result.easeIn}-in ease (finished chest ${result.finishedChestIn} in).`,
+      summary: `Recommended sizes for a ${formatLen(result.bodyChestIn)} chest with ${signedFormatLen(result.easeIn)} ease (finished chest ${formatLen(result.finishedChestIn)}).`,
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [result, unit, fit, useCustomEase]);
 
   return (
@@ -305,20 +322,35 @@ export default function GiftSizeCalculator() {
             <div className="flex items-center gap-2 text-sm">
               <input
                 type="number"
-                value={customEaseIn === '' ? '' : String(customEaseIn)}
+                // The math expects inches. When the user is in cm mode we
+                // show the value in cm but persist the canonical inches
+                // form in state so swapping units doesn't lose precision.
+                value={
+                  customEaseIn === ''
+                    ? ''
+                    : String(unit === 'cm' ? Math.round(customEaseIn * 2.54 * 10) / 10 : customEaseIn)
+                }
                 step={0.5}
                 onChange={(e) => {
                   const v = e.target.value;
-                  setCustomEaseIn(v === '' ? '' : parseFloat(v) || 0);
+                  if (v === '') {
+                    setCustomEaseIn('');
+                    return;
+                  }
+                  const parsed = parseFloat(v);
+                  if (!Number.isFinite(parsed)) {
+                    setCustomEaseIn(0);
+                    return;
+                  }
+                  setCustomEaseIn(unit === 'cm' ? Math.round((parsed / 2.54) * 10) / 10 : parsed);
                 }}
                 className="w-24 rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900 focus:border-transparent focus:ring-2 focus:ring-purple-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
               />
-              <span className="text-gray-600 dark:text-gray-400">in (positive = loose, negative = close-fit)</span>
+              <span className="text-gray-600 dark:text-gray-400">{unit} (positive = loose, negative = close-fit)</span>
             </div>
           ) : (
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              Preset: {fit} → {FIT_EASE_INCHES[fit] > 0 ? '+' : ''}
-              {FIT_EASE_INCHES[fit]} in of ease
+              Preset: {fit} → {signedFormatLen(FIT_EASE_INCHES[fit])} of ease
             </p>
           )}
         </div>
@@ -333,15 +365,20 @@ export default function GiftSizeCalculator() {
                 <p className="text-sm font-medium uppercase tracking-wide text-purple-700">
                   Target finished chest
                 </p>
-                <p className="text-3xl font-bold text-purple-900">{result.finishedChestIn} in</p>
+                <p className="text-3xl font-bold text-purple-900">{formatLen(result.finishedChestIn)}</p>
                 <p className="mt-1 text-sm text-purple-700">
-                  Body {result.bodyChestIn} in {result.easeIn >= 0 ? '+' : ''}
-                  {result.easeIn} in ease
+                  Body {formatLen(result.bodyChestIn)} {signedFormatLen(result.easeIn)} ease
                 </p>
               </div>
             </div>
           </section>
 
+          {unit === 'cm' && (
+            <p className="text-xs italic text-gray-500 dark:text-gray-400">
+              Sizing tables below shown in inches — pattern industry convention. Your inputs and the
+              target finished chest above use {unit}.
+            </p>
+          )}
           <section className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6">
             {SCHEME_ORDER.map((scheme) => {
               const rec = result.recommendations.find((x) => x.scheme === scheme);
