@@ -59,6 +59,7 @@ function MainLayoutInner() {
     { name: 'Projects', href: '/projects', icon: FiFolder, shortName: 'Projects' },
     { name: 'Patterns', href: '/patterns', icon: FiBook, shortName: 'Patterns' },
     { name: 'Designer', href: '/designer', icon: FiPenTool, shortName: 'Design' },
+    { name: 'Charts', href: '/charts', icon: FiGrid, shortName: 'Charts' },
     { name: 'Yarn Stash', href: '/yarn', icon: FiPackage, shortName: 'Stash' },
     { name: 'Tools', href: '/tools', icon: FiTool, shortName: 'Tools' },
     { name: 'Calculators', href: '/calculators', icon: FiGrid, shortName: 'Calc' },
