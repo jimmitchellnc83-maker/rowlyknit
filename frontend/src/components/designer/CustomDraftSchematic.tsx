@@ -2,11 +2,14 @@ import { useId } from 'react';
 import { formatLength, type CustomDraftOutput, type MeasurementUnit } from '../../utils/designerMath';
 import type { ChartData } from './ChartGrid';
 import ChartOverlay from './ChartOverlay';
+import { paletteFromMainColor } from './schematicColors';
 
 interface CustomDraftSchematicProps {
   output: CustomDraftOutput;
   unit: MeasurementUnit;
   chart?: ChartData | null;
+  mainColor?: string | null;
+  zoom?: number;
 }
 
 /**
@@ -19,8 +22,13 @@ interface CustomDraftSchematicProps {
  * chart overlay can clip to it cleanly. Section labels float on the
  * right edge for readability.
  */
-export default function CustomDraftSchematic({ output, unit, chart }: CustomDraftSchematicProps) {
+export default function CustomDraftSchematic({ output, unit, chart, mainColor, zoom = 1 }: CustomDraftSchematicProps) {
   const clipId = useId();
+  const palette = paletteFromMainColor(mainColor, {
+    fill: '#FAF5FF',
+    stroke: '#7C3AED',
+    accent: '#DDD6FE',
+  });
   const viewW = 360;
   const viewH = 480;
   const marginX = 50;
@@ -31,7 +39,13 @@ export default function CustomDraftSchematic({ output, unit, chart }: CustomDraf
 
   if (output.sections.length === 0 || output.totalRows === 0) {
     return (
-      <svg viewBox={`0 0 ${viewW} ${viewH}`} className="w-full max-w-sm mx-auto" role="img" aria-label="Custom draft schematic (empty)">
+      <svg
+        viewBox={`0 0 ${viewW} ${viewH}`}
+        className="w-full mx-auto block"
+        style={{ maxWidth: `${24 * zoom}rem` }}
+        role="img"
+        aria-label="Custom draft schematic (empty)"
+      >
         <text x={cx} y={viewH / 2} textAnchor="middle" className="fill-gray-400 text-[12px] italic">
           Add at least one section with rows to see the schematic
         </text>
@@ -89,8 +103,14 @@ export default function CustomDraftSchematic({ output, unit, chart }: CustomDraf
     ' Z';
 
   return (
-    <svg viewBox={`0 0 ${viewW} ${viewH}`} className="w-full max-w-sm mx-auto" role="img" aria-label="Custom draft schematic">
-      <path d={outline} fill="#FAF5FF" stroke="#7C3AED" strokeWidth="1.5" strokeLinejoin="round" />
+    <svg
+      viewBox={`0 0 ${viewW} ${viewH}`}
+      className="w-full mx-auto block"
+      style={{ maxWidth: `${24 * zoom}rem` }}
+      role="img"
+      aria-label="Custom draft schematic"
+    >
+      <path d={outline} fill={palette.fill} stroke={palette.stroke} strokeWidth="1.5" strokeLinejoin="round" />
 
       <ChartOverlay
         chart={chart ?? null}
@@ -99,6 +119,8 @@ export default function CustomDraftSchematic({ output, unit, chart }: CustomDraf
         stitchToPx={stitchToPx}
         rowToPx={rowToPx}
         clipId={clipId}
+        renderSymbols
+        minCellSize={14}
       />
 
       {/* Section dividers — dashed line between sections */}
@@ -115,7 +137,7 @@ export default function CustomDraftSchematic({ output, unit, chart }: CustomDraf
               y1={topY}
               x2={cx + widthAtTop / 2}
               y2={topY}
-              stroke="#A78BFA"
+              stroke={palette.stroke}
               strokeWidth="0.75"
               strokeDasharray="3 2"
               opacity={i === output.sections.length - 1 ? 0 : 0.7}

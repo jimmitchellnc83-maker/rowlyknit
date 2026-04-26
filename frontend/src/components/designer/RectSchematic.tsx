@@ -2,6 +2,7 @@ import { useId } from 'react';
 import { formatLength, type MeasurementUnit } from '../../utils/designerMath';
 import type { ChartData } from './ChartGrid';
 import ChartOverlay from './ChartOverlay';
+import { paletteFromMainColor } from './schematicColors';
 
 interface RectSchematicProps {
   /** Finished width in inches (outer dimension). */
@@ -22,6 +23,10 @@ interface RectSchematicProps {
   unit: MeasurementUnit;
   /** Optional knitting chart to tile across the rectangle. */
   chart?: ChartData | null;
+  /** Hex of the user's main palette color. Overrides the per-type accent. */
+  mainColor?: string | null;
+  /** Visual scale multiplier. */
+  zoom?: number;
 }
 
 const ACCENTS: Record<NonNullable<RectSchematicProps['accent']>, { fill: string; stroke: string; band: string }> = {
@@ -47,6 +52,8 @@ export default function RectSchematic({
   label,
   unit,
   chart,
+  mainColor,
+  zoom = 1,
 }: RectSchematicProps) {
   const clipId = useId();
   const viewW = 320;
@@ -67,7 +74,14 @@ export default function RectSchematic({
   const rectBottom = rectTop + maxH;
   const rectRight = rectLeft + maxW;
 
-  const colors = ACCENTS[accent];
+  const fallback = ACCENTS[accent];
+  const palette = paletteFromMainColor(mainColor, {
+    fill: fallback.fill,
+    stroke: fallback.stroke,
+    accent: fallback.band,
+  });
+  // Re-shape into the local "colors" naming to keep the rest of the JSX intact.
+  const colors = { fill: palette.fill, stroke: palette.stroke, band: palette.accent };
 
   // Border inset — percentage of rect width/height based on borderInches.
   const borderInsetX = borderInches > 0 ? (borderInches / widthInches) * maxW : 0;
@@ -85,7 +99,8 @@ export default function RectSchematic({
       viewBox={`0 0 ${viewW} ${viewH}`}
       role="img"
       aria-label={`${label} schematic`}
-      className="w-full max-w-sm mx-auto"
+      className="w-full mx-auto block"
+      style={{ maxWidth: `${24 * zoom}rem` }}
     >
       {/* Main rectangle */}
       <rect
@@ -105,6 +120,8 @@ export default function RectSchematic({
         stitchToPx={stitchToPx}
         rowToPx={rowToPx}
         clipId={clipId}
+        renderSymbols
+        minCellSize={14}
       />
 
       {/* Border frame (dashed inner rectangle) */}

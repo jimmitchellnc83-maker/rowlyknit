@@ -2,12 +2,19 @@ import { useId } from 'react';
 import { formatLength, type BodyBlockInput, type BodyBlockOutput, type MeasurementUnit } from '../../utils/designerMath';
 import type { ChartData } from './ChartGrid';
 import ChartOverlay from './ChartOverlay';
+import { paletteFromMainColor } from './schematicColors';
 
 interface BodySchematicProps {
   input: BodyBlockInput;
   output: BodyBlockOutput;
   unit: MeasurementUnit;
   chart?: ChartData | null;
+  /** Hex of the user's main palette color. When set, the silhouette tints
+   *  to that color so the preview reads as the actual yarn. */
+  mainColor?: string | null;
+  /** Visual scale multiplier for the schematic. 1 = default 24rem max,
+   *  2 = 48rem max, etc. Wraps in a horizontally scrollable container. */
+  zoom?: number;
 }
 
 /**
@@ -22,8 +29,20 @@ interface BodySchematicProps {
  * is pure — it reads everything from the precomputed `output` struct and
  * rerenders instantly when inputs change.
  */
-export default function BodySchematic({ input, output, unit, chart }: BodySchematicProps) {
+export default function BodySchematic({
+  input,
+  output,
+  unit,
+  chart,
+  mainColor,
+  zoom = 1,
+}: BodySchematicProps) {
   const clipId = useId();
+  const palette = paletteFromMainColor(mainColor, {
+    fill: '#F5F3FF',
+    stroke: '#7C3AED',
+    accent: '#DDD6FE',
+  });
   const viewW = 320;
   const viewH = 420;
 
@@ -120,12 +139,13 @@ export default function BodySchematic({ input, output, unit, chart }: BodySchema
       viewBox={`0 0 ${viewW} ${viewH}`}
       role="img"
       aria-label="Body block schematic"
-      className="w-full max-w-sm mx-auto"
+      className="w-full mx-auto block"
+      style={{ maxWidth: `${24 * zoom}rem` }}
     >
       <path
         d={outline}
-        fill="#F5F3FF"
-        stroke="#7C3AED"
+        fill={palette.fill}
+        stroke={palette.stroke}
         strokeWidth="1.5"
         strokeLinejoin="round"
       />
@@ -137,6 +157,8 @@ export default function BodySchematic({ input, output, unit, chart }: BodySchema
         stitchToPx={stitchToPx}
         rowToPx={rowToPx}
         clipId={clipId}
+        renderSymbols
+        minCellSize={14}
       />
 
       {/* Hem fill — slightly darker band at cast-on edge */}
@@ -145,15 +167,15 @@ export default function BodySchematic({ input, output, unit, chart }: BodySchema
         y={hemY}
         width={half.castOn * 2}
         height={bottomY - hemY}
-        fill="#DDD6FE"
-        opacity="0.6"
+        fill={palette.accent}
+        opacity="0.7"
       />
       <line
         x1={cx - half.castOn}
         y1={hemY}
         x2={cx + half.castOn}
         y2={hemY}
-        stroke="#7C3AED"
+        stroke={palette.stroke}
         strokeWidth="1"
         strokeDasharray="3 2"
       />
@@ -165,7 +187,7 @@ export default function BodySchematic({ input, output, unit, chart }: BodySchema
           y1={armholeY}
           x2={cx + half.chest}
           y2={armholeY}
-          stroke="#8B5CF6"
+          stroke={palette.stroke}
           strokeWidth="1"
           strokeDasharray="2 3"
         />
