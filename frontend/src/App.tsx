@@ -29,6 +29,7 @@ import YarnSubstitutionCalculator from './pages/YarnSubstitutionCalculator';
 import GiftSizeCalculator from './pages/GiftSizeCalculator';
 import PatternDesigner from './pages/PatternDesigner';
 import PatternPrintView from './pages/PatternPrintView';
+import ChartsLibrary from './pages/ChartsLibrary';
 import Recipients from './pages/Recipients';
 import Profile from './pages/Profile';
 import Stats from './pages/Stats';
@@ -173,6 +174,7 @@ function App() {
         <Route path="/calculators/yarn-sub" element={<ErrorBoundary><YarnSubstitutionCalculator /></ErrorBoundary>} />
         <Route path="/designer" element={<ErrorBoundary><PatternDesigner /></ErrorBoundary>} />
         <Route path="/designer/print" element={<ErrorBoundary><PatternPrintView /></ErrorBoundary>} />
+        <Route path="/charts" element={<ErrorBoundary><ChartsLibrary /></ErrorBoundary>} />
         <Route path="/recipients" element={<Recipients />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/auth/ravelry/callback" element={<RavelryCallback />} />
