@@ -34,6 +34,7 @@ import SockSchematic from '../components/designer/SockSchematic';
 import CustomDraftSchematic from '../components/designer/CustomDraftSchematic';
 import ChartGrid from '../components/designer/ChartGrid';
 import { estimateYardageFromArea, formatYardage, type YardageRange } from '../utils/yardageEstimate';
+import { estimatePerColorYardage } from '../utils/yarnEstimatePerColor';
 import { type DesignerFormSnapshot } from '../utils/designerSnapshot';
 import { DEFAULT_CUSTOM_DRAFT } from '../types/customDraft';
 import { useChartSymbols } from '../hooks/useChartSymbols';
@@ -491,13 +492,47 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-function YardageCard({ yardage }: { yardage: YardageRange }) {
+function YardageCard({ yardage, form, area }: { yardage: YardageRange; form?: DesignerFormSnapshot; area?: number }) {
+  // When the draft has both a chart and a palette, split the total
+  // across the colors actually painted so the materials list reads as
+  // a real shopping list rather than one mystery number.
+  const breakdown =
+    form && area && form.chart && form.colors.length > 0
+      ? estimatePerColorYardage(
+          area,
+          { stitchesPer4in: (form.gaugeStitches as number) || 0, rowsPer4in: (form.gaugeRows as number) || 0 },
+          form.chart,
+          form.colors,
+        )
+      : null;
+
   return (
     <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm print-avoid-break">
       <p className="font-semibold text-amber-900">Estimated yardage: {formatYardage(yardage)}</p>
+      {breakdown && breakdown.rows.length > 1 && (
+        <ul className="mt-2 space-y-1 text-xs text-amber-900">
+          {breakdown.rows.map((row) => (
+            <li key={row.hex} className="flex items-center gap-2">
+              <span
+                className="inline-block h-3 w-3 flex-shrink-0 rounded border border-amber-300"
+                style={{ backgroundColor: row.hex }}
+                aria-hidden="true"
+              />
+              <span className="font-medium">
+                {row.isMain ? 'MC · ' : ''}
+                {row.label}
+              </span>
+              <span className="text-amber-700">·</span>
+              <span>{formatYardage(row.yardage)}</span>
+              <span className="text-amber-700">·</span>
+              <span className="text-amber-700">{Math.round(row.fraction * 100)}%</span>
+            </li>
+          ))}
+        </ul>
+      )}
       <p className="mt-1 text-xs text-amber-800">
-        Rough range based on finished area and gauge. Cables use more, lace uses less.
-        Buy a bit extra for swatching and weaving in ends.
+        Rough range based on finished area and gauge. Cables use more, lace uses less. Add 10–15% for stranded
+        colorwork (floats). Buy a bit extra for swatching and weaving in ends.
       </p>
     </div>
   );
@@ -700,7 +735,8 @@ function SweaterPrint({ form, gauge }: PrintProps) {
   const bodyPanelArea = body.finishedChest * body.finishedLength;
   const sleeveArea =
     ((sleeve.finishedCuff + sleeve.finishedBicep) / 2) * sleeve.finishedTotalLength;
-  const yardage = estimateYardageFromArea(2 * bodyPanelArea + 2 * sleeveArea, gauge);
+  const area = 2 * bodyPanelArea + 2 * sleeveArea;
+  const yardage = estimateYardageFromArea(area, gauge);
 
   return (
     <>
@@ -715,7 +751,7 @@ function SweaterPrint({ form, gauge }: PrintProps) {
       </Section>
 
       <Section title="Yarn">
-        <YardageCard yardage={yardage} />
+        <YardageCard yardage={yardage} form={form} area={area} />
       </Section>
 
       <Section title="Body — schematic">
@@ -748,10 +784,8 @@ function HatPrint({ form, gauge }: PrintProps) {
   };
   const out = computeHat(input);
   // Hat ~ cylinder opened flat = circumference × height, minus a bit for the taper.
-  const yardage = estimateYardageFromArea(
-    out.finishedCircumference * out.finishedHeight * 0.9,
-    gauge,
-  );
+  const area = out.finishedCircumference * out.finishedHeight * 0.9;
+  const yardage = estimateYardageFromArea(area, gauge);
   return (
     <>
       <Section title="Finished measurements">
@@ -761,7 +795,7 @@ function HatPrint({ form, gauge }: PrintProps) {
         </ul>
       </Section>
       <Section title="Yarn">
-        <YardageCard yardage={yardage} />
+        <YardageCard yardage={yardage} form={form} area={area} />
       </Section>
       <Section title="Schematic">
         <HatSchematic output={out} unit={form.unit} chart={form.chart} />
@@ -781,7 +815,8 @@ function ScarfPrint({ form, gauge }: PrintProps) {
     fringeLength: toInches(form.scarfFringeLength as number, form.unit),
   };
   const out = computeScarf(input);
-  const yardage = estimateYardageFromArea(out.finishedWidth * out.finishedLength, gauge);
+  const area = out.finishedWidth * out.finishedLength;
+  const yardage = estimateYardageFromArea(area, gauge);
   return (
     <>
       <Section title="Finished measurements">
@@ -792,7 +827,7 @@ function ScarfPrint({ form, gauge }: PrintProps) {
         </ul>
       </Section>
       <Section title="Yarn">
-        <YardageCard yardage={yardage} />
+        <YardageCard yardage={yardage} form={form} area={area} />
       </Section>
       <Section title="Schematic">
         <RectSchematic
@@ -821,7 +856,8 @@ function BlanketPrint({ form, gauge }: PrintProps) {
     borderDepth: toInches(form.blanketBorderDepth as number, form.unit),
   };
   const out = computeBlanket(input);
-  const yardage = estimateYardageFromArea(out.finishedWidth * out.finishedLength, gauge);
+  const area = out.finishedWidth * out.finishedLength;
+  const yardage = estimateYardageFromArea(area, gauge);
   return (
     <>
       <Section title="Finished measurements">
@@ -834,7 +870,7 @@ function BlanketPrint({ form, gauge }: PrintProps) {
         </ul>
       </Section>
       <Section title="Yarn">
-        <YardageCard yardage={yardage} />
+        <YardageCard yardage={yardage} form={form} area={area} />
       </Section>
       <Section title="Schematic">
         <RectSchematic
@@ -863,10 +899,8 @@ function ShawlPrint({ form, gauge }: PrintProps) {
   };
   const out = computeShawl(input);
   // Triangle area = wingspan × depth × 0.5.
-  const yardage = estimateYardageFromArea(
-    out.finishedWingspan * out.finishedDepth * 0.5,
-    gauge,
-  );
+  const area = out.finishedWingspan * out.finishedDepth * 0.5;
+  const yardage = estimateYardageFromArea(area, gauge);
   return (
     <>
       <Section title="Finished measurements">
@@ -876,7 +910,7 @@ function ShawlPrint({ form, gauge }: PrintProps) {
         </ul>
       </Section>
       <Section title="Yarn">
-        <YardageCard yardage={yardage} />
+        <YardageCard yardage={yardage} form={form} area={area} />
       </Section>
       <Section title="Schematic">
         <ShawlSchematic output={out} unit={form.unit} chart={form.chart} />
@@ -902,10 +936,8 @@ function MittensPrint({ form, gauge }: PrintProps) {
   };
   const out = computeMittens(input);
   // Two mittens: 2 × (hand_circ × length) + a small thumb allowance.
-  const yardage = estimateYardageFromArea(
-    2 * (out.finishedHandCircumference * out.finishedLength + out.finishedThumbCircumference * 2.5),
-    gauge,
-  );
+  const area = 2 * (out.finishedHandCircumference * out.finishedLength + out.finishedThumbCircumference * 2.5);
+  const yardage = estimateYardageFromArea(area, gauge);
   return (
     <>
       <Section title="Finished measurements">
@@ -916,7 +948,7 @@ function MittensPrint({ form, gauge }: PrintProps) {
         </ul>
       </Section>
       <Section title="Yarn (pair)">
-        <YardageCard yardage={yardage} />
+        <YardageCard yardage={yardage} form={form} area={area} />
       </Section>
       <Section title="Schematic">
         <MittenSchematic output={out} unit={form.unit} chart={form.chart} />
@@ -940,10 +972,8 @@ function SocksPrint({ form, gauge }: PrintProps) {
   };
   const out = computeSocks(input);
   // Two socks: each ~ ankle circ × total length (rough tube approximation).
-  const yardage = estimateYardageFromArea(
-    2 * out.finishedAnkleCircumference * out.finishedTotalLength,
-    gauge,
-  );
+  const area = 2 * out.finishedAnkleCircumference * out.finishedTotalLength;
+  const yardage = estimateYardageFromArea(area, gauge);
   return (
     <>
       <Section title="Finished measurements">
@@ -954,7 +984,7 @@ function SocksPrint({ form, gauge }: PrintProps) {
         </ul>
       </Section>
       <Section title="Yarn (pair)">
-        <YardageCard yardage={yardage} />
+        <YardageCard yardage={yardage} form={form} area={area} />
       </Section>
       <Section title="Schematic">
         <SockSchematic output={out} unit={form.unit} chart={form.chart} />
@@ -969,10 +999,8 @@ function SocksPrint({ form, gauge }: PrintProps) {
 function CustomDraftPrint({ form, gauge }: PrintProps) {
   const draft = form.customDraft ?? DEFAULT_CUSTOM_DRAFT;
   const out = computeCustomDraft({ draft, gauge });
-  const yardage = estimateYardageFromArea(
-    out.startingWidthInches * out.totalHeightInches * 0.85,
-    gauge,
-  );
+  const area = out.startingWidthInches * out.totalHeightInches * 0.85;
+  const yardage = estimateYardageFromArea(area, gauge);
   return (
     <>
       <Section title="Finished measurements">
@@ -992,7 +1020,7 @@ function CustomDraftPrint({ form, gauge }: PrintProps) {
         </ul>
       </Section>
       <Section title="Yarn">
-        <YardageCard yardage={yardage} />
+        <YardageCard yardage={yardage} form={form} area={area} />
       </Section>
       <Section title="Schematic">
         <CustomDraftSchematic output={out} unit={form.unit} chart={form.chart} />
