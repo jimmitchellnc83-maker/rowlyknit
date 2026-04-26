@@ -98,11 +98,13 @@ The templates are stored in inches and auto-convert to centimeters when applied 
 
 ---
 
-## Unit toggle (in / cm)
+## Units (in / cm)
 
-There's a button pair at the top of the form that switches every numeric field between inches and centimeters. Today this toggle initializes to **inches** every time you open the Designer, regardless of any unit preference you may have set in your Profile. Toggling converts both the values (44 in ↔ 112 cm) and the labels.
+The Designer reads your **Profile → Units** preference (Profile page, "Units" tab) to decide whether to show every measurement in inches or centimeters. There is no in-page toggle; the unit shown is the unit your account is set to. A small line above the Gauge inputs reminds you which unit is active and links to the profile setting.
 
-> **Known gap:** This toggle is currently local to the Designer. The user's profile already supports a `lengthUnit` preference, but the Designer doesn't read it yet. The next refactor will make every measurement field across the app honor a single account-level preference.
+If you change your profile preference while the Designer is open, the form re-converts in place — 44 in becomes ~112 cm, etc. The same conversion runs when you reopen the Designer if your saved draft is in a unit different from your current preference.
+
+mm is a valid profile preference for needle/cable sizing, but the Designer treats it as cm because body measurements in mm aren't useful.
 
 ---
 
