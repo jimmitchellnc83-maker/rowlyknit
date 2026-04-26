@@ -44,6 +44,8 @@ import StitchPalette from '../components/designer/StitchPalette';
 import PageHelpButton from '../components/PageHelpButton';
 import { useChartSymbols } from '../hooks/useChartSymbols';
 import { buildChartInstructions } from '../utils/chartInstruction';
+import { SaveChartModal, LoadChartModal } from '../components/designer/ChartAssetModals';
+import axios from 'axios';
 import {
   DESIGNER_TEMPLATES,
   mergeTemplateIntoForm,
@@ -138,6 +140,10 @@ interface DesignerForm {
   // Null means "no chart yet"; when the user opens the Chart section the
   // first time we initialize a small default grid.
   chart: ChartData | null;
+
+  // When the user has Saved this chart as a library asset, the asset id
+  // is tracked here so subsequent saves update the same row.
+  chartAssetId: string | null;
 
   // Chart instruction mode — drives how the chart appears in the written
   // instructions. See DesignerFormSnapshot.chartInstructionMode for detail.
@@ -254,6 +260,7 @@ const DEFAULT_FORM: DesignerForm = {
 
   colors: [],
   chart: null,
+  chartAssetId: null,
   chartInstructionMode: 'with-chart-text',
 
   patternTitle: '',
@@ -880,6 +887,9 @@ function ChartSection({
   craft,
   instructionMode,
   onInstructionModeChange,
+  chartAssetId,
+  onChartAssetIdChange,
+  defaultName,
 }: {
   chart: ChartData | null;
   onChange: (next: ChartData | null) => void;
@@ -887,6 +897,9 @@ function ChartSection({
   craft: Craft;
   instructionMode: DesignerForm['chartInstructionMode'];
   onInstructionModeChange: (next: DesignerForm['chartInstructionMode']) => void;
+  chartAssetId: string | null;
+  onChartAssetIdChange: (next: string | null) => void;
+  defaultName: string;
 }) {
   const defaultSymbolId = craft === 'crochet' ? 'sc' : 'k';
   const [tool, setTool] = useState<ChartTool>({ type: 'symbol', symbolId: defaultSymbolId });
@@ -899,6 +912,9 @@ function ChartSection({
   }, [craft, defaultSymbolId]);
   const [cellSize, setCellSize] = useState<number>(28);
   const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
+  const [showSaveModal, setShowSaveModal] = useState(false);
+  const [showLoadModal, setShowLoadModal] = useState(false);
+  const [exportingFormat, setExportingFormat] = useState<string | null>(null);
 
   if (!chart) {
     return (
@@ -911,16 +927,70 @@ function ChartSection({
           to place symbols (knit, purl, yarn-over, decreases) or colors from the palette. The
           chart rides along with the rest of the design in the print view.
         </p>
-        <button
-          type="button"
-          onClick={() => onChange(emptyChart(20, 16))}
-          className="rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700"
-        >
-          Add chart
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => onChange(emptyChart(20, 16))}
+            className="rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700"
+          >
+            Add chart
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowLoadModal(true)}
+            className="rounded-lg border border-purple-300 px-4 py-2 text-sm font-medium text-purple-700 hover:bg-purple-50 dark:border-purple-800 dark:text-purple-300 dark:hover:bg-purple-900/30"
+          >
+            Load saved chart
+          </button>
+        </div>
+        {showLoadModal && (
+          <LoadChartModal
+            onClose={() => setShowLoadModal(false)}
+            onSelect={(picked) => {
+              if (picked.grid && (picked.grid as any).cells) {
+                onChange(picked.grid as ChartData);
+                onChartAssetIdChange(picked.id);
+                setShowLoadModal(false);
+                toast.success(`Loaded "${picked.name}"`);
+              } else {
+                toast.error('That chart has no grid data.');
+              }
+            }}
+          />
+        )}
       </section>
     );
   }
+
+  const exportChart = async (format: 'pdf' | 'png' | 'csv' | 'markdown' | 'ravelry') => {
+    if (!chartAssetId) {
+      toast.info('Save the chart to your library first to enable export.');
+      setShowSaveModal(true);
+      return;
+    }
+    try {
+      setExportingFormat(format);
+      const res = await axios.post(
+        `/api/charts/${chartAssetId}/export`,
+        { format },
+        { responseType: 'blob' },
+      );
+      const blob = new Blob([res.data]);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `chart.${format === 'ravelry' ? 'json' : format === 'markdown' ? 'md' : format}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success(`Exported ${format.toUpperCase()}`);
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || `Failed to export as ${format}`);
+    } finally {
+      setExportingFormat(null);
+    }
+  };
 
   return (
     <section className="rounded-lg bg-white p-4 shadow dark:bg-gray-800 md:p-6">
@@ -972,6 +1042,73 @@ function ChartSection({
             onChange(null);
           }}
           onCancel={() => setShowRemoveConfirm(false)}
+        />
+      )}
+
+      {/* Asset + export bar — save the current chart as a reusable
+          library asset and export it to common knitter-friendly formats.
+          Export buttons require a saved chartAssetId; clicking them
+          while unsaved nudges the user to save first. */}
+      <div className="mb-3 flex flex-wrap items-center gap-2 rounded-md border border-gray-200 bg-gray-50 p-2 dark:border-gray-700 dark:bg-gray-900/40">
+        <button
+          type="button"
+          onClick={() => setShowSaveModal(true)}
+          className="rounded-md bg-purple-600 px-3 py-1 text-xs font-medium text-white hover:bg-purple-700"
+        >
+          {chartAssetId ? 'Update saved chart' : 'Save chart as asset'}
+        </button>
+        <button
+          type="button"
+          onClick={() => setShowLoadModal(true)}
+          className="rounded-md border border-gray-300 px-3 py-1 text-xs text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+        >
+          Load saved chart
+        </button>
+        {chartAssetId && (
+          <span className="text-[11px] text-gray-500 dark:text-gray-400" title={chartAssetId}>
+            Linked to library
+          </span>
+        )}
+        <span className="ml-auto flex flex-wrap items-center gap-1 text-xs text-gray-500">
+          Export:
+          {(['png', 'pdf', 'csv', 'markdown', 'ravelry'] as const).map((fmt) => (
+            <button
+              key={fmt}
+              type="button"
+              onClick={() => exportChart(fmt)}
+              disabled={exportingFormat !== null}
+              className="rounded-md border border-gray-300 px-2 py-0.5 text-[11px] font-medium uppercase text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+              title={chartAssetId ? `Export as ${fmt.toUpperCase()}` : 'Save the chart first to enable export'}
+            >
+              {exportingFormat === fmt ? '…' : fmt}
+            </button>
+          ))}
+        </span>
+      </div>
+
+      {showSaveModal && (
+        <SaveChartModal
+          chart={chart}
+          chartId={chartAssetId}
+          defaultName={defaultName}
+          onClose={() => setShowSaveModal(false)}
+          onSaved={(saved) => onChartAssetIdChange(saved.id)}
+        />
+      )}
+
+      {showLoadModal && (
+        <LoadChartModal
+          onClose={() => setShowLoadModal(false)}
+          onSelect={(picked) => {
+            if (picked.grid && (picked.grid as any).cells) {
+              onChange(picked.grid as ChartData);
+              onChartAssetIdChange(picked.id);
+              setShowLoadModal(false);
+              toast.success(`Loaded "${picked.name}"`);
+            } else {
+              toast.error('That chart has no grid data.');
+            }
+          }}
         />
       )}
 
@@ -2174,6 +2311,9 @@ export default function PatternDesigner() {
         craft={form.craft}
         instructionMode={form.chartInstructionMode ?? 'with-chart-text'}
         onInstructionModeChange={(next) => update('chartInstructionMode', next)}
+        chartAssetId={form.chartAssetId}
+        onChartAssetIdChange={(next) => update('chartAssetId', next)}
+        defaultName={form.patternTitle?.trim() || `${itemLabel(form.itemType)} chart`}
       />
     </div>
   );
