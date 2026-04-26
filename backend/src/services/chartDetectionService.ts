@@ -7,7 +7,6 @@
  */
 
 import sharp from 'sharp';
-import db from '../config/database';
 import logger from '../config/logger';
 
 export interface DetectedCell {
@@ -422,23 +421,6 @@ export function isValidSymbol(symbol: string): boolean {
   return KNOWN_SYMBOLS.includes(symbol.toLowerCase());
 }
 
-/**
- * Get symbol library from database
- */
-export async function getSymbolLibrary(userId?: string): Promise<
-  Array<{ symbol: string; name: string; category: string; description: string | null }>
-> {
-  const query = db('chart_symbol_templates')
-    .select('symbol', 'name', 'category', 'description')
-    .where('is_system', true);
-
-  if (userId) {
-    query.orWhere('user_id', userId);
-  }
-
-  return query;
-}
-
 export default {
   detectChartFromImage,
   preprocessImage,
@@ -447,5 +429,4 @@ export default {
   recognizeSymbol,
   applyCorrections,
   isValidSymbol,
-  getSymbolLibrary,
 };

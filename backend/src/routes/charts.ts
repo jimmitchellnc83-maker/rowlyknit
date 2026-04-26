@@ -3,6 +3,7 @@ import { body, query } from 'express-validator';
 import multer from 'multer';
 import * as chartDetectionController from '../controllers/chartDetectionController';
 import * as chartSharingController from '../controllers/chartSharingController';
+import * as chartSymbolController from '../controllers/chartSymbolController';
 import { authenticate } from '../middleware/auth';
 import { validate, validateUUID } from '../middleware/validator';
 import { asyncHandler } from '../utils/errorHandler';
@@ -98,11 +99,87 @@ router.post(
 );
 
 /**
+ * Stitch palette routes (system + user-custom symbols)
+ */
+
+/**
  * @route   GET /api/charts/symbols
- * @desc    Get symbol library
+ * @desc    Get symbol palette grouped into system + custom (optionally filtered by craft)
  * @access  Private
  */
-router.get('/symbols', asyncHandler(chartDetectionController.getSymbols));
+router.get(
+  '/symbols',
+  [query('craft').optional({ values: 'falsy' }).isIn(['knit', 'crochet'])],
+  validate,
+  asyncHandler(chartSymbolController.getPalette)
+);
+
+/**
+ * @route   GET /api/charts/symbols/lookup
+ * @desc    Resolve a comma-separated list of symbols to their full template rows
+ * @access  Private
+ */
+router.get(
+  '/symbols/lookup',
+  [query('symbols').isString().notEmpty()],
+  validate,
+  asyncHandler(chartSymbolController.getLookup)
+);
+
+/**
+ * @route   POST /api/charts/symbols
+ * @desc    Create a user-custom stitch
+ * @access  Private
+ */
+router.post(
+  '/symbols',
+  [
+    body('symbol').isString().trim().isLength({ min: 1, max: 10 }),
+    body('name').isString().trim().isLength({ min: 1, max: 100 }),
+    body('category').optional({ values: 'null' }).isString().isLength({ max: 50 }),
+    body('description').optional({ values: 'null' }).isString(),
+    body('abbreviation').optional({ values: 'null' }).isString().isLength({ max: 20 }),
+    body('rs_instruction').optional({ values: 'null' }).isString(),
+    body('ws_instruction').optional({ values: 'null' }).isString(),
+    body('cell_span').optional({ values: 'falsy' }).isInt({ min: 1, max: 8 }),
+    body('craft').optional({ values: 'falsy' }).isIn(['knit', 'crochet']),
+  ],
+  validate,
+  asyncHandler(chartSymbolController.postSymbol)
+);
+
+/**
+ * @route   PUT /api/charts/symbols/:id
+ * @desc    Update a user-custom stitch
+ * @access  Private
+ */
+router.put(
+  '/symbols/:id',
+  [
+    validateUUID('id'),
+    body('name').optional({ values: 'null' }).isString().isLength({ min: 1, max: 100 }),
+    body('category').optional({ values: 'null' }).isString().isLength({ max: 50 }),
+    body('description').optional({ values: 'null' }).isString(),
+    body('abbreviation').optional({ values: 'null' }).isString().isLength({ max: 20 }),
+    body('rs_instruction').optional({ values: 'null' }).isString(),
+    body('ws_instruction').optional({ values: 'null' }).isString(),
+    body('cell_span').optional({ values: 'falsy' }).isInt({ min: 1, max: 8 }),
+    body('craft').optional({ values: 'falsy' }).isIn(['knit', 'crochet']),
+  ],
+  validate,
+  asyncHandler(chartSymbolController.putSymbol)
+);
+
+/**
+ * @route   DELETE /api/charts/symbols/:id
+ * @desc    Delete a user-custom stitch
+ * @access  Private
+ */
+router.delete(
+  '/symbols/:id',
+  validateUUID('id'),
+  asyncHandler(chartSymbolController.deleteSymbol)
+);
 
 /**
  * @route   GET /api/charts/detections
