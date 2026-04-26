@@ -13,6 +13,7 @@ import {
 } from '../utils/giftSizeMath';
 import { useSeo } from '../hooks/useSeo';
 import { useAuthStore } from '../stores/authStore';
+import { useMeasurementPrefs } from '../hooks/useMeasurementPrefs';
 import { trackEvent } from '../lib/analytics';
 import SaveCalcToProjectModal, { type CalculatorMemoPayload } from '../components/calculators/SaveCalcToProjectModal';
 
@@ -166,8 +167,13 @@ export default function GiftSizeCalculator() {
   });
 
   const { isAuthenticated } = useAuthStore();
-  const [bodyChest, setBodyChest] = useState<NumField>(36);
-  const [unit, setUnit] = useState<MeasurementUnit>('in');
+  const { prefs } = useMeasurementPrefs();
+  // Default the input unit + chest from the user's profile pref. The dropdown
+  // still works — a knitter may want to type in the unit a pattern uses even
+  // if their profile says otherwise. mm folds to cm.
+  const initialUnit: MeasurementUnit = prefs.lengthDisplayUnit === 'cm' || prefs.lengthDisplayUnit === 'mm' ? 'cm' : 'in';
+  const [bodyChest, setBodyChest] = useState<NumField>(initialUnit === 'cm' ? 91 : 36);
+  const [unit, setUnit] = useState<MeasurementUnit>(initialUnit);
   const [fit, setFit] = useState<FitStyle>('classic');
   const [useCustomEase, setUseCustomEase] = useState(false);
   const [customEaseIn, setCustomEaseIn] = useState<NumField>(2);
