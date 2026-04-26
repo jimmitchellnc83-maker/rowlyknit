@@ -251,6 +251,74 @@ function readSavedForm(): DesignerForm {
   }
 }
 
+// Form fields that hold a length (chest, sleeve, hem, etc.). When the user
+// toggles unit, every value in this list converts in or out of cm so 44 in
+// becomes ~112 cm rather than silently being reinterpreted as 44 cm.
+const LENGTH_FIELDS: ReadonlyArray<keyof DesignerForm> = [
+  'gaugeMeasurement',
+  'headCircumference',
+  'negativeEaseAtBrim',
+  'hatTotalHeight',
+  'hatBrimDepth',
+  'hatCrownHeight',
+  'scarfWidth',
+  'scarfLength',
+  'scarfFringeLength',
+  'blanketWidth',
+  'blanketLength',
+  'blanketBorderDepth',
+  'shawlWingspan',
+  'handCircumference',
+  'negativeEaseAtMittenCuff',
+  'thumbCircumference',
+  'mittenCuffDepth',
+  'cuffToThumbLength',
+  'thumbGussetLength',
+  'thumbToTipLength',
+  'thumbLength',
+  'ankleCircumference',
+  'negativeEaseAtSockCuff',
+  'footCircumference',
+  'sockCuffDepth',
+  'legLength',
+  'footLength',
+  'chestCircumference',
+  'easeAtChest',
+  'totalLength',
+  'hemDepth',
+  'waistCircumference',
+  'easeAtWaist',
+  'waistHeightFromHem',
+  'armholeDepth',
+  'shoulderWidth',
+  'necklineDepth',
+  'neckOpeningWidth',
+  'cuffCircumference',
+  'easeAtCuff',
+  'bicepCircumference',
+  'easeAtBicep',
+  'cuffToUnderarmLength',
+  'cuffDepth',
+];
+
+function roundToStep(value: number, step: number): number {
+  return Math.round(value / step) * step;
+}
+
+function convertFormUnits(prev: DesignerForm, target: MeasurementUnit): DesignerForm {
+  if (prev.unit === target) return prev;
+  const factor = target === 'cm' ? 2.54 : 1 / 2.54;
+  const step = target === 'cm' ? 0.5 : 0.25;
+  const next = { ...prev, unit: target };
+  for (const key of LENGTH_FIELDS) {
+    const v = prev[key] as NumField;
+    if (typeof v === 'number' && Number.isFinite(v)) {
+      (next[key] as NumField) = roundToStep(v * factor, step);
+    }
+  }
+  return next;
+}
+
 function isPositive(n: NumField): n is number {
   return typeof n === 'number' && Number.isFinite(n) && n > 0;
 }
@@ -817,6 +885,11 @@ function ChartSection({
 
 export default function PatternDesigner() {
   const [form, setForm] = useState<DesignerForm>(() => readSavedForm());
+  // Zoom level for the schematic preview. 1 = default 24rem cap, larger
+  // values let the silhouette grow so colorwork and stitch symbols are
+  // legible. Container handles horizontal scroll past the viewport.
+  const [schematicZoom, setSchematicZoom] = useState<number>(1);
+  const mainColor = form.colors[0]?.hex ?? null;
 
   useEffect(() => {
     try {
@@ -980,7 +1053,7 @@ export default function PatternDesigner() {
                 <button
                   key={u}
                   type="button"
-                  onClick={() => update('unit', u)}
+                  onClick={() => setForm((prev) => convertFormUnits(prev, u))}
                   className={`flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition ${
                     form.unit === u
                       ? 'border-purple-600 bg-purple-600 text-white'
@@ -1538,34 +1611,60 @@ export default function PatternDesigner() {
         {/* Preview */}
         <div className="space-y-4 lg:col-span-3">
           <section className="rounded-lg bg-white p-4 shadow dark:bg-gray-800 md:p-6">
-            <h2 className="mb-3 text-lg font-semibold text-gray-900 dark:text-gray-100">
-              Schematic —{' '}
-              {form.itemType === 'hat'
-                ? 'Hat'
-                : form.itemType === 'scarf'
-                  ? 'Scarf'
-                  : form.itemType === 'blanket'
-                    ? 'Blanket'
-                    : form.itemType === 'shawl'
-                      ? 'Shawl'
-                      : form.itemType === 'mittens'
-                        ? 'Mittens'
-                        : form.itemType === 'socks'
-                          ? 'Socks'
-                          : form.itemType === 'custom'
-                            ? 'Custom shape'
-                            : form.activeSection === 'body'
-                              ? 'Body block'
-                              : 'Sleeve'}
-            </h2>
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                Schematic —{' '}
+                {form.itemType === 'hat'
+                  ? 'Hat'
+                  : form.itemType === 'scarf'
+                    ? 'Scarf'
+                    : form.itemType === 'blanket'
+                      ? 'Blanket'
+                      : form.itemType === 'shawl'
+                        ? 'Shawl'
+                        : form.itemType === 'mittens'
+                          ? 'Mittens'
+                          : form.itemType === 'socks'
+                            ? 'Socks'
+                            : form.itemType === 'custom'
+                              ? 'Custom shape'
+                              : form.activeSection === 'body'
+                                ? 'Body block'
+                                : 'Sleeve'}
+              </h2>
+              <div className="flex items-center gap-1">
+                <span className="text-xs text-gray-500">Zoom</span>
+                {[
+                  { label: '1×', value: 1 },
+                  { label: '1.5×', value: 1.5 },
+                  { label: '2×', value: 2 },
+                  { label: '3×', value: 3 },
+                ].map((opt) => (
+                  <button
+                    key={opt.label}
+                    type="button"
+                    onClick={() => setSchematicZoom(opt.value)}
+                    aria-pressed={schematicZoom === opt.value}
+                    className={`rounded border px-2 py-0.5 text-xs ${
+                      schematicZoom === opt.value
+                        ? 'border-purple-600 bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-200'
+                        : 'border-gray-300 bg-white text-gray-600 hover:border-purple-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="overflow-x-auto">
             {form.itemType === 'hat' && hatOutput ? (
-              <HatSchematic output={hatOutput} unit={form.unit} chart={form.chart} />
+              <HatSchematic output={hatOutput} unit={form.unit} chart={form.chart} mainColor={mainColor} zoom={schematicZoom} />
             ) : form.itemType === 'mittens' && mittenOutput ? (
-              <MittenSchematic output={mittenOutput} unit={form.unit} chart={form.chart} />
+              <MittenSchematic output={mittenOutput} unit={form.unit} chart={form.chart} mainColor={mainColor} zoom={schematicZoom} />
             ) : form.itemType === 'socks' && sockOutput ? (
-              <SockSchematic output={sockOutput} unit={form.unit} chart={form.chart} />
+              <SockSchematic output={sockOutput} unit={form.unit} chart={form.chart} mainColor={mainColor} zoom={schematicZoom} />
             ) : form.itemType === 'shawl' && shawlOutput ? (
-              <ShawlSchematic output={shawlOutput} unit={form.unit} chart={form.chart} />
+              <ShawlSchematic output={shawlOutput} unit={form.unit} chart={form.chart} mainColor={mainColor} zoom={schematicZoom} />
             ) : form.itemType === 'scarf' && scarfOutput ? (
               <RectSchematic
                 label="Scarf"
@@ -1576,6 +1675,8 @@ export default function PatternDesigner() {
                 fringeInches={scarfOutput.fringeLength}
                 unit={form.unit}
                 chart={form.chart}
+                mainColor={mainColor}
+                zoom={schematicZoom}
               />
             ) : form.itemType === 'blanket' && blanketOutput ? (
               <RectSchematic
@@ -1589,27 +1690,41 @@ export default function PatternDesigner() {
                 }
                 unit={form.unit}
                 chart={form.chart}
+                mainColor={mainColor}
+                zoom={schematicZoom}
               />
             ) : form.itemType === 'sweater' && form.activeSection === 'body' && bodyOutput ? (
-              <BodySchematic input={buildBodyInput(form)} output={bodyOutput} unit={form.unit} chart={form.chart} />
+              <BodySchematic
+                input={buildBodyInput(form)}
+                output={bodyOutput}
+                unit={form.unit}
+                chart={form.chart}
+                mainColor={mainColor}
+                zoom={schematicZoom}
+              />
             ) : form.itemType === 'sweater' && form.activeSection === 'sleeve' && sleeveOutput ? (
               <SleeveSchematic
                 input={buildSleeveInput(form, bodyOutput?.armholeInitialBindOffPerSide ?? null)}
                 output={sleeveOutput}
                 unit={form.unit}
                 chart={form.chart}
+                mainColor={mainColor}
+                zoom={schematicZoom}
               />
             ) : form.itemType === 'custom' && customDraftOutput ? (
               <CustomDraftSchematic
                 output={customDraftOutput}
                 unit={form.unit}
                 chart={form.chart}
+                mainColor={mainColor}
+                zoom={schematicZoom}
               />
             ) : (
               <div className="flex min-h-[280px] items-center justify-center rounded-lg border border-dashed border-gray-300 bg-gray-50 p-6 text-center text-sm italic text-gray-500">
                 Fill in gauge and section measurements to see the schematic.
               </div>
             )}
+            </div>
 
             {/* Color palette preview — echo of the Colors card inputs, shown
                 alongside the schematic so knitters can eyeball the palette

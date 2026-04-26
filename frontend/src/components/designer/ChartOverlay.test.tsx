@@ -127,4 +127,54 @@ describe('ChartOverlay', () => {
     );
     expect(container.querySelectorAll('rect').length).toBe(0);
   });
+
+  it('renders symbols when renderSymbols=true even without a colorHex', () => {
+    const chart: ChartData = {
+      width: 1,
+      height: 1,
+      cells: [{ symbolId: 'purl', colorHex: null }],
+    };
+    const { container } = renderInSvg(
+      <ChartOverlay
+        chart={chart}
+        clipPath={SQUARE_PATH}
+        bounds={BOUNDS}
+        stitchToPx={20}
+        rowToPx={20}
+        clipId="t6"
+        renderSymbols
+      />,
+    );
+    // The purl symbol should appear as <text> inside the overlay.
+    const texts = Array.from(container.querySelectorAll('text'));
+    expect(texts.length).toBeGreaterThan(0);
+    // The symbol's default color should fill the cell since no colorHex is set.
+    const rects = Array.from(container.querySelectorAll('rect'));
+    expect(rects.length).toBeGreaterThan(0);
+  });
+
+  it('honours minCellSize so symbols stay legible at schematic scale', () => {
+    // Native stitchToPx of 2px would tile the chart 50× across the 100px
+    // bounds — far too small to read. minCellSize=14 forces 14px cells.
+    const chart = makeChart(5, 5, (r, c) => (r === 0 && c === 0 ? '#ff0000' : null));
+    const { container } = renderInSvg(
+      <ChartOverlay
+        chart={chart}
+        clipPath={SQUARE_PATH}
+        bounds={BOUNDS}
+        stitchToPx={2}
+        rowToPx={2}
+        clipId="t7"
+        minCellSize={14}
+      />,
+    );
+    const rects = Array.from(container.querySelectorAll('rect'));
+    expect(rects.length).toBeGreaterThan(0);
+    // Each rendered cell rect should be at the minimum 14px, not the
+    // stitchToPx of 2 — that's the whole point of the minimum.
+    for (const r of rects) {
+      expect(r.getAttribute('width')).toBe('14');
+      expect(r.getAttribute('height')).toBe('14');
+    }
+  });
 });

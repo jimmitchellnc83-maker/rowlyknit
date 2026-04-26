@@ -2,11 +2,14 @@ import { useId } from 'react';
 import { formatLength, type ShawlOutput, type MeasurementUnit } from '../../utils/designerMath';
 import type { ChartData } from './ChartGrid';
 import ChartOverlay from './ChartOverlay';
+import { paletteFromMainColor } from './schematicColors';
 
 interface ShawlSchematicProps {
   output: ShawlOutput;
   unit: MeasurementUnit;
   chart?: ChartData | null;
+  mainColor?: string | null;
+  zoom?: number;
 }
 
 /**
@@ -17,8 +20,13 @@ interface ShawlSchematicProps {
  * gauge — we render whatever ratio the math produced rather than forcing a
  * specific shape.
  */
-export default function ShawlSchematic({ output, unit, chart }: ShawlSchematicProps) {
+export default function ShawlSchematic({ output, unit, chart, mainColor, zoom = 1 }: ShawlSchematicProps) {
   const clipId = useId();
+  const palette = paletteFromMainColor(mainColor, {
+    fill: '#FDF2F8',
+    stroke: '#DB2777',
+    accent: '#FBCFE8',
+  });
   const viewW = 340;
   const viewH = 300;
   const marginX = 40;
@@ -52,9 +60,10 @@ export default function ShawlSchematic({ output, unit, chart }: ShawlSchematicPr
       viewBox={`0 0 ${viewW} ${viewH}`}
       role="img"
       aria-label="Shawl schematic"
-      className="w-full max-w-sm mx-auto"
+      className="w-full mx-auto block"
+      style={{ maxWidth: `${24 * zoom}rem` }}
     >
-      <path d={outline} fill="#FDF2F8" stroke="#DB2777" strokeWidth="1.5" strokeLinejoin="round" />
+      <path d={outline} fill={palette.fill} stroke={palette.stroke} strokeWidth="1.5" strokeLinejoin="round" />
 
       <ChartOverlay
         chart={chart ?? null}
@@ -63,6 +72,8 @@ export default function ShawlSchematic({ output, unit, chart }: ShawlSchematicPr
         stitchToPx={width / Math.max(1, output.finalStitches)}
         rowToPx={width / Math.max(1, output.finalStitches)}
         clipId={clipId}
+        renderSymbols
+        minCellSize={14}
       />
 
       {/* Center spine marker */}
@@ -71,14 +82,14 @@ export default function ShawlSchematic({ output, unit, chart }: ShawlSchematicPr
         y1={topY}
         x2={cx}
         y2={bottomY}
-        stroke="#DB2777"
+        stroke={palette.stroke}
         strokeWidth="0.75"
         strokeDasharray="3 3"
         opacity="0.6"
       />
 
       {/* Apex dot + cast-on label */}
-      <circle cx={cx} cy={topY} r="3" fill="#DB2777" />
+      <circle cx={cx} cy={topY} r="3" fill={palette.stroke} />
       <text x={cx} y={topY - 12} textAnchor="middle" className="fill-gray-700 text-[12px] font-semibold">
         cast on {output.castOnStitches} sts
       </text>

@@ -2,11 +2,14 @@ import { useId } from 'react';
 import { formatLength, type MittenOutput, type MeasurementUnit } from '../../utils/designerMath';
 import type { ChartData } from './ChartGrid';
 import ChartOverlay from './ChartOverlay';
+import { paletteFromMainColor } from './schematicColors';
 
 interface MittenSchematicProps {
   output: MittenOutput;
   unit: MeasurementUnit;
   chart?: ChartData | null;
+  mainColor?: string | null;
+  zoom?: number;
 }
 
 /**
@@ -15,8 +18,13 @@ interface MittenSchematicProps {
  * schematic — proportions don't try to match hand anatomy exactly; they
  * just show which dimension lives where so the labels are legible.
  */
-export default function MittenSchematic({ output, unit, chart }: MittenSchematicProps) {
+export default function MittenSchematic({ output, unit, chart, mainColor, zoom = 1 }: MittenSchematicProps) {
   const clipId = useId();
+  const palette = paletteFromMainColor(mainColor, {
+    fill: '#FEF3C7',
+    stroke: '#D97706',
+    accent: '#FCD34D',
+  });
   const viewW = 340;
   const viewH = 380;
   const cx = viewW / 2;
@@ -48,19 +56,19 @@ export default function MittenSchematic({ output, unit, chart }: MittenSchematic
   const rowToPx = stitchToPx;
 
   return (
-    <svg viewBox={`0 0 ${viewW} ${viewH}`} role="img" aria-label="Mitten schematic" className="w-full max-w-sm mx-auto">
+    <svg viewBox={`0 0 ${viewW} ${viewH}`} role="img" aria-label="Mitten schematic" className="w-full mx-auto block" style={{ maxWidth: `${24 * zoom}rem` }}>
       {/* Hand: rounded-top rect */}
       <path
         d={handPath}
-        fill="#FEF3C7"
-        stroke="#D97706"
+        fill={palette.fill}
+        stroke={palette.stroke}
         strokeWidth="1.5"
       />
       {/* Thumb: smaller rounded rect off to the left */}
       <path
         d={thumbPath}
-        fill="#FEF3C7"
-        stroke="#D97706"
+        fill={palette.fill}
+        stroke={palette.stroke}
         strokeWidth="1.5"
       />
 
@@ -71,6 +79,8 @@ export default function MittenSchematic({ output, unit, chart }: MittenSchematic
         stitchToPx={stitchToPx}
         rowToPx={rowToPx}
         clipId={clipId}
+        renderSymbols
+        minCellSize={14}
       />
 
       {/* Cuff dashed band at bottom */}
@@ -79,7 +89,7 @@ export default function MittenSchematic({ output, unit, chart }: MittenSchematic
         y1={handBottom - 40}
         x2={cx + handHalfWidth}
         y2={handBottom - 40}
-        stroke="#D97706"
+        stroke={palette.stroke}
         strokeDasharray="3 2"
         strokeWidth="1"
       />

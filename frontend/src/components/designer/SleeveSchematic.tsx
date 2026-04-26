@@ -2,12 +2,15 @@ import { useId } from 'react';
 import { formatLength, type SleeveInput, type SleeveOutput, type MeasurementUnit } from '../../utils/designerMath';
 import type { ChartData } from './ChartGrid';
 import ChartOverlay from './ChartOverlay';
+import { paletteFromMainColor } from './schematicColors';
 
 interface SleeveSchematicProps {
   input: SleeveInput;
   output: SleeveOutput;
   unit: MeasurementUnit;
   chart?: ChartData | null;
+  mainColor?: string | null;
+  zoom?: number;
 }
 
 /**
@@ -18,8 +21,13 @@ interface SleeveSchematicProps {
  * taper (narrows) → cap top (narrow bind-off). The whole outline becomes an
  * elongated hexagon with a clear "shoulder-ball" silhouette at the top.
  */
-export default function SleeveSchematic({ input: _input, output, unit, chart }: SleeveSchematicProps) {
+export default function SleeveSchematic({ input: _input, output, unit, chart, mainColor, zoom = 1 }: SleeveSchematicProps) {
   const clipId = useId();
+  const palette = paletteFromMainColor(mainColor, {
+    fill: '#ECFDF5',
+    stroke: '#059669',
+    accent: '#A7F3D0',
+  });
   const viewW = 320;
   const viewH = 440;
 
@@ -82,9 +90,10 @@ export default function SleeveSchematic({ input: _input, output, unit, chart }: 
       viewBox={`0 0 ${viewW} ${viewH}`}
       role="img"
       aria-label="Sleeve schematic"
-      className="w-full max-w-sm mx-auto"
+      className="w-full mx-auto block"
+      style={{ maxWidth: `${24 * zoom}rem` }}
     >
-      <path d={outline} fill="#ECFDF5" stroke="#059669" strokeWidth="1.5" strokeLinejoin="round" />
+      <path d={outline} fill={palette.fill} stroke={palette.stroke} strokeWidth="1.5" strokeLinejoin="round" />
 
       <ChartOverlay
         chart={chart ?? null}
@@ -93,6 +102,8 @@ export default function SleeveSchematic({ input: _input, output, unit, chart }: 
         stitchToPx={stitchToPx}
         rowToPx={rowToPx}
         clipId={clipId}
+        renderSymbols
+        minCellSize={14}
       />
 
       {/* Cuff band (dashed line at top of ribbing) */}
@@ -101,7 +112,7 @@ export default function SleeveSchematic({ input: _input, output, unit, chart }: 
         y1={cuffBandY}
         x2={cx + halfCuff + stitchToPx * 0.5}
         y2={cuffBandY}
-        stroke="#059669"
+        stroke={palette.stroke}
         strokeWidth="1"
         strokeDasharray="3 2"
       />
@@ -113,7 +124,7 @@ export default function SleeveSchematic({ input: _input, output, unit, chart }: 
           y1={underarmY}
           x2={cx + halfBicep}
           y2={underarmY}
-          stroke="#10B981"
+          stroke={palette.stroke}
           strokeWidth="1"
           strokeDasharray="2 3"
         />

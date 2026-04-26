@@ -2,19 +2,27 @@ import { useId } from 'react';
 import { formatLength, type SockOutput, type MeasurementUnit } from '../../utils/designerMath';
 import type { ChartData } from './ChartGrid';
 import ChartOverlay from './ChartOverlay';
+import { paletteFromMainColor } from './schematicColors';
 
 interface SockSchematicProps {
   output: SockOutput;
   unit: MeasurementUnit;
   chart?: ChartData | null;
+  mainColor?: string | null;
+  zoom?: number;
 }
 
 /**
  * L-shaped sock silhouette: vertical leg tube + horizontal foot tube joined
  * by a heel corner. Key stitch-count labels placed at cuff, heel, and toe.
  */
-export default function SockSchematic({ output, unit, chart }: SockSchematicProps) {
+export default function SockSchematic({ output, unit, chart, mainColor, zoom = 1 }: SockSchematicProps) {
   const clipId = useId();
+  const palette = paletteFromMainColor(mainColor, {
+    fill: '#DBEAFE',
+    stroke: '#2563EB',
+    accent: '#93C5FD',
+  });
   const viewW = 340;
   const viewH = 340;
 
@@ -46,11 +54,11 @@ export default function SockSchematic({ output, unit, chart }: SockSchematicProp
 
   // Heel corner is at (legLeft, legBottom) — bottom-left of leg + top-left of foot
   return (
-    <svg viewBox={`0 0 ${viewW} ${viewH}`} role="img" aria-label="Sock schematic" className="w-full max-w-sm mx-auto">
+    <svg viewBox={`0 0 ${viewW} ${viewH}`} role="img" aria-label="Sock schematic" className="w-full mx-auto block" style={{ maxWidth: `${24 * zoom}rem` }}>
       <path
         d={sockPath}
-        fill="#DBEAFE"
-        stroke="#2563EB"
+        fill={palette.fill}
+        stroke={palette.stroke}
         strokeWidth="1.5"
         strokeLinejoin="round"
       />
@@ -62,6 +70,8 @@ export default function SockSchematic({ output, unit, chart }: SockSchematicProp
         stitchToPx={stitchToPx}
         rowToPx={rowToPx}
         clipId={clipId}
+        renderSymbols
+        minCellSize={14}
       />
 
       {/* Cuff dashed band */}
@@ -70,13 +80,13 @@ export default function SockSchematic({ output, unit, chart }: SockSchematicProp
         y1={legTop + 20}
         x2={legRight}
         y2={legTop + 20}
-        stroke="#2563EB"
+        stroke={palette.stroke}
         strokeDasharray="3 2"
         strokeWidth="1"
       />
 
       {/* Heel corner marker */}
-      <circle cx={legLeft} cy={footTop} r="3" fill="#2563EB" />
+      <circle cx={legLeft} cy={footTop} r="3" fill={palette.stroke} />
 
       {/* Labels */}
       <text x={(legLeft + legRight) / 2} y={legTop - 8} textAnchor="middle" className="fill-gray-700 text-[12px] font-semibold">

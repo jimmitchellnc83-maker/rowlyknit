@@ -2,11 +2,14 @@ import { useId } from 'react';
 import { formatLength, type HatOutput, type MeasurementUnit } from '../../utils/designerMath';
 import type { ChartData } from './ChartGrid';
 import ChartOverlay from './ChartOverlay';
+import { paletteFromMainColor } from './schematicColors';
 
 interface HatSchematicProps {
   output: HatOutput;
   unit: MeasurementUnit;
   chart?: ChartData | null;
+  mainColor?: string | null;
+  zoom?: number;
 }
 
 /**
@@ -15,8 +18,13 @@ interface HatSchematicProps {
  * decreases tapering to the closed point. Brim is shaded as a band at the
  * cast-on edge.
  */
-export default function HatSchematic({ output, unit, chart }: HatSchematicProps) {
+export default function HatSchematic({ output, unit, chart, mainColor, zoom = 1 }: HatSchematicProps) {
   const clipId = useId();
+  const palette = paletteFromMainColor(mainColor, {
+    fill: '#EFF6FF',
+    stroke: '#2563EB',
+    accent: '#BFDBFE',
+  });
   const viewW = 320;
   const viewH = 380;
   const marginX = 60;
@@ -53,9 +61,10 @@ export default function HatSchematic({ output, unit, chart }: HatSchematicProps)
       viewBox={`0 0 ${viewW} ${viewH}`}
       role="img"
       aria-label="Hat schematic"
-      className="w-full max-w-sm mx-auto"
+      className="w-full mx-auto block"
+      style={{ maxWidth: `${24 * zoom}rem` }}
     >
-      <path d={outline} fill="#EFF6FF" stroke="#2563EB" strokeWidth="1.5" strokeLinejoin="round" />
+      <path d={outline} fill={palette.fill} stroke={palette.stroke} strokeWidth="1.5" strokeLinejoin="round" />
 
       <ChartOverlay
         chart={chart ?? null}
@@ -64,6 +73,8 @@ export default function HatSchematic({ output, unit, chart }: HatSchematicProps)
         stitchToPx={stitchToPx}
         rowToPx={rowToPx}
         clipId={clipId}
+        renderSymbols
+        minCellSize={14}
       />
 
       {/* Brim band */}
@@ -72,15 +83,15 @@ export default function HatSchematic({ output, unit, chart }: HatSchematicProps)
         y={brimTopY}
         width={width}
         height={bottomY - brimTopY}
-        fill="#BFDBFE"
-        opacity="0.55"
+        fill={palette.accent}
+        opacity="0.7"
       />
       <line
         x1={cx - halfWidth}
         y1={brimTopY}
         x2={cx + halfWidth}
         y2={brimTopY}
-        stroke="#2563EB"
+        stroke={palette.stroke}
         strokeWidth="1"
         strokeDasharray="3 2"
       />
@@ -91,7 +102,7 @@ export default function HatSchematic({ output, unit, chart }: HatSchematicProps)
         y1={crownStartY}
         x2={cx + halfWidth}
         y2={crownStartY}
-        stroke="#60A5FA"
+        stroke={palette.stroke}
         strokeWidth="1"
         strokeDasharray="2 3"
       />
