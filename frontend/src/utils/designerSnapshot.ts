@@ -32,6 +32,7 @@ import {
 } from './designerMath';
 import type { ChartData } from '../components/designer/ChartGrid';
 import type { ColorSwatch } from '../components/designer/ColorPalette';
+import type { Craft } from '../types/chartSymbol';
 import { DEFAULT_CUSTOM_DRAFT, type CustomDraft } from '../types/customDraft';
 
 /**
@@ -46,6 +47,9 @@ import { DEFAULT_CUSTOM_DRAFT, type CustomDraft } from '../types/customDraft';
  */
 export interface DesignerFormSnapshot {
   unit: MeasurementUnit;
+  /** Active craft. Optional so older saved snapshots (pre-#235) default
+   *  to 'knit' on read. */
+  craft?: Craft;
   gaugeStitches: number | '';
   gaugeRows: number | '';
   gaugeMeasurement: number | '';
@@ -109,6 +113,13 @@ export interface DesignerFormSnapshot {
 
   colors: ColorSwatch[];
   chart: ChartData | null;
+
+  /** How chart info appears in the written instructions:
+   *   shape-only       — chart is shown but instructions don't reference it
+   *   with-chart-ref   — instructions read "Work Chart for N rows"
+   *   with-chart-text  — instructions inline the chart row-by-row text
+   *  Optional so older saved snapshots default to with-chart-text. */
+  chartInstructionMode?: 'shape-only' | 'with-chart-ref' | 'with-chart-text';
 
   /** Section-based custom draft (when itemType === 'custom'). Optional in
    *  the snapshot type so older saved snapshots still round-trip;
