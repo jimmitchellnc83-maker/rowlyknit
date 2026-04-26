@@ -113,6 +113,9 @@ export interface DesignerFormSnapshot {
 
   colors: ColorSwatch[];
   chart: ChartData | null;
+  /** When the user has Saved this chart as a library asset (Session 4),
+   *  the asset's id lives here so subsequent saves update in place. */
+  chartAssetId?: string | null;
 
   /** How chart info appears in the written instructions:
    *   shape-only       — chart is shown but instructions don't reference it
