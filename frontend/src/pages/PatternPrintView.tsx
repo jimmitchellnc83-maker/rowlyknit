@@ -37,7 +37,8 @@ import { estimateYardageFromArea, formatYardage, type YardageRange } from '../ut
 import { type DesignerFormSnapshot } from '../utils/designerSnapshot';
 import { DEFAULT_CUSTOM_DRAFT } from '../types/customDraft';
 import { useChartSymbols } from '../hooks/useChartSymbols';
-import { buildChartInstructions } from '../utils/chartInstruction';
+import { buildChartInstructions, collectChartSymbols } from '../utils/chartInstruction';
+import { StitchIcon } from '../data/stitchSvgLibrary';
 
 /**
  * Clean printable pattern write-up. Reads the same localStorage key the
@@ -306,6 +307,7 @@ export default function PatternPrintView() {
             <ChartGrid chart={form.chart} onChange={() => {}} tool={{ type: 'erase' }} />
           </Section>
           <ChartInstructionsSection form={form} />
+          <ChartGlossarySection form={form} />
         </div>
       )}
     </div>
@@ -425,6 +427,87 @@ function ChartInstructionsSection({ form }: { form: DesignerFormSnapshot }) {
           </li>
         ))}
       </ol>
+    </Section>
+  );
+}
+
+/**
+ * Auto-generated glossary of every stitch symbol actually used in the
+ * chart. Joins `collectChartSymbols(form.chart)` against the cached
+ * `chart_symbol_templates` palette and renders one row per stitch:
+ *   icon | symbol key | abbrev | name | RS | WS
+ *
+ * WS column is omitted entirely when the chart is worked in the round
+ * (no WS rows exist). Stitches without a template still render so the
+ * knitter sees the bare symbol id (helps debug missing seeds / typos).
+ */
+function ChartGlossarySection({ form }: { form: DesignerFormSnapshot }) {
+  const chart = form.chart;
+  const craft = form.craft ?? 'knit';
+  const palette = useChartSymbols(craft);
+
+  if (!chart) return null;
+  const used = collectChartSymbols(chart);
+  if (used.length === 0) return null;
+
+  if (palette.isLoading) {
+    return (
+      <Section title="Chart — glossary">
+        <p className="text-sm text-gray-500">Loading stitch templates…</p>
+      </Section>
+    );
+  }
+  if (palette.isError || !palette.data) {
+    return (
+      <Section title="Chart — glossary">
+        <p className="text-sm text-red-600">Couldn't load stitch templates.</p>
+      </Section>
+    );
+  }
+
+  const bySymbol = new Map(
+    [...palette.data.system, ...palette.data.custom].map((t) => [t.symbol, t]),
+  );
+  const showWs = !chart.workedInRound;
+
+  return (
+    <Section title="Chart — glossary">
+      <table className="w-full border-collapse text-sm">
+        <thead>
+          <tr className="border-b border-gray-300 text-left text-xs uppercase tracking-wide text-gray-600 dark:border-gray-600 dark:text-gray-400">
+            <th className="w-10 py-1 pr-2">Icon</th>
+            <th className="w-16 py-1 pr-2">Symbol</th>
+            <th className="w-20 py-1 pr-2">Abbrev</th>
+            <th className="py-1 pr-2">Name</th>
+            <th className="py-1 pr-2">RS</th>
+            {showWs && <th className="py-1 pr-2">WS</th>}
+          </tr>
+        </thead>
+        <tbody>
+          {used.map((symbol) => {
+            const t = bySymbol.get(symbol);
+            return (
+              <tr
+                key={symbol}
+                className="border-b border-gray-200 align-top print-avoid-break dark:border-gray-700"
+              >
+                <td className="py-1 pr-2">
+                  <span className="inline-flex h-5 w-5 items-center justify-center">
+                    <StitchIcon id={symbol} />
+                  </span>
+                </td>
+                <td className="py-1 pr-2 font-mono text-xs">{symbol}</td>
+                <td className="py-1 pr-2 font-mono text-xs">{t?.abbreviation ?? symbol}</td>
+                <td className="py-1 pr-2">{t?.name ?? <em className="text-gray-400">unknown</em>}</td>
+                <td className="py-1 pr-2 font-mono text-xs">{t?.rs_instruction ?? '—'}</td>
+                {showWs && (
+                  <td className="py-1 pr-2 font-mono text-xs">{t?.ws_instruction ?? '—'}</td>
+                )}
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </Section>
   );
 }
