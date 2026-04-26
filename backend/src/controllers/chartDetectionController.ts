@@ -4,7 +4,6 @@ import logger from '../config/logger';
 import {
   detectChartFromImage,
   applyCorrections,
-  getSymbolLibrary,
 } from '../services/chartDetectionService';
 import path from 'path';
 import fs from 'fs/promises';
@@ -315,26 +314,6 @@ export const saveDetectedChart = async (req: Request, res: Response) => {
 };
 
 /**
- * Get symbol library
- * GET /api/charts/symbols
- */
-export const getSymbols = async (req: Request, res: Response) => {
-  try {
-    const userId = req.user?.userId;
-
-    const symbols = await getSymbolLibrary(userId);
-
-    return res.json({
-      success: true,
-      data: symbols,
-    });
-  } catch (error) {
-    logger.error('Error getting symbols:', error);
-    return res.status(500).json({ error: 'Failed to get symbols' });
-  }
-};
-
-/**
  * Get user's detected charts history
  * GET /api/charts/detections
  */
@@ -428,7 +407,6 @@ export default {
   getDetectionResult,
   applyDetectionCorrections,
   saveDetectedChart,
-  getSymbols,
   getDetectionHistory,
   deleteDetection,
 };

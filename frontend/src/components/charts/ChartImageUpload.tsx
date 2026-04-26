@@ -109,7 +109,10 @@ const ChartImageUpload: React.FC<ChartImageUploadProps> = ({
       setLoadingSymbols(true);
       try {
         const response = await axios.get('/api/charts/symbols');
-        const apiSymbols = response.data?.data || response.data?.symbols || [];
+        const palette = response.data?.data;
+        const apiSymbols = Array.isArray(palette)
+          ? palette
+          : [...(palette?.system ?? []), ...(palette?.custom ?? [])];
 
         if (Array.isArray(apiSymbols) && isMounted) {
           const mergedMap = new Map<string, SymbolOption>();
