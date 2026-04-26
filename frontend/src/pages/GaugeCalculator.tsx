@@ -18,6 +18,7 @@ import {
 } from '../utils/gaugeMath';
 import { useSeo } from '../hooks/useSeo';
 import { useAuthStore } from '../stores/authStore';
+import { useMeasurementPrefs } from '../hooks/useMeasurementPrefs';
 import { trackEvent } from '../lib/analytics';
 import SaveCalcToProjectModal, { type CalculatorMemoPayload } from '../components/calculators/SaveCalcToProjectModal';
 
@@ -232,8 +233,22 @@ export default function GaugeCalculator() {
   });
 
   const { isAuthenticated } = useAuthStore();
-  const [target, setTarget] = useState<FormGauge>(DEFAULT_TARGET);
-  const [actual, setActual] = useState<FormGauge>(DEFAULT_ACTUAL);
+  const { prefs } = useMeasurementPrefs();
+  // Initial unit comes from the user's profile pref. Each gauge form keeps its
+  // own dropdown so a US pattern target (in inches) and a metric-measured
+  // swatch (in cm) can coexist; we only set the default. mm folds to cm.
+  const initialUnit: 'in' | 'cm' = prefs.lengthDisplayUnit === 'cm' || prefs.lengthDisplayUnit === 'mm' ? 'cm' : 'in';
+  const initialMeasurement = initialUnit === 'cm' ? 10 : 4;
+  const [target, setTarget] = useState<FormGauge>({
+    ...DEFAULT_TARGET,
+    unit: initialUnit,
+    measurement: initialMeasurement,
+  });
+  const [actual, setActual] = useState<FormGauge>({
+    ...DEFAULT_ACTUAL,
+    unit: initialUnit,
+    measurement: initialMeasurement,
+  });
   const [patternWidth, setPatternWidth] = useState<NumField>('');
   const [patternHeight, setPatternHeight] = useState<NumField>('');
   const [showSaveModal, setShowSaveModal] = useState(false);
