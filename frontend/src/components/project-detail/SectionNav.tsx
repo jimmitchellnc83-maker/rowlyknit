@@ -1,10 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+export type SectionStatus = 'ready' | 'missing' | 'conflict' | 'optional';
+
 export interface SectionDefinition {
   id: string;
   label: string;
   /** Hide the chip entirely (e.g. pattern section when no patterns linked). */
   visible?: boolean;
+  /** Readiness signal — renders a colored dot before the label. */
+  status?: SectionStatus;
+  /** Tooltip text shown on hover (and read by screen readers via aria-label). */
+  detail?: string;
 }
 
 interface Props {
@@ -13,9 +19,20 @@ interface Props {
   scrollOffset?: number;
 }
 
+const STATUS_DOT: Record<SectionStatus, string> = {
+  ready: 'bg-green-500',
+  missing: 'bg-gray-300 dark:bg-gray-500',
+  conflict: 'bg-red-500',
+  optional: 'bg-gray-200 dark:bg-gray-600',
+};
+
 /**
  * Sticky horizontal pill bar listing every major section on ProjectDetail.
  * Solves the "2000px scroll to find counters" problem with a one-tap jump.
+ *
+ * Pills can carry an optional readiness status — rendered as a colored dot
+ * before the label — to fold the prior ReadinessStrip's at-a-glance signal
+ * into the same control.
  *
  * Uses IntersectionObserver to bold-highlight whichever section is most in
  * view as the user scrolls.
@@ -27,14 +44,10 @@ export default function SectionNav({ sections, scrollOffset = 16 }: Props) {
   const observerRef = useRef<IntersectionObserver | null>(null);
 
   useEffect(() => {
-    // Disconnect any previous observer when section list changes.
     observerRef.current?.disconnect();
 
-    const root = null; // viewport
-    // rootMargin picks the "active" section based on the top third of the viewport
     const observer = new IntersectionObserver(
       (entries) => {
-        // Pick the entry most in view (largest intersectionRatio).
         const inView = entries
           .filter((e) => e.isIntersecting)
           .sort((a, b) => b.intersectionRatio - a.intersectionRatio);
@@ -44,7 +57,7 @@ export default function SectionNav({ sections, scrollOffset = 16 }: Props) {
         }
       },
       {
-        root,
+        root: null,
         rootMargin: '-20% 0px -55% 0px',
         threshold: [0, 0.25, 0.5, 0.75, 1],
       },
@@ -70,7 +83,6 @@ export default function SectionNav({ sections, scrollOffset = 16 }: Props) {
     [scrollOffset],
   );
 
-  // Keep the active chip scrolled into horizontal view on the chip bar.
   useEffect(() => {
     if (!navRef.current || !activeId) return;
     const btn = navRef.current.querySelector<HTMLButtonElement>(
@@ -95,6 +107,7 @@ export default function SectionNav({ sections, scrollOffset = 16 }: Props) {
       <div className="flex items-center gap-1.5 whitespace-nowrap">
         {visible.map((s) => {
           const isActive = s.id === activeId;
+          const ariaLabel = s.detail ? `${s.label}: ${s.detail}` : s.label;
           return (
             <button
               key={s.id}
@@ -102,13 +115,21 @@ export default function SectionNav({ sections, scrollOffset = 16 }: Props) {
               data-section-id={s.id}
               onClick={() => jumpTo(s.id)}
               aria-current={isActive ? 'true' : undefined}
-              className={`px-3 py-1.5 text-sm rounded-full transition-colors ${
+              aria-label={ariaLabel}
+              title={s.detail ?? undefined}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-full transition-colors ${
                 isActive
                   ? 'bg-purple-600 text-white'
                   : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-purple-50 dark:hover:bg-purple-950/40 border border-gray-200 dark:border-gray-700'
               }`}
             >
-              {s.label}
+              {s.status && (
+                <span
+                  className={`h-2 w-2 shrink-0 rounded-full ${STATUS_DOT[s.status]}`}
+                  aria-hidden="true"
+                />
+              )}
+              <span>{s.label}</span>
             </button>
           );
         })}

@@ -4,8 +4,7 @@ import axios from 'axios';
 import { toast } from 'react-toastify';
 import CounterHierarchy from '../components/counters/CounterHierarchy';
 import PiecesSection from '../components/project-detail/PiecesSection';
-import SectionNav from '../components/project-detail/SectionNav';
-import ReadinessStrip from '../components/project-detail/ReadinessStrip';
+import SectionNav, { type SectionDefinition } from '../components/project-detail/SectionNav';
 import DesignCard from '../components/designer/DesignCard';
 import type { DesignerFormSnapshot } from '../utils/designerSnapshot';
 import { SessionManager } from '../components/sessions';
@@ -73,6 +72,100 @@ interface Project {
   /** Arbitrary per-project blob — stores designer snapshot, future
    *  integrations (chart-linked counters, etc.). Server returns it parsed. */
   metadata?: { designer?: unknown; [key: string]: unknown } | null;
+}
+
+function buildSectionDefinitions(project: Project): SectionDefinition[] {
+  const patternCount = project.patterns?.length ?? 0;
+  const counterCount = project.counters?.length ?? 0;
+  const yarnCount = project.yarn?.length ?? 0;
+  const toolCount = project.tools?.length ?? 0;
+  const pieceCount = project.pieces?.length ?? 0;
+  const trimmedNotes = (project.notes ?? '').trim();
+  const needleConflict = project.needleCheck?.status === 'red';
+  const missingNeedles = project.needleCheck?.missingSizesMm.length ?? 0;
+
+  const patternsStatus = patternCount > 0 ? 'ready' : 'missing';
+  const patternsDetail =
+    patternCount > 0
+      ? `${patternCount} attached`
+      : "Attach the pattern you're following";
+
+  return [
+    {
+      id: 'description',
+      label: 'About',
+      visible: !!project.description,
+    },
+    {
+      id: 'design',
+      label: 'Design',
+      visible: !!project.metadata?.designer,
+    },
+    {
+      id: patternCount > 0 ? 'patterns-preview' : 'patterns-list',
+      label: 'Pattern',
+      status: patternsStatus,
+      detail: patternsDetail,
+    },
+    {
+      id: 'photos',
+      label: 'Photos',
+    },
+    {
+      id: 'yarn',
+      label: 'Yarn',
+      status: yarnCount > 0 ? 'ready' : 'missing',
+      detail:
+        yarnCount > 0 ? `${yarnCount} assigned` : 'Assign yarn to check feasibility',
+    },
+    {
+      id: 'tools',
+      label: 'Tools',
+      status: needleConflict
+        ? 'conflict'
+        : toolCount > 0
+        ? 'ready'
+        : 'optional',
+      detail: needleConflict
+        ? `Missing ${missingNeedles} needle size${missingNeedles === 1 ? '' : 's'}`
+        : toolCount > 0
+        ? `${toolCount} tool${toolCount === 1 ? '' : 's'} assigned`
+        : "Tag the needles you're using",
+    },
+    {
+      id: 'pieces',
+      label: 'Pieces',
+      status: pieceCount > 0 ? 'ready' : 'optional',
+      detail:
+        pieceCount > 0
+          ? `${pieceCount} piece${pieceCount === 1 ? '' : 's'} tracked`
+          : 'Break out panels for garments',
+    },
+    {
+      id: 'counters',
+      label: 'Counters',
+      status: counterCount > 0 ? 'ready' : 'missing',
+      detail:
+        counterCount > 0
+          ? `${counterCount} active`
+          : 'Add one to unlock Knitting Mode',
+    },
+    {
+      id: 'markers',
+      label: 'Markers',
+    },
+    {
+      id: 'sessions',
+      label: 'Sessions',
+    },
+    {
+      id: 'notes',
+      label: 'Notes',
+      status: trimmedNotes.length > 0 ? 'ready' : 'optional',
+      detail:
+        trimmedNotes.length > 0 ? 'Notes started' : 'Jot setup decisions and mods',
+    },
+  ];
 }
 
 export default function ProjectDetail() {
@@ -530,31 +623,7 @@ export default function ProjectDetail() {
         />
       ) : (
         <>
-          <ReadinessStrip
-            patterns={project.patterns || []}
-            counters={project.counters || []}
-            yarn={project.yarn || []}
-            tools={project.tools || []}
-            pieces={project.pieces}
-            notes={project.notes}
-            needleCheck={project.needleCheck}
-            onAddPattern={() => setShowAddPatternModal(true)}
-            onAddYarn={() => setShowAddYarnModal(true)}
-            onAddTool={() => setShowAddToolModal(true)}
-          />
-          <SectionNav
-            sections={[
-              { id: 'description', label: 'About', visible: !!project.description },
-              { id: 'design', label: 'Design', visible: !!project.metadata?.designer },
-              { id: 'patterns', label: 'Patterns', visible: !!(project.patterns && project.patterns.length > 0) },
-              { id: 'photos', label: 'Photos' },
-              { id: 'pieces', label: 'Pieces' },
-              { id: 'counters', label: 'Counters' },
-              { id: 'markers', label: 'Markers' },
-              { id: 'sessions', label: 'Sessions' },
-              { id: 'notes', label: 'Notes' },
-            ]}
-          />
+          <SectionNav sections={buildSectionDefinitions(project)} />
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
           {/* Main Content - Left Column */}
           <div className="lg:col-span-2 space-y-6">
@@ -577,7 +646,7 @@ export default function ProjectDetail() {
             ) : null}
 
             {project.patterns && project.patterns.length > 0 && (
-              <section id="section-patterns">
+              <section id="section-patterns-preview">
                 <PatternPreview
                   patterns={project.patterns}
                   mode="normal"
@@ -671,12 +740,14 @@ export default function ProjectDetail() {
               currentNotes={project.notes}
               onSave={handleSaveProjectNotes}
             />
-            <ProjectPatternsList
-              patterns={project.patterns || []}
-              onRemove={handleRemovePattern}
-              onSelectClick={() => setShowAddPatternModal(true)}
-              onUploadClick={() => setShowUploadPatternModal(true)}
-            />
+            <div id="section-patterns-list">
+              <ProjectPatternsList
+                patterns={project.patterns || []}
+                onRemove={handleRemovePattern}
+                onSelectClick={() => setShowAddPatternModal(true)}
+                onUploadClick={() => setShowUploadPatternModal(true)}
+              />
+            </div>
             <NeedleInventoryAlert check={project.needleCheck} />
             <div id="section-tools">
               <ProjectToolsList
