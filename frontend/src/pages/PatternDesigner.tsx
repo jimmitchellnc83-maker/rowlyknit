@@ -41,6 +41,7 @@ import ShawlSchematic from '../components/designer/ShawlSchematic';
 import SleeveSchematic from '../components/designer/SleeveSchematic';
 import SockSchematic from '../components/designer/SockSchematic';
 import StitchPalette from '../components/designer/StitchPalette';
+import YardageEstimateWidget from '../components/designer/YardageEstimateWidget';
 import PageHelpButton from '../components/PageHelpButton';
 import { useChartSymbols } from '../hooks/useChartSymbols';
 import { buildChartInstructions } from '../utils/chartInstruction';
@@ -2232,6 +2233,8 @@ export default function PatternDesigner() {
               </div>
             )}
           </section>
+
+          <YardageEstimateWidget form={form} />
 
           <section className="rounded-lg bg-white p-4 shadow dark:bg-gray-800 md:p-6">
             <h2 className="mb-3 text-lg font-semibold text-gray-900 dark:text-gray-100">

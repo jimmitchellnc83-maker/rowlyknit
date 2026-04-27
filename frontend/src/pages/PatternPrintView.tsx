@@ -34,6 +34,7 @@ import SockSchematic from '../components/designer/SockSchematic';
 import CustomDraftSchematic from '../components/designer/CustomDraftSchematic';
 import ChartGrid from '../components/designer/ChartGrid';
 import { estimateYardageFromArea, formatYardage, type YardageRange } from '../utils/yardageEstimate';
+import { finishedAreaSqIn } from '../utils/designerArea';
 import { estimatePerColorYardage } from '../utils/yarnEstimatePerColor';
 import { type DesignerFormSnapshot } from '../utils/designerSnapshot';
 import { formatDate } from '../utils/formatDate';
@@ -732,11 +733,7 @@ function SweaterPrint({ form, gauge }: PrintProps) {
   };
   const sleeve = computeSleeve(sleeveInput);
 
-  // Finished area: 2 × (body panel = chest × length) + 2 × (sleeve trapezoid area ≈ avg-width × length).
-  const bodyPanelArea = body.finishedChest * body.finishedLength;
-  const sleeveArea =
-    ((sleeve.finishedCuff + sleeve.finishedBicep) / 2) * sleeve.finishedTotalLength;
-  const area = 2 * bodyPanelArea + 2 * sleeveArea;
+  const area = finishedAreaSqIn({ body, sleeve }) ?? 0;
   const yardage = estimateYardageFromArea(area, gauge);
 
   return (
@@ -784,8 +781,7 @@ function HatPrint({ form, gauge }: PrintProps) {
     crownHeight: toInches(form.hatCrownHeight as number, form.unit),
   };
   const out = computeHat(input);
-  // Hat ~ cylinder opened flat = circumference × height, minus a bit for the taper.
-  const area = out.finishedCircumference * out.finishedHeight * 0.9;
+  const area = finishedAreaSqIn({ hat: out }) ?? 0;
   const yardage = estimateYardageFromArea(area, gauge);
   return (
     <>
@@ -816,7 +812,7 @@ function ScarfPrint({ form, gauge }: PrintProps) {
     fringeLength: toInches(form.scarfFringeLength as number, form.unit),
   };
   const out = computeScarf(input);
-  const area = out.finishedWidth * out.finishedLength;
+  const area = finishedAreaSqIn({ scarf: out }) ?? 0;
   const yardage = estimateYardageFromArea(area, gauge);
   return (
     <>
@@ -857,7 +853,7 @@ function BlanketPrint({ form, gauge }: PrintProps) {
     borderDepth: toInches(form.blanketBorderDepth as number, form.unit),
   };
   const out = computeBlanket(input);
-  const area = out.finishedWidth * out.finishedLength;
+  const area = finishedAreaSqIn({ blanket: out }) ?? 0;
   const yardage = estimateYardageFromArea(area, gauge);
   return (
     <>
@@ -899,8 +895,7 @@ function ShawlPrint({ form, gauge }: PrintProps) {
     initialCastOn: form.shawlInitialCastOn as number,
   };
   const out = computeShawl(input);
-  // Triangle area = wingspan × depth × 0.5.
-  const area = out.finishedWingspan * out.finishedDepth * 0.5;
+  const area = finishedAreaSqIn({ shawl: out }) ?? 0;
   const yardage = estimateYardageFromArea(area, gauge);
   return (
     <>
@@ -936,8 +931,7 @@ function MittensPrint({ form, gauge }: PrintProps) {
     thumbLength: toInches(form.thumbLength as number, form.unit),
   };
   const out = computeMittens(input);
-  // Two mittens: 2 × (hand_circ × length) + a small thumb allowance.
-  const area = 2 * (out.finishedHandCircumference * out.finishedLength + out.finishedThumbCircumference * 2.5);
+  const area = finishedAreaSqIn({ mittens: out }) ?? 0;
   const yardage = estimateYardageFromArea(area, gauge);
   return (
     <>
@@ -972,8 +966,7 @@ function SocksPrint({ form, gauge }: PrintProps) {
     footLength: toInches(form.footLength as number, form.unit),
   };
   const out = computeSocks(input);
-  // Two socks: each ~ ankle circ × total length (rough tube approximation).
-  const area = 2 * out.finishedAnkleCircumference * out.finishedTotalLength;
+  const area = finishedAreaSqIn({ socks: out }) ?? 0;
   const yardage = estimateYardageFromArea(area, gauge);
   return (
     <>
@@ -1000,7 +993,7 @@ function SocksPrint({ form, gauge }: PrintProps) {
 function CustomDraftPrint({ form, gauge }: PrintProps) {
   const draft = form.customDraft ?? DEFAULT_CUSTOM_DRAFT;
   const out = computeCustomDraft({ draft, gauge });
-  const area = out.startingWidthInches * out.totalHeightInches * 0.85;
+  const area = finishedAreaSqIn({ customDraft: out }) ?? 0;
   const yardage = estimateYardageFromArea(area, gauge);
   return (
     <>

@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { FiEdit3, FiPrinter, FiTool } from 'react-icons/fi';
 import { computeDesign, type DesignerFormSnapshot } from '../../utils/designerSnapshot';
 import { estimateYardageFromArea, formatYardage } from '../../utils/yardageEstimate';
+import { finishedAreaSqIn } from '../../utils/designerArea';
 import { normalizedGauge } from '../../utils/designerSnapshot';
 import BodySchematic from './BodySchematic';
 import HatSchematic from './HatSchematic';
@@ -38,66 +39,8 @@ export default function DesignCard({ form, projectId, patternId }: DesignCardPro
   const compute = computeDesign(form);
   const gauge = normalizedGauge(form);
 
-  // Area-based yardage estimate. Match the per-item formulas used in the
-  // full print view so the numbers agree.
-  let yardageLabel: string | null = null;
-  if (compute.body && compute.sleeve) {
-    const bodyArea = compute.body.finishedChest * compute.body.finishedLength;
-    const sleeveArea =
-      ((compute.sleeve.finishedCuff + compute.sleeve.finishedBicep) / 2) *
-      compute.sleeve.finishedTotalLength;
-    yardageLabel = formatYardage(estimateYardageFromArea(2 * bodyArea + 2 * sleeveArea, gauge));
-  } else if (compute.hat) {
-    yardageLabel = formatYardage(
-      estimateYardageFromArea(
-        compute.hat.finishedCircumference * compute.hat.finishedHeight * 0.9,
-        gauge,
-      ),
-    );
-  } else if (compute.scarf) {
-    yardageLabel = formatYardage(
-      estimateYardageFromArea(compute.scarf.finishedWidth * compute.scarf.finishedLength, gauge),
-    );
-  } else if (compute.blanket) {
-    yardageLabel = formatYardage(
-      estimateYardageFromArea(
-        compute.blanket.finishedWidth * compute.blanket.finishedLength,
-        gauge,
-      ),
-    );
-  } else if (compute.shawl) {
-    yardageLabel = formatYardage(
-      estimateYardageFromArea(
-        compute.shawl.finishedWingspan * compute.shawl.finishedDepth * 0.5,
-        gauge,
-      ),
-    );
-  } else if (compute.mittens) {
-    yardageLabel = formatYardage(
-      estimateYardageFromArea(
-        2 *
-          (compute.mittens.finishedHandCircumference * compute.mittens.finishedLength +
-            compute.mittens.finishedThumbCircumference * 2.5),
-        gauge,
-      ),
-    );
-  } else if (compute.socks) {
-    yardageLabel = formatYardage(
-      estimateYardageFromArea(
-        2 * compute.socks.finishedAnkleCircumference * compute.socks.finishedTotalLength,
-        gauge,
-      ),
-    );
-  } else if (compute.customDraft) {
-    // Approximate area as starting width × total height; multiply by 0.85 to
-    // account for shaped sections that aren't full-width the whole way up.
-    yardageLabel = formatYardage(
-      estimateYardageFromArea(
-        compute.customDraft.startingWidthInches * compute.customDraft.totalHeightInches * 0.85,
-        gauge,
-      ),
-    );
-  }
+  const area = finishedAreaSqIn(compute);
+  const yardageLabel = area !== null ? formatYardage(estimateYardageFromArea(area, gauge)) : null;
 
   // Pick a schematic to thumbnail in the card.
   const schematic = renderThumbnailSchematic(form, compute);
