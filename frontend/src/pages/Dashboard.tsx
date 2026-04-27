@@ -12,7 +12,7 @@ import {
 } from 'react-icons/fi';
 import { useAuthStore } from '../stores/authStore';
 import { useDashboardStats } from '../hooks/useApi';
-import { useMeasurements } from '../hooks/useMeasurements';
+import { useMeasurementPrefs } from '../hooks/useMeasurementPrefs';
 import { LoadingSkeleton, ErrorState } from '../components/LoadingSpinner';
 import CmdKTooltip from '../components/CmdKTooltip';
 import OnboardingGoalCard, {
@@ -40,7 +40,7 @@ export default function Dashboard() {
   const { user } = useAuthStore();
   const navigate = useNavigate();
   const { data: dashboardData, isLoading: loading, isError, refetch } = useDashboardStats();
-  const { fmt } = useMeasurements();
+  const { fmt, labels } = useMeasurementPrefs();
 
   // Onboarding goal — null until the user answers the goal-pick card or
   // skips it. Initialised to undefined so the card doesn't flash before
@@ -264,7 +264,7 @@ export default function Dashboard() {
                           {yarn.brand} {yarn.name}
                         </h3>
                         <span className="text-sm font-medium text-orange-600">
-                          {fmt.yarnLength(yarn.remaining_length_m, yarn.yards_remaining)} / {threshold} {fmt.yarnLengthUnit()}
+                          {fmt.yarnLength(yarn.remaining_length_m ?? (yarn.yards_remaining != null ? yarn.yards_remaining * 0.9144 : null))} / {threshold} {labels.yardageShort}
                         </span>
                       </div>
 

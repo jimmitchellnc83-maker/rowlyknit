@@ -5,7 +5,7 @@ import axios from 'axios';
 import { toast } from 'react-toastify';
 import ConfirmModal from '../components/ConfirmModal';
 import LoadingSpinner from '../components/LoadingSpinner';
-import { useMeasurements } from '../hooks/useMeasurements';
+import { useMeasurementPrefs } from '../hooks/useMeasurementPrefs';
 import { formatDate } from '../utils/formatDate';
 
 interface Yarn {
@@ -84,7 +84,7 @@ const getWeightColor = (weight: string): string => {
 export default function YarnDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { fmt } = useMeasurements();
+  const { fmt, prefs } = useMeasurementPrefs();
   const [yarn, setYarn] = useState<Yarn | null>(null);
   const [photos, setPhotos] = useState<YarnPhoto[]>([]);
   const [projects, setProjects] = useState<LinkedProject[]>([]);
@@ -187,12 +187,12 @@ export default function YarnDetail() {
 
   const fullName = [yarn.brand, yarn.line, yarn.name].filter(Boolean).join(' — ');
   const primaryPhoto = photos[activePhotoIndex];
-  const remainingDisplay = fmt.yarnLength(yarn.remaining_length_m, yarn.yards_remaining);
+  const remainingDisplay = fmt.yarnLength(yarn.remaining_length_m ?? (yarn.yards_remaining != null ? yarn.yards_remaining * 0.9144 : null));
   const isLowStock =
     yarn.low_stock_alert &&
     yarn.low_stock_threshold !== undefined &&
     (yarn.remaining_length_m != null
-      ? fmt.metersToPreferred(yarn.remaining_length_m) <= yarn.low_stock_threshold
+      ? (prefs.yarnLengthDisplayUnit === 'yd' ? yarn.remaining_length_m * 1.09361 : yarn.remaining_length_m) <= yarn.low_stock_threshold
       : (yarn.yards_remaining ?? Infinity) <= yarn.low_stock_threshold);
 
   return (
@@ -305,9 +305,9 @@ export default function YarnDetail() {
               <StatCard label="Skeins" value={yarn.skeins_remaining} suffix={yarn.skeins_total ? `/${yarn.skeins_total}` : ''} />
               <StatCard
                 label="Length"
-                value={fmt.yarnLength(yarn.remaining_length_m, yarn.yards_remaining)}
+                value={fmt.yarnLength(yarn.remaining_length_m ?? (yarn.yards_remaining != null ? yarn.yards_remaining * 0.9144 : null))}
                 suffix={yarn.total_length_m != null || yarn.yards_total != null
-                  ? `/${fmt.yarnLength(yarn.total_length_m, yarn.yards_total)}`
+                  ? `/${fmt.yarnLength(yarn.total_length_m ?? (yarn.yards_total != null ? yarn.yards_total * 0.9144 : null))}`
                   : ''}
               />
               <StatCard label="Grams" value={yarn.grams_remaining} suffix={yarn.grams_total ? `/${yarn.grams_total}` : ''} />
@@ -423,7 +423,7 @@ export default function YarnDetail() {
                     usageParts.push(`${p.skeins_used} skein${p.skeins_used === 1 ? '' : 's'}`);
                   }
                   if (p.yards_used != null) {
-                    usageParts.push(fmt.yarnLength(undefined, p.yards_used));
+                    usageParts.push(fmt.yarnLength(p.yards_used != null ? p.yards_used * 0.9144 : null));
                   }
                   return (
                     <li key={p.id}>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { FiArrowLeft, FiCheck, FiLoader, FiX, FiAlertTriangle, FiInfo } from 'react-icons/fi';
-import { useMeasurements } from '../../hooks/useMeasurements';
+import { useMeasurementPrefs } from '../../hooks/useMeasurementPrefs';
 
 interface GaugeData {
   stitches: number;
@@ -39,7 +39,7 @@ export const GaugeAdjustmentModal: React.FC<GaugeAdjustmentModalProps> = ({
   projectId,
   onAdjustmentApplied,
 }) => {
-  const { prefs } = useMeasurements();
+  const { prefs } = useMeasurementPrefs();
   const gaugeUnitLabel = prefs.gaugeBase === '10cm' ? 'cm' : 'inches';
   const [step, setStep] = useState<Step>('input');
   const [loading, setLoading] = useState(false);

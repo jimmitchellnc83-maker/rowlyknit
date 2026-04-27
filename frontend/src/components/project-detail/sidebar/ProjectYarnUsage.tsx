@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { FiPlus, FiX, FiAlertCircle, FiDollarSign } from 'react-icons/fi';
 import HelpTooltip from '../../HelpTooltip';
 import ConfirmModal from '../../ConfirmModal';
-import { useMeasurements } from '../../../hooks/useMeasurements';
+import { useMeasurementPrefs } from '../../../hooks/useMeasurementPrefs';
 import { metersToYards } from '../../../utils/yarnUnits';
 
 interface Props {
@@ -38,7 +38,7 @@ const yarnCost = (y: any): number | null => {
 };
 
 export default function ProjectYarnUsage({ yarn, onRemove, onAddClick }: Props) {
-  const { fmt } = useMeasurements();
+  const { fmt } = useMeasurementPrefs();
   const [removeYarnTarget, setRemoveYarnTarget] = useState<string | null>(null);
 
   const handleConfirmRemove = async () => {
@@ -123,7 +123,7 @@ export default function ProjectYarnUsage({ yarn, onRemove, onAddClick }: Props) 
                     <div>
                       <p className="text-xs text-gray-500">Used in Project</p>
                       <p className="text-xs font-medium text-gray-900">
-                        {y.skeins_used || 0} skeins, {fmt.yarnLength(null, y.yards_used || 0)}
+                        {y.skeins_used || 0} skeins, {fmt.yarnLength((y.yards_used || 0) * 0.9144)}
                         {entryCost != null ? (
                           <span className="ml-2 text-purple-700">{formatCurrency(entryCost)}</span>
                         ) : null}
@@ -132,7 +132,7 @@ export default function ProjectYarnUsage({ yarn, onRemove, onAddClick }: Props) 
                     <div>
                       <p className="text-xs text-gray-500">Remaining in Stash</p>
                       <p className="text-xs font-medium text-gray-900">
-                        {y.skeins_remaining || 0} skeins, {fmt.yarnLength(y.remaining_length_m, y.yards_remaining)}
+                        {y.skeins_remaining || 0} skeins, {fmt.yarnLength(y.remaining_length_m ?? (y.yards_remaining != null ? y.yards_remaining * 0.9144 : null))}
                       </p>
                     </div>
                   </div>
@@ -155,7 +155,7 @@ export default function ProjectYarnUsage({ yarn, onRemove, onAddClick }: Props) 
                   {isLowStock && (
                     <div className="flex items-center text-orange-600 text-xs mt-2">
                       <FiAlertCircle className="mr-1 h-3 w-3" />
-                      Low stock! Only {fmt.yarnLength(y.remaining_length_m, y.yards_remaining)} remaining
+                      Low stock! Only {fmt.yarnLength(y.remaining_length_m ?? (y.yards_remaining != null ? y.yards_remaining * 0.9144 : null))} remaining
                     </div>
                   )}
                 </div>
