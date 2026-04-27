@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { FiCheckCircle, FiAlertTriangle, FiXCircle } from 'react-icons/fi';
+import { useMeasurementPrefs } from '../../../hooks/useMeasurementPrefs';
 
 export type NeedleCheckStatus = 'green' | 'yellow' | 'red' | 'none';
 
@@ -40,14 +41,14 @@ const ICON: Record<Exclude<NeedleCheckStatus, 'none'>, React.ElementType> = {
   red: FiXCircle,
 };
 
-function formatMm(sizes: number[]): string {
-  return sizes.map((s) => `${s}mm`).join(', ');
-}
-
 export default function NeedleInventoryAlert({ check }: Props) {
+  const { fmt } = useMeasurementPrefs();
+
   if (!check || check.status === 'none') return null;
 
   const Icon = ICON[check.status];
+  const formatSizes = (sizes: number[]): string =>
+    sizes.map((s) => fmt.toolSize(s, 'knitting_needle_straight')).join(', ');
 
   return (
     <div
@@ -65,7 +66,7 @@ export default function NeedleInventoryAlert({ check }: Props) {
           <p className="text-xs mt-1 opacity-90">{check.message}</p>
           {check.requiredSizesMm.length > 0 && (
             <p className="text-xs mt-2 opacity-75">
-              Required: {formatMm(check.requiredSizesMm)}
+              Required: {formatSizes(check.requiredSizesMm)}
             </p>
           )}
           {check.status !== 'green' && (
