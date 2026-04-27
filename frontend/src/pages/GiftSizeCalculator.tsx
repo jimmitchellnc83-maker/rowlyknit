@@ -375,8 +375,8 @@ export default function GiftSizeCalculator() {
 
           {unit === 'cm' && (
             <p className="text-xs italic text-gray-500 dark:text-gray-400">
-              Sizing tables below shown in inches — pattern industry convention. Your inputs and the
-              target finished chest above use {unit}.
+              Tables below stay in inches (the size standard most patterns use). Your inputs and
+              result use cm.
             </p>
           )}
           <section className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6">
