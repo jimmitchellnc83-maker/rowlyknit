@@ -22,8 +22,8 @@
  *      (fresh install). Transaction-wrapped so a concurrent deploy can't
  *      race it.
  *
- * Dev / staging have no drift (they're provisioned from the same repo), so
- * this is a no-op outside prod.
+ * Dev has no drift (provisioned from the same repo), so this is a no-op
+ * outside prod.
  *
  * Usage (from a compiled environment):
  *   node dist/src/scripts/reconcileMigrations.js
