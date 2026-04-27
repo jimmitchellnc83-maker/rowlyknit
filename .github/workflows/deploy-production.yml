@@ -2,28 +2,23 @@ name: Deploy to Production
 
 # Auto-deploy `main` to the production droplet (rowlyknit.com).
 #
-# Required GitHub Secrets (Settings → Secrets and variables → Actions):
-#   PROD_SSH_HOST   — IP or hostname of the production droplet
-#   PROD_SSH_USER   — SSH user with rights to the rowly user / pm2 process
-#   PROD_SSH_KEY    — Private key authorised on the production droplet.
-#                     MUST be PEM-formatted (the private key, not the public).
-#   PROD_SSH_PORT   — Optional; defaults to 22.
+# Required GitHub Secrets (production environment):
+#   PROD_SSH_HOST   — droplet IP or rowlyknit.com
+#   PROD_SSH_USER   — SSH user (root)
+#   PROD_SSH_KEY    — Private key, OpenSSH format
+#                     (-----BEGIN OPENSSH PRIVATE KEY-----)
+#   PROD_SSH_PORT   — Optional; defaults to 22
 #
-# Required GitHub Variables (optional, for non-default paths):
-#   PROD_REPO_PATH  — Defaults to /home/rowly/rowlyknit (matches
-#                     ecosystem.config.js cwd).
+# What this does on the droplet:
+#   1. Pull latest main into the live tree (/home/user/rowlyknit)
+#   2. Run scripts/deploy-production.sh — the same OOM-safe docker compose
+#      rebuild we run by hand (stops frontend container to free RAM, builds
+#      backend+frontend, brings everything back up, internal health check)
+#   3. Run pending knex migrations against the now-running backend container
+#   4. External health check via https://rowlyknit.com/health
 #
-# The droplet must already have:
-#   - Node + pm2 installed; `pm2 startup` configured to autorestart on reboot
-#   - The repo cloned at PROD_REPO_PATH, owned by the deploy user
-#   - backend/.env populated with production secrets (DB_*, JWT_*, etc.)
-#   - frontend/.env.production populated (incl. VITE_PLAUSIBLE_DOMAIN)
-#   - Nginx serving frontend/dist as the document root for rowlyknit.com
-#   - Postgres + Redis reachable from the host
-#
-# Triggers: every push to `main` (auto), plus a manual `workflow_dispatch`
-# button in the Actions tab for re-deploying the current main without an
-# empty commit. Concurrency lock prevents overlapping deploys.
+# Triggers: every push to main (auto), plus a manual workflow_dispatch button
+# in the Actions tab. Concurrency lock prevents overlapping deploys.
 
 on:
   push:
@@ -36,7 +31,7 @@ concurrency:
 
 jobs:
   deploy:
-    name: SSH pull + build + reload
+    name: SSH pull + docker rebuild
     runs-on: ubuntu-latest
     environment:
       name: production
@@ -50,38 +45,23 @@ jobs:
           key: ${{ secrets.PROD_SSH_KEY }}
           port: ${{ secrets.PROD_SSH_PORT || 22 }}
           script_stop: true
-          envs: PROD_REPO_PATH
+          command_timeout: 30m
           script: |
             set -euo pipefail
-            REPO_PATH="${PROD_REPO_PATH:-/home/rowly/rowlyknit}"
-            cd "$REPO_PATH"
+            cd /home/user/rowlyknit
 
             echo "==> pulling latest main…"
             git fetch origin main
-            git checkout main
             git reset --hard origin/main
 
-            echo "==> backend: install + build + migrate…"
-            cd backend
-            npm ci
-            npm run build
-            npm run migrate
+            echo "==> docker compose build + up + internal health (deploy-production.sh)…"
+            bash scripts/deploy-production.sh
 
-            echo "==> backend: pm2 reload (clusters drain gracefully)…"
-            # ecosystem file lives at the repo root; reload-via-config
-            # handles both first-deploy (start) and subsequent (reload).
-            pm2 reload "$REPO_PATH/ecosystem.config.js" --update-env
-            pm2 save
+            echo "==> running knex migrations against backend container…"
+            docker compose exec -T backend npm run migrate
 
-            cd ..
-            echo "==> frontend: install + build static bundle…"
-            cd frontend
-            npm ci
-            npm run build
-
-            cd ..
-            echo "==> health check…"
+            echo "==> external health check via public URL…"
             sleep 5
             curl --silent --fail --max-time 10 https://rowlyknit.com/health \
-              || (echo "health check FAILED"; exit 1)
+              || (echo "external health check FAILED"; exit 1)
             echo "==> done."
