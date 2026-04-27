@@ -1,15 +1,11 @@
 import { FiCalendar, FiClock, FiCheck } from 'react-icons/fi';
+import { formatDate } from '../../../utils/formatDate';
 
 interface Props {
   startDate?: string;
   targetCompletionDate?: string;
   completionDate?: string;
 }
-
-const formatDate = (dateString?: string) => {
-  if (!dateString) return 'Not set';
-  return new Date(dateString).toLocaleDateString();
-};
 
 export default function ProjectTimeline({ startDate, targetCompletionDate, completionDate }: Props) {
   return (

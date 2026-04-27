@@ -7,6 +7,7 @@ import HelpTooltip from '../HelpTooltip';
 import ConfirmModal from '../ConfirmModal';
 import { useMeasurements } from '../../hooks/useMeasurements';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
+import { formatDate } from '../../utils/formatDate';
 
 type TemplateType = 'gauge_swatch' | 'fit_adjustment' | 'yarn_substitution' | 'finishing_techniques' | 'calculator_result';
 
@@ -170,7 +171,7 @@ export const StructuredMemoTemplates: React.FC<StructuredMemoTemplatesProps> = (
 
   const renderMemoAsText = (memo: StructuredMemo): string => {
     const title = TEMPLATE_INFO[memo.template_type].name;
-    const date = new Date(memo.created_at).toLocaleDateString();
+    const date = formatDate(memo.created_at);
 
     let content = `${title}\n`;
     content += `Date: ${date}\n`;

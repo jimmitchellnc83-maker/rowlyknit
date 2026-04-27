@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import axios from 'axios';
 import { FiHeart, FiArrowRight, FiEye } from 'react-icons/fi';
 import { useSeo } from '../hooks/useSeo';
+import { formatDate } from '../utils/formatDate';
 
 interface PublicProject {
   id: string;
@@ -24,13 +25,6 @@ interface PublicProject {
 const APP_URL =
   (import.meta.env.VITE_APP_URL as string | undefined)?.replace(/\/$/, '') ??
   'https://rowlyknit.com';
-
-function formatDate(iso: string | null): string | null {
-  if (!iso) return null;
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return null;
-  return d.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
-}
 
 function MetadataRow({ label, value }: { label: string; value: string }) {
   return (
@@ -180,7 +174,7 @@ export default function PublicProjectPage() {
     );
   }
 
-  const completedLabel = formatDate(project.completedDate);
+  const completedLabel = formatDate(project.completedDate, { year: 'numeric', month: 'long', day: 'numeric' }, '');
 
   return (
     <article className="space-y-8">

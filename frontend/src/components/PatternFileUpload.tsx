@@ -3,6 +3,7 @@ import { FiUpload, FiX, FiFile, FiImage, FiFileText, FiDownload, FiTrash2, FiEye
 import { toast } from 'react-toastify';
 import PatternViewer from './patterns/PatternViewer';
 import ConfirmModal from './ConfirmModal';
+import { formatDate } from '../utils/formatDate';
 
 interface PatternFile {
   id: string;
@@ -316,7 +317,7 @@ export default function PatternFileUpload({
                       )}
                     </div>
                     <p className="text-xs text-gray-500 dark:text-gray-500">
-                      {formatFileSize(file.size)} • {new Date(file.created_at).toLocaleDateString()}
+                      {formatFileSize(file.size)} • {formatDate(file.created_at)}
                     </p>
                   </div>
                 </div>
