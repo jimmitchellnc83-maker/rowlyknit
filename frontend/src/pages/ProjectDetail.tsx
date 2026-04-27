@@ -27,6 +27,7 @@ import type {
   AddYarnData,
 } from '../components/project-detail/modals';
 import ProjectHeader from '../components/project-detail/ProjectHeader';
+import ProjectQuickTools from '../components/project-detail/ProjectQuickTools';
 import {
   ProjectTimeline,
   ProjectQuickNotes,
@@ -607,6 +608,8 @@ export default function ProjectDetail() {
         duplicating={duplicating}
         isPublic={!!project.is_public}
       />
+
+      {!knittingMode && <ProjectQuickTools projectId={id!} />}
 
       {knittingMode ? (
         <KnittingModeLayout

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   FiArrowLeft,
   FiCheckCircle,
@@ -17,6 +17,7 @@ import {
   type NeedleChange,
 } from '../utils/gaugeMath';
 import { useSeo } from '../hooks/useSeo';
+import { safeReturnTo } from '../lib/safeReturnTo';
 import { useAuthStore } from '../stores/authStore';
 import { useMeasurementPrefs } from '../hooks/useMeasurementPrefs';
 import { trackEvent } from '../lib/analytics';
@@ -189,6 +190,13 @@ function GaugeForm({
 }
 
 export default function GaugeCalculator() {
+  // Honour `?returnTo=<path>` so a knitter who launched the calculator
+  // from inside a project can pop back to that project, not the public
+  // calculators index. Validate to prevent open-redirect / javascript:
+  // URIs since the calc pages are public entry points.
+  const [searchParams] = useSearchParams();
+  const returnTo = safeReturnTo(searchParams.get('returnTo'));
+
   useSeo({
     title: 'Knitting Gauge Calculator — Free Swatch Checker | Rowly',
     description:
@@ -319,11 +327,11 @@ export default function GaugeCalculator() {
     <div className="space-y-4 md:space-y-6">
       <div>
         <Link
-          to="/calculators"
+          to={returnTo ?? '/calculators'}
           className="inline-flex items-center text-purple-600 hover:text-purple-700"
         >
           <FiArrowLeft className="mr-2 h-4 w-4" />
-          Back to Calculators
+          {returnTo ? 'Back' : 'Back to Calculators'}
         </Link>
         <h1 className="mt-2 text-3xl font-bold text-gray-900 dark:text-gray-100 md:text-4xl">
           Knitting Gauge Calculator

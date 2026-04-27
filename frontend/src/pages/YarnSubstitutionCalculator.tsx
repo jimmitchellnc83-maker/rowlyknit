@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import axios from 'axios';
 import {
@@ -10,6 +10,7 @@ import {
   FiPackage,
 } from 'react-icons/fi';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { safeReturnTo } from '../lib/safeReturnTo';
 
 // Mirror of the backend types for the yarn-substitution endpoint response.
 type LightLevel = 'green' | 'yellow' | 'red';
@@ -62,6 +63,45 @@ const WEIGHT_OPTIONS: Array<{ value: string; label: string }> = [
   { value: 'Super Bulky', label: 'Super Bulky' },
   { value: 'Jumbo', label: 'Jumbo' },
 ];
+
+// Stash entries store user-typed weights ("DK", "worsted", "fingering")
+// while this form's <select> uses the CYC canonical names ("Light",
+// "Medium", "Super Fine"). Map common aliases to canonical so a
+// pre-fill from yarn detail (?weight=DK) lands on a real option
+// instead of falling through to "Any weight".
+const WEIGHT_ALIASES: Record<string, string> = {
+  lace: 'Lace',
+  cobweb: 'Lace',
+  fingering: 'Super Fine',
+  sock: 'Super Fine',
+  '4ply': 'Super Fine',
+  '4-ply': 'Super Fine',
+  superfine: 'Super Fine',
+  'super fine': 'Super Fine',
+  sport: 'Fine',
+  fine: 'Fine',
+  dk: 'Light',
+  'double knitting': 'Light',
+  light: 'Light',
+  worsted: 'Medium',
+  aran: 'Medium',
+  medium: 'Medium',
+  chunky: 'Bulky',
+  bulky: 'Bulky',
+  superbulky: 'Super Bulky',
+  'super bulky': 'Super Bulky',
+  jumbo: 'Jumbo',
+  roving: 'Jumbo',
+};
+
+function normalizeWeight(raw: string | null | undefined): string {
+  if (!raw) return '';
+  const trimmed = raw.trim();
+  if (!trimmed) return '';
+  // Already canonical?
+  if (WEIGHT_OPTIONS.some((opt) => opt.value === trimmed)) return trimmed;
+  return WEIGHT_ALIASES[trimmed.toLowerCase()] ?? '';
+}
 
 const FIBER_OPTIONS = [
   'wool',
@@ -145,9 +185,30 @@ function CandidateCard({ candidate }: { candidate: YarnMatchCandidate }) {
 type NumField = number | '';
 
 export default function YarnSubstitutionCalculator() {
-  const [weightName, setWeightName] = useState<string>('');
-  const [selectedFibers, setSelectedFibers] = useState<Set<string>>(new Set());
-  const [yardage, setYardage] = useState<NumField>('');
+  // Pre-fill from query params so launching this from a yarn detail page
+  // (?weight=DK&fiber=wool&yardage=400) lands on a calculator that's
+  // already configured for the yarn the user came from. Weight is
+  // normalised through aliases (DK→Light, worsted→Medium, etc.) so
+  // user-typed stash values map to the form's CYC canonical options.
+  const [searchParams] = useSearchParams();
+  const initialWeight = normalizeWeight(searchParams.get('weight'));
+  const initialYardage = searchParams.get('yardage');
+  const initialFiberRaw = searchParams.get('fiber');
+  const initialFibers = new Set<string>();
+  if (initialFiberRaw) {
+    for (const token of initialFiberRaw.toLowerCase().split(/[\s,/&+]+/)) {
+      if (FIBER_OPTIONS.includes(token as (typeof FIBER_OPTIONS)[number])) {
+        initialFibers.add(token);
+      }
+    }
+  }
+  const returnTo = safeReturnTo(searchParams.get('returnTo'));
+
+  const [weightName, setWeightName] = useState<string>(initialWeight);
+  const [selectedFibers, setSelectedFibers] = useState<Set<string>>(initialFibers);
+  const [yardage, setYardage] = useState<NumField>(
+    initialYardage && Number.isFinite(parseFloat(initialYardage)) ? parseFloat(initialYardage) : '',
+  );
   const [skeinCount, setSkeinCount] = useState<NumField>('');
 
   const mutation = useMutation<SubstitutionResult, unknown, void>({
@@ -185,11 +246,11 @@ export default function YarnSubstitutionCalculator() {
     <div className="space-y-4 md:space-y-6">
       <div>
         <Link
-          to="/calculators"
+          to={returnTo ?? '/calculators'}
           className="inline-flex items-center text-purple-600 hover:text-purple-700"
         >
           <FiArrowLeft className="mr-2 h-4 w-4" />
-          Back to Calculators
+          {returnTo ? 'Back' : 'Back to Calculators'}
         </Link>
         <h1 className="mt-2 text-2xl font-bold text-gray-900 dark:text-gray-100 md:text-3xl">
           Yarn Substitution Calculator
