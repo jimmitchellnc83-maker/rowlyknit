@@ -17,6 +17,7 @@ import {
   type NeedleChange,
 } from '../utils/gaugeMath';
 import { useSeo } from '../hooks/useSeo';
+import { safeReturnTo } from '../lib/safeReturnTo';
 import { useAuthStore } from '../stores/authStore';
 import { useMeasurementPrefs } from '../hooks/useMeasurementPrefs';
 import { trackEvent } from '../lib/analytics';
@@ -191,9 +192,10 @@ function GaugeForm({
 export default function GaugeCalculator() {
   // Honour `?returnTo=<path>` so a knitter who launched the calculator
   // from inside a project can pop back to that project, not the public
-  // calculators index.
+  // calculators index. Validate to prevent open-redirect / javascript:
+  // URIs since the calc pages are public entry points.
   const [searchParams] = useSearchParams();
-  const returnTo = searchParams.get('returnTo');
+  const returnTo = safeReturnTo(searchParams.get('returnTo'));
 
   useSeo({
     title: 'Knitting Gauge Calculator — Free Swatch Checker | Rowly',

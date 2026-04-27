@@ -12,6 +12,7 @@ import {
   type SizeScheme,
 } from '../utils/giftSizeMath';
 import { useSeo } from '../hooks/useSeo';
+import { safeReturnTo } from '../lib/safeReturnTo';
 import { useAuthStore } from '../stores/authStore';
 import { useMeasurementPrefs } from '../hooks/useMeasurementPrefs';
 import { trackEvent } from '../lib/analytics';
@@ -129,7 +130,7 @@ function SchemeCard({ rec }: { rec: SizeRecommendation }) {
 
 export default function GiftSizeCalculator() {
   const [searchParams] = useSearchParams();
-  const returnTo = searchParams.get('returnTo');
+  const returnTo = safeReturnTo(searchParams.get('returnTo'));
 
   useSeo({
     title: 'Knitting Size Calculator — Find the Right Sweater Size | Rowly',
