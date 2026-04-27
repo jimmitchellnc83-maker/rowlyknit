@@ -15,6 +15,7 @@ import ChartGrid from '../components/designer/ChartGrid';
 import ConfirmModal from '../components/ConfirmModal';
 import { useSeo } from '../hooks/useSeo';
 import { useNoIndex } from '../hooks/useNoIndex';
+import { formatDate } from '../utils/formatDate';
 
 /**
  * Personal chart library — shows every chart the user has saved, with
@@ -175,7 +176,7 @@ function ChartCard({ chart, archived }: { chart: SavedChart; archived: boolean }
     return null;
   }, [chart.grid]);
 
-  const updatedAt = new Date(chart.updated_at).toLocaleDateString(undefined, {
+  const updatedAt = formatDate(chart.updated_at, {
     year: 'numeric',
     month: 'short',
     day: 'numeric',

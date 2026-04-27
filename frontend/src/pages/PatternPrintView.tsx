@@ -36,6 +36,7 @@ import ChartGrid from '../components/designer/ChartGrid';
 import { estimateYardageFromArea, formatYardage, type YardageRange } from '../utils/yardageEstimate';
 import { estimatePerColorYardage } from '../utils/yarnEstimatePerColor';
 import { type DesignerFormSnapshot } from '../utils/designerSnapshot';
+import { formatDate } from '../utils/formatDate';
 import { DEFAULT_CUSTOM_DRAFT } from '../types/customDraft';
 import { useChartSymbols } from '../hooks/useChartSymbols';
 import { buildChartInstructions, collectChartSymbols } from '../utils/chartInstruction';
@@ -311,7 +312,7 @@ export default function PatternPrintView() {
           </p>
         )}
         <p className="mt-1 text-sm text-gray-500">
-          Generated {new Date().toLocaleDateString(undefined, {
+          Generated {formatDate(new Date(), {
             year: 'numeric',
             month: 'long',
             day: 'numeric',
@@ -447,7 +448,7 @@ function PublishingCover({
         {form.patternCopyright?.trim() || (
           <>
             Generated{' '}
-            {new Date().toLocaleDateString(undefined, {
+            {formatDate(new Date(), {
               year: 'numeric',
               month: 'long',
               day: 'numeric',

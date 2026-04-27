@@ -10,6 +10,7 @@ import {
   FiAward
 } from 'react-icons/fi';
 import axios from 'axios';
+import { formatDate } from '../utils/formatDate';
 import {
   LineChart,
   Line,
@@ -147,21 +148,12 @@ function ActivityGraph({ data, loading }: ActivityGraphProps) {
   }
 
   // Format date for tooltip
-  const formatTooltipDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric'
-    });
-  };
+  const formatTooltipDate = (dateStr: string) =>
+    formatDate(dateStr, { weekday: 'short', month: 'short', day: 'numeric' }, 'Not set', 'en-US');
 
   // Format date for x-axis
-  const formatAxisDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric'
-    });
-  };
+  const formatAxisDate = (dateStr: string) =>
+    formatDate(dateStr, { month: 'short', day: 'numeric' }, 'Not set', 'en-US');
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6">

@@ -8,6 +8,7 @@ import {
   FiAlertTriangle,
   FiTarget,
 } from 'react-icons/fi';
+import { formatDate } from '../../utils/formatDate';
 
 type OnboardingGoal =
   | 'track_project'
@@ -223,7 +224,7 @@ export default function OnboardingTab() {
             </h3>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
               {status.tourCompletedAt
-                ? `You finished the tour on ${new Date(status.tourCompletedAt).toLocaleDateString()}. Reset it and it'll start again on the Dashboard.`
+                ? `You finished the tour on ${formatDate(status.tourCompletedAt)}. Reset it and it'll start again on the Dashboard.`
                 : 'The tour will start the next time you open the Dashboard.'}
             </p>
           </div>

@@ -30,6 +30,7 @@ import {
   Close,
   Check,
 } from '@mui/icons-material';
+import { formatDate } from '../../utils/formatDate';
 
 interface ChartShareDialogProps {
   open: boolean;
@@ -206,7 +207,7 @@ const ChartShareDialog: React.FC<ChartShareDialogProps> = ({
             {/* Expiration */}
             {shareResult.expires_at && (
               <Typography variant="body2" color="text.secondary" textAlign="center">
-                Expires: {new Date(shareResult.expires_at).toLocaleDateString()}
+                Expires: {formatDate(shareResult.expires_at)}
               </Typography>
             )}
 
