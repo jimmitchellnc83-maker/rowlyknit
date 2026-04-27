@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import db from '../config/database';
+import logger from '../config/logger';
 
 // Service layer for the per-project public-share toggle. Slug is derived
 // from the project name plus a 4-char crypto suffix; once generated it
@@ -138,7 +139,12 @@ export async function getPublicProjectBySlug(slug: string): Promise<PublicProjec
   db('projects')
     .where({ id: project.id })
     .increment('view_count', 1)
-    .catch(() => undefined);
+    .catch((err) => {
+      logger.warn('Failed to increment public-project view_count', {
+        projectId: project.id,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    });
 
   const mappedPhotos = photos.map((p) => ({
     url: photoUrl(p.filename),
