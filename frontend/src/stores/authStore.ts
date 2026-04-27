@@ -6,12 +6,13 @@ interface UserPreferences {
   theme?: string;
   notifications?: boolean;
   measurements?: {
-    needleSizeFormat?: 'us' | 'mm' | 'uk';
-    lengthUnit?: 'in' | 'cm' | 'mm';
-    yarnQuantityUnit?: 'yd' | 'm';
-    yarnWeightUnit?: 'g' | 'oz';
+    needleSizeFormat?: 'us' | 'metric' | 'uk';
+    hookSizeFormat?: 'us' | 'metric' | 'uk';
+    lengthDisplayUnit?: 'in' | 'cm' | 'mm';
+    yarnLengthDisplayUnit?: 'yd' | 'm';
+    weightDisplayUnit?: 'g' | 'oz';
     gaugeBase?: '4in' | '10cm';
-    gaugeDetail?: 'per_base' | 'per_inch' | 'per_cm';
+    gaugeDetail?: 'per_base' | 'per_unit';
   };
 }
 

@@ -70,17 +70,9 @@ export function useMeasurementPrefs() {
     if (raw.gaugeBase) mapped.gaugeBase = raw.gaugeBase as MeasurementPreferences['gaugeBase'];
     if (raw.gaugeDetail) mapped.gaugeDetail = raw.gaugeDetail as MeasurementPreferences['gaugeDetail'];
 
-    // New field names
     if (raw.lengthDisplayUnit) mapped.lengthDisplayUnit = raw.lengthDisplayUnit as MeasurementPreferences['lengthDisplayUnit'];
     if (raw.weightDisplayUnit) mapped.weightDisplayUnit = raw.weightDisplayUnit as MeasurementPreferences['weightDisplayUnit'];
     if (raw.yarnLengthDisplayUnit) mapped.yarnLengthDisplayUnit = raw.yarnLengthDisplayUnit as MeasurementPreferences['yarnLengthDisplayUnit'];
-
-    // Legacy field names → new field names (backward compat)
-    if (raw.lengthUnit && !mapped.lengthDisplayUnit) mapped.lengthDisplayUnit = raw.lengthUnit as MeasurementPreferences['lengthDisplayUnit'];
-    if (raw.yarnWeightUnit && !mapped.weightDisplayUnit) mapped.weightDisplayUnit = raw.yarnWeightUnit as MeasurementPreferences['weightDisplayUnit'];
-    if (raw.yarnQuantityUnit && !mapped.yarnLengthDisplayUnit) {
-      mapped.yarnLengthDisplayUnit = (raw.yarnQuantityUnit === 'm' ? 'm' : 'yd') as MeasurementPreferences['yarnLengthDisplayUnit'];
-    }
 
     // Inherit hookSizeFormat from needleSizeFormat if not set separately
     if (mapped.needleSizeFormat && !mapped.hookSizeFormat) {
