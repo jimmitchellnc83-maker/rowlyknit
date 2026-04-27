@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import axios from 'axios';
 import {
@@ -145,9 +145,28 @@ function CandidateCard({ candidate }: { candidate: YarnMatchCandidate }) {
 type NumField = number | '';
 
 export default function YarnSubstitutionCalculator() {
-  const [weightName, setWeightName] = useState<string>('');
-  const [selectedFibers, setSelectedFibers] = useState<Set<string>>(new Set());
-  const [yardage, setYardage] = useState<NumField>('');
+  // Pre-fill from query params so launching this from a yarn detail page
+  // (?weight=DK&fiber=wool&yardage=400) lands on a calculator that's
+  // already configured for the yarn the user came from.
+  const [searchParams] = useSearchParams();
+  const initialWeight = searchParams.get('weight') ?? '';
+  const initialYardage = searchParams.get('yardage');
+  const initialFiberRaw = searchParams.get('fiber');
+  const initialFibers = new Set<string>();
+  if (initialFiberRaw) {
+    for (const token of initialFiberRaw.toLowerCase().split(/[\s,/&+]+/)) {
+      if (FIBER_OPTIONS.includes(token as (typeof FIBER_OPTIONS)[number])) {
+        initialFibers.add(token);
+      }
+    }
+  }
+  const returnTo = searchParams.get('returnTo');
+
+  const [weightName, setWeightName] = useState<string>(initialWeight);
+  const [selectedFibers, setSelectedFibers] = useState<Set<string>>(initialFibers);
+  const [yardage, setYardage] = useState<NumField>(
+    initialYardage && Number.isFinite(parseFloat(initialYardage)) ? parseFloat(initialYardage) : '',
+  );
   const [skeinCount, setSkeinCount] = useState<NumField>('');
 
   const mutation = useMutation<SubstitutionResult, unknown, void>({
@@ -185,11 +204,11 @@ export default function YarnSubstitutionCalculator() {
     <div className="space-y-4 md:space-y-6">
       <div>
         <Link
-          to="/calculators"
+          to={returnTo ?? '/calculators'}
           className="inline-flex items-center text-purple-600 hover:text-purple-700"
         >
           <FiArrowLeft className="mr-2 h-4 w-4" />
-          Back to Calculators
+          {returnTo ? 'Back' : 'Back to Calculators'}
         </Link>
         <h1 className="mt-2 text-2xl font-bold text-gray-900 dark:text-gray-100 md:text-3xl">
           Yarn Substitution Calculator

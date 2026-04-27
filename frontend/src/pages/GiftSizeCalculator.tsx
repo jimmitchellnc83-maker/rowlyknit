@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { FiArrowLeft, FiUsers, FiCheck, FiSave } from 'react-icons/fi';
 import {
   recommendSizes,
@@ -128,6 +128,9 @@ function SchemeCard({ rec }: { rec: SizeRecommendation }) {
 }
 
 export default function GiftSizeCalculator() {
+  const [searchParams] = useSearchParams();
+  const returnTo = searchParams.get('returnTo');
+
   useSeo({
     title: 'Knitting Size Calculator — Find the Right Sweater Size | Rowly',
     description:
@@ -240,11 +243,11 @@ export default function GiftSizeCalculator() {
     <div className="space-y-4 md:space-y-6">
       <div>
         <Link
-          to="/calculators"
+          to={returnTo ?? '/calculators'}
           className="inline-flex items-center text-purple-600 hover:text-purple-700"
         >
           <FiArrowLeft className="mr-2 h-4 w-4" />
-          Back to Calculators
+          {returnTo ? 'Back' : 'Back to Calculators'}
         </Link>
         <h1 className="mt-2 text-3xl font-bold text-gray-900 dark:text-gray-100 md:text-4xl">
           Knitting Size Calculator
