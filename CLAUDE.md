@@ -6,7 +6,7 @@ Layout:
 - `frontend/` — Vite SPA, source in `frontend/src`
 - `backend/` — Express API, migrations in `backend/migrations`, source in `backend/src`
 - `deployment/` — nginx, ssl, systemd, scripts
-- `.github/workflows/deploy-staging.yml` — auto-deploys the `staging` branch (SSH pull + docker rebuild + `npm run migrate`)
+- `.github/workflows/deploy-production.yml` — auto-deploys `main` to the prod droplet (SSH pull + docker rebuild + `npm run migrate`)
 
 ## Conventions
 
