@@ -62,20 +62,25 @@ docker compose build $BUILD_FLAGS backend frontend
 echo -e "${YELLOW}🚀 Starting services...${NC}"
 docker compose up -d
 
-# Wait for services to be healthy
-echo -e "${YELLOW}⏳ Waiting for services to be healthy...${NC}"
-sleep 10
-
-# Check service status
-echo -e "${YELLOW}📊 Checking service status...${NC}"
+# Show service status for log visibility
+echo -e "${YELLOW}📊 Service status:${NC}"
 docker compose ps
 
-# Test backend health
-echo -e "${YELLOW}🏥 Testing backend health...${NC}"
-if docker compose exec -T backend wget -q -O - http://localhost:5000/health > /dev/null 2>&1; then
-    echo -e "${GREEN}✅ Backend is healthy${NC}"
-else
-    echo -e "${RED}❌ Backend health check failed${NC}"
+# Backend cold-start on this droplet takes ~13s. The previous `sleep 10`
+# + single wget exited 1 right as the backend reported "still starting,"
+# producing a false-fail in the GitHub Actions auto-deploy. Poll instead.
+echo -e "${YELLOW}🏥 Waiting for backend to report healthy (up to 60s)...${NC}"
+deadline=$((SECONDS + 60))
+while (( SECONDS < deadline )); do
+    if docker compose exec -T backend wget -q -O - http://localhost:5000/health > /dev/null 2>&1; then
+        echo -e "${GREEN}✅ Backend is healthy${NC}"
+        break
+    fi
+    sleep 2
+done
+
+if (( SECONDS >= deadline )); then
+    echo -e "${RED}❌ Backend health check failed after 60s${NC}"
     echo "Checking backend logs:"
     docker compose logs --tail=50 backend
     exit 1
