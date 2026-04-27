@@ -110,3 +110,24 @@ function setOrInsertMeta(html: string, attr: 'property' | 'name', key: string, v
   // Tag not present — insert just before </head>.
   return html.replace(/<\/head>/i, `    ${replacement}\n  </head>`);
 }
+
+/**
+ * Inject one or more JSON-LD structured-data blocks into the SPA shell
+ * <head>. Each entry becomes its own `<script type="application/ld+json">`
+ * tag so search engines can parse them independently. Escapes `</` to
+ * prevent any embedded value from prematurely closing the script.
+ *
+ * Used by the calculator SSR endpoint so non-JS crawlers (Bing, Pinterest,
+ * Facebook scraper) see the structured data on first parse instead of
+ * after React hydration.
+ */
+export function injectJsonLd(html: string, payloads: Array<Record<string, unknown>>): string {
+  if (payloads.length === 0) return html;
+  const blocks = payloads
+    .map((p) => {
+      const json = JSON.stringify(p).replace(/<\//g, '<\\/');
+      return `    <script type="application/ld+json">${json}</script>`;
+    })
+    .join('\n');
+  return html.replace(/<\/head>/i, `${blocks}\n  </head>`);
+}

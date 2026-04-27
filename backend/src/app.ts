@@ -52,6 +52,7 @@ import usageEventsRoutes from './routes/usage-events';
 import panelsRoutes from './routes/panels';
 import userExamplesRoutes from './routes/user-examples';
 import ogRenderRoutes from './routes/og-render';
+import calculatorsSsrRoutes from './routes/calculators-ssr';
 
 // Create Express app
 const app: Application = express();
@@ -173,6 +174,7 @@ app.use('/api/usage-events', usageEventsRoutes);
 app.use('/api/users', userExamplesRoutes);
 app.use('/shared', sharedRoutes); // Public shared content routes
 app.use('/', ogRenderRoutes); // Server-side OG meta for /p/:slug
+app.use('/', calculatorsSsrRoutes); // Server-side JSON-LD for /calculators
 
 // API documentation
 app.get('/api', (req, res) => {
