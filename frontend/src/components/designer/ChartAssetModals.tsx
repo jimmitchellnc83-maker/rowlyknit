@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 import { FiX, FiCheck, FiArchive } from 'react-icons/fi';
 import {
+  useChart,
   useChartList,
   useCreateChart,
   useUpdateChart,
@@ -34,9 +35,16 @@ export function SaveChartModal({
 }) {
   const [name, setName] = useState(defaultName);
   const [description, setDescription] = useState('');
+  const existing = useChart(chartId);
   const create = useCreateChart();
   const update = useUpdateChart();
   const dialogRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (existing.data?.description != null) {
+      setDescription(existing.data.description);
+    }
+  }, [existing.data?.description]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -111,19 +119,17 @@ export function SaveChartModal({
                 className="w-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
               />
             </label>
-            {!chartId && (
-              <label className="block">
-                <span className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Description <span className="text-xs font-normal text-gray-500">(optional)</span>
-                </span>
-                <textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  rows={2}
-                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
-                />
-              </label>
-            )}
+            <label className="block">
+              <span className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Description <span className="text-xs font-normal text-gray-500">(optional)</span>
+              </span>
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={2}
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+              />
+            </label>
             <p className="text-xs text-gray-500">
               {chart.width}×{chart.height} grid · saves to your{' '}
               <a href="/charts" className="text-purple-600 hover:underline">
