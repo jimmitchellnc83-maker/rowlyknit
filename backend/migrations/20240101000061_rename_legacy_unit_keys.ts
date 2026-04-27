@@ -6,118 +6,53 @@ import type { Knex } from 'knex';
  * names introduced in PR #230 (`lengthDisplayUnit`, `yarnLengthDisplayUnit`,
  * `weightDisplayUnit`).
  *
- * For each row:
- *   - Copy each legacy value onto its new key, but only if the new key
- *     is missing/null (so prior writes via the new schema win).
- *   - Delete the legacy keys.
+ * Strategy: for each legacy key, an UPDATE that
+ *   1. Copies the legacy value onto the new key, but only when the new key
+ *      is missing (so prior writes via the new schema win).
+ *   2. Removes the legacy key.
  *
- * Values are identical between legacy and new ('in'/'cm'/'mm', 'yd'/'m',
- * 'g'/'oz'), so the copy is a literal rename.
+ * Each UPDATE only touches rows that actually have the legacy key, so a
+ * second migration run is a no-op. Values are identical between legacy and
+ * new ('in'/'cm'/'mm', 'yd'/'m', 'g'/'oz'), so the copy is a literal rename.
+ *
+ * Note: we deliberately avoid Postgres's JSONB `?` operator because
+ * knex.raw() interprets `?` as a bind placeholder. `(jsonb ->> 'key')
+ * IS NOT NULL` is the equivalent membership check.
  */
 export async function up(knex: Knex): Promise<void> {
-  await knex.raw(`
-    UPDATE users
-    SET preferences = jsonb_set(
-      preferences,
-      '{measurements}',
-      (
-        (preferences->'measurements')
-          - 'lengthUnit'
-          - 'yarnQuantityUnit'
-          - 'yarnWeightUnit'
-      )
-        || jsonb_build_object(
-          'lengthDisplayUnit',
-          COALESCE(
-            preferences->'measurements'->>'lengthDisplayUnit',
-            preferences->'measurements'->>'lengthUnit'
-          )
-        ) FILTER (WHERE
-          preferences->'measurements'->>'lengthDisplayUnit' IS NOT NULL
-          OR preferences->'measurements'->>'lengthUnit' IS NOT NULL
-        )
-        || jsonb_build_object(
-          'yarnLengthDisplayUnit',
-          COALESCE(
-            preferences->'measurements'->>'yarnLengthDisplayUnit',
-            preferences->'measurements'->>'yarnQuantityUnit'
-          )
-        ) FILTER (WHERE
-          preferences->'measurements'->>'yarnLengthDisplayUnit' IS NOT NULL
-          OR preferences->'measurements'->>'yarnQuantityUnit' IS NOT NULL
-        )
-        || jsonb_build_object(
-          'weightDisplayUnit',
-          COALESCE(
-            preferences->'measurements'->>'weightDisplayUnit',
-            preferences->'measurements'->>'yarnWeightUnit'
-          )
-        ) FILTER (WHERE
-          preferences->'measurements'->>'weightDisplayUnit' IS NOT NULL
-          OR preferences->'measurements'->>'yarnWeightUnit' IS NOT NULL
-        )
-    )
-    WHERE preferences ? 'measurements'
-      AND (
-        preferences->'measurements' ? 'lengthUnit'
-        OR preferences->'measurements' ? 'yarnQuantityUnit'
-        OR preferences->'measurements' ? 'yarnWeightUnit'
-      );
-  `);
+  await renameKey(knex, 'lengthUnit', 'lengthDisplayUnit');
+  await renameKey(knex, 'yarnQuantityUnit', 'yarnLengthDisplayUnit');
+  await renameKey(knex, 'yarnWeightUnit', 'weightDisplayUnit');
 }
 
 /**
- * Reverse: copy new keys back onto legacy keys (only if legacy is missing),
- * then delete the new keys.
+ * Reverse: copy new keys back onto legacy keys (only when the legacy key
+ * is missing), then delete the new keys.
  */
 export async function down(knex: Knex): Promise<void> {
-  await knex.raw(`
+  await renameKey(knex, 'lengthDisplayUnit', 'lengthUnit');
+  await renameKey(knex, 'yarnLengthDisplayUnit', 'yarnQuantityUnit');
+  await renameKey(knex, 'weightDisplayUnit', 'yarnWeightUnit');
+}
+
+async function renameKey(knex: Knex, fromKey: string, toKey: string): Promise<void> {
+  await knex.raw(
+    `
     UPDATE users
     SET preferences = jsonb_set(
       preferences,
       '{measurements}',
-      (
-        (preferences->'measurements')
-          - 'lengthDisplayUnit'
-          - 'yarnLengthDisplayUnit'
-          - 'weightDisplayUnit'
-      )
+      (preferences -> 'measurements' - :fromKey)
         || jsonb_build_object(
-          'lengthUnit',
+          :toKey,
           COALESCE(
-            preferences->'measurements'->>'lengthUnit',
-            preferences->'measurements'->>'lengthDisplayUnit'
+            preferences -> 'measurements' ->> :toKey,
+            preferences -> 'measurements' ->> :fromKey
           )
-        ) FILTER (WHERE
-          preferences->'measurements'->>'lengthUnit' IS NOT NULL
-          OR preferences->'measurements'->>'lengthDisplayUnit' IS NOT NULL
-        )
-        || jsonb_build_object(
-          'yarnQuantityUnit',
-          COALESCE(
-            preferences->'measurements'->>'yarnQuantityUnit',
-            preferences->'measurements'->>'yarnLengthDisplayUnit'
-          )
-        ) FILTER (WHERE
-          preferences->'measurements'->>'yarnQuantityUnit' IS NOT NULL
-          OR preferences->'measurements'->>'yarnLengthDisplayUnit' IS NOT NULL
-        )
-        || jsonb_build_object(
-          'yarnWeightUnit',
-          COALESCE(
-            preferences->'measurements'->>'yarnWeightUnit',
-            preferences->'measurements'->>'weightDisplayUnit'
-          )
-        ) FILTER (WHERE
-          preferences->'measurements'->>'yarnWeightUnit' IS NOT NULL
-          OR preferences->'measurements'->>'weightDisplayUnit' IS NOT NULL
         )
     )
-    WHERE preferences ? 'measurements'
-      AND (
-        preferences->'measurements' ? 'lengthDisplayUnit'
-        OR preferences->'measurements' ? 'yarnLengthDisplayUnit'
-        OR preferences->'measurements' ? 'weightDisplayUnit'
-      );
-  `);
+    WHERE preferences -> 'measurements' ->> :fromKey IS NOT NULL
+    `,
+    { fromKey, toKey },
+  );
 }
