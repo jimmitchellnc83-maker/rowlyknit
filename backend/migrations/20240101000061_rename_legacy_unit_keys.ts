@@ -1,62 +1,68 @@
 import type { Knex } from 'knex';
 
+const KEY_RENAMES: Array<[from: string, to: string]> = [
+  ['lengthUnit', 'lengthDisplayUnit'],
+  ['yarnQuantityUnit', 'yarnLengthDisplayUnit'],
+  ['yarnWeightUnit', 'weightDisplayUnit'],
+];
+
+interface MeasurementsLike {
+  [key: string]: unknown;
+}
+
+interface PreferencesLike {
+  measurements?: MeasurementsLike;
+  [key: string]: unknown;
+}
+
 /**
- * Migrate `users.preferences.measurements` from the legacy unit field
- * names (`lengthUnit`, `yarnQuantityUnit`, `yarnWeightUnit`) to the new
- * names introduced in PR #230 (`lengthDisplayUnit`, `yarnLengthDisplayUnit`,
+ * Migrate `users.preferences.measurements` from the legacy unit field names
+ * (`lengthUnit`, `yarnQuantityUnit`, `yarnWeightUnit`) to the new names
+ * introduced in PR #230 (`lengthDisplayUnit`, `yarnLengthDisplayUnit`,
  * `weightDisplayUnit`).
  *
- * Strategy: for each legacy key, an UPDATE that
- *   1. Copies the legacy value onto the new key, but only when the new key
- *      is missing (so prior writes via the new schema win).
- *   2. Removes the legacy key.
+ * Read each user, rename keys in JS, write the row back. Earlier attempts
+ * built the rename in pure SQL with `jsonb_set` + named bind params; the
+ * combination kept hitting Postgres planner ambiguities (`?` bind clash,
+ * `unknown - unknown` operator, `'{measurements}'` typed as json instead
+ * of text[]). Imperative is unambiguous, idempotent, and the user table is
+ * small.
  *
- * Each UPDATE only touches rows that actually have the legacy key, so a
- * second migration run is a no-op. Values are identical between legacy and
- * new ('in'/'cm'/'mm', 'yd'/'m', 'g'/'oz'), so the copy is a literal rename.
- *
- * Note: we deliberately avoid Postgres's JSONB `?` operator because
- * knex.raw() interprets `?` as a bind placeholder. `(jsonb ->> 'key')
- * IS NOT NULL` is the equivalent membership check.
+ * Re-running the migration is a no-op for already-migrated rows because
+ * the per-key check skips rows without the legacy key.
  */
 export async function up(knex: Knex): Promise<void> {
-  await renameKey(knex, 'lengthUnit', 'lengthDisplayUnit');
-  await renameKey(knex, 'yarnQuantityUnit', 'yarnLengthDisplayUnit');
-  await renameKey(knex, 'yarnWeightUnit', 'weightDisplayUnit');
+  await renameKeys(knex, KEY_RENAMES);
 }
 
-/**
- * Reverse: copy new keys back onto legacy keys (only when the legacy key
- * is missing), then delete the new keys.
- */
+/** Reverse the rename by inverting each pair. */
 export async function down(knex: Knex): Promise<void> {
-  await renameKey(knex, 'lengthDisplayUnit', 'lengthUnit');
-  await renameKey(knex, 'yarnLengthDisplayUnit', 'yarnQuantityUnit');
-  await renameKey(knex, 'weightDisplayUnit', 'yarnWeightUnit');
+  const inverse = KEY_RENAMES.map(([f, t]) => [t, f] as [string, string]);
+  await renameKeys(knex, inverse);
 }
 
-async function renameKey(knex: Knex, fromKey: string, toKey: string): Promise<void> {
-  // Explicit ::text casts are required because the Postgres planner sees
-  // bound parameters as `unknown` and the JSONB `-` operator has both
-  // `jsonb - text` and `jsonb - integer` overloads — without a hint it
-  // raises "operator is not unique: unknown - unknown".
-  await knex.raw(
-    `
-    UPDATE users
-    SET preferences = jsonb_set(
-      preferences,
-      '{measurements}',
-      (preferences -> 'measurements' - :fromKey::text)
-        || jsonb_build_object(
-          :toKey::text,
-          COALESCE(
-            preferences -> 'measurements' ->> :toKey::text,
-            preferences -> 'measurements' ->> :fromKey::text
-          )
-        )
-    )
-    WHERE preferences -> 'measurements' ->> :fromKey::text IS NOT NULL
-    `,
-    { fromKey, toKey },
-  );
+async function renameKeys(knex: Knex, pairs: Array<[string, string]>): Promise<void> {
+  const rows: Array<{ id: string; preferences: PreferencesLike | null }> = await knex('users')
+    .select('id', 'preferences')
+    .whereNotNull('preferences');
+
+  for (const row of rows) {
+    const prefs: PreferencesLike = row.preferences ?? {};
+    const m = prefs.measurements;
+    if (!m || typeof m !== 'object') continue;
+
+    let changed = false;
+    for (const [fromKey, toKey] of pairs) {
+      if (m[fromKey] === undefined) continue;
+      if (m[toKey] === undefined) {
+        m[toKey] = m[fromKey];
+      }
+      delete m[fromKey];
+      changed = true;
+    }
+
+    if (changed) {
+      await knex('users').where({ id: row.id }).update({ preferences: prefs });
+    }
+  }
 }
