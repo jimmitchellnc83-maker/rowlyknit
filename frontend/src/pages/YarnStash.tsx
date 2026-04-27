@@ -12,7 +12,7 @@ import { useYarn, useCreateYarn, useUpdateYarn, useDeleteYarn } from '../hooks/u
 import { useUndoableDelete } from '../hooks/useUndoableDelete';
 import HelpTooltip from '../components/HelpTooltip';
 import RavelryYarnSearch, { type RavelryYarnImportData } from '../components/RavelryYarnSearch';
-import { useMeasurements } from '../hooks/useMeasurements';
+import { useMeasurementPrefs } from '../hooks/useMeasurementPrefs';
 import StashValueCard from '../components/yarn/StashValueCard';
 import YarnLabelCapture, { type ExtractedLabelData } from '../components/yarn/YarnLabelCapture';
 import PageHelpButton from '../components/PageHelpButton';
@@ -63,7 +63,7 @@ const YARN_SORT_OPTIONS: SortOption<Yarn>[] = [
 ];
 
 export default function YarnStash() {
-  const { fmt } = useMeasurements();
+  const { fmt, prefs, labels } = useMeasurementPrefs();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
@@ -616,7 +616,7 @@ export default function YarnStash() {
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600 dark:text-gray-400">Length:</span>
                       <span className="font-medium text-gray-900 dark:text-gray-100">
-                        {fmt.yarnLength(y.remaining_length_m, y.yards_remaining)}
+                        {fmt.yarnLength(y.remaining_length_m ?? (y.yards_remaining != null ? y.yards_remaining * 0.9144 : null))}
                       </span>
                     </div>
                   )}
@@ -782,7 +782,7 @@ export default function YarnStash() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      {fmt.yarnLengthUnit() === 'm' ? 'Meters' : 'Yards'} per Skein
+                      {prefs.yarnLengthDisplayUnit === 'm' ? 'Meters' : 'Yards'} per Skein
                     </label>
                     <input
                       type="number"
@@ -1043,7 +1043,7 @@ export default function YarnStash() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      {fmt.yarnLengthUnit() === 'm' ? 'Meters' : 'Yards'} per Skein
+                      {prefs.yarnLengthDisplayUnit === 'm' ? 'Meters' : 'Yards'} per Skein
                     </label>
                     <input
                       type="number"
@@ -1206,7 +1206,7 @@ export default function YarnStash() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Low Stock Threshold ({fmt.yarnLengthUnit()})
+                      Low Stock Threshold ({labels.yardageShort})
                     </label>
                     <input
                       type="number"

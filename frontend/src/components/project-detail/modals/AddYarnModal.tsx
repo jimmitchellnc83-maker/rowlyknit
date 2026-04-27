@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { toast } from 'react-toastify';
-import { useMeasurements } from '../../../hooks/useMeasurements';
+import { useMeasurementPrefs } from '../../../hooks/useMeasurementPrefs';
 import ModalShell from './ModalShell';
 
 interface YarnOption {
@@ -26,7 +26,7 @@ interface AddYarnModalProps {
 }
 
 export default function AddYarnModal({ availableYarn, onClose, onSubmit }: AddYarnModalProps) {
-  const { fmt } = useMeasurements();
+  const { fmt, prefs } = useMeasurementPrefs();
   const [selectedYarnId, setSelectedYarnId] = useState('');
   const [yarnQuantity, setYarnQuantity] = useState({ skeins: '', yards: '' });
 
@@ -65,7 +65,7 @@ export default function AddYarnModal({ availableYarn, onClose, onSubmit }: AddYa
               .map((yarn) => (
                 <option key={yarn.id} value={yarn.id}>
                   {yarn.brand} {yarn.name} - {yarn.color}
-                  ({yarn.skeins_remaining} skeins, {fmt.yarnLength(yarn.remaining_length_m, yarn.yards_remaining)} available)
+                  ({yarn.skeins_remaining} skeins, {fmt.yarnLength(yarn.remaining_length_m ?? (yarn.yards_remaining != null ? yarn.yards_remaining * 0.9144 : null))} available)
                 </option>
               ))}
           </select>
@@ -88,7 +88,7 @@ export default function AddYarnModal({ availableYarn, onClose, onSubmit }: AddYa
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              {fmt.yarnLengthUnit() === 'm' ? 'Meters' : 'Yards'} to Use
+              {prefs.yarnLengthDisplayUnit === 'm' ? 'Meters' : 'Yards'} to Use
             </label>
             <input
               type="number"

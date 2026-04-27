@@ -5,7 +5,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'react-toastify';
 import HelpTooltip from '../HelpTooltip';
 import ConfirmModal from '../ConfirmModal';
-import { useMeasurements } from '../../hooks/useMeasurements';
+import { useMeasurementPrefs } from '../../hooks/useMeasurementPrefs';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
 import { formatDate } from '../../utils/formatDate';
 
@@ -115,9 +115,9 @@ export const StructuredMemoTemplates: React.FC<StructuredMemoTemplatesProps> = (
   onSaveMemo,
   onDeleteMemo,
 }) => {
-  const { fmt } = useMeasurements();
-  const lengthSym = fmt.prefs.lengthUnit === 'cm' ? 'cm' : fmt.prefs.lengthUnit === 'mm' ? 'mm' : '"';
-  const yardLabel = fmt.yarnLengthUnit();
+  const { prefs, labels } = useMeasurementPrefs();
+  const lengthSym = prefs.lengthDisplayUnit === 'cm' ? 'cm' : prefs.lengthDisplayUnit === 'mm' ? 'mm' : '"';
+  const yardLabel = labels.yardageShort;
   const [showNewMemoModal, setShowNewMemoModal] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
   useFocusTrap(modalRef, showNewMemoModal);
