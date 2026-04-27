@@ -34,9 +34,9 @@ export default function Profile() {
 
   const [unitPrefs, setUnitPrefs] = useState<Record<string, string>>({
     needleSizeFormat: user?.preferences?.measurements?.needleSizeFormat || 'us',
-    lengthUnit: user?.preferences?.measurements?.lengthUnit || 'in',
-    yarnQuantityUnit: user?.preferences?.measurements?.yarnQuantityUnit || 'yd',
-    yarnWeightUnit: user?.preferences?.measurements?.yarnWeightUnit || 'g',
+    lengthDisplayUnit: user?.preferences?.measurements?.lengthDisplayUnit || 'in',
+    yarnLengthDisplayUnit: user?.preferences?.measurements?.yarnLengthDisplayUnit || 'yd',
+    weightDisplayUnit: user?.preferences?.measurements?.weightDisplayUnit || 'g',
     gaugeBase: user?.preferences?.measurements?.gaugeBase || '4in',
   });
   const [savingUnits, setSavingUnits] = useState(false);
@@ -430,8 +430,8 @@ export default function Profile() {
                 Needle / Hook Length Display
               </label>
               <select
-                value={unitPrefs.lengthUnit}
-                onChange={(e) => setUnitPrefs({ ...unitPrefs, lengthUnit: e.target.value })}
+                value={unitPrefs.lengthDisplayUnit}
+                onChange={(e) => setUnitPrefs({ ...unitPrefs, lengthDisplayUnit: e.target.value })}
                 className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
               >
                 <option value="in">Inches (in)</option>
@@ -445,8 +445,8 @@ export default function Profile() {
                 Yarn Length Unit
               </label>
               <select
-                value={unitPrefs.yarnQuantityUnit}
-                onChange={(e) => setUnitPrefs({ ...unitPrefs, yarnQuantityUnit: e.target.value })}
+                value={unitPrefs.yarnLengthDisplayUnit}
+                onChange={(e) => setUnitPrefs({ ...unitPrefs, yarnLengthDisplayUnit: e.target.value })}
                 className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
               >
                 <option value="yd">Yards (yd)</option>
@@ -459,8 +459,8 @@ export default function Profile() {
                 Yarn Weight Unit
               </label>
               <select
-                value={unitPrefs.yarnWeightUnit}
-                onChange={(e) => setUnitPrefs({ ...unitPrefs, yarnWeightUnit: e.target.value })}
+                value={unitPrefs.weightDisplayUnit}
+                onChange={(e) => setUnitPrefs({ ...unitPrefs, weightDisplayUnit: e.target.value })}
                 className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
               >
                 <option value="g">Grams (g)</option>

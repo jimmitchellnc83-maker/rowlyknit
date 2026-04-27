@@ -29,9 +29,19 @@ const CM_PER_IN = 2.54;
  */
 export function useMeasurements() {
   const user = useAuthStore((s) => s.user);
+  const raw = (user?.preferences?.measurements ?? {}) as Record<string, unknown>;
+
+  // The canonical schema (post PR #230 + migration #061) uses the
+  // *DisplayUnit field names. This legacy hook still surfaces the
+  // pre-rename names to its consumers, so we map on read.
   const prefs: MeasurementPrefs = {
     ...DEFAULTS,
-    ...(user?.preferences?.measurements ?? {}),
+    ...(raw.needleSizeFormat ? { needleSizeFormat: raw.needleSizeFormat as MeasurementPrefs['needleSizeFormat'] } : {}),
+    ...(raw.lengthDisplayUnit ? { lengthUnit: raw.lengthDisplayUnit as MeasurementPrefs['lengthUnit'] } : {}),
+    ...(raw.yarnLengthDisplayUnit ? { yarnQuantityUnit: raw.yarnLengthDisplayUnit as MeasurementPrefs['yarnQuantityUnit'] } : {}),
+    ...(raw.weightDisplayUnit ? { yarnWeightUnit: raw.weightDisplayUnit as MeasurementPrefs['yarnWeightUnit'] } : {}),
+    ...(raw.gaugeBase ? { gaugeBase: raw.gaugeBase as MeasurementPrefs['gaugeBase'] } : {}),
+    ...(raw.gaugeDetail ? { gaugeDetail: raw.gaugeDetail as MeasurementPrefs['gaugeDetail'] } : {}),
   };
 
   const fmt = {
