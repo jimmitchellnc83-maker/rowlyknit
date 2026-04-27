@@ -36,22 +36,26 @@ export async function down(knex: Knex): Promise<void> {
 }
 
 async function renameKey(knex: Knex, fromKey: string, toKey: string): Promise<void> {
+  // Explicit ::text casts are required because the Postgres planner sees
+  // bound parameters as `unknown` and the JSONB `-` operator has both
+  // `jsonb - text` and `jsonb - integer` overloads — without a hint it
+  // raises "operator is not unique: unknown - unknown".
   await knex.raw(
     `
     UPDATE users
     SET preferences = jsonb_set(
       preferences,
       '{measurements}',
-      (preferences -> 'measurements' - :fromKey)
+      (preferences -> 'measurements' - :fromKey::text)
         || jsonb_build_object(
-          :toKey,
+          :toKey::text,
           COALESCE(
-            preferences -> 'measurements' ->> :toKey,
-            preferences -> 'measurements' ->> :fromKey
+            preferences -> 'measurements' ->> :toKey::text,
+            preferences -> 'measurements' ->> :fromKey::text
           )
         )
     )
-    WHERE preferences -> 'measurements' ->> :fromKey IS NOT NULL
+    WHERE preferences -> 'measurements' ->> :fromKey::text IS NOT NULL
     `,
     { fromKey, toKey },
   );
