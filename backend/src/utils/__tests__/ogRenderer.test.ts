@@ -4,7 +4,7 @@
  * needs to verify the string-rewriting logic.
  */
 
-import { injectMetaTags } from '../ogRenderer';
+import { injectJsonLd, injectMetaTags } from '../ogRenderer';
 
 const SHELL = `<!DOCTYPE html>
 <html lang="en">
@@ -101,5 +101,38 @@ describe('injectMetaTags', () => {
       image: null,
     });
     expect(out).toContain('<meta property="og:type" content="article"');
+  });
+});
+
+describe('injectJsonLd', () => {
+  const MINIMAL = '<html><head><title>Rowly</title></head><body></body></html>';
+
+  it('inserts one script per payload before </head>', () => {
+    const out = injectJsonLd(MINIMAL, [
+      { '@context': 'https://schema.org', '@type': 'WebApplication', name: 'A' },
+      { '@context': 'https://schema.org', '@type': 'BreadcrumbList' },
+    ]);
+    const matches = out.match(/<script type="application\/ld\+json">/g) ?? [];
+    expect(matches).toHaveLength(2);
+    expect(out.indexOf('<script')).toBeLessThan(out.indexOf('</head>'));
+  });
+
+  it('serializes the payload as compact JSON', () => {
+    const out = injectJsonLd(MINIMAL, [{ '@type': 'WebApplication', name: 'Gauge' }]);
+    expect(out).toContain('{"@type":"WebApplication","name":"Gauge"}');
+  });
+
+  it('escapes </ inside string values to prevent script-tag breakout', () => {
+    const out = injectJsonLd(MINIMAL, [
+      { '@type': 'Note', text: 'see </script><script>alert(1)</script>' },
+    ]);
+    // The payload's literal "</" never reaches the rendered HTML
+    expect(out).not.toMatch(/<\/script><script>/i);
+    expect(out).toContain('<\\/script>');
+  });
+
+  it('returns the html unchanged when no payloads are given', () => {
+    const out = injectJsonLd(MINIMAL, []);
+    expect(out).toBe(MINIMAL);
   });
 });
