@@ -1,5 +1,11 @@
 # Designer 2.0 + Crochet — Roadmap
 
+> **⚠️ PAUSED 2026-04-27.** Sessions 6a–15 of this roadmap are no longer the next-up plan. The owner authored a broader product vision in `docs/PATTERN_DESIGNER_PRD.md` that calls for a **schema-first rebuild** around a canonical Pattern model with three synchronized modes (Design / Author / Make), not incremental feature additions on top of the current form-first Designer. See `docs/PATTERN_DESIGNER_GAP_ANALYSIS.md` for the rebuild plan.
+>
+> Sessions 1–5 are still **shipped** — their code is part of the "Keep" column in the gap analysis. The remaining sessions (6a–15) will be folded into the new rebuild's PRs as they map (e.g. cardigan front pieces becomes a Section template, multi-size schema becomes part of Pattern model). Don't pick up a session from this doc cold — start from the PRD + gap analysis instead.
+
+---
+
 This is the full roadmap for taking Rowly's Pattern Designer from a strong parametric drafter into a full publishing-grade design environment, with crochet support baked in from the foundation rather than retrofitted.
 
 Each row in the high-level map below is **one session** — a scoped chunk of work that opens, merges, deploys, and smoke-tests before the next session starts. Sessions are written so a fresh Claude Code session can pick one up cold.
