@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { FiTool, FiInfo, FiGrid, FiSquare, FiPrinter, FiFolder, FiBook } from 'react-icons/fi';
 import type { Craft } from '../types/chartSymbol';
-import { useCreatePattern, useCreateProject } from '../hooks/useApi';
+import { useCreatePattern, useUpdatePattern, useCreateProject } from '../hooks/useApi';
 import { itemLabel } from '../utils/designerSnapshot';
 import {
   computeBlanket,
@@ -722,31 +722,58 @@ function SaveToProjectButton({ form }: { form: DesignerForm }) {
  * template — the user can start multiple projects from the same pattern
  * later. A project is a single knitted item.
  */
-function SaveAsPatternButton({ form }: { form: DesignerForm }) {
+function SaveAsPatternButton({
+  form,
+  patternId,
+}: {
+  form: DesignerForm;
+  /** When set, save UPDATES this pattern instead of creating a new row.
+   *  Drives the button's label and the underlying mutation. */
+  patternId?: string | null;
+}) {
   const navigate = useNavigate();
   const createPattern = useCreatePattern();
+  const updatePattern = useUpdatePattern();
   const label = itemLabel(form.itemType);
+  const isEditing = !!patternId;
+  const pending = createPattern.isPending || updatePattern.isPending;
 
   const save = async () => {
     try {
-      const today = new Date().toISOString().slice(0, 10);
       const gaugeText =
         form.gaugeStitches && form.gaugeRows && form.gaugeMeasurement
           ? `${form.gaugeStitches} sts × ${form.gaugeRows} rows over ${form.gaugeMeasurement} ${form.unit}`
           : undefined;
-      const pattern = await createPattern.mutateAsync({
-        name: `${label} — ${today}`,
-        designer: 'Me (via Designer)',
-        category: form.itemType,
-        gauge: gaugeText,
-        notes: `Created in the Pattern Designer on ${today}.`,
-        metadata: {
-          designer: form,
-          designer_snapshot_at: new Date().toISOString(),
-        },
-      });
-      toast.success(`Pattern "${pattern.name}" saved to library.`);
-      navigate(`/patterns/${pattern.id}`);
+      const metadata = {
+        designer: form,
+        designer_snapshot_at: new Date().toISOString(),
+      };
+      if (isEditing && patternId) {
+        const updated = await updatePattern.mutateAsync({
+          id: patternId,
+          formData: {
+            // Preserve the existing name; the user updates it on the
+            // pattern detail page if they want a rename.
+            category: form.itemType,
+            gauge: gaugeText,
+            metadata,
+          },
+        });
+        toast.success(`Pattern "${updated.name ?? 'Pattern'}" updated.`);
+        navigate(`/patterns/${patternId}`);
+      } else {
+        const today = new Date().toISOString().slice(0, 10);
+        const pattern = await createPattern.mutateAsync({
+          name: `${label} — ${today}`,
+          designer: 'Me (via Designer)',
+          category: form.itemType,
+          gauge: gaugeText,
+          notes: `Created in the Pattern Designer on ${today}.`,
+          metadata,
+        });
+        toast.success(`Pattern "${pattern.name}" saved to library.`);
+        navigate(`/patterns/${pattern.id}`);
+      }
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Failed to save as pattern');
     }
@@ -756,12 +783,18 @@ function SaveAsPatternButton({ form }: { form: DesignerForm }) {
     <button
       type="button"
       onClick={save}
-      disabled={createPattern.isPending}
+      disabled={pending}
       className="inline-flex items-center gap-2 rounded-lg border border-purple-300 bg-white px-3 py-1.5 text-sm font-medium text-purple-700 hover:bg-purple-50 disabled:opacity-70 dark:border-purple-800 dark:bg-gray-800 dark:text-purple-300 dark:hover:bg-purple-900/30"
-      title="Save this design as a reusable pattern in your library"
+      title={isEditing ? 'Save changes to this pattern' : 'Save this design as a reusable pattern in your library'}
     >
       <FiBook className="h-4 w-4" />
-      {createPattern.isPending ? 'Saving…' : 'Save as pattern'}
+      {pending
+        ? isEditing
+          ? 'Saving…'
+          : 'Saving…'
+        : isEditing
+          ? 'Save changes'
+          : 'Save as pattern'}
     </button>
   );
 }
@@ -1332,10 +1365,57 @@ export default function PatternDesigner() {
   // sizing); fall back to cm since body measurements in mm aren't meaningful.
   const desiredUnit: MeasurementUnit = prefs.lengthDisplayUnit === 'cm' || prefs.lengthDisplayUnit === 'mm' ? 'cm' : 'in';
 
+  // Edit-mode entry point: `/designer?patternId=xxx` loads an existing
+  // pattern's saved Designer snapshot into the form, so the Save button
+  // updates the same row instead of creating a duplicate. New-pattern flow
+  // (no query param) keeps using localStorage as a draft buffer.
+  const [searchParams] = useSearchParams();
+  const editingPatternId = searchParams.get('patternId');
+
   const [form, setForm] = useState<DesignerForm>(() => {
     const saved = readSavedForm();
     return saved.unit === desiredUnit ? saved : convertFormUnits(saved, desiredUnit);
   });
+  const [loadingPattern, setLoadingPattern] = useState<boolean>(!!editingPatternId);
+
+  // When ?patternId is set, fetch the pattern and replace the form state
+  // with its saved Designer snapshot. The localStorage draft is left
+  // untouched so the user can pop back to a fresh new-pattern flow.
+  useEffect(() => {
+    if (!editingPatternId) return;
+    let cancelled = false;
+    setLoadingPattern(true);
+    (async () => {
+      try {
+        const { data } = await axios.get(`/api/patterns/${editingPatternId}`);
+        const pattern = data?.data?.pattern ?? data?.data;
+        const snapshot = pattern?.metadata?.designer as DesignerForm | undefined;
+        if (cancelled) return;
+        if (snapshot) {
+          setForm(
+            snapshot.unit === desiredUnit
+              ? snapshot
+              : convertFormUnits(snapshot, desiredUnit),
+          );
+        } else {
+          toast.info(
+            'This pattern has no saved Designer snapshot — opening a fresh draft.',
+          );
+        }
+      } catch (err) {
+        if (!cancelled) {
+          const msg =
+            err instanceof Error ? err.message : 'Failed to load pattern';
+          toast.error(msg);
+        }
+      } finally {
+        if (!cancelled) setLoadingPattern(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [editingPatternId, desiredUnit]);
   // Zoom level for the schematic preview. 1 = default 24rem cap, larger
   // values let the silhouette grow so colorwork and stitch symbols are
   // legible. Container handles horizontal scroll past the viewport.
@@ -1349,12 +1429,16 @@ export default function PatternDesigner() {
   }, [desiredUnit]);
 
   useEffect(() => {
+    // Don't overwrite the new-pattern draft with an in-progress edit of
+    // a saved pattern — the localStorage buffer is only for the
+    // unsaved /designer flow.
+    if (editingPatternId) return;
     try {
       localStorage.setItem(LS_KEY, JSON.stringify(form));
     } catch {
       /* storage unavailable */
     }
-  }, [form]);
+  }, [form, editingPatternId]);
 
   const bodyOutput = useMemo(() => {
     if (!bodyReady(form)) return null;
@@ -1476,6 +1560,14 @@ export default function PatternDesigner() {
           <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium uppercase tracking-wide text-purple-700">
             Beta
           </span>
+          {editingPatternId && (
+            <span
+              className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium uppercase tracking-wide text-amber-800 dark:bg-amber-900/30 dark:text-amber-200"
+              title="Editing an existing pattern"
+            >
+              {loadingPattern ? 'Loading…' : 'Editing'}
+            </span>
+          )}
           {/* Craft toggle — drives which stitch palette shows + future
               construction-math forks. Persisted with the rest of the form. */}
           <div
@@ -1503,7 +1595,7 @@ export default function PatternDesigner() {
             })}
           </div>
           <div className="ml-auto flex flex-wrap items-center gap-2">
-            <SaveAsPatternButton form={form} />
+            <SaveAsPatternButton form={form} patternId={editingPatternId} />
             <SaveToProjectButton form={form} />
             <Link
               to="/designer/print"

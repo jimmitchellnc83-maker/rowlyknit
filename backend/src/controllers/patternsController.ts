@@ -285,11 +285,50 @@ export async function createPattern(req: Request, res: Response) {
     newValues: pattern,
   });
 
+  // Materialize a canonical pattern_models twin when the user saved
+  // through the Designer (metadata.designer holds the form snapshot).
+  // Best-effort — the legacy save is the user's primary success path;
+  // a canonical write failure logs a warning and the response still
+  // reports success.
+  await maybeMaterializeCanonicalTwin(userId, pattern.id, metadata);
+
   res.status(201).json({
     success: true,
     message: 'Pattern created successfully',
     data: { pattern },
   });
+}
+
+/**
+ * If the legacy pattern carries a Designer snapshot under
+ * `metadata.designer`, run it through the canonical importer so
+ * `/patterns/:id/author` and `/patterns/:id/make` reflect the latest
+ * design. Idempotent via `source_pattern_id`: re-imports update the
+ * existing twin instead of inserting a duplicate, and never clobber
+ * `progress_state` on a re-run.
+ */
+async function maybeMaterializeCanonicalTwin(
+  userId: string,
+  legacyPatternId: string,
+  metadata: unknown,
+): Promise<void> {
+  if (!metadata || typeof metadata !== 'object') return;
+  const designer = (metadata as Record<string, unknown>).designer;
+  if (!designer || typeof designer !== 'object') return;
+  try {
+    const { importDesignerSnapshot } = await import('../services/patternService');
+    await importDesignerSnapshot({
+      userId,
+      sourcePatternId: legacyPatternId,
+      snapshot: designer as Record<string, unknown>,
+    });
+  } catch (err) {
+    logger.warn('Canonical twin materialization failed for legacy pattern', {
+      userId,
+      legacyPatternId,
+      error: err instanceof Error ? err.message : 'Unknown error',
+    });
+  }
 }
 
 /**
@@ -362,6 +401,13 @@ export async function updatePattern(req: Request, res: Response) {
     oldValues: pattern,
     newValues: updatedPattern,
   });
+
+  // Re-materialize the canonical twin when the Designer snapshot was
+  // touched on this update. The importer is idempotent so this just
+  // refreshes the canonical row's design fields.
+  if (metadata !== undefined) {
+    await maybeMaterializeCanonicalTwin(userId, id, metadata);
+  }
 
   res.json({
     success: true,

@@ -89,11 +89,11 @@ export default function DesignCard({ form, projectId, patternId }: DesignCardPro
           {showActions && (
             <div className="mt-3 flex flex-wrap gap-2">
               <Link
-                to="/designer"
+                to={patternId ? `/designer?patternId=${patternId}` : '/designer'}
                 className="inline-flex items-center gap-1 rounded-lg border border-purple-300 bg-white px-3 py-1.5 text-xs font-medium text-purple-700 hover:bg-purple-50"
               >
                 <FiEdit3 className="h-3 w-3" />
-                Open Designer
+                {patternId ? 'Edit in Designer' : 'Open Designer'}
               </Link>
               <Link
                 to={printHref}
