@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FiPlus, FiTrash2, FiBook, FiEdit2, FiSearch, FiMoreVertical, FiRefreshCw, FiHeart, FiCheckCircle, FiFeather } from 'react-icons/fi';
+import { FiPlus, FiTrash2, FiBook, FiEdit2, FiSearch, FiMoreVertical, FiRefreshCw, FiHeart, FiCheckCircle, FiFeather, FiTool } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { PDFCollation } from '../components/patterns';
@@ -13,8 +13,6 @@ import { useUndoableDelete } from '../hooks/useUndoableDelete';
 import RavelryPatternSearch, { type RavelryPatternImportData } from '../components/RavelryPatternSearch';
 import PageHelpButton from '../components/PageHelpButton';
 import FileUploadField from '../components/forms/FileUploadField';
-import { useCreatePatternModel } from '../hooks/usePatternModel';
-import { isAuthorModeEnabled } from '../utils/featureFlags';
 
 interface Pattern {
   id: string;
@@ -74,22 +72,12 @@ export default function Patterns() {
   const createPattern = useCreatePattern();
   const updatePattern = useUpdatePattern();
   const deletePatternMutation = useDeletePattern();
-  const createPatternModel = useCreatePatternModel();
-  const authorModeEnabled = isAuthorModeEnabled();
-
-  const handleDesignFromScratch = async () => {
+  const handleDesignFromScratch = () => {
     setShowMoreMenu(false);
-    try {
-      const created = await createPatternModel.mutateAsync({
-        name: 'Untitled pattern',
-        craft: 'knit',
-      });
-      toast.success('New pattern created — opening Author Mode…');
-      navigate(`/patterns/${created.id}/author`);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Failed to create pattern';
-      toast.error(msg);
-    }
+    // Route straight to /designer with no patternId so the user lands in
+    // the full Designer (gauge, sections, schematic, chart). Saving from
+    // there creates a fresh pattern row + canonical twin (PR #276).
+    navigate('/designer');
   };
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -384,20 +372,15 @@ export default function Patterns() {
                 role="menu"
                 className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 z-20"
               >
-                {authorModeEnabled && (
-                  <>
-                    <button
-                      role="menuitem"
-                      onClick={handleDesignFromScratch}
-                      disabled={createPatternModel.isPending}
-                      className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <FiFeather className="h-4 w-4" />
-                      {createPatternModel.isPending ? 'Creating…' : 'Design from scratch'}
-                    </button>
-                    <div className="border-t border-gray-100 dark:border-gray-700 my-1" />
-                  </>
-                )}
+                <button
+                  role="menuitem"
+                  onClick={handleDesignFromScratch}
+                  className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                >
+                  <FiFeather className="h-4 w-4" />
+                  Design from scratch
+                </button>
+                <div className="border-t border-gray-100 dark:border-gray-700 my-1" />
                 <button
                   role="menuitem"
                   onClick={() => { setShowMoreMenu(false); navigate('/ravelry/sync'); }}
@@ -535,6 +518,17 @@ export default function Patterns() {
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
+                      navigate(`/designer?patternId=${pattern.id}`);
+                    }}
+                    className="flex-1 px-3 py-2 bg-purple-50 text-purple-700 rounded-lg hover:bg-purple-100 transition flex items-center justify-center text-sm"
+                    title="Open this pattern in the Designer to edit shaping, gauge, and chart"
+                  >
+                    <FiTool className="mr-2 h-4 w-4" />
+                    Designer
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
                       navigate(`/patterns/${pattern.id}?tab=feasibility`);
                     }}
                     className="flex-1 px-3 py-2 bg-green-50 text-green-700 rounded-lg hover:bg-green-100 transition flex items-center justify-center text-sm"
@@ -549,6 +543,7 @@ export default function Patterns() {
                       handleEditClick(pattern);
                     }}
                     className="flex-1 px-3 py-2 bg-purple-50 text-purple-600 rounded-lg hover:bg-purple-100 transition flex items-center justify-center text-sm"
+                    title="Edit pattern metadata (name, designer, notes)"
                   >
                     <FiEdit2 className="mr-2 h-4 w-4" />
                     Edit
