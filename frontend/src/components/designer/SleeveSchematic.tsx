@@ -11,6 +11,7 @@ interface SleeveSchematicProps {
   chart?: ChartData | null;
   mainColor?: string | null;
   zoom?: number;
+  chartPlacement?: 'tile' | 'single' | 'fit';
 }
 
 /**
@@ -21,7 +22,7 @@ interface SleeveSchematicProps {
  * taper (narrows) → cap top (narrow bind-off). The whole outline becomes an
  * elongated hexagon with a clear "shoulder-ball" silhouette at the top.
  */
-export default function SleeveSchematic({ input: _input, output, unit, chart, mainColor, zoom = 1 }: SleeveSchematicProps) {
+export default function SleeveSchematic({ input: _input, output, unit, chart, mainColor, zoom = 1, chartPlacement = 'tile' }: SleeveSchematicProps) {
   const clipId = useId();
   const palette = paletteFromMainColor(mainColor, {
     fill: '#ECFDF5',
@@ -103,6 +104,7 @@ export default function SleeveSchematic({ input: _input, output, unit, chart, ma
         rowToPx={rowToPx}
         clipId={clipId}
         renderSymbols
+        placement={{ repeatMode: chartPlacement }}
       />
 
       {/* Cuff band (dashed line at top of ribbing) */}

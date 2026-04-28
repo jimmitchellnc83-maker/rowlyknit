@@ -42,9 +42,17 @@ export type SectionParameters = Record<string, unknown>;
 
 export interface ChartPlacement {
   chartId?: string | null;
-  repeatMode?: 'tile' | 'single' | 'motif' | 'panel-aware';
+  /**
+   * - `tile` (default): chart repeats across bounds at natural stitch size
+   * - `single`: one chart copy at the anchor, natural stitch size
+   * - `motif`: same as tile (synonym for canonical models)
+   * - `panel-aware`: same as single until panel pipeline lands
+   * - `fit`: chart scales to fill bounds as one motif (each cell becomes
+   *   `bounds.width/chart.width` × `bounds.height/chart.height`)
+   */
+  repeatMode?: 'tile' | 'single' | 'motif' | 'panel-aware' | 'fit';
   /** Anchor offset in stitches/rows from the section's bottom-left
-   *  origin. Defaults to `{ x: 0, y: 0 }`. */
+   *  origin. Defaults to `{ x: 0, y: 0 }`. Ignored in `fit` mode. */
   offset?: { x: number; y: number };
   /** Stacking layer when multiple charts overlap. Lower paints first.
    *  Defaults to 0. */

@@ -10,13 +10,14 @@ interface SockSchematicProps {
   chart?: ChartData | null;
   mainColor?: string | null;
   zoom?: number;
+  chartPlacement?: 'tile' | 'single' | 'fit';
 }
 
 /**
  * L-shaped sock silhouette: vertical leg tube + horizontal foot tube joined
  * by a heel corner. Key stitch-count labels placed at cuff, heel, and toe.
  */
-export default function SockSchematic({ output, unit, chart, mainColor, zoom = 1 }: SockSchematicProps) {
+export default function SockSchematic({ output, unit, chart, mainColor, zoom = 1, chartPlacement = 'tile' }: SockSchematicProps) {
   const clipId = useId();
   const palette = paletteFromMainColor(mainColor, {
     fill: '#DBEAFE',
@@ -71,6 +72,7 @@ export default function SockSchematic({ output, unit, chart, mainColor, zoom = 1
         rowToPx={rowToPx}
         clipId={clipId}
         renderSymbols
+        placement={{ repeatMode: chartPlacement }}
       />
 
       {/* Cuff dashed band */}

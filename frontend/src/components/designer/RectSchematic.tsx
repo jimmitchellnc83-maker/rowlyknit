@@ -27,6 +27,8 @@ interface RectSchematicProps {
   mainColor?: string | null;
   /** Visual scale multiplier. */
   zoom?: number;
+  /** Chart-on-schematic placement mode (tile / single / fit). */
+  chartPlacement?: 'tile' | 'single' | 'fit';
 }
 
 const ACCENTS: Record<NonNullable<RectSchematicProps['accent']>, { fill: string; stroke: string; band: string }> = {
@@ -54,6 +56,7 @@ export default function RectSchematic({
   chart,
   mainColor,
   zoom = 1,
+  chartPlacement = 'tile',
 }: RectSchematicProps) {
   const clipId = useId();
   const viewW = 320;
@@ -121,6 +124,7 @@ export default function RectSchematic({
         rowToPx={rowToPx}
         clipId={clipId}
         renderSymbols
+        placement={{ repeatMode: chartPlacement }}
       />
 
       {/* Border frame (dashed inner rectangle) */}

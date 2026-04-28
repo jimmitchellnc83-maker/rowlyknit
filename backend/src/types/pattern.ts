@@ -69,9 +69,11 @@ export interface ChartPlacement {
    * `ChartOverlay` (bottom-left anchored repeat); `single` draws once.
    * `motif` consults the chart's 2D tile count metadata; `panel-aware`
    * lets the chart sit inside one panel of a `PanelRepeatBlock` without
-   * bleeding into adjacent panels.
+   * bleeding into adjacent panels. `fit` scales the chart so it fills
+   * the section bounds as one motif (one cell per
+   * `bounds.width/chart.width`, one cell per `bounds.height/chart.height`).
    */
-  repeatMode?: 'tile' | 'single' | 'motif' | 'panel-aware';
+  repeatMode?: 'tile' | 'single' | 'motif' | 'panel-aware' | 'fit';
   /**
    * Anchor offset in stitches/rows from the section's bottom-left
    * origin. Positive `x` shifts the chart right; positive `y` shifts

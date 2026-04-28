@@ -124,6 +124,13 @@ export interface DesignerFormSnapshot {
    *  Optional so older saved snapshots default to with-chart-text. */
   chartInstructionMode?: 'shape-only' | 'with-chart-ref' | 'with-chart-text';
 
+  /** How the chart renders on the schematic preview:
+   *   tile     — repeat across the silhouette at 1 cell per stitch (default)
+   *   single   — one chart copy at natural stitch size, anchored bottom-left
+   *   fit      — scale the chart to fill the silhouette as a single image
+   *  Optional so older snapshots default to 'tile'. */
+  chartPlacement?: 'tile' | 'single' | 'fit';
+
   /** Pattern metadata used by the print view's publishing copy. All
    *  optional — leaving them blank just omits the matching slot in the
    *  printed pattern. */

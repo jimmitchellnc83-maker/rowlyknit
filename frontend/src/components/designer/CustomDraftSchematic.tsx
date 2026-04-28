@@ -10,6 +10,7 @@ interface CustomDraftSchematicProps {
   chart?: ChartData | null;
   mainColor?: string | null;
   zoom?: number;
+  chartPlacement?: 'tile' | 'single' | 'fit';
 }
 
 /**
@@ -22,7 +23,7 @@ interface CustomDraftSchematicProps {
  * chart overlay can clip to it cleanly. Section labels float on the
  * right edge for readability.
  */
-export default function CustomDraftSchematic({ output, unit, chart, mainColor, zoom = 1 }: CustomDraftSchematicProps) {
+export default function CustomDraftSchematic({ output, unit, chart, mainColor, zoom = 1, chartPlacement = 'tile' }: CustomDraftSchematicProps) {
   const clipId = useId();
   const palette = paletteFromMainColor(mainColor, {
     fill: '#FAF5FF',
@@ -120,6 +121,7 @@ export default function CustomDraftSchematic({ output, unit, chart, mainColor, z
         rowToPx={rowToPx}
         clipId={clipId}
         renderSymbols
+        placement={{ repeatMode: chartPlacement }}
       />
 
       {/* Section dividers — dashed line between sections */}

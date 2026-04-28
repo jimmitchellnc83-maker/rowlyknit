@@ -150,6 +150,13 @@ interface DesignerForm {
   // instructions. See DesignerFormSnapshot.chartInstructionMode for detail.
   chartInstructionMode: 'shape-only' | 'with-chart-ref' | 'with-chart-text';
 
+  // Chart-on-schematic placement mode. Defaults to 'tile' (chart repeats
+  // across the silhouette at 1 cell per stitch — what knitters expect for
+  // stitch-pattern charts). 'single' places one copy at the bottom-left
+  // anchor (good for one-off motifs). 'fit' scales the chart to fill the
+  // silhouette as one image (good when the chart IS the whole design).
+  chartPlacement: 'tile' | 'single' | 'fit';
+
   // Pattern metadata — drives the printed pattern's title block and
   // (Session 3 PR 2) the publishing-copy cover page. Empty strings = unset.
   patternTitle: string;
@@ -263,6 +270,7 @@ const DEFAULT_FORM: DesignerForm = {
   chart: null,
   chartAssetId: null,
   chartInstructionMode: 'with-chart-text',
+  chartPlacement: 'tile',
 
   patternTitle: '',
   patternSubtitle: '',
@@ -924,6 +932,8 @@ function ChartSection({
   chartAssetId,
   onChartAssetIdChange,
   defaultName,
+  chartPlacement,
+  onChartPlacementChange,
 }: {
   chart: ChartData | null;
   onChange: (next: ChartData | null) => void;
@@ -934,6 +944,8 @@ function ChartSection({
   chartAssetId: string | null;
   onChartAssetIdChange: (next: string | null) => void;
   defaultName: string;
+  chartPlacement: DesignerForm['chartPlacement'];
+  onChartPlacementChange: (next: DesignerForm['chartPlacement']) => void;
 }) {
   const defaultSymbolId = craft === 'crochet' ? 'sc' : 'k';
   const [tool, setTool] = useState<ChartTool>({ type: 'symbol', symbolId: defaultSymbolId });
@@ -1112,6 +1124,31 @@ function ChartSection({
             Linked to library
           </span>
         )}
+        <span className="ml-3 inline-flex items-center gap-1 text-xs text-gray-500">
+          On schematic:
+          {(
+            [
+              { id: 'tile' as const, label: 'Tile', help: 'Repeat across the silhouette at 1 cell per stitch (knitter default)' },
+              { id: 'single' as const, label: 'Place once', help: 'Draw the chart once, anchored bottom-left, at natural stitch size' },
+              { id: 'fit' as const, label: 'Fit', help: 'Scale the chart so one copy fills the silhouette as a single image' },
+            ]
+          ).map((opt) => (
+            <button
+              key={opt.id}
+              type="button"
+              onClick={() => onChartPlacementChange(opt.id)}
+              aria-pressed={chartPlacement === opt.id}
+              title={opt.help}
+              className={`rounded border px-2 py-0.5 text-[11px] ${
+                chartPlacement === opt.id
+                  ? 'border-purple-600 bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-200'
+                  : 'border-gray-300 bg-white text-gray-600 hover:border-purple-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300'
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </span>
         <span className="ml-auto flex flex-wrap items-center gap-1 text-xs text-gray-500">
           Export:
           {(['png', 'pdf', 'csv', 'markdown', 'ravelry'] as const).map((fmt) => (
@@ -2301,13 +2338,13 @@ export default function PatternDesigner() {
             </div>
             <div className="overflow-x-auto">
             {form.itemType === 'hat' && hatOutput ? (
-              <HatSchematic output={hatOutput} unit={form.unit} chart={form.chart} mainColor={mainColor} zoom={schematicZoom} />
+              <HatSchematic output={hatOutput} unit={form.unit} chart={form.chart} mainColor={mainColor} zoom={schematicZoom} chartPlacement={form.chartPlacement} />
             ) : form.itemType === 'mittens' && mittenOutput ? (
-              <MittenSchematic output={mittenOutput} unit={form.unit} chart={form.chart} mainColor={mainColor} zoom={schematicZoom} />
+              <MittenSchematic output={mittenOutput} unit={form.unit} chart={form.chart} mainColor={mainColor} zoom={schematicZoom} chartPlacement={form.chartPlacement} />
             ) : form.itemType === 'socks' && sockOutput ? (
-              <SockSchematic output={sockOutput} unit={form.unit} chart={form.chart} mainColor={mainColor} zoom={schematicZoom} />
+              <SockSchematic output={sockOutput} unit={form.unit} chart={form.chart} mainColor={mainColor} zoom={schematicZoom} chartPlacement={form.chartPlacement} />
             ) : form.itemType === 'shawl' && shawlOutput ? (
-              <ShawlSchematic output={shawlOutput} unit={form.unit} chart={form.chart} mainColor={mainColor} zoom={schematicZoom} />
+              <ShawlSchematic output={shawlOutput} unit={form.unit} chart={form.chart} mainColor={mainColor} zoom={schematicZoom} chartPlacement={form.chartPlacement} />
             ) : form.itemType === 'scarf' && scarfOutput ? (
               <RectSchematic
                 label="Scarf"
@@ -2320,6 +2357,7 @@ export default function PatternDesigner() {
                 chart={form.chart}
                 mainColor={mainColor}
                 zoom={schematicZoom}
+                chartPlacement={form.chartPlacement}
               />
             ) : form.itemType === 'blanket' && blanketOutput ? (
               <RectSchematic
@@ -2335,6 +2373,7 @@ export default function PatternDesigner() {
                 chart={form.chart}
                 mainColor={mainColor}
                 zoom={schematicZoom}
+                chartPlacement={form.chartPlacement}
               />
             ) : form.itemType === 'sweater' && form.activeSection === 'body' && bodyOutput ? (
               <BodySchematic
@@ -2344,6 +2383,7 @@ export default function PatternDesigner() {
                 chart={form.chart}
                 mainColor={mainColor}
                 zoom={schematicZoom}
+                chartPlacement={form.chartPlacement}
               />
             ) : form.itemType === 'sweater' && form.activeSection === 'sleeve' && sleeveOutput ? (
               <SleeveSchematic
@@ -2353,6 +2393,7 @@ export default function PatternDesigner() {
                 chart={form.chart}
                 mainColor={mainColor}
                 zoom={schematicZoom}
+                chartPlacement={form.chartPlacement}
               />
             ) : form.itemType === 'custom' && customDraftOutput ? (
               <CustomDraftSchematic
@@ -2361,6 +2402,7 @@ export default function PatternDesigner() {
                 chart={form.chart}
                 mainColor={mainColor}
                 zoom={schematicZoom}
+                chartPlacement={form.chartPlacement}
               />
             ) : (
               <div className="flex min-h-[280px] items-center justify-center rounded-lg border border-dashed border-gray-300 bg-gray-50 p-6 text-center text-sm italic text-gray-500">
@@ -2478,6 +2520,8 @@ export default function PatternDesigner() {
         chartAssetId={form.chartAssetId}
         onChartAssetIdChange={(next) => update('chartAssetId', next)}
         defaultName={form.patternTitle?.trim() || `${itemLabel(form.itemType)} chart`}
+        chartPlacement={form.chartPlacement ?? 'tile'}
+        onChartPlacementChange={(next) => update('chartPlacement', next)}
       />
     </div>
   );

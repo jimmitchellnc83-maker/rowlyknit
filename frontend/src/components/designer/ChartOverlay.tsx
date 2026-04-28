@@ -36,6 +36,10 @@ interface ChartOverlayProps {
    *   - `repeatMode = 'motif'` is treated as `tile` (the canonical
    *     tile-both-axes mode and the legacy bottom-left tile coincide
    *     once `expandedRows` clamps the vertical extent).
+   *   - `repeatMode = 'fit'` scales the chart so it fills the bounds as
+   *     one motif. Each chart cell becomes `bounds.width / chart.width`
+   *     wide × `bounds.height / chart.height` tall, ignoring
+   *     `stitchToPx` / `rowToPx` and any offset.
    *   - `layer` does not affect rendering today; consumers should sort
    *     overlapping `<ChartOverlay>` calls by layer themselves.
    */
@@ -78,23 +82,37 @@ export default function ChartOverlay({
   const hasSymbol = chart.cells.some((c) => c?.symbolId);
   if (!hasColor && !(renderSymbols && hasSymbol)) return null;
 
-  const cellW = Math.max(stitchToPx, minCellSize);
-  const cellH = Math.max(rowToPx, minCellSize);
+  // Canonical placement defaults preserve the legacy behavior when
+  // `placement` is absent or partially specified.
+  const repeatMode = placement?.repeatMode ?? 'tile';
+  // 'single' and 'panel-aware' both render exactly one chart copy at the
+  // anchor today; panel-aware will narrow to its slice when the panel
+  // pipeline lands. 'fit' is also single-placement but scales cells to
+  // fill the bounds.
+  const tileMode: 'tile' | 'single' =
+    repeatMode === 'single' || repeatMode === 'panel-aware' || repeatMode === 'fit'
+      ? 'single'
+      : 'tile';
+
+  // Cell size: 'fit' scales to fill the bounds; everything else uses
+  // the schematic-supplied stitchToPx/rowToPx (with optional minCellSize
+  // floor for legibility).
+  const cellW =
+    repeatMode === 'fit'
+      ? bounds.width / Math.max(1, chart.width)
+      : Math.max(stitchToPx, minCellSize);
+  const cellH =
+    repeatMode === 'fit'
+      ? bounds.height / Math.max(1, chart.height)
+      : Math.max(rowToPx, minCellSize);
   const chartW = chart.width * cellW;
   const chartH = chart.height * cellH;
   if (cellW <= 0 || cellH <= 0 || chartW <= 0 || chartH <= 0) return null;
 
-  // Canonical placement defaults preserve the legacy behavior when
-  // `placement` is absent or partially specified.
-  const offsetX = placement?.offset?.x ?? 0;
-  const offsetY = placement?.offset?.y ?? 0;
-  const repeatMode = placement?.repeatMode ?? 'tile';
-  // 'single' and 'panel-aware' both render exactly one chart copy at the
-  // anchor today; panel-aware will narrow to its slice when the panel
-  // pipeline lands.
-  const tileMode: 'tile' | 'single' = repeatMode === 'single' || repeatMode === 'panel-aware'
-    ? 'single'
-    : 'tile';
+  // Fit mode ignores user-supplied offsets — the chart is meant to fill
+  // the bounds entirely from bottom-left.
+  const offsetX = repeatMode === 'fit' ? 0 : placement?.offset?.x ?? 0;
+  const offsetY = repeatMode === 'fit' ? 0 : placement?.offset?.y ?? 0;
 
   // Vertical extent of the canonical row sequence. When `expandedRows`
   // is supplied, the overlay tops out at row N regardless of the

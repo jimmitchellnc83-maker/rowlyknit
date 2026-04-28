@@ -10,6 +10,7 @@ interface ShawlSchematicProps {
   chart?: ChartData | null;
   mainColor?: string | null;
   zoom?: number;
+  chartPlacement?: 'tile' | 'single' | 'fit';
 }
 
 /**
@@ -20,7 +21,7 @@ interface ShawlSchematicProps {
  * gauge — we render whatever ratio the math produced rather than forcing a
  * specific shape.
  */
-export default function ShawlSchematic({ output, unit, chart, mainColor, zoom = 1 }: ShawlSchematicProps) {
+export default function ShawlSchematic({ output, unit, chart, mainColor, zoom = 1, chartPlacement = 'tile' }: ShawlSchematicProps) {
   const clipId = useId();
   const palette = paletteFromMainColor(mainColor, {
     fill: '#FDF2F8',
@@ -73,6 +74,7 @@ export default function ShawlSchematic({ output, unit, chart, mainColor, zoom = 
         rowToPx={width / Math.max(1, output.finalStitches)}
         clipId={clipId}
         renderSymbols
+        placement={{ repeatMode: chartPlacement }}
       />
 
       {/* Center spine marker */}
