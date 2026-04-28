@@ -40,6 +40,7 @@ import {
   setCounter,
   setRow,
 } from '../utils/progressMath';
+import { DESIGNER_EVENTS, trackDesignerEvent } from '../lib/designerAnalytics';
 import type { PatternSection, ProgressState } from '../types/pattern';
 
 // 2026-04-28 product call: take the legacy compute totals out of band
@@ -141,7 +142,14 @@ export default function MakeMode() {
       <SectionPicker
         sections={sortedSections}
         progress={progress}
-        onPick={(sectionId) => persist(setActiveSection(progress, sectionId))}
+        onPick={(sectionId) => {
+          persist(setActiveSection(progress, sectionId));
+          trackDesignerEvent(DESIGNER_EVENTS.ACTIVE_SECTION_SWITCHED, {
+            craft: pattern.craft,
+            technique: pattern.technique,
+            sectionKind: sortedSections.find((s) => s.id === sectionId)?.kind ?? 'unknown',
+          });
+        }}
       />
 
       {activeSection && (
@@ -150,6 +158,7 @@ export default function MakeMode() {
           progress={progress}
           onMutate={persist}
           isPending={update.isPending}
+          analyticsContext={{ craft: pattern.craft, technique: pattern.technique }}
         />
       )}
 
@@ -159,7 +168,11 @@ export default function MakeMode() {
         activeSectionId={activeSection?.id ?? null}
       />
 
-      <CountersPanel progress={progress} onMutate={persist} />
+      <CountersPanel
+        progress={progress}
+        onMutate={persist}
+        analyticsContext={{ craft: pattern.craft, technique: pattern.technique }}
+      />
     </div>
   );
 }
@@ -212,8 +225,9 @@ function ActiveSectionPanel(props: {
   progress: ProgressState;
   onMutate: (next: ProgressState) => void;
   isPending: boolean;
+  analyticsContext: { craft: 'knit' | 'crochet'; technique: string };
 }) {
-  const { section, progress, onMutate, isPending } = props;
+  const { section, progress, onMutate, isPending, analyticsContext } = props;
   const total = totalRowsFor(section);
   const row = rowForSection(progress, section.id);
   const fraction = sectionFraction(progress, section.id, total);
@@ -266,7 +280,13 @@ function ActiveSectionPanel(props: {
       <div className="grid grid-cols-2 gap-3">
         <button
           type="button"
-          onClick={() => onMutate(decrementRow(progress, section.id))}
+          onClick={() => {
+            onMutate(decrementRow(progress, section.id));
+            trackDesignerEvent(DESIGNER_EVENTS.ROW_DECREMENTED, {
+              ...analyticsContext,
+              sectionKind: section.kind,
+            });
+          }}
           disabled={isPending || row === 0}
           aria-label="Decrement row"
           className="min-h-[64px] rounded-lg bg-gray-100 text-2xl font-bold text-gray-700 hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-gray-700 dark:text-gray-100 dark:hover:bg-gray-600"
@@ -275,7 +295,13 @@ function ActiveSectionPanel(props: {
         </button>
         <button
           type="button"
-          onClick={() => onMutate(incrementRow(progress, section.id, total))}
+          onClick={() => {
+            onMutate(incrementRow(progress, section.id, total));
+            trackDesignerEvent(DESIGNER_EVENTS.ROW_INCREMENTED, {
+              ...analyticsContext,
+              sectionKind: section.kind,
+            });
+          }}
           disabled={isPending || (total !== undefined && row >= total)}
           aria-label="Increment row"
           className="min-h-[64px] rounded-lg bg-blue-600 text-2xl font-bold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
@@ -386,8 +412,9 @@ function ConcurrentSections(props: {
 function CountersPanel(props: {
   progress: ProgressState;
   onMutate: (next: ProgressState) => void;
+  analyticsContext: { craft: 'knit' | 'crochet'; technique: string };
 }) {
-  const { progress, onMutate } = props;
+  const { progress, onMutate, analyticsContext } = props;
   const [newName, setNewName] = useState('');
   const counters = progress.counters ?? {};
   const counterIds = Object.keys(counters).sort();
@@ -420,7 +447,10 @@ function CountersPanel(props: {
               </span>
               <button
                 type="button"
-                onClick={() => onMutate(incrementCounter(progress, id))}
+                onClick={() => {
+                  onMutate(incrementCounter(progress, id));
+                  trackDesignerEvent(DESIGNER_EVENTS.COUNTER_INCREMENTED, analyticsContext);
+                }}
                 aria-label={`Increment ${id}`}
                 className="min-h-[36px] min-w-[36px] rounded bg-blue-600 px-2 text-sm text-white hover:bg-blue-700"
               >
@@ -432,6 +462,7 @@ function CountersPanel(props: {
                   const next = { ...counters };
                   delete next[id];
                   onMutate({ ...progress, counters: next });
+                  trackDesignerEvent(DESIGNER_EVENTS.COUNTER_REMOVED, analyticsContext);
                 }}
                 aria-label={`Delete ${id}`}
                 className="text-xs text-red-600 underline hover:text-red-800"
@@ -457,6 +488,7 @@ function CountersPanel(props: {
             if (!trimmed || counters[trimmed] !== undefined) return;
             onMutate(setCounter(progress, trimmed, 0));
             setNewName('');
+            trackDesignerEvent(DESIGNER_EVENTS.COUNTER_ADDED, analyticsContext);
           }}
           className="rounded-md bg-blue-600 px-3 py-1 text-sm text-white hover:bg-blue-700"
         >
