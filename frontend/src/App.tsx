@@ -28,6 +28,7 @@ import GaugeCalculator from './pages/GaugeCalculator';
 import YarnSubstitutionCalculator from './pages/YarnSubstitutionCalculator';
 import GiftSizeCalculator from './pages/GiftSizeCalculator';
 import PatternDesigner from './pages/PatternDesigner';
+import AuthorMode from './pages/AuthorMode';
 import PatternPrintView from './pages/PatternPrintView';
 import ChartsLibrary from './pages/ChartsLibrary';
 import Recipients from './pages/Recipients';
@@ -168,6 +169,7 @@ function App() {
         <Route path="/projects/:id/panels/:groupId/setup" element={<ErrorBoundary><PanelGroupSetup /></ErrorBoundary>} />
         <Route path="/patterns" element={<Patterns />} />
         <Route path="/patterns/:id" element={<ErrorBoundary><PatternDetail /></ErrorBoundary>} />
+        <Route path="/patterns/:id/author" element={<ErrorBoundary><AuthorMode /></ErrorBoundary>} />
         <Route path="/yarn" element={<ErrorBoundary><YarnStash /></ErrorBoundary>} />
         <Route path="/yarn/:id" element={<ErrorBoundary><YarnDetail /></ErrorBoundary>} />
         <Route path="/tools" element={<Tools />} />
