@@ -1,6 +1,8 @@
 import type { ReactElement } from 'react';
 import { getCellSpan, renderStitchInto } from '../../data/stitchSvgLibrary';
 import type { ChartData } from './ChartGrid';
+import type { ChartPlacement } from '../../types/pattern';
+import type { ExpandedRow } from '../../types/repeat';
 
 interface ChartOverlayProps {
   chart: ChartData | null;
@@ -19,11 +21,45 @@ interface ChartOverlayProps {
   renderSymbols?: boolean;
   /** Minimum cell edge length in pixels. */
   minCellSize?: number;
+  /**
+   * Canonical chart placement (PR 8 of the Designer rebuild). When
+   * supplied, drives the chart's offset, repeat mode, and stacking
+   * layer. Absent → legacy bottom-left tile (back-compat).
+   *
+   * Honored fields:
+   *   - `offset.x` shifts the chart anchor right by N stitches
+   *   - `offset.y` shifts the chart anchor up by N rows
+   *   - `repeatMode = 'single'` paints the chart once at the anchor with
+   *     no tiling; any other value (or omitted) keeps the legacy tile.
+   *   - `repeatMode = 'panel-aware'` is treated as `single` until the
+   *     panel-slice pipeline reaches this layer.
+   *   - `repeatMode = 'motif'` is treated as `tile` (the canonical
+   *     tile-both-axes mode and the legacy bottom-left tile coincide
+   *     once `expandedRows` clamps the vertical extent).
+   *   - `layer` does not affect rendering today; consumers should sort
+   *     overlapping `<ChartOverlay>` calls by layer themselves.
+   */
+  placement?: ChartPlacement | null;
+  /**
+   * Expanded row sequence from `expandSection` (`utils/repeatEngine.ts`).
+   * When provided, the overlay paints exactly `expandedRows.length` rows
+   * upward from `bounds.bottom` (offset by `placement.offset.y`) — the
+   * chart no longer extends past the canonical row count even when the
+   * silhouette would allow more tiling. Absent → legacy "fill bounds
+   * vertically" behavior.
+   */
+  expandedRows?: ExpandedRow[];
 }
 
 /**
  * Tiles a knitting chart over a schematic silhouette. Multi-cell stitches
  * (cables, shells) draw as one wide artwork spanning their full cell run.
+ *
+ * Canonical chart layer (PR 8 of the Designer rebuild): when `placement`
+ * and/or `expandedRows` are supplied, the overlay reads them as the
+ * authoritative source for chart geometry. Legacy callers that pass
+ * neither still get the bottom-left bottomless tile. See
+ * `utils/chartOverlayFromSection.ts` for the canonical-section adapter.
  */
 export default function ChartOverlay({
   chart,
@@ -34,6 +70,8 @@ export default function ChartOverlay({
   clipId,
   renderSymbols = false,
   minCellSize = 0,
+  placement,
+  expandedRows,
 }: ChartOverlayProps) {
   if (!chart) return null;
   const hasColor = chart.cells.some((c) => c?.colorHex);
@@ -46,12 +84,48 @@ export default function ChartOverlay({
   const chartH = chart.height * cellH;
   if (cellW <= 0 || cellH <= 0 || chartW <= 0 || chartH <= 0) return null;
 
+  // Canonical placement defaults preserve the legacy behavior when
+  // `placement` is absent or partially specified.
+  const offsetX = placement?.offset?.x ?? 0;
+  const offsetY = placement?.offset?.y ?? 0;
+  const repeatMode = placement?.repeatMode ?? 'tile';
+  // 'single' and 'panel-aware' both render exactly one chart copy at the
+  // anchor today; panel-aware will narrow to its slice when the panel
+  // pipeline lands.
+  const tileMode: 'tile' | 'single' = repeatMode === 'single' || repeatMode === 'panel-aware'
+    ? 'single'
+    : 'tile';
+
+  // Vertical extent of the canonical row sequence. When `expandedRows`
+  // is supplied, the overlay tops out at row N regardless of the
+  // silhouette's height — this is what makes the chart match the
+  // structured pattern model rather than just filling space.
+  const verticalLimitPx = expandedRows && expandedRows.length > 0
+    ? expandedRows.length * cellH
+    : null;
+
   const nodes: ReactElement[] = [];
-  let copyBottomY = bounds.y + bounds.height;
+  // Anchor: bottom-left of the bounds, shifted by the placement offset.
+  // Positive offsetY raises the anchor (chart shifted up); positive
+  // offsetX shifts the anchor right.
+  const anchorX = bounds.x + offsetX * cellW;
+  const anchorBottom = bounds.y + bounds.height - offsetY * cellH;
+  // Top of the rendered region — clamps to the bounds top in tile mode,
+  // and to anchorBottom - chartH in single mode. When `expandedRows`
+  // limits the vertical extent, top clamps to anchorBottom - limit.
+  const tileTop = (() => {
+    if (tileMode === 'single') return anchorBottom - chartH;
+    if (verticalLimitPx !== null) {
+      return Math.max(bounds.y, anchorBottom - verticalLimitPx);
+    }
+    return bounds.y;
+  })();
+
+  let copyBottomY = anchorBottom;
   let copyIdx = 0;
-  while (copyBottomY > bounds.y) {
+  while (copyBottomY > tileTop) {
     const copyTopY = copyBottomY - chartH;
-    let copyLeftX = bounds.x;
+    let copyLeftX = anchorX;
     while (copyLeftX < bounds.x + bounds.width) {
       // Color fills first — every cell with a colorHex paints a rect.
       // When renderSymbols is on, also fill a white rect for symbol-only
@@ -118,8 +192,13 @@ export default function ChartOverlay({
       }
       copyLeftX += chartW;
       copyIdx++;
+      // Single mode: only one horizontal copy at the anchor.
+      if (tileMode === 'single') break;
     }
     copyBottomY -= chartH;
+    // Single mode: only one vertical copy. Tile mode keeps walking up
+    // until tileTop.
+    if (tileMode === 'single') break;
   }
 
   return (
