@@ -29,6 +29,7 @@ import YarnSubstitutionCalculator from './pages/YarnSubstitutionCalculator';
 import GiftSizeCalculator from './pages/GiftSizeCalculator';
 import PatternDesigner from './pages/PatternDesigner';
 import AuthorMode from './pages/AuthorMode';
+import MakeMode from './pages/MakeMode';
 import PatternPrintView from './pages/PatternPrintView';
 import ChartsLibrary from './pages/ChartsLibrary';
 import Recipients from './pages/Recipients';
@@ -170,6 +171,7 @@ function App() {
         <Route path="/patterns" element={<Patterns />} />
         <Route path="/patterns/:id" element={<ErrorBoundary><PatternDetail /></ErrorBoundary>} />
         <Route path="/patterns/:id/author" element={<ErrorBoundary><AuthorMode /></ErrorBoundary>} />
+        <Route path="/patterns/:id/make" element={<ErrorBoundary><MakeMode /></ErrorBoundary>} />
         <Route path="/yarn" element={<ErrorBoundary><YarnStash /></ErrorBoundary>} />
         <Route path="/yarn/:id" element={<ErrorBoundary><YarnDetail /></ErrorBoundary>} />
         <Route path="/tools" element={<Tools />} />
