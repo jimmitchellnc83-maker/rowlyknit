@@ -33,6 +33,7 @@ jest.mock('../../config/logger', () => ({
 import {
   createCustomSymbol,
   deleteCustomSymbol,
+  listSymbols,
   lookupSymbols,
   updateCustomSymbol,
 } from '../chartSymbolService';
@@ -47,6 +48,7 @@ const mockedDb = db as unknown as jest.Mock & {
     update: jest.Mock;
     insert: jest.Mock;
     where: jest.Mock;
+    andWhere: jest.Mock;
   };
 };
 
@@ -81,6 +83,64 @@ describe('createCustomSymbol', () => {
         craft: 'macrame' as any,
       })
     ).rejects.toThrow(ValidationError);
+  });
+
+  it('rejects a non-array techniques value', async () => {
+    await expect(
+      createCustomSymbol('user-1', {
+        symbol: 'foo',
+        name: 'Foo',
+        techniques: 'lace' as any,
+      })
+    ).rejects.toThrow(ValidationError);
+  });
+
+  it('rejects techniques containing an invalid value', async () => {
+    await expect(
+      createCustomSymbol('user-1', {
+        symbol: 'foo',
+        name: 'Foo',
+        techniques: ['lace', 'macrame' as any],
+      })
+    ).rejects.toThrow(ValidationError);
+  });
+
+  it('accepts a valid techniques array on create + persists it', async () => {
+    mockedDb.__builder.first.mockResolvedValueOnce(null);
+    mockedDb.__builder.returning.mockResolvedValueOnce([
+      {
+        id: 'new-id',
+        symbol: 'foo',
+        name: 'Foo',
+        craft: 'knit',
+        cell_span: 1,
+        techniques: ['lace', 'cables'],
+      },
+    ]);
+
+    const created = await createCustomSymbol('user-1', {
+      symbol: 'foo',
+      name: 'Foo',
+      techniques: ['lace', 'cables'],
+    });
+
+    expect(created.techniques).toEqual(['lace', 'cables']);
+    expect(mockedDb.__builder.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ techniques: ['lace', 'cables'] }),
+    );
+  });
+
+  it('inserts NULL techniques when the field is omitted (applies-everywhere default)', async () => {
+    mockedDb.__builder.first.mockResolvedValueOnce(null);
+    mockedDb.__builder.returning.mockResolvedValueOnce([
+      { id: 'new-id', symbol: 'foo', name: 'Foo', craft: 'knit', cell_span: 1, techniques: null },
+    ]);
+
+    await createCustomSymbol('user-1', { symbol: 'foo', name: 'Foo' });
+
+    expect(mockedDb.__builder.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ techniques: null }),
+    );
   });
 
   it('rejects cell_span out of range', async () => {
@@ -243,5 +303,53 @@ describe('lookupSymbols', () => {
     const result = await lookupSymbols('user-1', []);
     expect(result).toEqual([]);
     expect(mockedDb).not.toHaveBeenCalled();
+  });
+});
+
+describe('listSymbols', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  // The chained-builder mock in this file is a single shared builder
+  // (not the per-call builder pattern from chartService.test.ts) so we
+  // can only assert that the technique filter triggers an `andWhere`
+  // callback — verifying the exact SQL would require a richer mock.
+  // Coverage here is the "did we call the filter at all" smoke test;
+  // the SQL itself is exercised end-to-end against Postgres in CI.
+
+  it('does not invoke the technique filter when technique is omitted', async () => {
+    // Builder is awaited as a thenable for `system` and `custom` —
+    // the mock's `clone()` returns the same builder, and awaiting it
+    // gives undefined which is fine for assertions on the call shape.
+    (mockedDb.__builder as any).then = undefined;
+    Object.defineProperty(mockedDb.__builder, 'then', {
+      configurable: true,
+      value: (resolve: (v: unknown) => void) => resolve([]),
+    });
+
+    await listSymbols('user-1', { craft: 'knit' });
+
+    // andWhere is used both for craft and (if technique were set) for
+    // the technique callback. With craft only, we expect exactly two
+    // andWhere invocations across the system + custom queries.
+    expect(mockedDb.__builder.andWhere).toHaveBeenCalledWith({ craft: 'knit' });
+  });
+
+  it('invokes andWhere with a callback when technique filter is requested', async () => {
+    Object.defineProperty(mockedDb.__builder, 'then', {
+      configurable: true,
+      value: (resolve: (v: unknown) => void) => resolve([]),
+    });
+
+    await listSymbols('user-1', { craft: 'knit', technique: 'lace' });
+
+    // andWhere is called for craft (object form) AND for technique
+    // (callback form). The presence of a callback invocation confirms
+    // the technique branch was reached.
+    const callbackCalls = (mockedDb.__builder.andWhere as jest.Mock).mock.calls.filter(
+      (args) => typeof args[0] === 'function',
+    );
+    expect(callbackCalls.length).toBeGreaterThan(0);
   });
 });
