@@ -27,6 +27,7 @@ import { useSeo } from '../hooks/useSeo';
 import { usePatternModel, useUpdatePatternModel } from '../hooks/usePatternModel';
 import { isAuthorModeEnabled } from '../utils/featureFlags';
 import { resolveDialectAbbreviation, type TerminologyDialect } from '../utils/techniqueRules';
+import { DESIGNER_EVENTS, trackDesignerEvent } from '../lib/designerAnalytics';
 import type { CanonicalPattern, PatternSection, Technique } from '../types/pattern';
 
 const TECHNIQUE_LABELS: Record<Technique, string> = {
@@ -113,6 +114,13 @@ export default function AuthorMode() {
         patch: { name: name.trim(), sections, notes: notes.trim() || null },
       });
       setDirty(false);
+      if (pattern) {
+        trackDesignerEvent(DESIGNER_EVENTS.PATTERN_SAVED, {
+          craft: pattern.craft,
+          technique: pattern.technique,
+          sectionCount: sections.length,
+        });
+      }
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Failed to save';
       setSaveError(message);
@@ -131,7 +139,19 @@ export default function AuthorMode() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {pattern.craft === 'crochet' && <DialectToggle value={dialect} onChange={setDialect} />}
+          {pattern.craft === 'crochet' && (
+            <DialectToggle
+              value={dialect}
+              onChange={(d) => {
+                setDialect(d);
+                trackDesignerEvent(DESIGNER_EVENTS.DIALECT_TOGGLED, {
+                  craft: pattern.craft,
+                  technique: pattern.technique,
+                  dialect: d,
+                });
+              }}
+            />
+          )}
           <button
             type="button"
             disabled={!dirty || update.isPending}
