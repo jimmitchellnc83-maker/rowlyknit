@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { render } from '@testing-library/react';
 import ChartOverlay from './ChartOverlay';
 import type { ChartData } from './ChartGrid';
+import type { ExpandedRow } from '../../types/repeat';
 
 function makeChart(width: number, height: number, fill: (r: number, c: number) => string | null): ChartData {
   const cells = [];
@@ -208,5 +209,193 @@ describe('ChartOverlay', () => {
       expect(r.getAttribute('width')).toBe('14');
       expect(r.getAttribute('height')).toBe('14');
     }
+  });
+
+  // ---------------------------------------------------------------------
+  // Canonical chart layer (PR 8 of the Designer rebuild)
+  // ---------------------------------------------------------------------
+  describe('placement.repeatMode = "single"', () => {
+    it('renders exactly one chart copy at the bottom-left anchor', () => {
+      // 1×1 red chart, 100×100 bounds, 10px cells. Tile mode would
+      // produce 10×10 = 100 copies; single mode produces exactly 1.
+      const chart = makeChart(1, 1, () => '#ff0000');
+      const { container } = renderInSvg(
+        <ChartOverlay
+          chart={chart}
+          clipPath={SQUARE_PATH}
+          bounds={BOUNDS}
+          stitchToPx={10}
+          rowToPx={10}
+          clipId="t-single"
+          placement={{ repeatMode: 'single' }}
+        />,
+      );
+      const rects = Array.from(container.querySelectorAll('rect'));
+      expect(rects.length).toBe(1);
+      // Anchored at bottom-left: x=0, y=bottom-cellH=90.
+      expect(rects[0].getAttribute('x')).toBe('0');
+      expect(rects[0].getAttribute('y')).toBe('90');
+    });
+
+    it('renders one copy when repeatMode is "panel-aware"', () => {
+      // Until the panel-slice pipeline lands, panel-aware behaves like single.
+      const chart = makeChart(1, 1, () => '#00ff00');
+      const { container } = renderInSvg(
+        <ChartOverlay
+          chart={chart}
+          clipPath={SQUARE_PATH}
+          bounds={BOUNDS}
+          stitchToPx={10}
+          rowToPx={10}
+          clipId="t-panel"
+          placement={{ repeatMode: 'panel-aware' }}
+        />,
+      );
+      expect(container.querySelectorAll('rect').length).toBe(1);
+    });
+  });
+
+  describe('placement.offset', () => {
+    it('shifts the anchor right by offset.x stitches in single mode', () => {
+      const chart = makeChart(1, 1, () => '#0000ff');
+      const { container } = renderInSvg(
+        <ChartOverlay
+          chart={chart}
+          clipPath={SQUARE_PATH}
+          bounds={BOUNDS}
+          stitchToPx={10}
+          rowToPx={10}
+          clipId="t-offset-x"
+          placement={{ repeatMode: 'single', offset: { x: 3, y: 0 } }}
+        />,
+      );
+      const rect = container.querySelector('rect');
+      expect(rect?.getAttribute('x')).toBe('30');
+    });
+
+    it('shifts the anchor up by offset.y rows in single mode', () => {
+      const chart = makeChart(1, 1, () => '#0000ff');
+      const { container } = renderInSvg(
+        <ChartOverlay
+          chart={chart}
+          clipPath={SQUARE_PATH}
+          bounds={BOUNDS}
+          stitchToPx={10}
+          rowToPx={10}
+          clipId="t-offset-y"
+          placement={{ repeatMode: 'single', offset: { x: 0, y: 5 } }}
+        />,
+      );
+      const rect = container.querySelector('rect');
+      // bottom (100) - cellH (10) - offsetY * cellH (50) = 40.
+      expect(rect?.getAttribute('y')).toBe('40');
+    });
+
+    it('shifts the tile anchor right by offset.x in tile mode', () => {
+      // 1×1 red chart in 30×10 bounds, 10px cells. Tile mode without
+      // offset produces 3 copies at x=0, 10, 20. offset.x=1 moves the
+      // anchor to x=10, so tile copies appear at x=10, 20.
+      const chart = makeChart(1, 1, () => '#ff00ff');
+      const bounds = { x: 0, y: 0, width: 30, height: 10 };
+      const { container: noOffset } = renderInSvg(
+        <ChartOverlay
+          chart={chart}
+          clipPath={SQUARE_PATH}
+          bounds={bounds}
+          stitchToPx={10}
+          rowToPx={10}
+          clipId="t-tile-no-offset"
+        />,
+      );
+      const { container: withOffset } = renderInSvg(
+        <ChartOverlay
+          chart={chart}
+          clipPath={SQUARE_PATH}
+          bounds={bounds}
+          stitchToPx={10}
+          rowToPx={10}
+          clipId="t-tile-with-offset"
+          placement={{ offset: { x: 1, y: 0 } }}
+        />,
+      );
+      const noOffXs = Array.from(noOffset.querySelectorAll('rect'))
+        .map((r) => Number(r.getAttribute('x')))
+        .sort((a, b) => a - b);
+      const withOffXs = Array.from(withOffset.querySelectorAll('rect'))
+        .map((r) => Number(r.getAttribute('x')))
+        .sort((a, b) => a - b);
+      expect(noOffXs).toEqual([0, 10, 20]);
+      expect(withOffXs).toEqual([10, 20]);
+    });
+  });
+
+  describe('expandedRows clamps vertical extent', () => {
+    const fakeRow = (rowNumber: number): ExpandedRow => ({
+      rowNumber,
+      tokens: [],
+      source: { blockId: null, iteration: 1, positionInBody: 1, rowId: null },
+      warnings: [],
+    });
+
+    it('limits tile copies to expandedRows.length rows tall', () => {
+      // 1×1 red chart in 100×100 bounds with 10px cells. Without limit,
+      // tile fills bounds (100/10 = 10 vertical copies × 10 horizontal
+      // = 100). With expandedRows.length=3, only 3 vertical rows render
+      // (still 10 horizontal = 30 copies).
+      const chart = makeChart(1, 1, () => '#ff0000');
+      const expandedRows = [fakeRow(1), fakeRow(2), fakeRow(3)];
+      const { container } = renderInSvg(
+        <ChartOverlay
+          chart={chart}
+          clipPath={SQUARE_PATH}
+          bounds={BOUNDS}
+          stitchToPx={10}
+          rowToPx={10}
+          clipId="t-expanded"
+          expandedRows={expandedRows}
+        />,
+      );
+      // 3 vertical × 10 horizontal copies = 30 rects.
+      expect(container.querySelectorAll('rect').length).toBe(30);
+    });
+
+    it('does not extend below the bounds top when limit exceeds bounds', () => {
+      // expandedRows asks for 999 rows but bounds is only 10 cells tall.
+      // The clamp keeps tiling within bounds — the canonical row count
+      // is the *maximum*, not a forced extent.
+      const chart = makeChart(1, 1, () => '#ff0000');
+      const expandedRows = Array.from({ length: 999 }, (_, i) => fakeRow(i + 1));
+      const { container } = renderInSvg(
+        <ChartOverlay
+          chart={chart}
+          clipPath={SQUARE_PATH}
+          bounds={BOUNDS}
+          stitchToPx={10}
+          rowToPx={10}
+          clipId="t-expanded-clamp"
+          expandedRows={expandedRows}
+        />,
+      );
+      // 10 vertical × 10 horizontal = 100 (full fill).
+      expect(container.querySelectorAll('rect').length).toBe(100);
+    });
+
+    it('legacy behavior preserved when expandedRows is omitted', () => {
+      // Sanity check: zero placement props, zero expandedRows → identical
+      // output to the pre-PR-8 ChartOverlay.
+      const chart = makeChart(1, 1, () => '#ff0000');
+      const { container } = renderInSvg(
+        <ChartOverlay
+          chart={chart}
+          clipPath={SQUARE_PATH}
+          bounds={BOUNDS}
+          stitchToPx={10}
+          rowToPx={10}
+          clipId="t-legacy"
+        />,
+      );
+      // 10 vertical × 10 horizontal = 100 (full fill).
+      expect(container.querySelectorAll('rect').length).toBe(100);
+    });
   });
 });
