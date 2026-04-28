@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { computeDesign, normalizedGauge, type DesignerFormSnapshot } from '../../utils/designerSnapshot';
 import { finishedAreaSqIn } from '../../utils/designerArea';
 import { estimateYardageFromArea, formatYardage } from '../../utils/yardageEstimate';
-import { estimatePerColorYardage } from '../../utils/yarnEstimatePerColor';
+import { estimatePerColorYardage, displayLabel, displayPercent } from '../../utils/yarnEstimatePerColor';
 
 interface Props {
   form: DesignerFormSnapshot;
@@ -59,15 +59,12 @@ export default function YardageEstimateWidget({ form }: Props) {
                 style={{ backgroundColor: row.hex }}
                 aria-hidden="true"
               />
-              <span className="font-medium">
-                {row.isMain ? 'MC · ' : ''}
-                {row.label}
-              </span>
+              <span className="font-medium">{displayLabel(row)}</span>
               <span className="text-amber-700 dark:text-amber-400">·</span>
               <span>{formatYardage(row.yardage)}</span>
               <span className="text-amber-700 dark:text-amber-400">·</span>
               <span className="text-amber-700 dark:text-amber-400">
-                {Math.round(row.fraction * 100)}%
+                {displayPercent(row.fraction)}
               </span>
             </li>
           ))}

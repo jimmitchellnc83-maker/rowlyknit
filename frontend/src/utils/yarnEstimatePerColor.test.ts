@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { estimatePerColorYardage } from './yarnEstimatePerColor';
+import {
+  estimatePerColorYardage,
+  displayLabel,
+  displayPercent,
+  type PerColorYardage,
+} from './yarnEstimatePerColor';
 import type { ChartData, ChartCell } from '../components/designer/ChartGrid';
 import type { ColorSwatch } from '../components/designer/ColorPalette';
 
@@ -89,5 +94,79 @@ describe('estimatePerColorYardage', () => {
     const out = estimatePerColorYardage(2500, gauge, chart, [palette[0]]);
     expect(out.rows).toHaveLength(1);
     expect(out.rows[0].fraction).toBe(1);
+  });
+});
+
+const row = (overrides: Partial<PerColorYardage> = {}): PerColorYardage => ({
+  hex: '#FFFFFF',
+  label: 'Cream',
+  isMain: false,
+  fraction: 0.5,
+  yardage: { minYds: 0, maxYds: 0 },
+  ...overrides,
+});
+
+describe('displayLabel', () => {
+  it('prepends "MC · " for the main color row when label has no MC prefix', () => {
+    expect(displayLabel(row({ isMain: true, label: 'Cream' }))).toBe('MC · Cream');
+  });
+
+  it('does NOT prepend when the label already starts with "MC"', () => {
+    expect(
+      displayLabel(row({ isMain: true, label: 'MC · Tanis Fiber Arts — Yellow Label DK Weight' })),
+    ).toBe('MC · Tanis Fiber Arts — Yellow Label DK Weight');
+  });
+
+  it('matches "MC" case-insensitively', () => {
+    expect(displayLabel(row({ isMain: true, label: 'mc · cream' }))).toBe('mc · cream');
+    expect(displayLabel(row({ isMain: true, label: 'Mc Yarn' }))).toBe('Mc Yarn');
+  });
+
+  it('still prepends when the label happens to contain MC mid-string', () => {
+    // "Tanis MC Fiber Arts" doesn't start with MC; treat it as a regular name.
+    expect(displayLabel(row({ isMain: true, label: 'Tanis MC Fiber Arts' }))).toBe(
+      'MC · Tanis MC Fiber Arts',
+    );
+  });
+
+  it('treats "MCMaster" (no word boundary after MC) as a regular label', () => {
+    expect(displayLabel(row({ isMain: true, label: 'MCMaster Yarn' }))).toBe(
+      'MC · MCMaster Yarn',
+    );
+  });
+
+  it('does nothing for non-main rows even if their label starts with MC', () => {
+    expect(displayLabel(row({ isMain: false, label: 'Forest' }))).toBe('Forest');
+    expect(displayLabel(row({ isMain: false, label: 'MC · Anything' }))).toBe('MC · Anything');
+  });
+
+  it('tolerates leading whitespace in the label', () => {
+    expect(displayLabel(row({ isMain: true, label: '  MC · Cream' }))).toBe('  MC · Cream');
+  });
+});
+
+describe('displayPercent', () => {
+  it('rounds whole percentages', () => {
+    expect(displayPercent(0.5)).toBe('50%');
+    expect(displayPercent(0.25)).toBe('25%');
+    expect(displayPercent(1)).toBe('100%');
+  });
+
+  it('rounds to nearest integer', () => {
+    expect(displayPercent(0.236)).toBe('24%');
+    expect(displayPercent(0.234)).toBe('23%');
+  });
+
+  it('returns "<1%" for non-zero fractions that round to 0%', () => {
+    expect(displayPercent(0.004)).toBe('<1%');
+    expect(displayPercent(0.0001)).toBe('<1%');
+  });
+
+  it('returns "0%" only when fraction is exactly 0', () => {
+    expect(displayPercent(0)).toBe('0%');
+  });
+
+  it('handles the boundary at 0.01 — counts as 1%, not <1%', () => {
+    expect(displayPercent(0.01)).toBe('1%');
   });
 });
