@@ -13,7 +13,9 @@ const sentryProject = process.env.SENTRY_PROJECT;
 export default defineConfig({
   plugins: [
     react(),
-    basicSsl(),
+    // Skip the self-signed dev cert when VITE_NO_SSL=1 so headless preview
+    // tools can connect over plain http. Default still ships the cert.
+    ...(process.env.VITE_NO_SSL ? [] : [basicSsl()]),
     // Upload source maps to Sentry for symbolicated prod stack traces.
     // No-op unless SENTRY_AUTH_TOKEN / SENTRY_ORG / SENTRY_PROJECT are all set at build time.
     ...(sentryAuthToken && sentryOrg && sentryProject
