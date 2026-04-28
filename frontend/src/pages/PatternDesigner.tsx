@@ -1605,6 +1605,22 @@ export default function PatternDesigner() {
             })}
           </div>
           <div className="ml-auto flex flex-wrap items-center gap-2">
+            {editingPatternId && (
+              <button
+                type="button"
+                onClick={() => {
+                  const ok = window.confirm(
+                    'Cancel editing and discard any unsaved changes? Your saved pattern is untouched.',
+                  );
+                  if (!ok) return;
+                  navigate(`/patterns/${editingPatternId}`);
+                }}
+                className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                title="Discard unsaved changes and go back to the pattern"
+              >
+                Cancel
+              </button>
+            )}
             <button
               type="button"
               onClick={() => {
