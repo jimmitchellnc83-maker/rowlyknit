@@ -35,7 +35,7 @@ import CustomDraftSchematic from '../components/designer/CustomDraftSchematic';
 import ChartGrid from '../components/designer/ChartGrid';
 import { estimateYardageFromArea, formatYardage, type YardageRange } from '../utils/yardageEstimate';
 import { finishedAreaSqIn } from '../utils/designerArea';
-import { estimatePerColorYardage } from '../utils/yarnEstimatePerColor';
+import { estimatePerColorYardage, displayLabel, displayPercent } from '../utils/yarnEstimatePerColor';
 import { type DesignerFormSnapshot } from '../utils/designerSnapshot';
 import { formatDate } from '../utils/formatDate';
 import { DEFAULT_CUSTOM_DRAFT } from '../types/customDraft';
@@ -520,14 +520,11 @@ function YardageCard({ yardage, form, area }: { yardage: YardageRange; form?: De
                 style={{ backgroundColor: row.hex }}
                 aria-hidden="true"
               />
-              <span className="font-medium">
-                {row.isMain ? 'MC · ' : ''}
-                {row.label}
-              </span>
+              <span className="font-medium">{displayLabel(row)}</span>
               <span className="text-amber-700">·</span>
               <span>{formatYardage(row.yardage)}</span>
               <span className="text-amber-700">·</span>
-              <span className="text-amber-700">{Math.round(row.fraction * 100)}%</span>
+              <span className="text-amber-700">{displayPercent(row.fraction)}</span>
             </li>
           ))}
         </ul>

@@ -136,3 +136,27 @@ function scaleRange(r: YardageRange, factor: number): YardageRange {
     maxYds: Math.max(0, Math.round(r.maxYds * factor)),
   };
 }
+
+/**
+ * Display string for a per-color row's label. Prepends "MC · " for the
+ * main-color row UNLESS the user's chosen palette label already starts
+ * with "MC" — that prevents the "MC · MC · Tanis Fiber Arts" duplication
+ * a knitter triggers by labeling their MC something like "MC · Tanis".
+ */
+export function displayLabel(row: PerColorYardage): string {
+  if (row.isMain && !/^mc\b/i.test(row.label.trim())) {
+    return `MC · ${row.label}`;
+  }
+  return row.label;
+}
+
+/**
+ * Display string for a per-color row's percent. A row that's a real but
+ * tiny part of the chart (a 4-cell accent on a 1000-cell sweater = 0.4 %)
+ * rounds to 0 %, which next to a non-zero yardage reads like a math error.
+ * Show "<1%" instead so the row is clearly intentional.
+ */
+export function displayPercent(fraction: number): string {
+  if (fraction > 0 && fraction < 0.01) return '<1%';
+  return `${Math.round(fraction * 100)}%`;
+}
