@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FiPlus, FiTrash2, FiBook, FiEdit2, FiSearch, FiMoreVertical, FiRefreshCw, FiHeart, FiCheckCircle } from 'react-icons/fi';
+import { FiPlus, FiTrash2, FiBook, FiEdit2, FiSearch, FiMoreVertical, FiRefreshCw, FiHeart, FiCheckCircle, FiFeather } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { PDFCollation } from '../components/patterns';
@@ -13,6 +13,8 @@ import { useUndoableDelete } from '../hooks/useUndoableDelete';
 import RavelryPatternSearch, { type RavelryPatternImportData } from '../components/RavelryPatternSearch';
 import PageHelpButton from '../components/PageHelpButton';
 import FileUploadField from '../components/forms/FileUploadField';
+import { useCreatePatternModel } from '../hooks/usePatternModel';
+import { isAuthorModeEnabled } from '../utils/featureFlags';
 
 interface Pattern {
   id: string;
@@ -72,6 +74,23 @@ export default function Patterns() {
   const createPattern = useCreatePattern();
   const updatePattern = useUpdatePattern();
   const deletePatternMutation = useDeletePattern();
+  const createPatternModel = useCreatePatternModel();
+  const authorModeEnabled = isAuthorModeEnabled();
+
+  const handleDesignFromScratch = async () => {
+    setShowMoreMenu(false);
+    try {
+      const created = await createPatternModel.mutateAsync({
+        name: 'Untitled pattern',
+        craft: 'knit',
+      });
+      toast.success('New pattern created — opening Author Mode…');
+      navigate(`/patterns/${created.id}/author`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to create pattern';
+      toast.error(msg);
+    }
+  };
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showCollationModal, setShowCollationModal] = useState(false);
@@ -365,6 +384,20 @@ export default function Patterns() {
                 role="menu"
                 className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 z-20"
               >
+                {authorModeEnabled && (
+                  <>
+                    <button
+                      role="menuitem"
+                      onClick={handleDesignFromScratch}
+                      disabled={createPatternModel.isPending}
+                      className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <FiFeather className="h-4 w-4" />
+                      {createPatternModel.isPending ? 'Creating…' : 'Design from scratch'}
+                    </button>
+                    <div className="border-t border-gray-100 dark:border-gray-700 my-1" />
+                  </>
+                )}
                 <button
                   role="menuitem"
                   onClick={() => { setShowMoreMenu(false); navigate('/ravelry/sync'); }}
