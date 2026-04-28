@@ -43,17 +43,53 @@ import type {
 // ---------------------------------------------------------------------------
 
 /**
+ * Map of symbolId → mirror symbolId. Built from the symbol palette's
+ * `mirror_symbol` column (migration #064). When the engine processes a
+ * `mirrored` block on its reverse pass, it consults this map to swap
+ * paired symbols (k2tog ↔ ssk, p2tog ↔ ssp, etc.). Symbols absent from
+ * the map keep their original symbolId on the mirror pass.
+ *
+ * Use {@link buildMirrorMap} to derive this from a `ChartSymbolTemplate[]`.
+ */
+export type MirrorMap = Record<string, string>;
+
+/**
+ * Build a mirror map from a list of symbol templates. Any symbol with
+ * a non-null `mirror_symbol` contributes an entry. Pure helper —
+ * frontend callers compute this once per palette load and pass it to
+ * `expandSection`.
+ */
+export function buildMirrorMap(
+  symbols: Array<{ symbol: string; mirror_symbol?: string | null }>,
+): MirrorMap {
+  const map: MirrorMap = {};
+  for (const s of symbols) {
+    if (s.mirror_symbol) map[s.symbol] = s.mirror_symbol;
+  }
+  return map;
+}
+
+/**
  * Expand a section's row sequence to a flat list of `ExpandedRow`s.
  * Each expanded row carries source attribution back to the structured
  * pattern model so consumers (chart renderer, instruction text, make
  * mode) can map between the structured form and the working sequence.
+ *
+ * `mirrorMap` is optional — when supplied, mirrored blocks swap paired
+ * symbols on the reverse pass (k2tog → ssk, etc.). Without it, the
+ * engine falls back to PR 3's structural mirror (token order reversed,
+ * symbols unchanged).
  */
-export function expandSection(section: SectionRowSequence): ExpansionResult {
+export function expandSection(
+  section: SectionRowSequence,
+  mirrorMap?: MirrorMap,
+): ExpansionResult {
   const ctx: ExpansionContext = {
     rows: [],
     warnings: [],
     markersByRow: section.markersByRow ?? {},
     rowCounter: 0,
+    mirrorMap: mirrorMap ?? {},
   };
 
   for (const item of section.items) {
@@ -76,6 +112,8 @@ interface ExpansionContext {
   warnings: string[];
   markersByRow: Record<string, MarkerPositions>;
   rowCounter: number;
+  /** Symbol-pair mirror table; empty object when no map was supplied. */
+  mirrorMap: MirrorMap;
 }
 
 const nextRowNumber = (ctx: ExpansionContext): number => {
@@ -216,9 +254,10 @@ const expandMirrored = (ctx: ExpansionContext, block: MirroredRepeatBlock): void
   block.body.forEach((row, idx) => {
     emitMirroredRow(ctx, block, row, idx + 1, 'forward');
   });
-  // Reverse pass — same rows in reverse order. PR 3 implements
-  // structural mirror only; symbol-level mirroring (k2tog ↔ ssk) needs
-  // a per-symbol mirror table that doesn't exist yet.
+  // Reverse pass — same rows in reverse order. With a `mirrorMap`
+  // supplied, paired symbols swap on the mirror pass (k2tog → ssk
+  // etc.); without one, the mirror is structural-only (token order
+  // reversed, symbols unchanged) — that's the PR 3 fallback.
   const reversed = [...block.body].reverse();
   reversed.forEach((row, idx) => {
     emitMirroredRow(ctx, block, row, block.body.length + idx + 1, 'mirror');
@@ -233,10 +272,13 @@ const emitMirroredRow = (
   pass: 'forward' | 'mirror',
 ): void => {
   const markers = row.id ? ctx.markersByRow[row.id] : undefined;
-  // Mirror pass reverses the within-row token order so the row reads
-  // backward.
+  // Mirror pass reverses the within-row token order AND swaps any
+  // symbol with a mirror counterpart. Tokens that don't appear in the
+  // mirror map pass through unchanged.
   const tokens =
-    pass === 'mirror' ? [...row.tokens].reverse() : row.tokens;
+    pass === 'mirror'
+      ? [...row.tokens].reverse().map((t) => mirrorRowToken(t, ctx.mirrorMap))
+      : row.tokens;
   const { tokens: expanded, warnings } = expandRowTokens(tokens, markers, ctx);
   ctx.rows.push({
     rowNumber: nextRowNumber(ctx),
@@ -250,6 +292,31 @@ const emitMirroredRow = (
     },
     warnings,
   });
+};
+
+/** Recursively mirror-swap a `RowToken`. Stitch symbols swap to their
+ *  mirror counterpart when the map has one; nested repeats walk in. */
+const mirrorRowToken = (token: RowToken, map: MirrorMap): RowToken => {
+  switch (token.kind) {
+    case 'stitch': {
+      const swap = map[token.symbolId];
+      return swap ? { ...token, symbolId: swap } : token;
+    }
+    case 'horizontal-repeat':
+      return {
+        ...token,
+        body: [...token.body].reverse().map((t) => mirrorRowToken(t, map)),
+      };
+    case 'between-markers':
+      return {
+        ...token,
+        body: [...token.body].reverse().map((t) => mirrorRowToken(t, map)),
+      };
+    case 'mirrored':
+      // A nested mirrored token — leave the structure intact; the
+      // engine's recursive mirror pass will handle the inner.
+      return token;
+  }
 };
 
 const expandNested = (ctx: ExpansionContext, block: NestedRepeatBlock): void => {
@@ -361,7 +428,15 @@ const expandRowTokens = (
   const out: ExpandedToken[] = [];
   const warnings: string[] = [];
   for (const token of tokens) {
-    expandRowToken(token, markers, out, warnings, /* parentBlockId */ null, /* parentIteration */ 1);
+    expandRowToken(
+      token,
+      markers,
+      out,
+      warnings,
+      /* parentBlockId */ null,
+      /* parentIteration */ 1,
+      ctx.mirrorMap,
+    );
   }
   // Surface row-level warnings to the section warnings as well so they
   // show up in the top-level result.
@@ -376,6 +451,7 @@ const expandRowToken = (
   warnings: string[],
   parentBlockId: string | null,
   parentIteration: number,
+  mirrorMap: MirrorMap,
 ): void => {
   switch (token.kind) {
     case 'stitch':
@@ -391,22 +467,41 @@ const expandRowToken = (
       return;
 
     case 'horizontal-repeat':
-      expandHorizontalRepeat(token, markers, out, warnings);
+      expandHorizontalRepeat(token, markers, out, warnings, mirrorMap);
       return;
 
     case 'between-markers':
-      expandBetweenMarkers(token, markers, out, warnings);
+      expandBetweenMarkers(token, markers, out, warnings, mirrorMap);
       return;
 
     case 'mirrored': {
       // Forward pass.
       for (const inner of token.body) {
-        expandRowToken(inner, markers, out, warnings, token.id ?? parentBlockId, 1);
+        expandRowToken(
+          inner,
+          markers,
+          out,
+          warnings,
+          token.id ?? parentBlockId,
+          1,
+          mirrorMap,
+        );
       }
-      // Mirror pass.
-      const reversed = [...token.body].reverse();
+      // Mirror pass — reverse order AND swap paired symbols when the
+      // mirror map has them.
+      const reversed = [...token.body]
+        .reverse()
+        .map((t) => mirrorRowToken(t, mirrorMap));
       for (const inner of reversed) {
-        expandRowToken(inner, markers, out, warnings, token.id ?? parentBlockId, 2);
+        expandRowToken(
+          inner,
+          markers,
+          out,
+          warnings,
+          token.id ?? parentBlockId,
+          2,
+          mirrorMap,
+        );
       }
       return;
     }
@@ -418,6 +513,7 @@ const expandHorizontalRepeat = (
   markers: MarkerPositions | undefined,
   out: ExpandedToken[],
   warnings: string[],
+  mirrorMap: MirrorMap,
 ): void => {
   if (token.count <= 0) {
     warnings.push(`Horizontal repeat ${token.id ?? '(anon)'} count is ${token.count}; skipped.`);
@@ -430,7 +526,7 @@ const expandHorizontalRepeat = (
 
   for (let i = 1; i <= token.count; i++) {
     for (const inner of token.body) {
-      expandRowToken(inner, markers, out, warnings, token.id ?? null, i);
+      expandRowToken(inner, markers, out, warnings, token.id ?? null, i, mirrorMap);
     }
   }
 };
@@ -440,6 +536,7 @@ const expandBetweenMarkers = (
   markers: MarkerPositions | undefined,
   out: ExpandedToken[],
   warnings: string[],
+  mirrorMap: MirrorMap,
 ): void => {
   if (!markers) {
     warnings.push(
@@ -473,7 +570,7 @@ const expandBetweenMarkers = (
 
   for (let i = 1; i <= count; i++) {
     for (const inner of token.body) {
-      expandRowToken(inner, markers, out, warnings, token.id ?? null, i);
+      expandRowToken(inner, markers, out, warnings, token.id ?? null, i, mirrorMap);
     }
   }
 };

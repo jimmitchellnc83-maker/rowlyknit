@@ -47,6 +47,10 @@ export interface ChartSymbolTemplate {
   /** Techniques this symbol applies to. NULL = "applies to every
    *  technique for this craft" (typical for user-custom symbols). */
   techniques: Technique[] | null;
+  /** The symbol key this stitch swaps to on a mirrored repeat (k2tog →
+   *  ssk, etc.). NULL = no directional lean; the mirror pass leaves it
+   *  unchanged. Migration #064. */
+  mirror_symbol: string | null;
   created_at: Date;
 }
 
