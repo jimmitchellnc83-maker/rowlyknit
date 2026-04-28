@@ -74,7 +74,6 @@ export default function HatSchematic({ output, unit, chart, mainColor, zoom = 1 
         rowToPx={rowToPx}
         clipId={clipId}
         renderSymbols
-        minCellSize={14}
       />
 
       {/* Brim band */}

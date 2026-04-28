@@ -73,7 +73,6 @@ export default function ShawlSchematic({ output, unit, chart, mainColor, zoom = 
         rowToPx={width / Math.max(1, output.finalStitches)}
         clipId={clipId}
         renderSymbols
-        minCellSize={14}
       />
 
       {/* Center spine marker */}

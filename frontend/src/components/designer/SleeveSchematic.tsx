@@ -103,7 +103,6 @@ export default function SleeveSchematic({ input: _input, output, unit, chart, ma
         rowToPx={rowToPx}
         clipId={clipId}
         renderSymbols
-        minCellSize={14}
       />
 
       {/* Cuff band (dashed line at top of ribbing) */}
