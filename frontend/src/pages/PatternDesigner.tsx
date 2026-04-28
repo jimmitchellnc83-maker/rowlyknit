@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { FiTool, FiInfo, FiGrid, FiSquare, FiPrinter, FiFolder, FiBook } from 'react-icons/fi';
+import { FiTool, FiInfo, FiGrid, FiSquare, FiPrinter, FiFolder, FiBook, FiFilePlus, FiSave } from 'react-icons/fi';
 import type { Craft } from '../types/chartSymbol';
 import { useCreatePattern, useUpdatePattern, useCreateProject } from '../hooks/useApi';
 import { itemLabel } from '../utils/designerSnapshot';
@@ -952,7 +952,10 @@ function ChartSection({
 
   if (!chart) {
     return (
-      <section className="rounded-lg bg-white p-4 shadow dark:bg-gray-800 md:p-6">
+      <section
+        id="designer-chart-section"
+        className="rounded-lg bg-white p-4 shadow dark:bg-gray-800 md:p-6"
+      >
         <h2 className="mb-2 text-lg font-semibold text-gray-900 dark:text-gray-100">
           Chart <span className="text-xs font-normal text-gray-500">(optional)</span>
         </h2>
@@ -1027,7 +1030,10 @@ function ChartSection({
   };
 
   return (
-    <section className="rounded-lg bg-white p-4 shadow dark:bg-gray-800 md:p-6">
+    <section
+      id="designer-chart-section"
+      className="rounded-lg bg-white p-4 shadow dark:bg-gray-800 md:p-6"
+    >
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Chart</h2>
         <div className="flex items-center gap-4">
@@ -1083,9 +1089,12 @@ function ChartSection({
           library asset and export it to common knitter-friendly formats.
           Export buttons require a saved chartAssetId; clicking them
           while unsaved nudges the user to save first. */}
-      <div className="mb-3 flex flex-wrap items-center gap-2 rounded-md border border-gray-200 bg-gray-50 p-2 dark:border-gray-700 dark:bg-gray-900/40">
+      <div
+        className="mb-3 flex flex-wrap items-center gap-2 rounded-md border border-gray-200 bg-gray-50 p-2 dark:border-gray-700 dark:bg-gray-900/40"
+      >
         <button
           type="button"
+          data-chart-save
           onClick={() => setShowSaveModal(true)}
           className="rounded-md bg-purple-600 px-3 py-1 text-xs font-medium text-white hover:bg-purple-700"
         >
@@ -1377,6 +1386,7 @@ export default function PatternDesigner() {
     return saved.unit === desiredUnit ? saved : convertFormUnits(saved, desiredUnit);
   });
   const [loadingPattern, setLoadingPattern] = useState<boolean>(!!editingPatternId);
+  const navigate = useNavigate();
 
   // When ?patternId is set, fetch the pattern and replace the form state
   // with its saved Designer snapshot. The localStorage draft is left
@@ -1595,6 +1605,49 @@ export default function PatternDesigner() {
             })}
           </div>
           <div className="ml-auto flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                const ok = window.confirm(
+                  editingPatternId
+                    ? 'Discard changes and start a brand-new design? Your saved pattern is untouched — this just clears the form.'
+                    : 'Clear the form and start a new design? Your local draft will be wiped.',
+                );
+                if (!ok) return;
+                setForm(DEFAULT_FORM);
+                if (editingPatternId) {
+                  // Drop the ?patternId param so the form is no longer in
+                  // edit mode — fresh new-design flow from here.
+                  navigate('/designer');
+                }
+                toast.success('Started a new design.');
+              }}
+              className="inline-flex items-center gap-2 rounded-lg border border-purple-300 bg-white px-3 py-1.5 text-sm font-medium text-purple-700 hover:bg-purple-50 dark:border-purple-800 dark:bg-gray-800 dark:text-purple-300 dark:hover:bg-purple-900/30"
+              title="Clear the form and start a fresh design"
+            >
+              <FiFilePlus className="h-4 w-4" />
+              New design
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const el = document.getElementById('designer-chart-section');
+                if (!el) return;
+                el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                // Briefly highlight the save button so the user sees where
+                // it is once they're scrolled there.
+                const saveBtn = el.querySelector('[data-chart-save]') as HTMLElement | null;
+                if (saveBtn) {
+                  saveBtn.classList.add('ring-2', 'ring-purple-500');
+                  setTimeout(() => saveBtn.classList.remove('ring-2', 'ring-purple-500'), 1800);
+                }
+              }}
+              className="inline-flex items-center gap-2 rounded-lg border border-purple-300 bg-white px-3 py-1.5 text-sm font-medium text-purple-700 hover:bg-purple-50 dark:border-purple-800 dark:bg-gray-800 dark:text-purple-300 dark:hover:bg-purple-900/30"
+              title="Jump to the chart and save it as a reusable asset"
+            >
+              <FiSave className="h-4 w-4" />
+              Save chart
+            </button>
             <SaveAsPatternButton form={form} patternId={editingPatternId} />
             <SaveToProjectButton form={form} />
             <Link
