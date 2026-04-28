@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { UnauthorizedError, ValidationError } from '../utils/errorHandler';
 import {
   Craft,
+  Technique,
   createCustomSymbol,
   deleteCustomSymbol,
   listSymbols,
@@ -10,6 +11,19 @@ import {
 } from '../services/chartSymbolService';
 
 const isCraft = (value: unknown): value is Craft => value === 'knit' || value === 'crochet';
+
+const VALID_TECHNIQUES: Technique[] = [
+  'standard',
+  'lace',
+  'cables',
+  'colorwork',
+  'tapestry',
+  'filet',
+  'tunisian',
+];
+
+const isTechnique = (value: unknown): value is Technique =>
+  typeof value === 'string' && VALID_TECHNIQUES.includes(value as Technique);
 
 const requireUserId = (req: Request): string => {
   const userId = req.user?.userId;
@@ -20,14 +34,20 @@ const requireUserId = (req: Request): string => {
 };
 
 /**
- * GET /api/charts/symbols?craft=knit
+ * GET /api/charts/symbols?craft=knit&technique=lace
+ *
+ * Both filters are optional. `technique` filters system symbols only —
+ * custom symbols always appear regardless of technique.
  */
 export const getPalette = async (req: Request, res: Response) => {
   const userId = requireUserId(req);
   const craftRaw = req.query.craft;
   const craft = typeof craftRaw === 'string' && isCraft(craftRaw) ? craftRaw : undefined;
+  const techniqueRaw = req.query.technique;
+  const technique =
+    typeof techniqueRaw === 'string' && isTechnique(techniqueRaw) ? techniqueRaw : undefined;
 
-  const palette = await listSymbols(userId, { craft });
+  const palette = await listSymbols(userId, { craft, technique });
   res.json({ success: true, data: palette });
 };
 

@@ -42,7 +42,13 @@ export type SectionParameters = Record<string, unknown>;
 
 export interface ChartPlacement {
   chartId?: string | null;
-  repeatMode?: 'tile' | 'single';
+  repeatMode?: 'tile' | 'single' | 'motif' | 'panel-aware';
+  /** Anchor offset in stitches/rows from the section's bottom-left
+   *  origin. Defaults to `{ x: 0, y: 0 }`. */
+  offset?: { x: number; y: number };
+  /** Stacking layer when multiple charts overlap. Lower paints first.
+   *  Defaults to 0. */
+  layer?: number;
 }
 
 export interface PatternSection {

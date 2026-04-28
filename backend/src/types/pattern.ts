@@ -67,9 +67,25 @@ export interface ChartPlacement {
   /**
    * How the chart tiles across the section. `tile` mirrors today's
    * `ChartOverlay` (bottom-left anchored repeat); `single` draws once.
-   * Future: `between-markers`, `mirrored`, `panel-aware`.
+   * `motif` consults the chart's 2D tile count metadata; `panel-aware`
+   * lets the chart sit inside one panel of a `PanelRepeatBlock` without
+   * bleeding into adjacent panels.
    */
-  repeatMode?: 'tile' | 'single';
+  repeatMode?: 'tile' | 'single' | 'motif' | 'panel-aware';
+  /**
+   * Anchor offset in stitches/rows from the section's bottom-left
+   * origin. Positive `x` shifts the chart right; positive `y` shifts
+   * it up. Defaults to `{ x: 0, y: 0 }` — the legacy bottom-left
+   * anchored behavior.
+   */
+  offset?: { x: number; y: number };
+  /**
+   * Stacking layer when multiple charts overlap on the same section.
+   * Lower numbers paint first; higher numbers paint on top. Defaults
+   * to 0. Used by Author mode when a knitter layers a colorwork chart
+   * over a textured base.
+   */
+  layer?: number;
 }
 
 export interface PatternSection {

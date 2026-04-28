@@ -11,6 +11,25 @@ import { ConflictError, NotFoundError, ValidationError } from '../utils/errorHan
 
 export type Craft = 'knit' | 'crochet';
 
+export type Technique =
+  | 'standard'
+  | 'lace'
+  | 'cables'
+  | 'colorwork'
+  | 'tapestry'
+  | 'filet'
+  | 'tunisian';
+
+const VALID_TECHNIQUES: Technique[] = [
+  'standard',
+  'lace',
+  'cables',
+  'colorwork',
+  'tapestry',
+  'filet',
+  'tunisian',
+];
+
 export interface ChartSymbolTemplate {
   id: string;
   symbol: string;
@@ -25,6 +44,9 @@ export interface ChartSymbolTemplate {
   ws_instruction: string | null;
   cell_span: number;
   craft: Craft;
+  /** Techniques this symbol applies to. NULL = "applies to every
+   *  technique for this craft" (typical for user-custom symbols). */
+  techniques: Technique[] | null;
   created_at: Date;
 }
 
@@ -43,6 +65,9 @@ export interface CreateSymbolInput {
   ws_instruction?: string | null;
   cell_span?: number;
   craft?: Craft;
+  /** Optional technique tags for custom symbols. NULL/omit = applies
+   *  to every technique (the safe default). */
+  techniques?: Technique[] | null;
 }
 
 export interface UpdateSymbolInput {
@@ -54,13 +79,22 @@ export interface UpdateSymbolInput {
   ws_instruction?: string | null;
   cell_span?: number;
   craft?: Craft;
+  techniques?: Technique[] | null;
 }
 
 const VALID_CRAFTS: Craft[] = ['knit', 'crochet'];
 const MAX_CELL_SPAN = 8;
 
 /**
- * Return system + user-custom symbols, optionally filtered by craft.
+ * Return system + user-custom symbols, optionally filtered by craft and
+ * technique.
+ *
+ * Technique filter is applied to system symbols only — custom symbols
+ * (rows the user created) always show up because they were authored
+ * with the user's intent in mind. The system filter uses the JSONB-array
+ * `techniques` column populated by migration #063: a row passes the
+ * filter when its `techniques` array contains the requested technique
+ * OR is NULL/empty (meaning "applies everywhere").
  *
  * "Recent" and "used in current draft" are computed on the client from
  * localStorage and the active chart respectively, so they are not part of
@@ -68,7 +102,7 @@ const MAX_CELL_SPAN = 8;
  */
 export const listSymbols = async (
   userId: string,
-  opts: { craft?: Craft } = {}
+  opts: { craft?: Craft; technique?: Technique } = {}
 ): Promise<SymbolPalette> => {
   const baseQuery = db<ChartSymbolTemplate>('chart_symbol_templates').orderBy('symbol');
 
@@ -78,6 +112,18 @@ export const listSymbols = async (
   if (opts.craft) {
     systemQuery.andWhere({ craft: opts.craft });
     customQuery.andWhere({ craft: opts.craft });
+  }
+
+  if (opts.technique) {
+    // System symbols filter on the techniques array. The "applies
+    // everywhere" case is a NULL or empty array — we keep those rows
+    // so foundational stitches without explicit tags still render.
+    systemQuery.andWhere((qb) => {
+      qb.whereNull('techniques')
+        .orWhereRaw("array_length(techniques, 1) IS NULL")
+        .orWhereRaw('? = ANY(techniques)', [opts.technique!]);
+    });
+    // Custom symbols are never filtered by technique.
   }
 
   const [system, custom] = await Promise.all([systemQuery, customQuery]);
@@ -138,6 +184,16 @@ const validateInput = (
   if (input.craft !== undefined && !VALID_CRAFTS.includes(input.craft)) {
     throw new ValidationError(`craft must be one of: ${VALID_CRAFTS.join(', ')}`);
   }
+  if (input.techniques !== undefined && input.techniques !== null) {
+    if (!Array.isArray(input.techniques)) {
+      throw new ValidationError('techniques must be an array of technique strings');
+    }
+    for (const t of input.techniques) {
+      if (!VALID_TECHNIQUES.includes(t)) {
+        throw new ValidationError(`techniques contains invalid value "${t}"`);
+      }
+    }
+  }
 };
 
 /**
@@ -173,6 +229,7 @@ export const createCustomSymbol = async (
       ws_instruction: input.ws_instruction ?? null,
       cell_span: input.cell_span ?? 1,
       craft: input.craft ?? 'knit',
+      techniques: input.techniques ?? null,
       is_system: false,
       user_id: userId,
     })
@@ -211,6 +268,7 @@ export const updateCustomSymbol = async (
   if (input.ws_instruction !== undefined) patch.ws_instruction = input.ws_instruction;
   if (input.cell_span !== undefined) patch.cell_span = input.cell_span;
   if (input.craft !== undefined) patch.craft = input.craft;
+  if (input.techniques !== undefined) patch.techniques = input.techniques;
 
   if (Object.keys(patch).length === 0) {
     return existing;
