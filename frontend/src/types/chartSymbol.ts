@@ -21,6 +21,10 @@ export interface ChartSymbolTemplate {
   ws_instruction: string | null;
   cell_span: number;
   craft: Craft;
+  /** The symbol key this stitch swaps to on a mirrored repeat (k2tog →
+   *  ssk, etc.). NULL = no directional lean; the mirror pass leaves it
+   *  unchanged. Migration #064. */
+  mirror_symbol?: string | null;
   created_at: string;
 }
 

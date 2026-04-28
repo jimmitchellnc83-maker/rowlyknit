@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { expandSection } from '../repeatEngine';
+import { buildMirrorMap, expandSection } from '../repeatEngine';
 import type {
   HorizontalRepeatToken,
   LiteralStitchToken,
@@ -337,6 +337,128 @@ describe('expandSection — mirrored', () => {
     });
     expect(result.rows[0].label).toBe('Setup');
     expect(result.rows[1].label).toBe('Setup (mirror)');
+  });
+
+  // -------------------------------------------------------------------
+  // Mirror map (migration #064: chart_symbol_templates.mirror_symbol)
+  // -------------------------------------------------------------------
+  it('swaps paired symbols on a vertical mirror pass when given a map', () => {
+    const result = expandSection(
+      {
+        items: [
+          repeatRow({
+            kind: 'mirrored',
+            id: 'm',
+            body: [{ id: 'r', tokens: [k(), k2tog(), yo()] }],
+          }),
+        ],
+      },
+      { k2tog: 'ssk' },
+    );
+    // Forward row: k, k2tog, yo. Mirror row reverses tokens AND swaps
+    // k2tog → ssk, yielding: yo, ssk, k.
+    expect(result.rows[1].tokens.map((t) => t.symbolId)).toEqual(['yo', 'ssk', 'k']);
+  });
+
+  it('swaps paired symbols on a within-row mirror token', () => {
+    const result = expandSection(
+      {
+        items: [
+          literalRow({
+            id: 'r1',
+            tokens: [
+              { kind: 'mirrored', id: 'mr', body: [k(), k2tog(), yo()] },
+            ],
+          }),
+        ],
+      },
+      { k2tog: 'ssk' },
+    );
+    // Forward + mirror concat: k, k2tog, yo, yo, ssk, k.
+    expect(result.rows[0].tokens.map((t) => t.symbolId)).toEqual([
+      'k', 'k2tog', 'yo', 'yo', 'ssk', 'k',
+    ]);
+  });
+
+  it('falls back to structural mirror (no swap) when no map is given', () => {
+    const result = expandSection({
+      items: [
+        repeatRow({
+          kind: 'mirrored',
+          id: 'm',
+          body: [{ id: 'r', tokens: [k(), k2tog(), yo()] }],
+        }),
+      ],
+    });
+    // Mirror row reverses but k2tog stays k2tog (PR 3 behavior).
+    expect(result.rows[1].tokens.map((t) => t.symbolId)).toEqual(['yo', 'k2tog', 'k']);
+  });
+
+  it('leaves unmapped symbols alone on the mirror pass', () => {
+    const result = expandSection(
+      {
+        items: [
+          repeatRow({
+            kind: 'mirrored',
+            id: 'm',
+            body: [{ id: 'r', tokens: [k(), p(), k2tog()] }],
+          }),
+        ],
+      },
+      { k2tog: 'ssk' },
+    );
+    // Mirror row: k2tog→ssk; p (no mapping) stays p; k (no mapping) stays k.
+    expect(result.rows[1].tokens.map((t) => t.symbolId)).toEqual(['ssk', 'p', 'k']);
+  });
+
+  it('mirror swap walks into nested horizontal repeats', () => {
+    // Vertical mirror wrapping a horizontal repeat that contains k2tog:
+    // forward emits [k2tog, k2tog]; mirror should emit [ssk, ssk].
+    const result = expandSection(
+      {
+        items: [
+          repeatRow({
+            kind: 'mirrored',
+            id: 'm',
+            body: [
+              {
+                id: 'r',
+                tokens: [
+                  {
+                    kind: 'horizontal-repeat',
+                    body: [k2tog()],
+                    count: 2,
+                  },
+                ],
+              },
+            ],
+          }),
+        ],
+      },
+      { k2tog: 'ssk' },
+    );
+    expect(result.rows[1].tokens.map((t) => t.symbolId)).toEqual(['ssk', 'ssk']);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// buildMirrorMap helper
+// ---------------------------------------------------------------------------
+
+describe('buildMirrorMap', () => {
+  it('builds an entry for each symbol with a mirror_symbol', () => {
+    const map = buildMirrorMap([
+      { symbol: 'k2tog', mirror_symbol: 'ssk' },
+      { symbol: 'ssk', mirror_symbol: 'k2tog' },
+      { symbol: 'k', mirror_symbol: null },
+      { symbol: 'p' }, // mirror_symbol omitted entirely
+    ]);
+    expect(map).toEqual({ k2tog: 'ssk', ssk: 'k2tog' });
+  });
+
+  it('returns an empty object when no symbols have mirrors', () => {
+    expect(buildMirrorMap([{ symbol: 'k' }])).toEqual({});
+    expect(buildMirrorMap([])).toEqual({});
   });
 });
 
