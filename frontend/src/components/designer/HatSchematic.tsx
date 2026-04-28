@@ -10,6 +10,7 @@ interface HatSchematicProps {
   chart?: ChartData | null;
   mainColor?: string | null;
   zoom?: number;
+  chartPlacement?: 'tile' | 'single' | 'fit';
 }
 
 /**
@@ -18,7 +19,7 @@ interface HatSchematicProps {
  * decreases tapering to the closed point. Brim is shaded as a band at the
  * cast-on edge.
  */
-export default function HatSchematic({ output, unit, chart, mainColor, zoom = 1 }: HatSchematicProps) {
+export default function HatSchematic({ output, unit, chart, mainColor, zoom = 1, chartPlacement = 'tile' }: HatSchematicProps) {
   const clipId = useId();
   const palette = paletteFromMainColor(mainColor, {
     fill: '#EFF6FF',
@@ -74,6 +75,7 @@ export default function HatSchematic({ output, unit, chart, mainColor, zoom = 1 
         rowToPx={rowToPx}
         clipId={clipId}
         renderSymbols
+        placement={{ repeatMode: chartPlacement }}
       />
 
       {/* Brim band */}

@@ -10,6 +10,7 @@ interface MittenSchematicProps {
   chart?: ChartData | null;
   mainColor?: string | null;
   zoom?: number;
+  chartPlacement?: 'tile' | 'single' | 'fit';
 }
 
 /**
@@ -18,7 +19,7 @@ interface MittenSchematicProps {
  * schematic — proportions don't try to match hand anatomy exactly; they
  * just show which dimension lives where so the labels are legible.
  */
-export default function MittenSchematic({ output, unit, chart, mainColor, zoom = 1 }: MittenSchematicProps) {
+export default function MittenSchematic({ output, unit, chart, mainColor, zoom = 1, chartPlacement = 'tile' }: MittenSchematicProps) {
   const clipId = useId();
   const palette = paletteFromMainColor(mainColor, {
     fill: '#FEF3C7',
@@ -80,6 +81,7 @@ export default function MittenSchematic({ output, unit, chart, mainColor, zoom =
         rowToPx={rowToPx}
         clipId={clipId}
         renderSymbols
+        placement={{ repeatMode: chartPlacement }}
       />
 
       {/* Cuff dashed band at bottom */}

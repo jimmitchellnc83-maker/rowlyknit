@@ -15,6 +15,10 @@ interface BodySchematicProps {
   /** Visual scale multiplier for the schematic. 1 = default 24rem max,
    *  2 = 48rem max, etc. Wraps in a horizontally scrollable container. */
   zoom?: number;
+  /** Chart-on-schematic placement mode. Forwarded to ChartOverlay's
+   *  `placement.repeatMode`. Default 'tile' = repeat at natural stitch
+   *  size (knitter convention). */
+  chartPlacement?: 'tile' | 'single' | 'fit';
 }
 
 /**
@@ -36,6 +40,7 @@ export default function BodySchematic({
   chart,
   mainColor,
   zoom = 1,
+  chartPlacement = 'tile',
 }: BodySchematicProps) {
   const clipId = useId();
   const palette = paletteFromMainColor(mainColor, {
@@ -158,6 +163,7 @@ export default function BodySchematic({
         rowToPx={rowToPx}
         clipId={clipId}
         renderSymbols
+        placement={{ repeatMode: chartPlacement }}
       />
 
       {/* Hem fill — slightly darker band at cast-on edge */}
