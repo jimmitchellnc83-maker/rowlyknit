@@ -39,6 +39,8 @@ jest.mock('../../config/logger', () => ({
 }));
 
 import {
+  buildCanonicalFromBlogImport,
+  buildCanonicalFromChartUpload,
   buildCanonicalFromSnapshot,
   createPattern,
   importDesignerSnapshot,
@@ -671,5 +673,155 @@ describe('createPattern', () => {
     expect(created.technique).toBe('standard');
     expect(created.sections).toEqual([]);
     expect(created.materials).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// buildCanonicalFromBlogImport — pure transform tests
+// ---------------------------------------------------------------------------
+
+describe('buildCanonicalFromBlogImport', () => {
+  it('uses payload.name when provided', () => {
+    const built = buildCanonicalFromBlogImport({
+      name: '  Cabled Cardigan  ',
+      category: 'cardigan',
+    });
+    expect(built.name).toBe('Cabled Cardigan');
+  });
+
+  it('falls back to "Imported Pattern" when name is empty', () => {
+    expect(buildCanonicalFromBlogImport({}).name).toBe('Imported Pattern');
+    expect(buildCanonicalFromBlogImport({ name: '   ' }).name).toBe(
+      'Imported Pattern',
+    );
+  });
+
+  it('defaults craft=knit + technique=standard (blog imports do not capture either)', () => {
+    const built = buildCanonicalFromBlogImport({ name: 'Hat' });
+    expect(built.craft).toBe('knit');
+    expect(built.technique).toBe('standard');
+  });
+
+  it('builds a single catch-all section keyed off the blog category', () => {
+    const built = buildCanonicalFromBlogImport({
+      name: 'Pattern',
+      category: 'sweater',
+      description: 'A worsted-weight pullover.',
+    });
+    expect(built.sections).toHaveLength(1);
+    expect(built.sections[0].kind).toBe('sweater-body');
+    expect(built.sections[0].name).toBe('Sweater');
+    expect(built.sections[0].notes).toBe('A worsted-weight pullover.');
+    // Stash blog-specific bits under leading-underscore parameters so
+    // the canonical model knows where the data came from.
+    expect(built.sections[0].parameters._blogCategory).toBe('sweater');
+  });
+
+  it('falls back to custom-draft-section for unknown categories', () => {
+    const built = buildCanonicalFromBlogImport({ name: 'X', category: 'wibble' });
+    expect(built.sections[0].kind).toBe('custom-draft-section');
+  });
+
+  it('translates yarnRequirements into MaterialEntry rows', () => {
+    const built = buildCanonicalFromBlogImport({
+      name: 'X',
+      yarnRequirements: [
+        { weight: 'DK', yardage: 800 },
+        { weight: 'fingering', yardage: 1200 },
+      ],
+    });
+    expect(built.materials).toHaveLength(2);
+    expect(built.materials[0].name).toBe('DK');
+    expect(built.materials[0].yardageMin).toBe(800);
+    expect(built.materials[0].yardageMax).toBe(800);
+    expect(built.materials[0].kind).toBe('yarn');
+  });
+
+  it('uses a generic yarn label when weight is omitted', () => {
+    const built = buildCanonicalFromBlogImport({
+      name: 'X',
+      yarnRequirements: [{ yardage: 500 }],
+    });
+    expect(built.materials[0].name).toBe('Yarn 1');
+  });
+
+  it('emits an empty materials array when yarnRequirements is missing', () => {
+    expect(buildCanonicalFromBlogImport({ name: 'X' }).materials).toEqual([]);
+  });
+
+  it('builds a default 4-in gauge from payload.gauge', () => {
+    const built = buildCanonicalFromBlogImport({
+      name: 'X',
+      gauge: { stitches: 20, rows: 28 },
+    });
+    expect(built.gaugeProfile).toMatchObject({
+      stitches: 20,
+      rows: 28,
+      measurement: 4,
+      unit: 'in',
+    });
+  });
+
+  it('treats null/undefined gauge fields as zero', () => {
+    const built = buildCanonicalFromBlogImport({ name: 'X' });
+    expect(built.gaugeProfile.stitches).toBe(0);
+    expect(built.gaugeProfile.rows).toBe(0);
+  });
+
+  it('preserves notes on the canonical pattern', () => {
+    const built = buildCanonicalFromBlogImport({
+      name: 'X',
+      notes: 'CO 80, work hem.',
+    });
+    expect(built.notes).toBe('CO 80, work hem.');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// buildCanonicalFromChartUpload — pure transform tests
+// ---------------------------------------------------------------------------
+
+describe('buildCanonicalFromChartUpload', () => {
+  it('produces one custom-draft-section with chartPlacement.chartId', () => {
+    const built = buildCanonicalFromChartUpload({
+      chartId: 'chart-uuid-1',
+      chartName: 'Lace Repeat',
+    });
+    expect(built.name).toBe('Lace Repeat');
+    expect(built.sections).toHaveLength(1);
+    expect(built.sections[0].kind).toBe('custom-draft-section');
+    expect(built.sections[0].chartPlacement).toEqual({
+      chartId: 'chart-uuid-1',
+      repeatMode: 'tile',
+      offset: { x: 0, y: 0 },
+      layer: 0,
+    });
+  });
+
+  it('falls back to "Chart-only pattern" when name is empty', () => {
+    expect(
+      buildCanonicalFromChartUpload({ chartId: 'c', chartName: '' }).name,
+    ).toBe('Chart-only pattern');
+    expect(
+      buildCanonicalFromChartUpload({ chartId: 'c', chartName: null }).name,
+    ).toBe('Chart-only pattern');
+  });
+
+  it('emits a zeroed gauge so downstream surfaces know to ask the user', () => {
+    const built = buildCanonicalFromChartUpload({
+      chartId: 'c',
+      chartName: 'Cable Panel',
+    });
+    expect(built.gaugeProfile.stitches).toBe(0);
+    expect(built.gaugeProfile.rows).toBe(0);
+    // Default 4-in measurement so the value is structurally valid.
+    expect(built.gaugeProfile.measurement).toBe(4);
+    expect(built.gaugeProfile.unit).toBe('in');
+  });
+
+  it('emits an empty materials list and no legend overrides', () => {
+    const built = buildCanonicalFromChartUpload({ chartId: 'c' });
+    expect(built.materials).toEqual([]);
+    expect(built.legend.overrides).toEqual({});
   });
 });

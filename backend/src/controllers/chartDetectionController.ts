@@ -302,9 +302,36 @@ export const saveDetectedChart = async (req: Request, res: Response) => {
         updated_at: db.fn.now(),
       });
 
+    // Materialize a canonical Pattern stub so the chart shows up in
+    // Author / Make / future public-share surfaces. Best-effort —
+    // chart save is the primary success path. Skip when the user
+    // already attached the chart to a pattern (pattern_id provided);
+    // that pattern is the canonical target instead.
+    let canonicalPatternId: string | null = null;
+    if (!pattern_id) {
+      try {
+        const { importChartUploadToCanonical } = await import('../services/patternService');
+        const canonical = await importChartUploadToCanonical({
+          userId,
+          payload: {
+            chartId: chart.id,
+            chartName: chart_name || detection.name || null,
+          },
+        });
+        canonicalPatternId = canonical.id;
+      } catch (canonicalErr) {
+        logger.warn('Canonical twin materialization failed for chart upload', {
+          userId,
+          chartId: chart.id,
+          error: canonicalErr instanceof Error ? canonicalErr.message : 'Unknown error',
+        });
+      }
+    }
+
     return res.status(201).json({
       chart,
       detection_id,
+      canonical_pattern_id: canonicalPatternId,
       message: 'Chart saved successfully',
     });
   } catch (error) {

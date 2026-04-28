@@ -159,7 +159,11 @@ export const importDesignerSnapshot = async (
     });
   }
 
-  return insertCanonical(built, input);
+  return insertCanonical(built, {
+    userId: input.userId,
+    sourcePatternId: input.sourcePatternId ?? null,
+    sourceProjectId: input.sourceProjectId ?? null,
+  });
 };
 
 interface BuiltCanonical {
@@ -213,6 +217,236 @@ export const buildCanonicalFromSnapshot = (
     progressState,
     notes,
   };
+};
+
+// ---------------------------------------------------------------------------
+// Blog-import + chart-upload canonical materializers
+//
+// These wrap blog-imported / OCR'd chart data into a stub
+// `CanonicalPattern` so the canonical surfaces (Author / Make / future
+// public share view) can read them. Both helpers create rows linked
+// back to their source via `source_pattern_id` (blog) or a marker in
+// `notes` (chart-upload — there's no source_chart_id link today).
+//
+// These intentionally produce *stubs*. Most fields are defaults; the
+// user is expected to flesh out the canonical pattern in Author mode.
+// The point is to give every imported asset a canonical home so it
+// shows up in the patterns listing alongside Designer-authored work.
+// ---------------------------------------------------------------------------
+
+/** Sparse blog-import payload. Mirrors the frontend `ParsedPatternData`
+ *  but only the fields the canonical materializer reads. */
+export interface BlogImportPayload {
+  name?: string | null;
+  description?: string | null;
+  notes?: string | null;
+  category?: string | null;
+  gauge?: {
+    stitches?: number | null;
+    rows?: number | null;
+    measurement?: string | null;
+  } | null;
+  yarnRequirements?: Array<{ weight?: string | null; yardage?: number | null }>;
+}
+
+/**
+ * Build a canonical Pattern stub from a blog-import payload. Pure —
+ * exported for tests so the field-mapping branches can be exercised
+ * without touching the database.
+ */
+export const buildCanonicalFromBlogImport = (
+  payload: BlogImportPayload,
+): BuiltCanonical => {
+  const name =
+    typeof payload.name === 'string' && payload.name.trim().length > 0
+      ? payload.name.trim()
+      : 'Imported Pattern';
+
+  // Blog imports don't capture craft or technique — default to knit /
+  // standard. The user can refine in Author mode.
+  const craft: Craft = 'knit';
+  const technique: Technique = 'standard';
+
+  // Gauge: blog imports often surface stitches/rows but not the unit.
+  // Default to 4 in (the most common gauge swatch size).
+  const stitches = numberOrZero(payload.gauge?.stitches ?? null);
+  const rows = numberOrZero(payload.gauge?.rows ?? null);
+  const gaugeProfile: GaugeProfile = {
+    stitches,
+    rows,
+    measurement: 4,
+    unit: 'in',
+    blocked: null,
+    toolSize: null,
+    notes: null,
+  };
+
+  // One catch-all section: keep the blog category as a hint, store the
+  // full notes payload under parameters so nothing is lost. The user
+  // can split this into proper sections in Author mode.
+  const category = typeof payload.category === 'string' ? payload.category : null;
+  const sections: PatternSection[] = [
+    makeSection({
+      name: category ? capitalize(category) : 'Imported',
+      kind: mapBlogCategoryToKind(category),
+      sortOrder: 0,
+      parameters: { _blogImportNotes: payload.notes ?? null, _blogCategory: category },
+      notes: payload.description ?? null,
+    }),
+  ];
+
+  // Materials from yarnRequirements when present.
+  const materials: MaterialEntry[] =
+    Array.isArray(payload.yarnRequirements) && payload.yarnRequirements.length > 0
+      ? payload.yarnRequirements.map((y, idx) => ({
+          id: randomUUID(),
+          name: y.weight ?? `Yarn ${idx + 1}`,
+          colorHex: null,
+          yardageMin: y.yardage ?? null,
+          yardageMax: y.yardage ?? null,
+          kind: 'yarn' as const,
+        }))
+      : [];
+
+  return {
+    name,
+    craft,
+    technique,
+    gaugeProfile,
+    sizeSet: buildSingleSizeSet(),
+    sections,
+    legend: { overrides: {} },
+    materials,
+    progressState: {},
+    notes: payload.notes ?? null,
+  };
+};
+
+/**
+ * Materialize a canonical Pattern stub from a blog import. Idempotent
+ * via `source_pattern_id`: if a canonical twin already exists for the
+ * given legacy patternId, the existing row is returned untouched (we
+ * don't clobber any user edits made in Author mode after the initial
+ * import).
+ */
+export const importBlogPatternToCanonical = async (input: {
+  userId: string;
+  sourcePatternId: string;
+  payload: BlogImportPayload;
+}): Promise<CanonicalPattern> => {
+  const existing = await findExistingTwin({
+    userId: input.userId,
+    sourcePatternId: input.sourcePatternId,
+    sourceProjectId: null,
+  });
+  if (existing) return rowToPattern(existing);
+
+  const built = buildCanonicalFromBlogImport(input.payload);
+  return insertCanonical(built, {
+    userId: input.userId,
+    sourcePatternId: input.sourcePatternId,
+    sourceProjectId: null,
+  });
+};
+
+/** Sparse chart-upload payload. */
+export interface ChartUploadPayload {
+  chartId: string;
+  chartName?: string | null;
+}
+
+/**
+ * Build a canonical Pattern stub centered on an OCR'd chart. The chart
+ * attaches via a `custom-draft-section` with `chartPlacement.chartId`
+ * pointing at the new chart row. Pure.
+ */
+export const buildCanonicalFromChartUpload = (
+  payload: ChartUploadPayload,
+): BuiltCanonical => {
+  const name =
+    typeof payload.chartName === 'string' && payload.chartName.trim().length > 0
+      ? payload.chartName.trim()
+      : 'Chart-only pattern';
+
+  const sections: PatternSection[] = [
+    {
+      ...makeSection({
+        name: 'Chart',
+        kind: 'custom-draft-section',
+        sortOrder: 0,
+        parameters: { _source: 'chart-image-upload' },
+      }),
+      chartPlacement: {
+        chartId: payload.chartId,
+        repeatMode: 'tile',
+        offset: { x: 0, y: 0 },
+        layer: 0,
+      },
+    },
+  ];
+
+  return {
+    name,
+    craft: 'knit',
+    technique: 'standard',
+    gaugeProfile: {
+      stitches: 0,
+      rows: 0,
+      measurement: 4,
+      unit: 'in',
+      blocked: null,
+      toolSize: null,
+      notes: null,
+    },
+    sizeSet: buildSingleSizeSet(),
+    sections,
+    legend: { overrides: {} },
+    materials: [],
+    progressState: {},
+    notes: null,
+  };
+};
+
+/**
+ * Materialize a canonical Pattern stub from an OCR'd chart upload.
+ * Not deduped — each chart upload that opts in produces one canonical
+ * pattern; the user can delete duplicates from the patterns listing.
+ */
+export const importChartUploadToCanonical = async (input: {
+  userId: string;
+  payload: ChartUploadPayload;
+}): Promise<CanonicalPattern> => {
+  const built = buildCanonicalFromChartUpload(input.payload);
+  return insertCanonical(built, {
+    userId: input.userId,
+    sourcePatternId: null,
+    sourceProjectId: null,
+  });
+};
+
+const capitalize = (s: string): string =>
+  s.length === 0 ? s : s[0].toUpperCase() + s.slice(1);
+
+const mapBlogCategoryToKind = (category: string | null): SectionKind => {
+  switch (category) {
+    case 'sweater':
+    case 'cardigan':
+      return 'sweater-body';
+    case 'hat':
+      return 'hat';
+    case 'scarf':
+      return 'scarf';
+    case 'blanket':
+      return 'blanket';
+    case 'shawl':
+      return 'shawl';
+    case 'mittens':
+      return 'mittens';
+    case 'socks':
+      return 'socks';
+    default:
+      return 'custom-draft-section';
+  }
 };
 
 const ITEM_TYPE_LABEL: Record<string, string> = {
@@ -554,15 +788,21 @@ const findExistingTwin = async (
   return query.first();
 };
 
+interface InsertCanonicalSources {
+  userId: string;
+  sourcePatternId: string | null;
+  sourceProjectId: string | null;
+}
+
 const insertCanonical = async (
   built: BuiltCanonical,
-  input: ImportInput,
+  sources: InsertCanonicalSources,
 ): Promise<CanonicalPattern> => {
   const [row] = await db<PatternModelRow>('pattern_models')
     .insert({
-      user_id: input.userId,
-      source_pattern_id: input.sourcePatternId ?? null,
-      source_project_id: input.sourceProjectId ?? null,
+      user_id: sources.userId,
+      source_pattern_id: sources.sourcePatternId,
+      source_project_id: sources.sourceProjectId,
       name: built.name,
       craft: built.craft,
       technique: built.technique,
