@@ -24,3 +24,12 @@ const isTruthy = (v: string | undefined): boolean => {
 export function isAuthorModeEnabled(): boolean {
   return isTruthy(import.meta.env.VITE_DESIGNER_AUTHOR_MODE);
 }
+
+/**
+ * Make mode at `/patterns/:id/make`. Off by default; set
+ * `VITE_DESIGNER_MAKE_MODE=1` to expose the route. Independent of
+ * Author mode so each can roll out at its own cadence.
+ */
+export function isMakeModeEnabled(): boolean {
+  return isTruthy(import.meta.env.VITE_DESIGNER_MAKE_MODE);
+}
