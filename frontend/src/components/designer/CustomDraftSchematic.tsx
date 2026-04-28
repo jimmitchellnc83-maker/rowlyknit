@@ -120,7 +120,6 @@ export default function CustomDraftSchematic({ output, unit, chart, mainColor, z
         rowToPx={rowToPx}
         clipId={clipId}
         renderSymbols
-        minCellSize={14}
       />
 
       {/* Section dividers — dashed line between sections */}

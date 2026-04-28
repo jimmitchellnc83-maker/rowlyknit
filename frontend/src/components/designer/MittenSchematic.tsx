@@ -80,7 +80,6 @@ export default function MittenSchematic({ output, unit, chart, mainColor, zoom =
         rowToPx={rowToPx}
         clipId={clipId}
         renderSymbols
-        minCellSize={14}
       />
 
       {/* Cuff dashed band at bottom */}

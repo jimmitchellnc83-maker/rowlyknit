@@ -71,7 +71,6 @@ export default function SockSchematic({ output, unit, chart, mainColor, zoom = 1
         rowToPx={rowToPx}
         clipId={clipId}
         renderSymbols
-        minCellSize={14}
       />
 
       {/* Cuff dashed band */}

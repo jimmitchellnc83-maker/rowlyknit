@@ -121,7 +121,6 @@ export default function RectSchematic({
         rowToPx={rowToPx}
         clipId={clipId}
         renderSymbols
-        minCellSize={14}
       />
 
       {/* Border frame (dashed inner rectangle) */}

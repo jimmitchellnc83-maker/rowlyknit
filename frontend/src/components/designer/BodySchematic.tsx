@@ -158,7 +158,6 @@ export default function BodySchematic({
         rowToPx={rowToPx}
         clipId={clipId}
         renderSymbols
-        minCellSize={14}
       />
 
       {/* Hem fill — slightly darker band at cast-on edge */}
