@@ -17,6 +17,12 @@
 import { resolveStitchKey } from '../data/stitchSvgLibrary';
 import type { ChartData } from '../components/designer/ChartGrid';
 import type { ChartSymbolTemplate } from '../types/chartSymbol';
+import type { Craft, Technique } from '../types/pattern';
+import {
+  buildRowPrefix,
+  isRightSideRow,
+  shouldReverseCellOrder,
+} from './techniqueRules';
 
 export type ChartInstructionMode = 'shape-only' | 'with-chart-ref' | 'with-chart-text';
 
@@ -49,6 +55,13 @@ export interface BuildChartInstructionsOptions {
   /** Known symbol templates (system + custom merged). The function looks
    *  each cell symbol up here for abbrev / RS+WS instruction / cell_span. */
   symbols: ChartSymbolTemplate[];
+  /** Active craft. Defaults to 'knit' for backward compatibility with
+   *  call sites that pre-date the technique-rules engine. */
+  craft?: Craft;
+  /** Active technique. Defaults to 'standard'; the engine uses the
+   *  craft+technique pair to drive RS/WS alternation, cell traversal
+   *  direction, and row-prefix vocabulary. */
+  technique?: Technique;
 }
 
 /**
@@ -61,6 +74,8 @@ export function buildChartInstructions(
   options: BuildChartInstructionsOptions,
 ): ChartRowInstruction[] {
   const { chart, symbols } = options;
+  const craft: Craft = options.craft ?? 'knit';
+  const technique: Technique = options.technique ?? 'standard';
   const inRound = chart.workedInRound === true;
 
   // Build a fast lookup from canonical symbol → template.
@@ -73,9 +88,9 @@ export function buildChartInstructions(
     // The cells array is row-major with index 0 = TOP of chart visually.
     // Knitter row 1 is at the BOTTOM, so it lives at the LAST row of cells.
     const cellRow = chart.height - knitRow;
-    const isRS = inRound ? true : knitRow % 2 === 1;
+    const isRS = isRightSideRow(knitRow, inRound, craft, technique);
 
-    const ops = walkRow(chart, cellRow, isRS, inRound, bySymbol);
+    const ops = walkRow(chart, cellRow, isRS, inRound, craft, technique, bySymbol);
     const empty = ops.every((op) => op.kind === 'gap');
     const warnings = ops.flatMap((op) => (op.kind === 'op' ? op.warnings : []));
     const compressed = compressOps(ops);
@@ -85,9 +100,7 @@ export function buildChartInstructions(
       0,
     );
 
-    let prefix: string;
-    if (inRound) prefix = `Round ${knitRow}:`;
-    else prefix = `Row ${knitRow} (${isRS ? 'RS' : 'WS'}):`;
+    const prefix = buildRowPrefix(knitRow, inRound, craft, technique);
 
     rows.push({
       rowNumber: knitRow,
@@ -138,17 +151,20 @@ function walkRow(
   cellRow: number,
   isRS: boolean,
   inRound: boolean,
+  craft: Craft,
+  technique: Technique,
   bySymbol: Map<string, ChartSymbolTemplate>,
 ): RowToken[] {
-  // Read cells in working order:
-  //   RS rows + every round: right-to-left (knitter convention)
-  //   WS rows (flat work): left-to-right
+  // Cell traversal direction comes from the technique-rules engine —
+  // knit standard reverses on RS only; crochet always reverses; rounds
+  // always reverse; Tunisian alternates per pass.
   const visualOrder: { cellIndex: number; symbolId: string | null }[] = [];
   for (let c = 0; c < chart.width; c++) {
     const idx = cellRow * chart.width + c;
     visualOrder.push({ cellIndex: idx, symbolId: chart.cells[idx]?.symbolId ?? null });
   }
-  const working = isRS || inRound ? [...visualOrder].reverse() : visualOrder;
+  const reverse = shouldReverseCellOrder(isRS, inRound, craft, technique);
+  const working = reverse ? [...visualOrder].reverse() : visualOrder;
 
   const tokens: RowToken[] = [];
   let i = 0;
