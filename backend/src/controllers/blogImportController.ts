@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import blogExtractorService from '../services/blogExtractorService';
+import { importBlogPatternToCanonical } from '../services/patternService';
 import logger from '../config/logger';
 
 /**
@@ -91,6 +92,31 @@ export async function saveImportedPattern(req: Request, res: Response): Promise<
       patternData,
       sourceUrl || importRecord.source_url
     );
+
+    // Materialize a canonical twin so the imported pattern shows up in
+    // Author / Make / future public-share surfaces alongside Designer-
+    // authored work. Best-effort: log and continue if the canonical write
+    // fails — the legacy save is the user-visible success path.
+    try {
+      await importBlogPatternToCanonical({
+        userId,
+        sourcePatternId: patternId,
+        payload: {
+          name: patternData?.name,
+          description: patternData?.description,
+          notes: patternData?.notes,
+          category: patternData?.category,
+          gauge: patternData?.gauge,
+          yarnRequirements: patternData?.yarnRequirements,
+        },
+      });
+    } catch (canonicalErr) {
+      logger.warn('Canonical twin materialization failed for blog import', {
+        userId,
+        patternId,
+        error: canonicalErr instanceof Error ? canonicalErr.message : 'Unknown error',
+      });
+    }
 
     res.status(201).json({
       success: true,
