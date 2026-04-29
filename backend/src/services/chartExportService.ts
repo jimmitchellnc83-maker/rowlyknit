@@ -15,6 +15,10 @@ export interface ExportOptions {
   include_notes?: boolean;
   include_row_numbers?: boolean;
   include_column_numbers?: boolean;
+  /** Draw the chart's repeat-region box (dashed purple rectangle) when
+   *  the chart has one. Default true. No-op when the chart payload has
+   *  no repeat_region. */
+  include_repeat_box?: boolean;
   smart_page_breaks?: boolean;
 
   // PNG options
@@ -35,6 +39,18 @@ export interface ChartData {
   notes?: string;
   description?: string;
   designer?: string;
+  /** Optional repeat-region box, mirroring the on-screen ChartGrid
+   *  overlay. 0-indexed columns / rows, inclusive. Today the `charts`
+   *  table doesn't persist this — the column needs to be added by a v2
+   *  schema migration — but the renderer is wired so the moment that
+   *  migration lands and the controller reads it, exports will pick it
+   *  up automatically. */
+  repeat_region?: {
+    startCol: number;
+    endCol: number;
+    startRow?: number;
+    endRow?: number;
+  };
 }
 
 const CELL_SIZES = {
@@ -246,6 +262,32 @@ const buildChartSvg = (chart: ChartData, options: ExportOptions = {}): string =>
         svg += `<text x="${x + cellSize / 2}" y="${y + cellSize / 2 + 4}" text-anchor="middle" font-family="Arial" font-size="${Math.min(cellSize - 4, 14)}">${escapeXml(symbol)}</text>`;
       }
     }
+  }
+
+  // Repeat-box overlay — dashed purple rectangle around the repeat
+  // columns (and rows, when set). Mirrors ChartGrid.tsx's on-screen
+  // overlay so what knitters see in the editor matches the export.
+  // Default ON; explicitly set include_repeat_box=false to suppress.
+  const includeRepeat = options.include_repeat_box !== false;
+  const region = chart.repeat_region;
+  if (
+    includeRepeat &&
+    region &&
+    region.startCol >= 0 &&
+    region.endCol < cols &&
+    region.startCol <= region.endCol
+  ) {
+    const boxX = chartStartX + region.startCol * cellSize;
+    const boxY =
+      typeof region.startRow === 'number' && region.startRow >= 0
+        ? chartStartY + region.startRow * cellSize
+        : chartStartY;
+    const boxW = (region.endCol - region.startCol + 1) * cellSize;
+    const boxH =
+      typeof region.endRow === 'number' && region.endRow < rows
+        ? (region.endRow - (region.startRow ?? 0) + 1) * cellSize
+        : rows * cellSize;
+    svg += `<rect x="${boxX}" y="${boxY}" width="${boxW}" height="${boxH}" fill="none" stroke="#7c3aed" stroke-width="2" stroke-dasharray="6,4"/>`;
   }
 
   svg += '</svg>';

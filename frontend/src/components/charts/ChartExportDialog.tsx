@@ -86,6 +86,7 @@ const ChartExportDialog: React.FC<ChartExportDialogProps> = ({
   const [includeLegend, setIncludeLegend] = useState(true);
   const [includeNotes, setIncludeNotes] = useState(true);
   const [includeRowNumbers, setIncludeRowNumbers] = useState(true);
+  const [includeRepeatBox, setIncludeRepeatBox] = useState(true);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -108,6 +109,7 @@ const ChartExportDialog: React.FC<ChartExportDialogProps> = ({
             include_legend: includeLegend,
             include_notes: includeNotes,
             include_row_numbers: includeRowNumbers,
+            include_repeat_box: includeRepeatBox,
           },
         }),
       });
@@ -269,6 +271,15 @@ const ChartExportDialog: React.FC<ChartExportDialogProps> = ({
                   />
                 }
                 label="Include row numbers"
+              />
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={includeRepeatBox}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setIncludeRepeatBox(e.target.checked)}
+                  />
+                }
+                label="Include repeat box"
               />
               {format === 'pdf' && (
                 <FormControlLabel

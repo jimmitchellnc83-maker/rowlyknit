@@ -175,7 +175,7 @@ export const exportChartHandler = async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Chart not found' });
     }
 
-    const validFormats = ['pdf', 'png', 'csv', 'ravelry', 'markdown'];
+    const validFormats = ['pdf', 'png', 'svg', 'csv', 'ravelry', 'markdown'];
     if (!validFormats.includes(format)) {
       return res.status(400).json({ error: `Invalid format. Must be one of: ${validFormats.join(', ')}` });
     }
