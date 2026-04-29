@@ -170,3 +170,47 @@ describe('displayPercent', () => {
     expect(displayPercent(0.01)).toBe('1%');
   });
 });
+
+describe('estimatePerColorYardage no-stitch handling', () => {
+  it('excludes no-stitch cells from the color split (they are placeholders, not fabric)', () => {
+    // 4-cell chart: 2 MC stitches + 2 no-stitch placeholders.
+    // Without the fix, the split would be 100% MC over 4 cells.
+    // With the fix, the split is 100% MC over 2 cells — but the absolute
+    // total yardage is unchanged because that's derived from the silhouette
+    // area, not the cell count. What MUST change is that adding more
+    // no-stitch cells does NOT shift the proportions away from CC.
+    const chartWithNoStitch: ChartData = {
+      width: 4,
+      height: 1,
+      cells: [
+        { symbolId: 'k', colorHex: '#3E5D3A' }, // CC
+        { symbolId: 'k', colorHex: null },      // MC (blank colorHex)
+        { symbolId: 'no-stitch', colorHex: null },
+        { symbolId: 'no-stitch', colorHex: null },
+      ],
+    };
+    const out = estimatePerColorYardage(2500, gauge, chartWithNoStitch, palette);
+    // Expect 50/50 — the two no-stitch cells should not pad the MC share.
+    const mcRow = out.rows.find((r: PerColorYardage) => r.isMain);
+    const ccRow = out.rows.find((r: PerColorYardage) => !r.isMain);
+    expect(mcRow?.fraction).toBeCloseTo(0.5, 5);
+    expect(ccRow?.fraction).toBeCloseTo(0.5, 5);
+  });
+
+  it('falls back to 100% MC when every non-no-stitch cell is also blank', () => {
+    const allNoStitchOrBlank: ChartData = {
+      width: 4,
+      height: 1,
+      cells: [
+        { symbolId: 'no-stitch', colorHex: null },
+        { symbolId: null, colorHex: null },
+        { symbolId: 'no-stitch', colorHex: null },
+        { symbolId: null, colorHex: null },
+      ],
+    };
+    const out = estimatePerColorYardage(2500, gauge, allNoStitchOrBlank, palette);
+    expect(out.rows).toHaveLength(1);
+    expect(out.rows[0].isMain).toBe(true);
+    expect(out.rows[0].fraction).toBe(1);
+  });
+});

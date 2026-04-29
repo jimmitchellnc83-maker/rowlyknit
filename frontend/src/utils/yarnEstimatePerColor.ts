@@ -23,6 +23,7 @@ import type { ChartData } from '../components/designer/ChartGrid';
 import type { ColorSwatch } from '../components/designer/ColorPalette';
 import { estimateYardageFromArea, type YardageRange } from './yardageEstimate';
 import type { DesignerGauge } from './designerMath';
+import { resolveStitchKey } from '../data/stitchSvgLibrary';
 
 export interface PerColorYardage {
   /** Hex of the color this row covers (matches `ColorSwatch.hex`). */
@@ -68,10 +69,16 @@ export function estimatePerColorYardage(
 
   // Count cells per color (lowercased hex). Cells with no explicit
   // colorHex go to MC — same convention as the print-view colors strip.
+  // No-stitch cells are placeholders, not fabric; they don't consume yarn
+  // and would otherwise inflate the MC share.
   const counts = new Map<string, number>();
   let totalCells = 0;
   if (chart) {
     for (const cell of chart.cells) {
+      if (cell?.symbolId) {
+        const canonical = resolveStitchKey(cell.symbolId) ?? cell.symbolId;
+        if (canonical === 'no-stitch') continue;
+      }
       const hex = cell.colorHex ? cell.colorHex.toLowerCase() : mcHex;
       counts.set(hex, (counts.get(hex) ?? 0) + 1);
       totalCells += 1;

@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { FiEdit3, FiPrinter, FiTool } from 'react-icons/fi';
+import { resolveStitchKey } from '../../data/stitchSvgLibrary';
 import { computeDesign, type DesignerFormSnapshot } from '../../utils/designerSnapshot';
 import { estimateYardageFromArea, formatYardage } from '../../utils/yardageEstimate';
 import { finishedAreaSqIn } from '../../utils/designerArea';
@@ -76,14 +77,19 @@ export default function DesignCard({ form, projectId, patternId }: DesignCardPro
                 ))}
               </li>
             )}
-            {form.chart && (
-              <li className="text-xs text-gray-500 dark:text-gray-400">
-                Chart: {form.chart.width}×{form.chart.height}{' '}
-                {form.chart.cells.filter((c) => c.symbolId || c.colorHex).length > 0
-                  ? `(${form.chart.cells.filter((c) => c.symbolId || c.colorHex).length} cells filled)`
-                  : '(blank)'}
-              </li>
-            )}
+            {form.chart && (() => {
+              const filled = form.chart.cells.filter((c) => {
+                if (c.colorHex) return true;
+                if (!c.symbolId) return false;
+                return (resolveStitchKey(c.symbolId) ?? c.symbolId) !== 'no-stitch';
+              }).length;
+              return (
+                <li className="text-xs text-gray-500 dark:text-gray-400">
+                  Chart: {form.chart!.width}×{form.chart!.height}{' '}
+                  {filled > 0 ? `(${filled} cells filled)` : '(blank)'}
+                </li>
+              );
+            })()}
           </ul>
 
           {showActions && (
