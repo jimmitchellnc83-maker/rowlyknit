@@ -359,3 +359,34 @@ export function collectChartSymbols(chart: ChartData): string[] {
   }
   return order;
 }
+
+// ---------------------------------------------------------------------------
+// Cast-on preamble — when a chart marks a repeat region, the printed
+// pattern should lead with the conventional "Cast on a multiple of N sts,
+// plus E" formula derived from the repeat width.
+// ---------------------------------------------------------------------------
+
+/**
+ * Format the cast-on preamble for a chart with a repeat region.
+ *
+ * Returns null when the chart has no `repeatRegion`, or when the region is
+ * malformed (out of bounds / inverted) — callers should treat null as
+ * "no preamble" rather than as an error.
+ *
+ * Examples (assuming chart.width = 22):
+ *   - repeat cols 0..21 (full width)   → "Cast on a multiple of 22 sts."
+ *   - repeat cols 2..11 (10-st repeat) → "Cast on a multiple of 10 sts, plus 12."
+ *   - 1-stitch repeat                  → "Cast on a multiple of 1 st, plus N."
+ */
+export function formatCastOnFromRepeat(chart: ChartData): string | null {
+  const r = chart.repeatRegion;
+  if (!r) return null;
+  if (r.startCol < 0 || r.endCol >= chart.width || r.startCol > r.endCol) return null;
+  const repeatWidth = r.endCol - r.startCol + 1;
+  const edgeStitches = chart.width - repeatWidth;
+  const stUnit = repeatWidth === 1 ? 'st' : 'sts';
+  if (edgeStitches === 0) {
+    return `Cast on a multiple of ${repeatWidth} ${stUnit}.`;
+  }
+  return `Cast on a multiple of ${repeatWidth} ${stUnit}, plus ${edgeStitches}.`;
+}

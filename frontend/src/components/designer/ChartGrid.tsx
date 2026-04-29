@@ -15,6 +15,17 @@ export interface ChartCell {
   colorHex: string | null;
 }
 
+/** Optional bold-bordered region marking the repeat unit within a chart.
+ *  Both indices are 0-based, inclusive, and address columns from the LEFT
+ *  (column 0 = leftmost cell in the cells array). The chart designer UI
+ *  presents these to the knitter using stitch numbers (1-indexed from the
+ *  right) and converts on save. Spans the full chart height for now —
+ *  vertical repeat bounds can be added later if needed. */
+export interface ChartRepeatRegion {
+  startCol: number;
+  endCol: number;
+}
+
 export interface ChartData {
   width: number;
   height: number;
@@ -24,6 +35,10 @@ export interface ChartData {
    *  rows). Drives chart-to-text generation and the row-label gutter
    *  (shows "Rnd" instead of "RS/WS"). Defaults to false (flat work). */
   workedInRound?: boolean;
+  /** Knitting convention: a chart can flag a sub-range of columns as the
+   *  repeat unit (drawn with a bold border). The cast-on preamble derives
+   *  "multiple of N sts, plus E" from this. */
+  repeatRegion?: ChartRepeatRegion;
 }
 
 export type ChartTool =
@@ -362,6 +377,26 @@ export default function ChartGrid({
               {overlayNodes}
             </svg>
           )}
+          {/* Repeat-box overlay — bold dashed border around the repeat
+              columns. pointer-events:none so painting still works inside
+              the box. */}
+          {chart.repeatRegion &&
+            chart.repeatRegion.startCol >= 0 &&
+            chart.repeatRegion.endCol < chart.width &&
+            chart.repeatRegion.startCol <= chart.repeatRegion.endCol && (
+              <div
+                className="pointer-events-none absolute border-2 border-dashed border-purple-600 dark:border-purple-400"
+                style={{
+                  left: chart.repeatRegion.startCol * cellSize,
+                  top: 0,
+                  width:
+                    (chart.repeatRegion.endCol - chart.repeatRegion.startCol + 1) * cellSize,
+                  height: chart.height * cellSize,
+                }}
+                aria-label="Repeat unit"
+                role="presentation"
+              />
+            )}
         </div>
 
         {/* Right row-number gutter — RS rows for flat, all rows for in-the-round */}
