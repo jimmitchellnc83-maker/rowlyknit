@@ -270,7 +270,10 @@ const DEFAULT_FORM: DesignerForm = {
   chart: null,
   chartAssetId: null,
   chartInstructionMode: 'with-chart-text',
-  chartPlacement: 'tile',
+  // Default to 'single' so the chart shows as drawn (no repetition).
+  // Users with a small repeat unit (cable pattern, fair-isle) can switch
+  // to 'tile' from the Chart section's "On schematic" toggle.
+  chartPlacement: 'single',
 
   patternTitle: '',
   patternSubtitle: '',
@@ -2312,28 +2315,57 @@ export default function PatternDesigner() {
                                 ? 'Body block'
                                 : 'Sleeve'}
               </h2>
-              <div className="flex items-center gap-1">
-                <span className="text-xs text-gray-500">Zoom</span>
-                {[
-                  { label: '1×', value: 1 },
-                  { label: '1.5×', value: 1.5 },
-                  { label: '2×', value: 2 },
-                  { label: '3×', value: 3 },
-                ].map((opt) => (
-                  <button
-                    key={opt.label}
-                    type="button"
-                    onClick={() => setSchematicZoom(opt.value)}
-                    aria-pressed={schematicZoom === opt.value}
-                    className={`rounded border px-2 py-0.5 text-xs ${
-                      schematicZoom === opt.value
-                        ? 'border-purple-600 bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-200'
-                        : 'border-gray-300 bg-white text-gray-600 hover:border-purple-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300'
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
+              <div className="flex flex-wrap items-center gap-3">
+                {form.chart && (
+                  <div className="flex items-center gap-1" title="How the chart maps onto the schematic">
+                    <span className="text-xs text-gray-500">Chart:</span>
+                    {(
+                      [
+                        { id: 'single' as const, label: 'Once', help: 'Show the chart one time, anchored bottom-left at natural stitch size' },
+                        { id: 'tile' as const, label: 'Repeat', help: 'Tile the chart across the silhouette at 1 cell per stitch (use for stitch patterns / fair-isle repeats)' },
+                        { id: 'fit' as const, label: 'Fill', help: 'Stretch the chart to fill the silhouette as one image' },
+                      ]
+                    ).map((opt) => (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => update('chartPlacement', opt.id)}
+                        aria-pressed={form.chartPlacement === opt.id}
+                        title={opt.help}
+                        className={`rounded border px-2 py-0.5 text-xs ${
+                          form.chartPlacement === opt.id
+                            ? 'border-purple-600 bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-200'
+                            : 'border-gray-300 bg-white text-gray-600 hover:border-purple-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300'
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <div className="flex items-center gap-1">
+                  <span className="text-xs text-gray-500">Zoom</span>
+                  {[
+                    { label: '1×', value: 1 },
+                    { label: '1.5×', value: 1.5 },
+                    { label: '2×', value: 2 },
+                    { label: '3×', value: 3 },
+                  ].map((opt) => (
+                    <button
+                      key={opt.label}
+                      type="button"
+                      onClick={() => setSchematicZoom(opt.value)}
+                      aria-pressed={schematicZoom === opt.value}
+                      className={`rounded border px-2 py-0.5 text-xs ${
+                        schematicZoom === opt.value
+                          ? 'border-purple-600 bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-200'
+                          : 'border-gray-300 bg-white text-gray-600 hover:border-purple-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
             <div className="overflow-x-auto">
