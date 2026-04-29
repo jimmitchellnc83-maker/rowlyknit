@@ -41,6 +41,7 @@ import ShawlSchematic from '../components/designer/ShawlSchematic';
 import SleeveSchematic from '../components/designer/SleeveSchematic';
 import SockSchematic from '../components/designer/SockSchematic';
 import StitchPalette from '../components/designer/StitchPalette';
+import ChartLegend from '../components/designer/ChartLegend';
 import YardageEstimateWidget from '../components/designer/YardageEstimateWidget';
 import PageHelpButton from '../components/PageHelpButton';
 import { useChartSymbols } from '../hooks/useChartSymbols';
@@ -1290,6 +1291,8 @@ function ChartSection({
       <div className="mt-4">
         <ChartGrid chart={chart} onChange={onChange} tool={tool} cellSize={cellSize} />
       </div>
+
+      <ChartLegend chart={chart} craft={craft} paletteColors={paletteColors} />
 
       <div className="mt-3 flex items-center gap-2">
         <button
