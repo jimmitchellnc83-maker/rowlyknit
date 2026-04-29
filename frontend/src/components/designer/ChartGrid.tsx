@@ -31,11 +31,19 @@ export type ChartTool =
   | { type: 'color'; hex: string }
   | { type: 'erase' };
 
+/** Largest chart we'll create. A full adult sweater body is ~100 sts × ~180
+ *  rows; this caps at 200×200 so the user can build full-piece charts
+ *  without losing the safety net entirely. Manually-resized charts can go
+ *  up to this same cap via `resizeChart`. */
+const MAX_CHART_DIM = 200;
+
 export function emptyChart(width: number, height: number): ChartData {
+  const w = Math.max(1, Math.min(MAX_CHART_DIM, Math.round(width)));
+  const h = Math.max(1, Math.min(MAX_CHART_DIM, Math.round(height)));
   return {
-    width: Math.max(1, Math.min(60, Math.round(width))),
-    height: Math.max(1, Math.min(60, Math.round(height))),
-    cells: Array.from({ length: Math.max(1, width) * Math.max(1, height) }, () => ({
+    width: w,
+    height: h,
+    cells: Array.from({ length: w * h }, () => ({
       symbolId: null,
       colorHex: null,
     })),
@@ -44,8 +52,8 @@ export function emptyChart(width: number, height: number): ChartData {
 }
 
 export function resizeChart(prev: ChartData, width: number, height: number): ChartData {
-  const w = Math.max(1, Math.min(60, Math.round(width)));
-  const h = Math.max(1, Math.min(60, Math.round(height)));
+  const w = Math.max(1, Math.min(MAX_CHART_DIM, Math.round(width)));
+  const h = Math.max(1, Math.min(MAX_CHART_DIM, Math.round(height)));
   const next: ChartCell[] = [];
   for (let r = 0; r < h; r++) {
     for (let c = 0; c < w; c++) {
