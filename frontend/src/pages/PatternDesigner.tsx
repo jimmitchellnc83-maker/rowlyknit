@@ -938,6 +938,7 @@ function ChartSection({
   defaultName,
   chartPlacement,
   onChartPlacementChange,
+  suggestedChartDims,
 }: {
   chart: ChartData | null;
   onChange: (next: ChartData | null) => void;
@@ -950,6 +951,10 @@ function ChartSection({
   defaultName: string;
   chartPlacement: DesignerForm['chartPlacement'];
   onChartPlacementChange: (next: DesignerForm['chartPlacement']) => void;
+  /** Suggested chart canvas dims based on the active section's stitch
+   *  + row count. Knitting charts map 1 cell to 1 stitch, so the canvas
+   *  should match the section dimensions when designing a full motif. */
+  suggestedChartDims: { width: number; height: number };
 }) {
   const defaultSymbolId = craft === 'crochet' ? 'sc' : 'k';
   const [tool, setTool] = useState<ChartTool>({ type: 'symbol', symbolId: defaultSymbolId });
@@ -976,17 +981,26 @@ function ChartSection({
           Chart <span className="text-xs font-normal text-gray-500">(optional)</span>
         </h2>
         <p className="mb-3 text-sm text-gray-600 dark:text-gray-400">
-          Design a stitch or colorwork chart to attach to this pattern. Click or drag on the grid
-          to place symbols (knit, purl, yarn-over, decreases) or colors from the palette. The
-          chart rides along with the rest of the design in the print view.
+          Design a stitch or colorwork chart to attach to this pattern. Each chart cell is one
+          stitch and one row. Pick the canvas size that matches what you're designing — a full
+          section design (motif fills the whole piece) or a small repeat that tiles.
         </p>
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
-            onClick={() => onChange(emptyChart(20, 16))}
+            onClick={() => onChange(emptyChart(suggestedChartDims.width, suggestedChartDims.height))}
             className="rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700"
+            title={`Match the active section's stitch dimensions (${suggestedChartDims.width}×${suggestedChartDims.height} = 1 cell per stitch)`}
           >
-            Add chart
+            Full section ({suggestedChartDims.width}×{suggestedChartDims.height})
+          </button>
+          <button
+            type="button"
+            onClick={() => onChange(emptyChart(20, 16))}
+            className="rounded-lg border border-purple-300 px-4 py-2 text-sm font-medium text-purple-700 hover:bg-purple-50 dark:border-purple-800 dark:text-purple-300 dark:hover:bg-purple-900/30"
+            title="Small canvas for a tiling repeat unit (cable, fair-isle motif). Use 'Repeat' placement to tile across the section."
+          >
+            Small repeat (20×16)
           </button>
           <button
             type="button"
@@ -1590,6 +1604,70 @@ export default function PatternDesigner() {
 
   const update = <K extends keyof DesignerForm>(key: K, value: DesignerForm[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }));
+
+  // Suggested chart dimensions for the active section. Knitting charts
+  // map 1 cell to 1 stitch and 1 cell to 1 row, so the canvas should
+  // match the section's actual stitch + row count when the user wants
+  // to design a full-section motif (fair-isle yoke, full sweater body,
+  // etc.). The suggestion is capped at 200×200 — beyond that the chart
+  // grid becomes hard to interact with and the user can resize down.
+  const suggestedChartDims = useMemo<{ width: number; height: number }>(() => {
+    const cap = 200;
+    const clamp = (n: number) => Math.max(8, Math.min(cap, Math.round(n)));
+    if (form.itemType === 'sweater' && form.activeSection === 'body' && bodyOutput) {
+      // Body chart: cast-on stitches × total rows. For a 40" worsted
+      // body that's typically ~100×150.
+      return { width: clamp(bodyOutput.castOnStitches), height: clamp(bodyOutput.totalRows) };
+    }
+    if (form.itemType === 'sweater' && form.activeSection === 'sleeve' && sleeveOutput) {
+      // Sleeve chart: bicep is the widest point, total rows includes cap.
+      return {
+        width: clamp(sleeveOutput.bicepStitches),
+        height: clamp(sleeveOutput.totalRows),
+      };
+    }
+    if (form.itemType === 'hat' && hatOutput) {
+      return { width: clamp(hatOutput.castOnStitches), height: clamp(hatOutput.brimRows + hatOutput.bodyRows + hatOutput.crownRows) };
+    }
+    if (form.itemType === 'scarf' && scarfOutput) {
+      return { width: clamp(scarfOutput.castOnStitches), height: clamp(scarfOutput.totalRows) };
+    }
+    if (form.itemType === 'blanket' && blanketOutput) {
+      return { width: clamp(blanketOutput.castOnStitches), height: clamp(blanketOutput.totalRows) };
+    }
+    if (form.itemType === 'shawl' && shawlOutput) {
+      // Top-down triangle: starts narrow at apex, ends wide at wingspan.
+      // Chart should be sized to the widest point (final stitches).
+      return { width: clamp(shawlOutput.finalStitches), height: clamp(shawlOutput.totalRows) };
+    }
+    if (form.itemType === 'mittens' && mittenOutput) {
+      return { width: clamp(mittenOutput.handStitches), height: clamp(mittenOutput.totalRows) };
+    }
+    if (form.itemType === 'socks' && sockOutput) {
+      return { width: clamp(sockOutput.castOnStitches), height: clamp(sockOutput.totalRows) };
+    }
+    if (form.itemType === 'custom' && customDraftOutput) {
+      return {
+        width: clamp(customDraftOutput.startingStitches),
+        height: clamp(customDraftOutput.totalRows),
+      };
+    }
+    // Fallback when the form isn't ready: small starter canvas the user
+    // can resize manually.
+    return { width: 20, height: 16 };
+  }, [
+    form.itemType,
+    form.activeSection,
+    bodyOutput,
+    sleeveOutput,
+    hatOutput,
+    scarfOutput,
+    blanketOutput,
+    shawlOutput,
+    mittenOutput,
+    sockOutput,
+    customDraftOutput,
+  ]);
 
   const unitLabel = form.unit === 'in' ? 'in' : 'cm';
 
@@ -2555,6 +2633,7 @@ export default function PatternDesigner() {
         defaultName={form.patternTitle?.trim() || `${itemLabel(form.itemType)} chart`}
         chartPlacement={form.chartPlacement ?? 'tile'}
         onChartPlacementChange={(next) => update('chartPlacement', next)}
+        suggestedChartDims={suggestedChartDims}
       />
     </div>
   );
