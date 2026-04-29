@@ -928,6 +928,81 @@ function PatternMetadataPanel({
 }
 
 /**
+ * Tiny project-context strip rendered just under the Chart section header.
+ * Surfaces gauge + craft + MC label so the knitter sees their project
+ * context without scrolling back up to the gauge / colors panels. Each
+ * chip is dropped when the underlying data isn't set, so an unset color
+ * palette doesn't render a "MC: —" placeholder.
+ */
+function ChartContextStrip({
+  gauge,
+  craft,
+  paletteColors,
+}: {
+  gauge: { stitchesPer4in: number; rowsPer4in: number };
+  craft: Craft;
+  paletteColors: ColorSwatch[];
+}) {
+  const hasGauge = gauge.stitchesPer4in > 0 && gauge.rowsPer4in > 0;
+  const mc = paletteColors[0];
+  const chips: Array<{ key: string; node: React.ReactNode }> = [];
+
+  if (hasGauge) {
+    chips.push({
+      key: 'gauge',
+      node: (
+        <span>
+          <span className="text-gray-500 dark:text-gray-400">Gauge</span>{' '}
+          <span className="font-medium text-gray-700 dark:text-gray-200">
+            {gauge.stitchesPer4in}×{gauge.rowsPer4in}
+          </span>{' '}
+          <span className="text-gray-500 dark:text-gray-400">/ 4″</span>
+        </span>
+      ),
+    });
+  }
+  chips.push({
+    key: 'craft',
+    node: (
+      <span className="capitalize text-gray-600 dark:text-gray-300">{craft}</span>
+    ),
+  });
+  if (mc?.label) {
+    chips.push({
+      key: 'mc',
+      node: (
+        <span className="inline-flex items-center gap-1.5">
+          <span
+            className="inline-block h-3 w-3 rounded-sm border border-gray-300 dark:border-gray-600"
+            style={{ backgroundColor: mc.hex }}
+            aria-hidden="true"
+          />
+          <span className="text-gray-500 dark:text-gray-400">MC:</span>
+          <span className="text-gray-700 dark:text-gray-200">{mc.label}</span>
+        </span>
+      ),
+    });
+  }
+
+  if (chips.length === 0) return null;
+
+  return (
+    <div className="-mt-1 mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+      {chips.map((c, i) => (
+        <span key={c.key} className="inline-flex items-center">
+          {c.node}
+          {i < chips.length - 1 && (
+            <span className="ml-4 text-gray-300 dark:text-gray-600" aria-hidden="true">
+              ·
+            </span>
+          )}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/**
  * Tiny inline editor for the chart's repeat region. The knitter speaks in
  * stitch numbers (1-indexed from the right, matching the bottom-of-chart
  * stitch labels) but ChartData stores 0-indexed columns from the left.
@@ -1198,6 +1273,12 @@ function ChartSection({
           </button>
         </div>
       </div>
+
+      {/* Project context strip — surfaces gauge + MC right next to the
+          canvas so a knitter sees the project context they're charting
+          against without leaving the section. Each chip is omitted when
+          the underlying data isn't set. */}
+      <ChartContextStrip gauge={gauge} craft={craft} paletteColors={paletteColors} />
 
       {showRemoveConfirm && (
         <ConfirmModal
