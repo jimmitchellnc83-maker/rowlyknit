@@ -87,6 +87,13 @@ interface ChartGridProps {
   onChange: (next: ChartData) => void;
   tool: ChartTool;
   cellSize?: number;
+  /** Cell aspect ratio (height / width). 1.0 = square cells (the default
+   *  knit-chart convention). When the user knows their gauge, the chart
+   *  can be rendered in *true gauge* by passing
+   *  `stitchesPer4in / rowsPer4in` so a row of cells looks like a row of
+   *  finished fabric. For typical stockinette this is < 1 (cells are
+   *  wider than tall, matching real knit stitches). */
+  cellAspect?: number;
   /** 1-indexed knitter row number (1 = bottom of chart). When set, that
    *  row is drawn with a bold accent border. Out-of-range values ignored. */
   highlightedRowIndex?: number;
@@ -155,11 +162,18 @@ export default function ChartGrid({
   onChange,
   tool,
   cellSize = 28,
+  cellAspect = 1,
   highlightedRowIndex,
   readOnly = false,
 }: ChartGridProps) {
   const [painting, setPainting] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // cellSize sets the WIDTH; height scales by aspect (height/width) so a
+  // gauge-aware aspect < 1 makes cells visibly shorter than they are wide,
+  // matching that knit stitches are wider than tall.
+  const cellWidth = cellSize;
+  const cellHeight = Math.max(4, Math.round(cellSize * cellAspect));
 
   const highlightedGridRow =
     highlightedRowIndex && highlightedRowIndex >= 1 && highlightedRowIndex <= chart.height
@@ -198,8 +212,8 @@ export default function ChartGrid({
     const rect = container.getBoundingClientRect();
     const x = clientX - rect.left;
     const y = clientY - rect.top;
-    const col = Math.floor(x / cellSize);
-    const row = Math.floor(y / cellSize);
+    const col = Math.floor(x / cellWidth);
+    const row = Math.floor(y / cellHeight);
     if (col < 0 || col >= chart.width || row < 0 || row >= chart.height) return -1;
     return row * chart.width + col;
   };
@@ -223,10 +237,10 @@ export default function ChartGrid({
         const stroke = luminance(bg) > 0.55 ? '#111111' : '#FFFFFF';
         const node = renderStitchInto({
           id: sym,
-          x: c * cellSize,
-          y: r * cellSize,
-          width: info.drawSpan * cellSize,
-          height: cellSize,
+          x: c * cellWidth,
+          y: r * cellHeight,
+          width: info.drawSpan * cellWidth,
+          height: cellHeight,
           stroke,
           keyPrefix: `s-${r}-${c}`,
         });
@@ -234,7 +248,7 @@ export default function ChartGrid({
       }
     }
     return nodes;
-  }, [chart, runs, cellSize]);
+  }, [chart, runs, cellWidth, cellHeight]);
 
   // Row-number gutter rendering. Knitting convention:
   //   • Flat: RS rows numbered on the RIGHT (worked R→L), WS on the
@@ -268,7 +282,7 @@ export default function ChartGrid({
             className={`flex items-center ${
               isActive ? 'font-bold text-amber-600 dark:text-amber-400' : ''
             } ${side === 'left' ? 'justify-end' : ''}`}
-            style={{ height: cellSize, minWidth: '1.5rem' }}
+            style={{ height: cellHeight, minWidth: '1.5rem' }}
           >
             {showOnThisSide ? (
               <span className={side === 'left' ? 'mr-1' : 'ml-1'}>{i + 1}</span>
@@ -291,8 +305,8 @@ export default function ChartGrid({
             className="touch-none select-none border border-gray-400 bg-white dark:border-gray-600 dark:bg-gray-900"
             style={{
               display: 'grid',
-              gridTemplateColumns: `repeat(${chart.width}, ${cellSize}px)`,
-              gridTemplateRows: `repeat(${chart.height}, ${cellSize}px)`,
+              gridTemplateColumns: `repeat(${chart.width}, ${cellWidth}px)`,
+              gridTemplateRows: `repeat(${chart.height}, ${cellHeight}px)`,
             }}
             onMouseDown={(e) => {
               if (e.button !== 0) return;
@@ -369,9 +383,9 @@ export default function ChartGrid({
           {overlayNodes.length > 0 && (
             <svg
               className="pointer-events-none absolute inset-0"
-              width={chart.width * cellSize}
-              height={chart.height * cellSize}
-              viewBox={`0 0 ${chart.width * cellSize} ${chart.height * cellSize}`}
+              width={chart.width * cellWidth}
+              height={chart.height * cellHeight}
+              viewBox={`0 0 ${chart.width * cellWidth} ${chart.height * cellHeight}`}
               aria-hidden="true"
             >
               {overlayNodes}
@@ -387,11 +401,11 @@ export default function ChartGrid({
               <div
                 className="pointer-events-none absolute border-2 border-dashed border-purple-600 dark:border-purple-400"
                 style={{
-                  left: chart.repeatRegion.startCol * cellSize,
+                  left: chart.repeatRegion.startCol * cellWidth,
                   top: 0,
                   width:
-                    (chart.repeatRegion.endCol - chart.repeatRegion.startCol + 1) * cellSize,
-                  height: chart.height * cellSize,
+                    (chart.repeatRegion.endCol - chart.repeatRegion.startCol + 1) * cellWidth,
+                  height: chart.height * cellHeight,
                 }}
                 aria-label="Repeat unit"
                 role="presentation"
@@ -407,7 +421,7 @@ export default function ChartGrid({
       <div
         className="mt-1 grid text-[10px] font-mono text-gray-500"
         style={{
-          gridTemplateColumns: `repeat(${chart.width}, ${cellSize}px)`,
+          gridTemplateColumns: `repeat(${chart.width}, ${cellWidth}px)`,
         }}
       >
         {Array.from({ length: chart.width }).map((_, i) => (
