@@ -221,9 +221,54 @@ export default function ChartGrid({
     return nodes;
   }, [chart, runs, cellSize]);
 
+  // Row-number gutter rendering. Knitting convention:
+  //   • Flat: RS rows numbered on the RIGHT (worked R→L), WS on the
+  //     LEFT (worked L→R). Reading direction visible from which side
+  //     the number sits.
+  //   • In the round: all rows numbered on the RIGHT (always R→L).
+  // Row 0 is the bottom-of-chart, row chart.height-1 is the top, so
+  // the column displays bottom-up via `flex-col-reverse`.
+  const renderRowGutter = (side: 'left' | 'right') => (
+    <div
+      className="flex flex-col-reverse text-[10px] font-mono text-gray-500"
+      style={{ gap: 0 }}
+      aria-hidden="true"
+    >
+      {Array.from({ length: chart.height }).map((_, i) => {
+        const isActive = highlightedRowIndex === i + 1;
+        // Display row number on this side iff:
+        //   - in the round → only RIGHT
+        //   - flat → RS (odd-numbered, i even since i is 0-indexed)
+        //     on RIGHT, WS on LEFT
+        let showOnThisSide: boolean;
+        if (chart.workedInRound) {
+          showOnThisSide = side === 'right';
+        } else {
+          const isRS = i % 2 === 0; // row 1 (i=0) = RS by convention
+          showOnThisSide = (isRS && side === 'right') || (!isRS && side === 'left');
+        }
+        return (
+          <span
+            key={i}
+            className={`flex items-center ${
+              isActive ? 'font-bold text-amber-600 dark:text-amber-400' : ''
+            } ${side === 'left' ? 'justify-end' : ''}`}
+            style={{ height: cellSize, minWidth: '1.5rem' }}
+          >
+            {showOnThisSide ? (
+              <span className={side === 'left' ? 'mr-1' : 'ml-1'}>{i + 1}</span>
+            ) : null}
+          </span>
+        );
+      })}
+    </div>
+  );
+
   return (
     <div className="overflow-x-auto">
       <div className="inline-flex items-start gap-2">
+        {/* Left row-number gutter (WS rows for flat, empty in-the-round) */}
+        {!chart.workedInRound && renderRowGutter('left')}
         {/* Grid + symbol overlay stacked */}
         <div className="relative">
           <div
@@ -319,23 +364,8 @@ export default function ChartGrid({
           )}
         </div>
 
-        {/* Row numbers */}
-        <div className="flex flex-col-reverse text-[10px] font-mono text-gray-500" style={{ gap: 0 }}>
-          {Array.from({ length: chart.height }).map((_, i) => {
-            const isActive = highlightedRowIndex === i + 1;
-            const sideLabel = chart.workedInRound ? 'Rnd' : i % 2 === 0 ? 'RS' : 'WS';
-            return (
-              <span
-                key={i}
-                className={`flex items-center ${isActive ? 'font-bold text-amber-600 dark:text-amber-400' : ''}`}
-                style={{ height: cellSize }}
-              >
-                <span className="ml-1">{i + 1}</span>
-                <span className="ml-1 text-[9px] text-gray-400">{sideLabel}</span>
-              </span>
-            );
-          })}
-        </div>
+        {/* Right row-number gutter — RS rows for flat, all rows for in-the-round */}
+        {renderRowGutter('right')}
       </div>
 
       {/* Stitch-number row under the chart */}
