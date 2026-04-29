@@ -15,12 +15,15 @@ import type { DesignerGauge } from './designerMath';
  */
 
 /** Yards of yarn consumed by an average stockinette stitch.
- *  Calibrated against published pattern-yardage ranges: a worsted adult
- *  medium sweater (~2500 sq in, 35 sts/sq in = ~87k sts) typically wants
- *  1000–1500 yds → ~0.015 yd per stitch. A worsted 8×60 in stockinette
- *  scarf (~480 sq in, ~17k sts) typically wants 250–400 yds → same range.
- *  Cables use more, lace less; the ±20% output range absorbs this. */
-const YARDS_PER_STITCH = 0.015;
+ *  Calibrated against published pattern-yardage ranges, using the
+ *  corrected (non-double-counted) finished area:
+ *    - Worsted adult M sweater: 40" chest × 24" body + 2 × ~11.5" × 18"
+ *      sleeves = ~1374 sq in, ~48k sts at 35 sts/sqin. Real published
+ *      yardage 800–1300 yds for plain stockinette → ~0.018 yd/stitch.
+ *    - Worsted 8" × 60" stockinette scarf: ~480 sq in, ~7.6k sts at
+ *      ~16 sts/sqin in bulky weight. Real 200–350 yds → also ~0.018.
+ *  Cables use more, lace less; the ±20% range absorbs that. */
+const YARDS_PER_STITCH = 0.018;
 
 /** Extra yards to add regardless of area — covers tails for weaving in,
  *  swatching, ribbed cast-on/bind-off, and the usual unit-conversion slop. */

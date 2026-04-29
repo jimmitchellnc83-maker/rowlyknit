@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { computeDesign, normalizedGauge, type DesignerFormSnapshot } from '../../utils/designerSnapshot';
-import { finishedAreaSqIn } from '../../utils/designerArea';
+import { finishedAreaSqIn, finishedAreaBreakdown } from '../../utils/designerArea';
 import { estimateYardageFromArea, formatYardage } from '../../utils/yardageEstimate';
 import { estimatePerColorYardage, displayLabel, displayPercent } from '../../utils/yarnEstimatePerColor';
 
@@ -24,17 +24,24 @@ interface Props {
  * rather than flashing "0 yds" placeholders.
  */
 export default function YardageEstimateWidget({ form }: Props) {
-  const { area, total, breakdown } = useMemo(() => {
+  const { area, total, breakdown, pieceRows } = useMemo(() => {
     const compute = computeDesign(form);
     const a = finishedAreaSqIn(compute);
-    if (a == null || a <= 0) return { area: null, total: null, breakdown: null };
+    if (a == null || a <= 0)
+      return { area: null, total: null, breakdown: null, pieceRows: null };
     const gauge = normalizedGauge(form);
     const tot = estimateYardageFromArea(a, gauge);
     const b =
       form.chart && form.colors.length > 0
         ? estimatePerColorYardage(a, gauge, form.chart, form.colors)
         : null;
-    return { area: a, total: tot, breakdown: b };
+    // Per-piece breakdown: one row per garment piece (Body, 2 sleeves,
+    // etc.) so the total isn't a black box.
+    const pieces = finishedAreaBreakdown(compute);
+    const rows = pieces && pieces.length > 1
+      ? pieces.map((p) => ({ label: p.label, yardage: estimateYardageFromArea(p.sqIn, gauge) }))
+      : null;
+    return { area: a, total: tot, breakdown: b, pieceRows: rows };
   }, [form]);
 
   if (area == null || total == null) return null;
@@ -45,11 +52,21 @@ export default function YardageEstimateWidget({ form }: Props) {
       aria-label="Estimated yarn"
     >
       <h3 className="mb-1 text-sm font-semibold text-amber-900 dark:text-amber-200">
-        Estimated yarn
+        Estimated yarn (whole project)
       </h3>
       <p className="text-base font-bold text-amber-900 dark:text-amber-100">
         {formatYardage(total)}
       </p>
+      {pieceRows && (
+        <ul className="mt-2 space-y-0.5 text-xs text-amber-900 dark:text-amber-200">
+          {pieceRows.map((row) => (
+            <li key={row.label} className="flex items-center justify-between gap-3">
+              <span className="font-medium">{row.label}</span>
+              <span className="tabular-nums">{formatYardage(row.yardage)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
       {breakdown && breakdown.rows.length > 1 && (
         <ul className="mt-2 space-y-1 text-xs text-amber-900 dark:text-amber-200">
           {breakdown.rows.map((row) => (

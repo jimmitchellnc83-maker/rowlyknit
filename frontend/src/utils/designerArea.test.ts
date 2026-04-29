@@ -10,7 +10,7 @@ describe('finishedAreaSqIn', () => {
     expect(finishedAreaSqIn({ summary: baseSummary })).toBeNull();
   });
 
-  it('sweater: 2 × body panel + 2 × sleeve trapezoid', () => {
+  it('sweater: body tube + 2 × sleeve trapezoid', () => {
     const compute = {
       body: { finishedChest: 40, finishedLength: 24 },
       sleeve: {
@@ -19,8 +19,11 @@ describe('finishedAreaSqIn', () => {
         finishedTotalLength: 18,
       },
     } as unknown as DesignCompute;
-    // body = 40 × 24 = 960; sleeve = ((8+14)/2) × 18 = 198. Total = 2×960 + 2×198 = 2316.
-    expect(finishedAreaSqIn(compute)).toBe(2316);
+    // Body tube = 40 × 24 = 960 (chest is full circumference, so this
+    // is the unfolded tube area = front panel + back panel).
+    // Sleeve = ((8+14)/2) × 18 = 198 each, × 2 = 396.
+    // Total = 960 + 396 = 1356.
+    expect(finishedAreaSqIn(compute)).toBe(1356);
   });
 
   it('hat: circumference × height × 0.9', () => {
