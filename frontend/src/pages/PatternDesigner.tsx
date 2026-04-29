@@ -2124,7 +2124,28 @@ export default function PatternDesigner() {
 
           {/* Color palette — shared across all item types. First color
               becomes MC and is shown alongside the schematic as a preview. */}
-          <ColorPalette colors={form.colors} onChange={(next) => update('colors', next)} />
+          <ColorPalette
+            colors={form.colors}
+            onChange={(next) => update('colors', next)}
+            // When a swatch hex is edited, also re-map any chart cells
+            // that were painted with the old hex so the chart stays in
+            // sync with the palette. Without this, the swatch updates
+            // but the chart silently keeps the old color.
+            onHexChanged={(oldHex, newHex) => {
+              const chart = form.chart;
+              if (!chart) return;
+              const oldUp = oldHex.toUpperCase();
+              let touched = false;
+              const cells = chart.cells.map((c) => {
+                if (c.colorHex && c.colorHex.toUpperCase() === oldUp) {
+                  touched = true;
+                  return { ...c, colorHex: newHex };
+                }
+                return c;
+              });
+              if (touched) update('chart', { ...chart, cells });
+            }}
+          />
 
           {/* Pattern info — optional metadata used by the printed pattern's
               title block (and Session 3 PR 2's publishing-copy cover page).

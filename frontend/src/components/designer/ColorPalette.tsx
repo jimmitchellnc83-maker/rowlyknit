@@ -16,6 +16,10 @@ export interface ColorSwatch {
 interface ColorPaletteProps {
   colors: ColorSwatch[];
   onChange: (next: ColorSwatch[]) => void;
+  /** Optional. Fires when an existing swatch's hex changes (color picker
+   *  edit). The parent typically uses this to re-map painted chart cells
+   *  from oldHex to newHex so the chart stays in sync with the palette. */
+  onHexChanged?: (oldHex: string, newHex: string) => void;
 }
 
 interface StashYarn {
@@ -45,7 +49,7 @@ const DEFAULT_NEW_COLORS = [
  * first color in the list is treated as the main color and used to tint
  * schematic previews.
  */
-export default function ColorPalette({ colors, onChange }: ColorPaletteProps) {
+export default function ColorPalette({ colors, onChange, onHexChanged }: ColorPaletteProps) {
   const [nextLabel, setNextLabel] = useState('');
   const [showStashPicker, setShowStashPicker] = useState(false);
   const yarnQuery = useYarn();
@@ -81,6 +85,15 @@ export default function ColorPalette({ colors, onChange }: ColorPaletteProps) {
   };
 
   const updateColor = (id: string, patch: Partial<ColorSwatch>) => {
+    // If the hex is changing, notify the parent so painted chart cells
+    // can be re-mapped from oldHex → newHex. Without this, swatches and
+    // chart cells drift apart silently.
+    if (patch.hex !== undefined && onHexChanged) {
+      const prev = colors.find((c) => c.id === id);
+      if (prev && prev.hex.toUpperCase() !== patch.hex.toUpperCase()) {
+        onHexChanged(prev.hex, patch.hex);
+      }
+    }
     onChange(colors.map((c) => (c.id === id ? { ...c, ...patch } : c)));
   };
 
