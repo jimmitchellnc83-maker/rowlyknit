@@ -1126,7 +1126,7 @@ function ChartSection({
     );
   }
 
-  const exportChart = async (format: 'pdf' | 'png' | 'csv' | 'markdown' | 'ravelry') => {
+  const exportChart = async (format: 'pdf' | 'png' | 'svg' | 'csv' | 'markdown' | 'ravelry') => {
     if (!chartAssetId) {
       toast.info('Save the chart to your library first to enable export.');
       setShowSaveModal(true);
@@ -1266,7 +1266,7 @@ function ChartSection({
         </span>
         <span className="ml-auto flex flex-wrap items-center gap-1 text-xs text-gray-500">
           Export:
-          {(['png', 'pdf', 'csv', 'markdown', 'ravelry'] as const).map((fmt) => (
+          {(['png', 'pdf', 'svg', 'csv', 'markdown', 'ravelry'] as const).map((fmt) => (
             <button
               key={fmt}
               type="button"

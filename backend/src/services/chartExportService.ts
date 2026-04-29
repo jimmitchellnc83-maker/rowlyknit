@@ -198,12 +198,10 @@ export const exportToPDF = async (
 };
 
 /**
- * Export chart to PNG
+ * Build the chart SVG markup. Shared by PNG, PDF, and SVG export so all
+ * three render the same way; the only difference is the final encoding.
  */
-export const exportToPNG = async (
-  chart: ChartData,
-  options: ExportOptions = {}
-): Promise<Buffer> => {
+const buildChartSvg = (chart: ChartData, options: ExportOptions = {}): string => {
   const cellSize = CELL_SIZES[options.cell_size || 'large'];
   const grid = typeof chart.grid === 'string' ? JSON.parse(chart.grid) : chart.grid;
   const rows = grid.length;
@@ -216,8 +214,7 @@ export const exportToPNG = async (
   const width = cols * cellSize + padding * 2 + rowNumberWidth;
   const height = rows * cellSize + padding * 2 + headerHeight;
 
-  // Create SVG
-  let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">`;
+  let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">`;
 
   // Background
   svg += `<rect width="${width}" height="${height}" fill="white"/>`;
@@ -252,11 +249,30 @@ export const exportToPNG = async (
   }
 
   svg += '</svg>';
+  return svg;
+};
 
+/**
+ * Export chart to PNG
+ */
+export const exportToPNG = async (
+  chart: ChartData,
+  options: ExportOptions = {}
+): Promise<Buffer> => {
+  const svg = buildChartSvg(chart, options);
   // Convert SVG to PNG using sharp
   return sharp(Buffer.from(svg))
     .png()
     .toBuffer();
+};
+
+/**
+ * Export chart to SVG (raw, vector). Same renderer as PNG/PDF — the
+ * difference is only the encoding, so what designers see in PNG is byte-
+ * equivalent in SVG.
+ */
+export const exportToSVG = (chart: ChartData, options: ExportOptions = {}): Buffer => {
+  return Buffer.from(buildChartSvg(chart, options), 'utf-8');
 };
 
 /**
@@ -353,7 +369,7 @@ export const exportToMarkdown = (chart: ChartData): Buffer => {
  */
 export const exportChart = async (
   chart: ChartData,
-  format: 'pdf' | 'png' | 'csv' | 'ravelry' | 'markdown',
+  format: 'pdf' | 'png' | 'svg' | 'csv' | 'ravelry' | 'markdown',
   options: ExportOptions = {}
 ): Promise<{ buffer: Buffer; mimeType: string; extension: string }> => {
   switch (format) {
@@ -369,6 +385,13 @@ export const exportChart = async (
         buffer: await exportToPNG(chart, options),
         mimeType: 'image/png',
         extension: 'png',
+      };
+
+    case 'svg':
+      return {
+        buffer: exportToSVG(chart, options),
+        mimeType: 'image/svg+xml',
+        extension: 'svg',
       };
 
     case 'csv':
