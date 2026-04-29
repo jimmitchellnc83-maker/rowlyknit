@@ -79,7 +79,17 @@ export function resizeChart(prev: ChartData, width: number, height: number): Cha
       }
     }
   }
-  return { ...prev, width: w, height: h, cells: next };
+  // Drop a stored repeat region whose columns no longer fit. Clamping
+  // would silently change the user's repeat width, which is worse than
+  // making them re-mark the region — so we just clear it.
+  const repeatRegion =
+    prev.repeatRegion &&
+    prev.repeatRegion.startCol >= 0 &&
+    prev.repeatRegion.endCol < w &&
+    prev.repeatRegion.startCol <= prev.repeatRegion.endCol
+      ? prev.repeatRegion
+      : undefined;
+  return { ...prev, width: w, height: h, cells: next, repeatRegion };
 }
 
 interface ChartGridProps {

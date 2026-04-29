@@ -1307,6 +1307,77 @@ function ChartSection({
         />
       )}
 
+      {/* Workflow preset — picks the canonical "what is this chart?"
+          framing in one click. Whole section sizes the canvas to the
+          active section dims and anchors a single placement on the
+          schematic. Repeat motif drops to a small canvas and tiles. The
+          user can still tune Width / Height / On-schematic individually
+          afterward. */}
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Chart is</span>
+        <div className="inline-flex rounded-md border border-gray-300 dark:border-gray-600">
+          {(
+            [
+              {
+                id: 'section' as const,
+                label: 'Whole section',
+                title: `Resize to the section's stitch × row count and anchor one copy on the schematic`,
+                placement: 'single' as const,
+                isActive: chartPlacement === 'single',
+              },
+              {
+                id: 'repeat' as const,
+                label: 'Repeat motif',
+                title: 'Drop to a small canvas and tile across the schematic',
+                placement: 'tile' as const,
+                isActive: chartPlacement === 'tile',
+              },
+            ]
+          ).map((opt) => (
+            <button
+              key={opt.id}
+              type="button"
+              title={opt.title}
+              aria-pressed={opt.isActive}
+              onClick={() => {
+                if (opt.id === 'section') {
+                  // Resize to the suggested section dims iff they're known
+                  // and differ — preserves painted cells via resizeChart.
+                  const w = Math.max(1, Math.min(60, suggestedChartDims.width));
+                  const h = Math.max(1, Math.min(60, suggestedChartDims.height));
+                  if (w !== chart.width || h !== chart.height) {
+                    onChange(resizeChart(chart, w, h));
+                  }
+                } else {
+                  // Repeat default — small motif. Only shrink if the
+                  // current canvas is bigger than the default; otherwise
+                  // keep the user's existing motif size.
+                  const target = { w: 8, h: 8 };
+                  if (chart.width > target.w || chart.height > target.h) {
+                    onChange(resizeChart(chart, target.w, target.h));
+                  }
+                }
+                onChartPlacementChange(opt.placement);
+              }}
+              className={`px-3 py-1 text-xs ${
+                opt.isActive
+                  ? 'bg-purple-600 text-white'
+                  : 'bg-white text-gray-700 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-200'
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+        <span className="text-[11px] text-gray-500">
+          {chartPlacement === 'tile'
+            ? 'Tiles across the schematic'
+            : chartPlacement === 'single'
+              ? 'Placed once at section size'
+              : 'Scaled to fit the schematic'}
+        </span>
+      </div>
+
       <div className="mb-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <label className="block">
           <span className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
