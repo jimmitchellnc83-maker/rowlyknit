@@ -1023,6 +1023,7 @@ function ChartSection({
   chartPlacement,
   onChartPlacementChange,
   suggestedChartDims,
+  gauge,
 }: {
   chart: ChartData | null;
   onChange: (next: ChartData | null) => void;
@@ -1039,6 +1040,10 @@ function ChartSection({
    *  + row count. Knitting charts map 1 cell to 1 stitch, so the canvas
    *  should match the section dimensions when designing a full motif. */
   suggestedChartDims: { width: number; height: number };
+  /** Project gauge — used to compute the true-gauge cell aspect when
+   *  the user toggles "True gauge" on. Falls back to square cells when
+   *  either dimension is missing. */
+  gauge: { stitchesPer4in: number; rowsPer4in: number };
 }) {
   const defaultSymbolId = craft === 'crochet' ? 'sc' : 'k';
   const [tool, setTool] = useState<ChartTool>({ type: 'symbol', symbolId: defaultSymbolId });
@@ -1050,6 +1055,14 @@ function ChartSection({
     );
   }, [craft, defaultSymbolId]);
   const [cellSize, setCellSize] = useState<number>(28);
+  const [trueGauge, setTrueGauge] = useState<boolean>(false);
+  // cellAspect = height / width. Knit fabric: stitches/rows ratio
+  // (typical 20/28 ≈ 0.71 → cells become shorter than wide). Falls back
+  // to 1 (square) if gauge is incomplete or true-gauge is off.
+  const cellAspect =
+    trueGauge && gauge.stitchesPer4in > 0 && gauge.rowsPer4in > 0
+      ? gauge.stitchesPer4in / gauge.rowsPer4in
+      : 1;
   const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [showLoadModal, setShowLoadModal] = useState(false);
@@ -1365,6 +1378,42 @@ function ChartSection({
 
       <RepeatRegionEditor chart={chart} onChange={onChange} />
 
+      {/* True-gauge toggle. Default OFF (square cells = the universal
+          chart-reading convention). Knitters who want to preview how
+          stitches will look in finished fabric can flip this on; cells
+          re-render with height = width × (sts/rows). */}
+      <div className="mb-3 flex flex-wrap items-center gap-3">
+        <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Cells</span>
+        <div className="inline-flex rounded-md border border-gray-300 dark:border-gray-600">
+          {[
+            { value: false, label: 'Square' },
+            { value: true, label: 'True gauge' },
+          ].map((opt) => {
+            const active = trueGauge === opt.value;
+            return (
+              <button
+                key={String(opt.value)}
+                type="button"
+                onClick={() => setTrueGauge(opt.value)}
+                aria-pressed={active}
+                className={`px-3 py-1 text-xs ${
+                  active
+                    ? 'bg-purple-600 text-white'
+                    : 'bg-white text-gray-700 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-200'
+                }`}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
+        {trueGauge && gauge.stitchesPer4in > 0 && gauge.rowsPer4in > 0 && (
+          <span className="text-xs text-gray-500">
+            {gauge.stitchesPer4in} sts × {gauge.rowsPer4in} rows / 4″
+          </span>
+        )}
+      </div>
+
       <StitchPalette
         tool={tool}
         onChange={setTool}
@@ -1374,7 +1423,13 @@ function ChartSection({
       />
 
       <div className="mt-4">
-        <ChartGrid chart={chart} onChange={onChange} tool={tool} cellSize={cellSize} />
+        <ChartGrid
+          chart={chart}
+          onChange={onChange}
+          tool={tool}
+          cellSize={cellSize}
+          cellAspect={cellAspect}
+        />
       </div>
 
       <ChartLegend chart={chart} craft={craft} paletteColors={paletteColors} />
@@ -2722,6 +2777,7 @@ export default function PatternDesigner() {
         chartPlacement={form.chartPlacement ?? 'tile'}
         onChartPlacementChange={(next) => update('chartPlacement', next)}
         suggestedChartDims={suggestedChartDims}
+        gauge={normalizedGauge(form)}
       />
     </div>
   );
