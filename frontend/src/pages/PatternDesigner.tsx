@@ -270,10 +270,11 @@ const DEFAULT_FORM: DesignerForm = {
   chart: null,
   chartAssetId: null,
   chartInstructionMode: 'with-chart-text',
-  // Default to 'single' so the chart shows as drawn (no repetition).
-  // Users with a small repeat unit (cable pattern, fair-isle) can switch
-  // to 'tile' from the Chart section's "On schematic" toggle.
-  chartPlacement: 'single',
+  // Default to 'fit' so the chart fills the silhouette — the most
+  // intuitive view for "show me my drawing as the garment design".
+  // Users with a small repeat unit can switch to 'tile' for stitch-
+  // accurate tiling, or 'single' for one copy at natural stitch size.
+  chartPlacement: 'fit',
 
   patternTitle: '',
   patternSubtitle: '',
