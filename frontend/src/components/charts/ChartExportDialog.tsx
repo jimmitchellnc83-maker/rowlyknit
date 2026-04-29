@@ -38,7 +38,7 @@ interface ChartExportDialogProps {
   chartName: string;
 }
 
-type ExportFormat = 'pdf' | 'png' | 'csv' | 'ravelry' | 'markdown';
+type ExportFormat = 'pdf' | 'png' | 'svg' | 'csv' | 'ravelry' | 'markdown';
 
 const formatInfo: Record<ExportFormat, { icon: JSX.Element; name: string; description: string }> = {
   pdf: {
@@ -50,6 +50,11 @@ const formatInfo: Record<ExportFormat, { icon: JSX.Element; name: string; descri
     icon: <Image />,
     name: 'PNG Image',
     description: 'High-resolution image',
+  },
+  svg: {
+    icon: <Image />,
+    name: 'SVG (vector)',
+    description: 'Scales to any size without quality loss',
   },
   csv: {
     icon: <TableChart />,
@@ -113,7 +118,7 @@ const ChartExportDialog: React.FC<ChartExportDialogProps> = ({
 
       // Get filename from Content-Disposition header or generate one
       const contentDisposition = response.headers.get('Content-Disposition');
-      let filename = `${chartName.replace(/[^a-z0-9]/gi, '_')}.${format === 'ravelry' ? 'json' : format === 'markdown' ? 'md' : format}`;
+      let filename = `${chartName.replace(/[^a-z0-9]/gi, '_')}.${format === 'ravelry' ? 'json' : format === 'markdown' ? 'md' : format === 'svg' ? 'svg' : format}`;
       if (contentDisposition) {
         const match = contentDisposition.match(/filename="(.+)"/);
         if (match) filename = match[1];

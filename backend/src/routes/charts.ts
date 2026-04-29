@@ -242,7 +242,7 @@ router.post(
   '/:chartId/export',
   [
     validateUUID('chartId'),
-    body('format').isIn(['pdf', 'png', 'csv', 'ravelry', 'markdown']),
+    body('format').isIn(['pdf', 'png', 'svg', 'csv', 'ravelry', 'markdown']),
     body('options').optional({ values: 'null' }).isObject(),
   ],
   validate,
