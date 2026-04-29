@@ -40,7 +40,11 @@ import { type DesignerFormSnapshot } from '../utils/designerSnapshot';
 import { formatDate } from '../utils/formatDate';
 import { DEFAULT_CUSTOM_DRAFT } from '../types/customDraft';
 import { useChartSymbols } from '../hooks/useChartSymbols';
-import { buildChartInstructions, collectChartSymbols } from '../utils/chartInstruction';
+import {
+  buildChartInstructions,
+  collectChartSymbols,
+  formatCastOnFromRepeat,
+} from '../utils/chartInstruction';
 import { StitchIcon } from '../data/stitchSvgLibrary';
 
 /**
@@ -556,9 +560,14 @@ function ChartInstructionsSection({ form }: { form: DesignerFormSnapshot }) {
 
   if (!chart || mode === 'shape-only') return null;
 
+  const castOn = formatCastOnFromRepeat(chart);
+
   if (mode === 'with-chart-ref') {
     return (
       <Section title="Chart — instructions">
+        {castOn && (
+          <p className="mb-2 text-sm font-medium text-gray-900 dark:text-gray-100">{castOn}</p>
+        )}
         <p className="text-sm text-gray-800 dark:text-gray-200">
           Work Chart for {chart.height} {chart.workedInRound ? 'rounds' : 'rows'}.
         </p>
@@ -586,6 +595,9 @@ function ChartInstructionsSection({ form }: { form: DesignerFormSnapshot }) {
 
   return (
     <Section title="Chart — instructions">
+      {castOn && (
+        <p className="mb-2 text-sm font-medium text-gray-900 dark:text-gray-100">{castOn}</p>
+      )}
       <ol className="space-y-1 text-sm">
         {rows.map((r) => (
           <li key={r.rowNumber} className="print-avoid-break">

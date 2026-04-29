@@ -927,6 +927,89 @@ function PatternMetadataPanel({
   );
 }
 
+/**
+ * Tiny inline editor for the chart's repeat region. The knitter speaks in
+ * stitch numbers (1-indexed from the right, matching the bottom-of-chart
+ * stitch labels) but ChartData stores 0-indexed columns from the left.
+ * This component does the conversion in both directions and keeps the box
+ * drawn on the canvas aligned with what the user typed.
+ */
+function RepeatRegionEditor({
+  chart,
+  onChange,
+}: {
+  chart: ChartData;
+  onChange: (next: ChartData) => void;
+}) {
+  const region = chart.repeatRegion;
+  // Display values in knitter-stitch numbering (rightmost = 1).
+  const startStitch = region ? chart.width - region.endCol : '';
+  const endStitch = region ? chart.width - region.startCol : '';
+
+  const apply = (rawStart: number | string, rawEnd: number | string) => {
+    const s = typeof rawStart === 'number' ? rawStart : parseInt(rawStart, 10);
+    const e = typeof rawEnd === 'number' ? rawEnd : parseInt(rawEnd, 10);
+    if (!Number.isFinite(s) || !Number.isFinite(e)) return;
+    if (s < 1 || e < 1 || s > chart.width || e > chart.width) return;
+    if (s > e) return;
+    onChange({
+      ...chart,
+      repeatRegion: { startCol: chart.width - e, endCol: chart.width - s },
+    });
+  };
+  const clear = () => {
+    const next = { ...chart };
+    delete next.repeatRegion;
+    onChange(next);
+  };
+
+  return (
+    <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
+      <span className="font-medium text-gray-600 dark:text-gray-400">Repeat</span>
+      <span className="text-gray-500">stitch</span>
+      <input
+        type="number"
+        min={1}
+        max={chart.width}
+        value={startStitch}
+        placeholder="—"
+        onChange={(ev) => apply(ev.target.value, endStitch || chart.width)}
+        className="w-14 rounded border border-gray-300 bg-white px-2 py-1 text-center dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+        aria-label="Repeat start stitch (1 = rightmost)"
+      />
+      <span className="text-gray-500">to</span>
+      <input
+        type="number"
+        min={1}
+        max={chart.width}
+        value={endStitch}
+        placeholder="—"
+        onChange={(ev) => apply(startStitch || 1, ev.target.value)}
+        className="w-14 rounded border border-gray-300 bg-white px-2 py-1 text-center dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+        aria-label="Repeat end stitch (1 = rightmost)"
+      />
+      <span className="text-gray-500">(read R→L)</span>
+      {region && (
+        <button
+          type="button"
+          onClick={clear}
+          className="rounded border border-gray-300 px-2 py-1 text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+        >
+          Clear
+        </button>
+      )}
+      {region && (
+        <span className="text-gray-500">
+          → cast on a multiple of {region.endCol - region.startCol + 1}
+          {chart.width - (region.endCol - region.startCol + 1) > 0
+            ? ` sts, plus ${chart.width - (region.endCol - region.startCol + 1)}`
+            : ' sts'}
+        </span>
+      )}
+    </div>
+  );
+}
+
 function ChartSection({
   chart,
   onChange,
@@ -1279,6 +1362,8 @@ function ChartSection({
           })}
         </div>
       </div>
+
+      <RepeatRegionEditor chart={chart} onChange={onChange} />
 
       <StitchPalette
         tool={tool}

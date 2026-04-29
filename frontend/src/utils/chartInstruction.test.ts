@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { buildChartInstructions, collectChartSymbols } from './chartInstruction';
+import {
+  buildChartInstructions,
+  collectChartSymbols,
+  formatCastOnFromRepeat,
+} from './chartInstruction';
 import type { ChartData, ChartCell } from '../components/designer/ChartGrid';
 import type { ChartSymbolTemplate } from '../types/chartSymbol';
 
@@ -248,5 +252,49 @@ describe('collectChartSymbols', () => {
       ['k', 'k', 'k'],
     ]);
     expect(collectChartSymbols(chart)).toEqual(['k']);
+  });
+});
+
+describe('formatCastOnFromRepeat', () => {
+  it('returns null when no repeat region is set', () => {
+    const chart = chartOf([
+      ['k', 'k', 'k', 'k'],
+      ['k', 'k', 'k', 'k'],
+    ]);
+    expect(formatCastOnFromRepeat(chart)).toBeNull();
+  });
+
+  it('returns "multiple of N sts" with no plus when repeat covers full width', () => {
+    const chart = chartOf(
+      [['k', 'k', 'k', 'k', 'k', 'k']],
+      { repeatRegion: { startCol: 0, endCol: 5 } },
+    );
+    expect(formatCastOnFromRepeat(chart)).toBe('Cast on a multiple of 6 sts.');
+  });
+
+  it('returns "multiple of N sts, plus E" when there are edge stitches', () => {
+    // 12-st chart, repeat columns 2..11 = 10 sts, edge = 2
+    const chart = chartOf(
+      [Array(12).fill('k') as string[]],
+      { repeatRegion: { startCol: 2, endCol: 11 } },
+    );
+    expect(formatCastOnFromRepeat(chart)).toBe('Cast on a multiple of 10 sts, plus 2.');
+  });
+
+  it('uses singular "st" for a 1-stitch repeat', () => {
+    const chart = chartOf(
+      [['k', 'k', 'k']],
+      { repeatRegion: { startCol: 1, endCol: 1 } },
+    );
+    expect(formatCastOnFromRepeat(chart)).toBe('Cast on a multiple of 1 st, plus 2.');
+  });
+
+  it('returns null when the region is malformed', () => {
+    const c1 = chartOf([['k', 'k', 'k']], { repeatRegion: { startCol: -1, endCol: 1 } });
+    const c2 = chartOf([['k', 'k', 'k']], { repeatRegion: { startCol: 1, endCol: 5 } });
+    const c3 = chartOf([['k', 'k', 'k']], { repeatRegion: { startCol: 2, endCol: 1 } });
+    expect(formatCastOnFromRepeat(c1)).toBeNull();
+    expect(formatCastOnFromRepeat(c2)).toBeNull();
+    expect(formatCastOnFromRepeat(c3)).toBeNull();
   });
 });
