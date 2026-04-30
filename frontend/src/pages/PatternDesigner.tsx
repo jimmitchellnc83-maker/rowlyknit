@@ -1695,11 +1695,20 @@ function ChartInstructionsPanel({
     return [...sys, ...cust];
   }, [palette.data]);
 
+  // Side filter: knitters working a flat chart often want to focus on
+  // just the RS or WS rows. In-the-round charts have no WS rows so the
+  // filter collapses to "All" (the toggle is hidden).
+  const [sideFilter, setSideFilter] = useState<'all' | 'rs' | 'ws'>('all');
+  const showSideFilter = mode === 'with-chart-text' && !chart.workedInRound;
+
   const rows = useMemo(() => {
     if (mode !== 'with-chart-text') return [];
     if (!palette.data) return [];
-    return buildChartInstructions({ chart, symbols });
-  }, [chart, mode, palette.data, symbols]);
+    const all = buildChartInstructions({ chart, symbols });
+    if (sideFilter === 'all' || chart.workedInRound) return all;
+    if (sideFilter === 'rs') return all.filter((r) => r.isRS);
+    return all.filter((r) => !r.isRS);
+  }, [chart, mode, palette.data, symbols, sideFilter]);
 
   return (
     <div className="mt-5 border-t border-gray-200 pt-4 dark:border-gray-700">
@@ -1728,6 +1737,33 @@ function ChartInstructionsPanel({
             </button>
           ))}
         </div>
+        {showSideFilter && (
+          <div
+            className="ml-2 inline-flex rounded-md border border-gray-300 dark:border-gray-600"
+            role="group"
+            aria-label="Filter rows by side"
+          >
+            {[
+              { value: 'all' as const, label: 'All rows' },
+              { value: 'rs' as const, label: 'RS only' },
+              { value: 'ws' as const, label: 'WS only' },
+            ].map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setSideFilter(opt.value)}
+                aria-pressed={sideFilter === opt.value}
+                className={`px-3 py-1 text-xs ${
+                  sideFilter === opt.value
+                    ? 'bg-purple-600 text-white'
+                    : 'bg-white text-gray-700 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-200'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
       {mode === 'shape-only' && (
         <p className="text-xs text-gray-500">
