@@ -1747,6 +1747,54 @@ function ChartSection({
         chart={chart}
       />
 
+      {/* Highlight tool — translucent overlay tags. Distinct from the
+          stitch palette because the marks don't touch underlying cell
+          data; they're knitter-only annotations. Click a swatch to
+          activate it, then click cells to tag/untag (re-clicking a
+          tagged cell with the same color removes the tag). */}
+      <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+        <span className="font-medium text-gray-600 dark:text-gray-400">Highlight</span>
+        {(
+          [
+            { color: 'yellow' as const, label: 'Yellow', bg: 'rgba(250, 204, 21, 0.55)' },
+            { color: 'orange' as const, label: 'Orange', bg: 'rgba(251, 146, 60, 0.55)' },
+            { color: 'green' as const, label: 'Green', bg: 'rgba(74, 222, 128, 0.55)' },
+          ]
+        ).map((opt) => {
+          const active = tool.type === 'highlight' && tool.color === opt.color;
+          return (
+            <button
+              key={opt.color}
+              type="button"
+              onClick={() => setTool({ type: 'highlight', color: opt.color })}
+              aria-pressed={active}
+              aria-label={`Highlight ${opt.label}`}
+              className={`flex h-7 w-7 items-center justify-center rounded border ${
+                active
+                  ? 'border-purple-600 ring-2 ring-purple-400'
+                  : 'border-gray-300 dark:border-gray-600'
+              }`}
+              style={{ backgroundColor: opt.bg }}
+            />
+          );
+        })}
+        {chart.highlights && Object.keys(chart.highlights).length > 0 && (
+          <button
+            type="button"
+            onClick={() => {
+              const { highlights: _h, ...rest } = chart;
+              onChange(rest);
+            }}
+            className="ml-2 rounded border border-gray-300 px-2 py-0.5 text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+          >
+            Clear all
+          </button>
+        )}
+        {tool.type === 'highlight' && (
+          <span className="ml-2 text-gray-500">Click cells to tag · re-click to untag</span>
+        )}
+      </div>
+
       <div className="mt-4">
         <ChartGrid
           chart={chart}
