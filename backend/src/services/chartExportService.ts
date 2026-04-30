@@ -19,6 +19,15 @@ export interface ExportOptions {
    *  the chart has one. Default true. No-op when the chart payload has
    *  no repeat_region. */
   include_repeat_box?: boolean;
+  /** SVG stroke-width for cell borders. Default 1. Knitters with weak
+   *  printers / low-contrast screens often want a heavier 1.5–2 px
+   *  outline; designers preparing publication-quality output sometimes
+   *  want 0.5. */
+  grid_weight?: number;
+  /** Multiplier for the stitch symbol font size. Default 1.0. Useful
+   *  when the auto-derived size (clamped to cell size) reads too small
+   *  in print or too crowded in tight layouts. Range ~0.5–1.5. */
+  symbol_scale?: number;
   smart_page_breaks?: boolean;
 
   // PNG options
@@ -222,6 +231,13 @@ const buildChartSvg = (chart: ChartData, options: ExportOptions = {}): string =>
   const grid = typeof chart.grid === 'string' ? JSON.parse(chart.grid) : chart.grid;
   const rows = grid.length;
   const cols = grid[0]?.length || 0;
+  // Stroke width for cell borders. Clamp to a sane range so an
+  // accidental 0 doesn't render an invisible grid and an accidental
+  // 100 doesn't paint over the symbols.
+  const gridWeight = Math.min(5, Math.max(0.25, options.grid_weight ?? 1));
+  // Symbol font scale. Same clamp logic — the lower bound keeps the
+  // glyphs readable, the upper bound keeps them inside the cell.
+  const symbolScale = Math.min(1.5, Math.max(0.5, options.symbol_scale ?? 1));
 
   const padding = 20;
   const rowNumberWidth = options.include_row_numbers !== false ? 40 : 0;
@@ -255,11 +271,12 @@ const buildChartSvg = (chart: ChartData, options: ExportOptions = {}): string =>
       const symbol = grid[row][col] || '';
 
       // Cell border
-      svg += `<rect x="${x}" y="${y}" width="${cellSize}" height="${cellSize}" fill="white" stroke="#999" stroke-width="1"/>`;
+      svg += `<rect x="${x}" y="${y}" width="${cellSize}" height="${cellSize}" fill="white" stroke="#999" stroke-width="${gridWeight}"/>`;
 
       // Symbol
       if (symbol) {
-        svg += `<text x="${x + cellSize / 2}" y="${y + cellSize / 2 + 4}" text-anchor="middle" font-family="Arial" font-size="${Math.min(cellSize - 4, 14)}">${escapeXml(symbol)}</text>`;
+        const symbolFontSize = Math.min(cellSize - 4, 14) * symbolScale;
+        svg += `<text x="${x + cellSize / 2}" y="${y + cellSize / 2 + 4}" text-anchor="middle" font-family="Arial" font-size="${symbolFontSize}">${escapeXml(symbol)}</text>`;
       }
     }
   }
