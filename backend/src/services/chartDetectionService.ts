@@ -76,12 +76,34 @@ export async function preprocessImage(
   return { processed, metadata };
 }
 
+export interface DetectGridOptions {
+  /** When the caller knows the chart's intended shape (e.g. the
+   *  knitter said "this is a 24-stitch by 40-row motif"), passing
+   *  these skips the cell-size heuristic and aligns the grid
+   *  directly. Single biggest accuracy win for known-dimension
+   *  imports. */
+  targetCols?: number;
+  targetRows?: number;
+}
+
 /**
- * Detect grid structure in the image
- * In production, this would use OpenCV Hough Line Transform
+ * Detect grid structure in the image.
+ *
+ * Two paths:
+ *   1. Caller knows the chart shape (targetCols/targetRows set) →
+ *      partition the image into that exact grid. No estimation. This
+ *      is the path users hit when they've imported a chart from a
+ *      published pattern and already know its dimensions.
+ *   2. Unknown shape → fall back to the cell-size heuristic
+ *      (clamps cell size 20-50px, derives row/col counts).
+ *
+ * Production-quality grid detection (Hough lines, projection profiles)
+ * needs OpenCV which we're intentionally avoiding for v1; the targetCols
+ * path covers the most common workflow without adding deps.
  */
 export async function detectGrid(
-  imageBuffer: Buffer
+  imageBuffer: Buffer,
+  options: DetectGridOptions = {},
 ): Promise<GridDetectionResult | null> {
   try {
     const metadata = await sharp(imageBuffer).metadata();
@@ -91,12 +113,28 @@ export async function detectGrid(
       return null;
     }
 
-    // Simplified grid detection based on image analysis
-    // In production: Use OpenCV for line detection
+    // Path 1: caller-supplied dimensions. Trust them, partition exactly.
+    if (
+      typeof options.targetCols === 'number' &&
+      typeof options.targetRows === 'number' &&
+      options.targetCols >= 1 &&
+      options.targetRows >= 1
+    ) {
+      const cols = Math.min(200, Math.max(1, Math.round(options.targetCols)));
+      const rows = Math.min(200, Math.max(1, Math.round(options.targetRows)));
+      return {
+        rows,
+        cols,
+        cellWidth: Math.max(1, Math.floor(width / cols)),
+        cellHeight: Math.max(1, Math.floor(height / rows)),
+        gridBounds: { x: 0, y: 0, width, height },
+      };
+    }
 
-    // Analyze image for grid patterns using edge detection
-    // Edge detection (result reserved for future CV integration)
-    void await sharp(imageBuffer)
+    // Path 2: heuristic estimation. Compute a Laplacian edge map up
+    // front so future CV refinements have a foothold; not currently
+    // consumed but kept for parity with the previous behavior.
+    void (await sharp(imageBuffer)
       .grayscale()
       .convolve({
         width: 3,
@@ -104,13 +142,13 @@ export async function detectGrid(
         kernel: [-1, -1, -1, -1, 8, -1, -1, -1, -1], // Laplacian edge detection
       })
       .raw()
-      .toBuffer();
+      .toBuffer());
 
     // Estimate grid dimensions based on image size
     // Typical chart cells are 20-50 pixels
     const estimatedCellSize = Math.min(
       Math.max(20, Math.min(width, height) / 50),
-      50
+      50,
     );
 
     const estimatedCols = Math.round(width / estimatedCellSize);
@@ -139,21 +177,38 @@ export async function detectGrid(
 }
 
 /**
- * Extract a single cell from the image
+ * Extract a single cell from the image.
+ *
+ * `innerRatio` (0..1, default 0.7) shrinks the sampling box to the
+ * center of the cell so that grid borders (which are usually rendered
+ * as dark lines or shadows) don't bleed into the symbol classifier.
+ * This is the cheapest accuracy win available without doing real
+ * line detection — borders register as "dark pixels" in the same
+ * statistics the recognizer reads, and inflate the dark-ratio of
+ * every cell.
  */
 export async function extractCell(
   imageBuffer: Buffer,
   row: number,
   col: number,
   cellWidth: number,
-  cellHeight: number
+  cellHeight: number,
+  innerRatio = 0.7,
 ): Promise<Buffer> {
+  // Inner-region sampling. Clamp to 0.4-1.0 so the box is always
+  // big enough to capture the symbol but never wider than the cell.
+  const ratio = Math.min(1, Math.max(0.4, innerRatio));
+  const innerW = Math.max(1, Math.floor(cellWidth * ratio));
+  const innerH = Math.max(1, Math.floor(cellHeight * ratio));
+  const offsetX = Math.floor((cellWidth - innerW) / 2);
+  const offsetY = Math.floor((cellHeight - innerH) / 2);
+
   return sharp(imageBuffer)
     .extract({
-      left: col * cellWidth,
-      top: row * cellHeight,
-      width: cellWidth,
-      height: cellHeight,
+      left: col * cellWidth + offsetX,
+      top: row * cellHeight + offsetY,
+      width: innerW,
+      height: innerH,
     })
     .resize(32, 32) // Normalize size for comparison
     .toBuffer();
@@ -319,18 +374,33 @@ function hasXPattern(pixels: Uint8Array, width: number, height: number): boolean
   return bothDiagDark > diagWidth * 0.3;
 }
 
+export interface DetectChartOptions extends DetectGridOptions {
+  /** See extractCell — inner-region sampling ratio. */
+  innerRatio?: number;
+}
+
 /**
- * Main detection function - process entire image
+ * Main detection function - process entire image.
+ *
+ * When `targetCols` / `targetRows` are passed (the user knows their
+ * chart is e.g. 24×40), grid detection skips the heuristic and slices
+ * the image into the requested grid directly. This is the path that
+ * delivers the biggest accuracy win in v1.1 — without it, the sampled
+ * cells often straddle the boundary between two real cells.
  */
 export async function detectChartFromImage(
   imageBuffer: Buffer,
-  contentType?: string
+  contentType?: string,
+  options: DetectChartOptions = {},
 ): Promise<DetectedChart> {
   // Preprocess image
   const { processed, metadata: _metadata } = await preprocessImage(imageBuffer, contentType);
 
-  // Detect grid
-  const grid = await detectGrid(processed);
+  // Detect grid (with caller-supplied dims when present)
+  const grid = await detectGrid(processed, {
+    targetCols: options.targetCols,
+    targetRows: options.targetRows,
+  });
 
   if (!grid) {
     throw new Error('Could not detect grid structure in image');
@@ -355,7 +425,8 @@ export async function detectChartFromImage(
           row,
           col,
           grid.cellWidth,
-          grid.cellHeight
+          grid.cellHeight,
+          options.innerRatio,
         );
 
         const { symbol, confidence } = await recognizeSymbol(cellBuffer);

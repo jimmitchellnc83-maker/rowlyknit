@@ -32,7 +32,18 @@ export const detectFromImage = async (req: Request, res: Response) => {
     const imageBuffer = req.file.buffer;
     const originalFilename = req.file.originalname;
     const contentType = req.file.mimetype;
-    const { project_id } = req.body;
+    const { project_id, target_cols, target_rows, inner_ratio } = req.body;
+
+    // Coerce + validate the new detection knobs. multipart/form-data
+    // delivers everything as strings, so parse defensively.
+    const targetCols = target_cols !== undefined ? parseInt(String(target_cols), 10) : undefined;
+    const targetRows = target_rows !== undefined ? parseInt(String(target_rows), 10) : undefined;
+    const innerRatio = inner_ratio !== undefined ? parseFloat(String(inner_ratio)) : undefined;
+    const detectOptions = {
+      targetCols: Number.isFinite(targetCols) && (targetCols as number) > 0 ? targetCols : undefined,
+      targetRows: Number.isFinite(targetRows) && (targetRows as number) > 0 ? targetRows : undefined,
+      innerRatio: Number.isFinite(innerRatio) ? innerRatio : undefined,
+    };
 
     // Create detection record
     const detectionId = uuidv4();
@@ -58,7 +69,7 @@ export const detectFromImage = async (req: Request, res: Response) => {
 
     try {
       // Run detection
-      const detectionResult = await detectChartFromImage(imageBuffer, contentType);
+      const detectionResult = await detectChartFromImage(imageBuffer, contentType, detectOptions);
 
       // Update record with results
       await db('detected_charts')
