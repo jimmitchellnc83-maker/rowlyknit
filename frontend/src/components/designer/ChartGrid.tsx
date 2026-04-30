@@ -34,6 +34,13 @@ export interface ChartRepeatRegion {
   endRow?: number;
 }
 
+/** Translucent overlay color tags. Knitters use these to mark cells
+ *  the way they'd use sticky notes on a physical chart — "remember this
+ *  is a decrease" / "swap to CC2 here" / "I'm working through this band
+ *  next." Three presets to keep the UI bounded; named so they survive
+ *  a future palette rework. */
+export type HighlightColor = 'yellow' | 'orange' | 'green';
+
 export interface ChartData {
   width: number;
   height: number;
@@ -52,11 +59,17 @@ export interface ChartData {
    *  the bottom; row 1 = first row knit). String values to keep the
    *  payload trivially JSON-serializable. */
   rowNotes?: Record<string, string>;
+  /** Sparse map of cell-index → highlight color. Translucent overlay
+   *  drawn above the symbol layer; doesn't change the underlying stitch
+   *  data (compatible with print + export). Cell index is the offset
+   *  into the cells array; string keys for JSON serializability. */
+  highlights?: Record<string, HighlightColor>;
 }
 
 export type ChartTool =
   | { type: 'symbol'; symbolId: string }
   | { type: 'color'; hex: string }
+  | { type: 'highlight'; color: HighlightColor }
   | { type: 'erase' };
 
 /** Largest chart we'll create. A full adult sweater body is ~100 sts × ~180
@@ -213,16 +226,45 @@ export default function ChartGrid({
       : null;
 
   // Painting helper — for multi-cell symbols, paints the run rightward
-  // from the click position, clipped to the row's right edge.
+  // from the click position, clipped to the row's right edge. Highlights
+  // are stored separately from cell data so they don't pollute exports
+  // or written instructions.
   const applyTool = useCallback(
     (index: number) => {
       if (readOnly) return;
       if (index < 0 || index >= chart.cells.length) return;
+
+      // Highlight tool writes to the sparse highlights map, not the cells
+      // array. Re-clicking the same color toggles it off so a single tool
+      // selection covers paint + erase for that color.
+      if (tool.type === 'highlight') {
+        const highlights = { ...(chart.highlights ?? {}) };
+        const key = String(index);
+        if (highlights[key] === tool.color) delete highlights[key];
+        else highlights[key] = tool.color;
+        if (Object.keys(highlights).length === 0) {
+          const { highlights: _h, ...rest } = chart;
+          onChange(rest);
+        } else {
+          onChange({ ...chart, highlights });
+        }
+        return;
+      }
+
       const next = [...chart.cells];
       const row = Math.floor(index / chart.width);
       const col = index - row * chart.width;
       if (tool.type === 'erase') {
         next[index] = { symbolId: null, colorHex: null };
+        // Erase also clears the highlight on that cell so the user
+        // doesn't end up with an orphan tag floating in space.
+        if (chart.highlights && chart.highlights[String(index)]) {
+          const highlights = { ...chart.highlights };
+          delete highlights[String(index)];
+          const cleaned = Object.keys(highlights).length === 0 ? undefined : highlights;
+          onChange({ ...chart, cells: next, highlights: cleaned });
+          return;
+        }
       } else if (tool.type === 'color') {
         next[index] = { ...next[index], colorHex: tool.hex };
       } else if (tool.type === 'symbol') {
@@ -478,6 +520,41 @@ export default function ChartGrid({
               aria-hidden="true"
             >
               {overlayNodes}
+            </svg>
+          )}
+          {/* Highlight overlay — translucent rects on tagged cells. Drawn
+              above symbols so the highlight tints whatever's beneath
+              without changing the underlying cell data. */}
+          {chart.highlights && Object.keys(chart.highlights).length > 0 && (
+            <svg
+              className="pointer-events-none absolute inset-0"
+              width={chart.width * cellWidth}
+              height={chart.height * cellHeight}
+              viewBox={`0 0 ${chart.width * cellWidth} ${chart.height * cellHeight}`}
+              aria-hidden="true"
+            >
+              {Object.entries(chart.highlights).map(([key, color]) => {
+                const idx = parseInt(key, 10);
+                if (!Number.isFinite(idx) || idx < 0 || idx >= chart.cells.length) return null;
+                const r = Math.floor(idx / chart.width);
+                const c = idx - r * chart.width;
+                const fill =
+                  color === 'yellow'
+                    ? 'rgba(250, 204, 21, 0.55)'
+                    : color === 'orange'
+                      ? 'rgba(251, 146, 60, 0.55)'
+                      : 'rgba(74, 222, 128, 0.55)';
+                return (
+                  <rect
+                    key={`hi-${key}`}
+                    x={c * cellWidth}
+                    y={r * cellHeight}
+                    width={cellWidth}
+                    height={cellHeight}
+                    fill={fill}
+                  />
+                );
+              })}
             </svg>
           )}
           {/* Repeat-box overlay — bold dashed border around the repeat
