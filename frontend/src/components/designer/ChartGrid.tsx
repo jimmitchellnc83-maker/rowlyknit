@@ -189,6 +189,11 @@ export default function ChartGrid({
   readOnly = false,
 }: ChartGridProps) {
   const [painting, setPainting] = useState(false);
+  // Keyboard-focused cell index (cells-array offset). Null when the
+  // grid hasn't been focused or when the user has clicked into another
+  // input. Arrow keys move it; Space/Enter paints with the active
+  // tool. Render an amber ring around it so it's visible.
+  const [activeCellIndex, setActiveCellIndex] = useState<number | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // cellSize sets the WIDTH; height scales by aspect (height/width) so a
@@ -324,7 +329,8 @@ export default function ChartGrid({
         <div className="relative">
           <div
             ref={containerRef}
-            className="touch-none select-none border border-gray-400 bg-white dark:border-gray-600 dark:bg-gray-900"
+            tabIndex={readOnly ? -1 : 0}
+            className="touch-none select-none border border-gray-400 bg-white outline-none focus:ring-2 focus:ring-purple-400 dark:border-gray-600 dark:bg-gray-900"
             style={{
               display: 'grid',
               gridTemplateColumns: `repeat(${chart.width}, ${cellWidth}px)`,
@@ -333,7 +339,10 @@ export default function ChartGrid({
             onMouseDown={(e) => {
               if (e.button !== 0) return;
               const idx = cellIndexFromEvent(e.clientX, e.clientY);
-              if (idx >= 0) applyTool(idx);
+              if (idx >= 0) {
+                applyTool(idx);
+                setActiveCellIndex(idx);
+              }
               setPainting(true);
             }}
             onMouseUp={() => setPainting(false)}
@@ -346,7 +355,10 @@ export default function ChartGrid({
             onTouchStart={(e) => {
               const t = e.touches[0];
               const idx = cellIndexFromEvent(t.clientX, t.clientY);
-              if (idx >= 0) applyTool(idx);
+              if (idx >= 0) {
+                applyTool(idx);
+                setActiveCellIndex(idx);
+              }
               setPainting(true);
             }}
             onTouchMove={(e) => {
@@ -357,8 +369,53 @@ export default function ChartGrid({
             }}
             onTouchEnd={() => setPainting(false)}
             onTouchCancel={() => setPainting(false)}
+            onKeyDown={(e) => {
+              if (readOnly) return;
+              const total = chart.width * chart.height;
+              if (total === 0) return;
+              const cur = activeCellIndex ?? 0;
+              const r = Math.floor(cur / chart.width);
+              const c = cur - r * chart.width;
+              let next = cur;
+              switch (e.key) {
+                case 'ArrowLeft':
+                  next = r * chart.width + Math.max(0, c - 1);
+                  break;
+                case 'ArrowRight':
+                  next = r * chart.width + Math.min(chart.width - 1, c + 1);
+                  break;
+                case 'ArrowUp':
+                  next = Math.max(0, (r - 1)) * chart.width + c;
+                  break;
+                case 'ArrowDown':
+                  next = Math.min(chart.height - 1, r + 1) * chart.width + c;
+                  break;
+                case '[':
+                  // Prev row in knitter terms (row 1 = bottom, so [ is "up the chart").
+                  next = Math.max(0, (r - 1)) * chart.width + c;
+                  break;
+                case ']':
+                  next = Math.min(chart.height - 1, r + 1) * chart.width + c;
+                  break;
+                case ' ':
+                case 'Enter':
+                  applyTool(cur);
+                  e.preventDefault();
+                  return;
+                case 'Escape':
+                  setActiveCellIndex(null);
+                  e.preventDefault();
+                  return;
+                default:
+                  return;
+              }
+              if (next !== cur || activeCellIndex === null) {
+                setActiveCellIndex(next);
+              }
+              e.preventDefault();
+            }}
             role="grid"
-            aria-label="Chart grid"
+            aria-label="Chart grid (arrow keys to navigate, Space to paint, [ ] for prev/next row)"
             aria-rowcount={chart.height}
             aria-colcount={chart.width}
           >
@@ -367,6 +424,7 @@ export default function ChartGrid({
               const bg = cell.colorHex ?? '#FFFFFF';
               const row = Math.floor(i / chart.width);
               const isActive = highlightedGridRow !== null && row === highlightedGridRow;
+              const isFocused = i === activeCellIndex;
               // Hide internal vertical borders inside multi-cell runs so the
               // run reads as a single wide cell. We hide:
               //   leader: right border  (next cell is middle/tail)
@@ -388,7 +446,11 @@ export default function ChartGrid({
                   style={{
                     backgroundColor: bg,
                     cursor: readOnly ? 'default' : 'cell',
-                    boxShadow: isActive ? 'inset 0 0 0 1px rgba(245, 158, 11, 0.35)' : undefined,
+                    boxShadow: isFocused
+                      ? 'inset 0 0 0 2px #a855f7'
+                      : isActive
+                        ? 'inset 0 0 0 1px rgba(245, 158, 11, 0.35)'
+                        : undefined,
                   }}
                   aria-label={
                     sym
