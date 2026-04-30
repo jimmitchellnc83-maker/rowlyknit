@@ -16,14 +16,22 @@ export interface ChartCell {
 }
 
 /** Optional bold-bordered region marking the repeat unit within a chart.
- *  Both indices are 0-based, inclusive, and address columns from the LEFT
- *  (column 0 = leftmost cell in the cells array). The chart designer UI
- *  presents these to the knitter using stitch numbers (1-indexed from the
- *  right) and converts on save. Spans the full chart height for now —
- *  vertical repeat bounds can be added later if needed. */
+ *  All indices are 0-based, inclusive, and address columns from the LEFT
+ *  (column 0 = leftmost cell in the cells array) and rows from the TOP
+ *  (row 0 = top of the cells array; knitter row 1 = chart.height - 1).
+ *  The chart designer UI presents columns to the knitter using stitch
+ *  numbers (1-indexed from the right) and rows using row numbers
+ *  (1-indexed from the BOTTOM), and converts on save.
+ *
+ *  Row range is OPTIONAL — when omitted, the box spans the full chart
+ *  height (the original behavior). Most repeat motifs are
+ *  horizontal-only; vertical bounds matter for "this 4-row band repeats
+ *  N times before yoke shaping" patterns. */
 export interface ChartRepeatRegion {
   startCol: number;
   endCol: number;
+  startRow?: number;
+  endRow?: number;
 }
 
 export interface ChartData {
@@ -79,16 +87,20 @@ export function resizeChart(prev: ChartData, width: number, height: number): Cha
       }
     }
   }
-  // Drop a stored repeat region whose columns no longer fit. Clamping
-  // would silently change the user's repeat width, which is worse than
-  // making them re-mark the region — so we just clear it.
-  const repeatRegion =
-    prev.repeatRegion &&
-    prev.repeatRegion.startCol >= 0 &&
-    prev.repeatRegion.endCol < w &&
-    prev.repeatRegion.startCol <= prev.repeatRegion.endCol
-      ? prev.repeatRegion
-      : undefined;
+  // Drop a stored repeat region whose columns or rows no longer fit.
+  // Clamping would silently change the user's repeat dimensions, which
+  // is worse than making them re-mark the region — so we just clear it.
+  const r = prev.repeatRegion;
+  const colsOk = !!r && r.startCol >= 0 && r.endCol < w && r.startCol <= r.endCol;
+  const rowsOk =
+    !r ||
+    (r.startRow === undefined && r.endRow === undefined) ||
+    (typeof r.startRow === 'number' &&
+      typeof r.endRow === 'number' &&
+      r.startRow >= 0 &&
+      r.endRow < h &&
+      r.startRow <= r.endRow);
+  const repeatRegion = r && colsOk && rowsOk ? r : undefined;
   return { ...prev, width: w, height: h, cells: next, repeatRegion };
 }
 
@@ -402,25 +414,38 @@ export default function ChartGrid({
             </svg>
           )}
           {/* Repeat-box overlay — bold dashed border around the repeat
-              columns. pointer-events:none so painting still works inside
-              the box. */}
-          {chart.repeatRegion &&
-            chart.repeatRegion.startCol >= 0 &&
-            chart.repeatRegion.endCol < chart.width &&
-            chart.repeatRegion.startCol <= chart.repeatRegion.endCol && (
+              columns (and rows when set). pointer-events:none so
+              painting still works inside the box. */}
+          {(() => {
+            const r = chart.repeatRegion;
+            if (!r) return null;
+            if (r.startCol < 0 || r.endCol >= chart.width || r.startCol > r.endCol) return null;
+            const hasRowBounds =
+              typeof r.startRow === 'number' && typeof r.endRow === 'number';
+            if (
+              hasRowBounds &&
+              (r.startRow! < 0 || r.endRow! >= chart.height || r.startRow! > r.endRow!)
+            ) {
+              return null;
+            }
+            const top = hasRowBounds ? r.startRow! * cellHeight : 0;
+            const height = hasRowBounds
+              ? (r.endRow! - r.startRow! + 1) * cellHeight
+              : chart.height * cellHeight;
+            return (
               <div
                 className="pointer-events-none absolute border-2 border-dashed border-purple-600 dark:border-purple-400"
                 style={{
-                  left: chart.repeatRegion.startCol * cellWidth,
-                  top: 0,
-                  width:
-                    (chart.repeatRegion.endCol - chart.repeatRegion.startCol + 1) * cellWidth,
-                  height: chart.height * cellHeight,
+                  left: r.startCol * cellWidth,
+                  top,
+                  width: (r.endCol - r.startCol + 1) * cellWidth,
+                  height,
                 }}
                 aria-label="Repeat unit"
                 role="presentation"
               />
-            )}
+            );
+          })()}
         </div>
 
         {/* Right row-number gutter — RS rows for flat, all rows for in-the-round */}

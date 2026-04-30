@@ -1020,6 +1020,11 @@ function RepeatRegionEditor({
   // Display values in knitter-stitch numbering (rightmost = 1).
   const startStitch = region ? chart.width - region.endCol : '';
   const endStitch = region ? chart.width - region.startCol : '';
+  // Display values in knitter-row numbering (1 = bottom).
+  const startRow =
+    region && typeof region.endRow === 'number' ? chart.height - region.endRow : '';
+  const endRow =
+    region && typeof region.startRow === 'number' ? chart.height - region.startRow : '';
 
   const apply = (rawStart: number | string, rawEnd: number | string) => {
     const s = typeof rawStart === 'number' ? rawStart : parseInt(rawStart, 10);
@@ -1029,7 +1034,35 @@ function RepeatRegionEditor({
     if (s > e) return;
     onChange({
       ...chart,
-      repeatRegion: { startCol: chart.width - e, endCol: chart.width - s },
+      repeatRegion: {
+        ...(region ?? {}),
+        startCol: chart.width - e,
+        endCol: chart.width - s,
+      },
+    });
+  };
+  const applyRows = (rawStart: number | string, rawEnd: number | string) => {
+    if (!region) return; // can't add rows without a column range
+    const sStr = typeof rawStart === 'string' ? rawStart.trim() : String(rawStart);
+    const eStr = typeof rawEnd === 'string' ? rawEnd.trim() : String(rawEnd);
+    // Both empty → clear vertical bounds (full-height repeat is the default).
+    if (sStr === '' && eStr === '') {
+      const { startRow: _s, endRow: _e, ...rest } = region;
+      onChange({ ...chart, repeatRegion: rest });
+      return;
+    }
+    const s = parseInt(sStr, 10);
+    const e = parseInt(eStr, 10);
+    if (!Number.isFinite(s) || !Number.isFinite(e)) return;
+    if (s < 1 || e < 1 || s > chart.height || e > chart.height) return;
+    if (s > e) return;
+    onChange({
+      ...chart,
+      repeatRegion: {
+        ...region,
+        startRow: chart.height - e,
+        endRow: chart.height - s,
+      },
     });
   };
   const clear = () => {
@@ -1063,7 +1096,33 @@ function RepeatRegionEditor({
         className="w-14 rounded border border-gray-300 bg-white px-2 py-1 text-center dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
         aria-label="Repeat end stitch (1 = rightmost)"
       />
-      <span className="text-gray-500">(read R→L)</span>
+      <span className="text-gray-500">(R→L)</span>
+      <span className="ml-2 text-gray-500">row</span>
+      <input
+        type="number"
+        min={1}
+        max={chart.height}
+        value={startRow}
+        placeholder="—"
+        disabled={!region}
+        onChange={(ev) => applyRows(ev.target.value, endRow || chart.height)}
+        className="w-14 rounded border border-gray-300 bg-white px-2 py-1 text-center disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+        aria-label="Repeat start row (1 = bottom). Optional — empty means full chart height"
+        title={region ? '' : 'Set the stitch range first'}
+      />
+      <span className="text-gray-500">to</span>
+      <input
+        type="number"
+        min={1}
+        max={chart.height}
+        value={endRow}
+        placeholder="—"
+        disabled={!region}
+        onChange={(ev) => applyRows(startRow || 1, ev.target.value)}
+        className="w-14 rounded border border-gray-300 bg-white px-2 py-1 text-center disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+        aria-label="Repeat end row (1 = bottom). Optional — empty means full chart height"
+      />
+      <span className="text-gray-500">(opt.)</span>
       {region && (
         <button
           type="button"
