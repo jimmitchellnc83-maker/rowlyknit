@@ -593,21 +593,31 @@ function ChartInstructionsSection({ form }: { form: DesignerFormSnapshot }) {
   const symbols = [...palette.data.system, ...palette.data.custom];
   const rows = buildChartInstructions({ chart, symbols });
 
+  const rowNotes = chart.rowNotes ?? {};
+
   return (
     <Section title="Chart — instructions">
       {castOn && (
         <p className="mb-2 text-sm font-medium text-gray-900 dark:text-gray-100">{castOn}</p>
       )}
       <ol className="space-y-1 text-sm">
-        {rows.map((r) => (
-          <li key={r.rowNumber} className="print-avoid-break">
-            <span className="font-mono font-semibold">{r.prefix}</span>{' '}
-            <span>{r.isEmpty ? '(empty row)' : r.body}</span>
-            {r.warnings.length > 0 && (
-              <span className="ml-2 text-xs text-amber-700">⚠ {r.warnings.join('; ')}</span>
-            )}
-          </li>
-        ))}
+        {rows.map((r) => {
+          const note = rowNotes[String(r.rowNumber)];
+          return (
+            <li key={r.rowNumber} className="print-avoid-break">
+              <span className="font-mono font-semibold">{r.prefix}</span>{' '}
+              <span>{r.isEmpty ? '(empty row)' : r.body}</span>
+              {r.warnings.length > 0 && (
+                <span className="ml-2 text-xs text-amber-700">⚠ {r.warnings.join('; ')}</span>
+              )}
+              {note && (
+                <span className="ml-2 italic text-purple-700 dark:text-purple-300">
+                  — {note}
+                </span>
+              )}
+            </li>
+          );
+        })}
       </ol>
     </Section>
   );

@@ -47,6 +47,11 @@ export interface ChartData {
    *  repeat unit (drawn with a bold border). The cast-on preamble derives
    *  "multiple of N sts, plus E" from this. */
   repeatRegion?: ChartRepeatRegion;
+  /** Optional per-row notes the knitter wants surfaced alongside the
+   *  written instructions. Keys are KNITTER row numbers (1-indexed from
+   *  the bottom; row 1 = first row knit). String values to keep the
+   *  payload trivially JSON-serializable. */
+  rowNotes?: Record<string, string>;
 }
 
 export type ChartTool =

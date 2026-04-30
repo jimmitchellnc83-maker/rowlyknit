@@ -1144,6 +1144,120 @@ function RepeatRegionEditor({
   );
 }
 
+/**
+ * Per-row notes panel. Knitters often want to attach a quick reminder
+ * to specific rows ("inc 4 sts here", "switch to CC2", "begin yoke
+ * shaping"). Rendered below the chart canvas; notes show in the print
+ * view alongside the row's written instructions.
+ *
+ * Row numbers in the UI are 1-indexed from the bottom (knitter
+ * convention, matches the row gutter).
+ */
+function RowNotesEditor({
+  chart,
+  onChange,
+}: {
+  chart: ChartData;
+  onChange: (next: ChartData) => void;
+}) {
+  const notes = chart.rowNotes ?? {};
+  const sortedRows = Object.keys(notes)
+    .map((k) => parseInt(k, 10))
+    .filter((n) => Number.isFinite(n) && n >= 1 && n <= chart.height)
+    .sort((a, b) => a - b);
+
+  const setNote = (row: number, text: string) => {
+    const next = { ...notes };
+    if (text.trim() === '') {
+      delete next[String(row)];
+    } else {
+      next[String(row)] = text;
+    }
+    if (Object.keys(next).length === 0) {
+      const { rowNotes: _r, ...rest } = chart;
+      onChange(rest);
+    } else {
+      onChange({ ...chart, rowNotes: next });
+    }
+  };
+
+  const [draftRow, setDraftRow] = useState<number | ''>('');
+  const [draftText, setDraftText] = useState('');
+  const addNote = () => {
+    if (!draftRow || draftRow < 1 || draftRow > chart.height) return;
+    if (draftText.trim() === '') return;
+    setNote(draftRow, draftText);
+    setDraftRow('');
+    setDraftText('');
+  };
+
+  return (
+    <details className="mt-3 rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm dark:border-gray-700 dark:bg-gray-800/40">
+      <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">
+        Row notes {sortedRows.length > 0 && `(${sortedRows.length})`}
+      </summary>
+      <div className="mt-2 space-y-2">
+        {sortedRows.map((row) => (
+          <div key={row} className="flex items-start gap-2">
+            <span className="mt-1 inline-flex w-12 flex-shrink-0 justify-end font-mono text-xs text-gray-500">
+              Row {row}
+            </span>
+            <input
+              type="text"
+              value={notes[String(row)]}
+              onChange={(e) => setNote(row, e.target.value)}
+              className="flex-1 rounded border border-gray-300 bg-white px-2 py-1 text-xs dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+              aria-label={`Note for row ${row}`}
+            />
+            <button
+              type="button"
+              onClick={() => setNote(row, '')}
+              className="rounded text-xs text-gray-400 hover:text-red-500"
+              aria-label={`Remove note for row ${row}`}
+            >
+              ×
+            </button>
+          </div>
+        ))}
+        <div className="flex items-start gap-2 border-t border-gray-200 pt-2 dark:border-gray-700">
+          <input
+            type="number"
+            min={1}
+            max={chart.height}
+            value={draftRow}
+            onChange={(e) => {
+              const v = parseInt(e.target.value, 10);
+              setDraftRow(Number.isFinite(v) ? v : '');
+            }}
+            placeholder="Row"
+            className="mt-0.5 w-14 flex-shrink-0 rounded border border-gray-300 bg-white px-2 py-1 text-center text-xs dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+            aria-label="Row number for new note"
+          />
+          <input
+            type="text"
+            value={draftText}
+            onChange={(e) => setDraftText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') addNote();
+            }}
+            placeholder="Note (e.g. begin yoke shaping)"
+            className="flex-1 rounded border border-gray-300 bg-white px-2 py-1 text-xs dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+            aria-label="New note text"
+          />
+          <button
+            type="button"
+            onClick={addNote}
+            disabled={!draftRow || draftText.trim() === ''}
+            className="rounded bg-purple-600 px-2 py-1 text-xs font-medium text-white hover:bg-purple-700 disabled:opacity-40"
+          >
+            Add
+          </button>
+        </div>
+      </div>
+    </details>
+  );
+}
+
 function ChartSection({
   chart,
   onChange,
@@ -1644,6 +1758,8 @@ function ChartSection({
       </div>
 
       <ChartLegend chart={chart} craft={craft} paletteColors={paletteColors} />
+
+      <RowNotesEditor chart={chart} onChange={onChange} />
 
       <div className="mt-3 flex items-center gap-2">
         <button
