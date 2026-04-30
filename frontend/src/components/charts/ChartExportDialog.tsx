@@ -87,6 +87,8 @@ const ChartExportDialog: React.FC<ChartExportDialogProps> = ({
   const [includeNotes, setIncludeNotes] = useState(true);
   const [includeRowNumbers, setIncludeRowNumbers] = useState(true);
   const [includeRepeatBox, setIncludeRepeatBox] = useState(true);
+  const [gridWeight, setGridWeight] = useState<number>(1);
+  const [symbolScale, setSymbolScale] = useState<number>(1);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -110,6 +112,8 @@ const ChartExportDialog: React.FC<ChartExportDialogProps> = ({
             include_notes: includeNotes,
             include_row_numbers: includeRowNumbers,
             include_repeat_box: includeRepeatBox,
+            grid_weight: gridWeight,
+            symbol_scale: symbolScale,
           },
         }),
       });
@@ -248,6 +252,43 @@ const ChartExportDialog: React.FC<ChartExportDialogProps> = ({
                   <MenuItem value="small">Small</MenuItem>
                   <MenuItem value="medium">Medium</MenuItem>
                   <MenuItem value="large">Large</MenuItem>
+                </Select>
+              </FormControl>
+            </Box>
+
+            {/* Grid weight — stroke width for the cell borders. Heavier
+                reads better on weak printers; lighter is for publication
+                output. */}
+            <Box sx={{ mb: 2 }}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Grid Weight</InputLabel>
+                <Select
+                  value={String(gridWeight)}
+                  label="Grid Weight"
+                  onChange={(e: SelectChangeEvent) => setGridWeight(parseFloat(e.target.value))}
+                >
+                  <MenuItem value="0.5">Light (0.5)</MenuItem>
+                  <MenuItem value="1">Standard (1)</MenuItem>
+                  <MenuItem value="1.5">Bold (1.5)</MenuItem>
+                  <MenuItem value="2">Heavy (2)</MenuItem>
+                </Select>
+              </FormControl>
+            </Box>
+
+            {/* Symbol scale — multiplier applied to the auto-derived
+                stitch symbol font size. Default 1.0. */}
+            <Box sx={{ mb: 2 }}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Symbol Scale</InputLabel>
+                <Select
+                  value={String(symbolScale)}
+                  label="Symbol Scale"
+                  onChange={(e: SelectChangeEvent) => setSymbolScale(parseFloat(e.target.value))}
+                >
+                  <MenuItem value="0.75">Smaller (0.75×)</MenuItem>
+                  <MenuItem value="1">Standard (1×)</MenuItem>
+                  <MenuItem value="1.25">Larger (1.25×)</MenuItem>
+                  <MenuItem value="1.5">Largest (1.5×)</MenuItem>
                 </Select>
               </FormControl>
             </Box>
