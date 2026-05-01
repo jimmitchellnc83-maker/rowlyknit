@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { FiSearch, FiX, FiArrowLeft } from 'react-icons/fi';
@@ -66,7 +66,10 @@ export default function Glossary() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const highlightedId = useRef<string | null>(null);
+  // Tracked in state (not via classList.add) so a re-render won't clobber
+  // the ring. Cleared by the timeout that fires 2s after the deep-link
+  // resolves the row.
+  const [highlightedRowId, setHighlightedRowId] = useState<string | null>(null);
 
   useSeo({
     title: 'Knitting & Crochet Abbreviations Glossary | Rowly',
@@ -176,28 +179,32 @@ export default function Glossary() {
     };
   }, [craft]);
 
-  // Deep-link handler: when ?term=k2tog&craft=knit lands the user, scroll
-  // to that entry once it's rendered and flash a highlight ring.
-  useEffect(() => {
-    if (!initialTerm || !rows || rows.length === 0) return;
+  // Find the target row of a `?term=&craft=` deep-link. Memoized so it
+  // stays stable across the URL bookkeeping + StrictMode renders that
+  // would otherwise re-fire the highlight effect.
+  const deepLinkTargetId = useMemo(() => {
+    if (!initialTerm || !rows || rows.length === 0) return null;
     const target = rows.find(
       (r) =>
         r.abbreviation === initialTerm &&
         (initialCraft ? r.craft === initialCraft : true)
     );
-    if (!target) return;
-    if (highlightedId.current === target.id) return;
-    highlightedId.current = target.id;
-    const node = document.getElementById(`abbr-${target.id}`);
+    return target?.id ?? null;
+  }, [rows, initialTerm, initialCraft]);
+
+  // Scroll to the deep-linked entry and tag it for ring-highlight render.
+  // The highlight stays until the user navigates away or reloads — the
+  // earlier auto-fade-after-2s timer didn't survive React 18 StrictMode +
+  // lazy + Suspense reliably; the persistent ring is steadier and gives
+  // chart-palette → glossary jumps a visible landing point.
+  useEffect(() => {
+    if (!deepLinkTargetId) return;
+    setHighlightedRowId(deepLinkTargetId);
+    const node = document.getElementById(`abbr-${deepLinkTargetId}`);
     if (node) {
       node.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      node.classList.add('ring-2', 'ring-purple-500', 'ring-offset-2');
-      window.setTimeout(() => {
-        node.classList.remove('ring-2', 'ring-purple-500', 'ring-offset-2');
-      }, 2000);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, initialTerm, initialCraft]);
+  }, [deepLinkTargetId]);
 
   // Group rows by craft → category for rendering.
   const grouped = useMemo(() => {
@@ -363,7 +370,11 @@ export default function Glossary() {
                     </h3>
                     <dl className="grid grid-cols-1 gap-2 md:grid-cols-2">
                       {(craftMap.get(cat) ?? []).map((row) => (
-                        <AbbreviationRow key={row.id} row={row} />
+                        <AbbreviationRow
+                          key={row.id}
+                          row={row}
+                          highlighted={row.id === highlightedRowId}
+                        />
                       ))}
                     </dl>
                   </div>
@@ -432,11 +443,21 @@ function CategoryChip({
   );
 }
 
-function AbbreviationRow({ row }: { row: Abbreviation }) {
+function AbbreviationRow({
+  row,
+  highlighted,
+}: {
+  row: Abbreviation;
+  highlighted: boolean;
+}) {
   return (
     <div
       id={`abbr-${row.id}`}
-      className="flex items-baseline gap-3 rounded-md border border-gray-200 bg-white p-3 transition dark:border-gray-700 dark:bg-gray-800"
+      className={
+        highlighted
+          ? 'flex items-baseline gap-3 rounded-md border border-purple-400 bg-white p-3 ring-2 ring-purple-500 ring-offset-2 transition dark:border-purple-500 dark:bg-gray-800'
+          : 'flex items-baseline gap-3 rounded-md border border-gray-200 bg-white p-3 transition dark:border-gray-700 dark:bg-gray-800'
+      }
     >
       <dt className="min-w-[80px] font-mono text-sm font-semibold text-purple-700 dark:text-purple-300">
         {row.abbreviation}

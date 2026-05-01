@@ -5,12 +5,19 @@ import type { KnittingSymbol } from '../../data/knittingSymbols';
 import { SYMBOL_CATEGORIES } from '../../data/knittingSymbols';
 import { skillLevelBadgeClasses, skillLevelLabel } from '../../types/skillLevel';
 
+type GlossaryCraft = 'knit' | 'crochet' | 'tunisian' | 'loom-knit';
+
 interface SymbolDefinitionPopoverProps {
   symbol: KnittingSymbol;
   position: { x: number; y: number };
   instanceCount: number;
   onClose: () => void;
   onViewVideo?: (url: string) => void;
+  /** Craft of the parent chart — drives the glossary deep-link's
+   *  `craft` query param so `BO` (knit) doesn't accidentally open the
+   *  crochet bobble entry. Defaults to 'knit' since that's where this
+   *  popover originated. */
+  craft?: GlossaryCraft;
 }
 
 export default function SymbolDefinitionPopover({
@@ -19,6 +26,7 @@ export default function SymbolDefinitionPopover({
   instanceCount,
   onClose,
   onViewVideo,
+  craft = 'knit',
 }: SymbolDefinitionPopoverProps) {
   const popoverRef = useRef<HTMLDivElement>(null);
 
@@ -176,6 +184,21 @@ export default function SymbolDefinitionPopover({
             <FiExternalLink className="h-4 w-4" />
             Watch Tutorial Video
           </button>
+        )}
+
+        {/* Glossary deep-link — only renders when we have an abbreviation
+            to look up. Opens in a new tab so the chart context isn't lost. */}
+        {symbol.abbreviation && (
+          <a
+            href={`/help/glossary?term=${encodeURIComponent(symbol.abbreviation)}&craft=${craft}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-purple-200 bg-purple-50 text-purple-800 hover:bg-purple-100 dark:border-purple-700 dark:bg-purple-900/20 dark:text-purple-200 dark:hover:bg-purple-900/40 transition text-sm font-medium"
+          >
+            <FiBookOpen className="h-4 w-4" />
+            View "{symbol.abbreviation}" in glossary
+            <FiExternalLink className="h-3.5 w-3.5 opacity-70" />
+          </a>
         )}
       </div>
 
