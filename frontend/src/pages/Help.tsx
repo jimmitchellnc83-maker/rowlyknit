@@ -9,6 +9,8 @@ import {
   FiFileText,
   FiShare2,
   FiLayers,
+  FiBookOpen,
+  FiChevronRight,
 } from 'react-icons/fi';
 
 interface HelpSection {
@@ -45,6 +47,23 @@ export default function Help() {
           the gotchas you'll hit.
         </p>
       </header>
+
+      <Link
+        to="/help/glossary"
+        className="group mb-6 flex items-center gap-4 rounded-lg border border-purple-200 bg-purple-50 p-4 transition hover:border-purple-400 hover:shadow dark:border-purple-700 dark:bg-purple-900/20"
+      >
+        <FiBookOpen className="h-8 w-8 flex-shrink-0 text-purple-600 dark:text-purple-300" />
+        <div className="flex-1">
+          <div className="flex items-center justify-between">
+            <h2 className="font-semibold text-gray-900 dark:text-gray-100">Stitch Abbreviations Glossary</h2>
+            <FiChevronRight className="h-5 w-5 text-gray-400 transition group-hover:text-purple-600" />
+          </div>
+          <p className="mt-1 text-sm text-gray-700 dark:text-gray-300">
+            Searchable list of 195 canonical CYC abbreviations across knit, crochet, Tunisian, and loom-knit. Filter
+            by craft, search by term, deep-link from any chart symbol.
+          </p>
+        </div>
+      </Link>
 
       <nav aria-label="Help sections" className="mb-10 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500 mb-3">Jump to</h2>
