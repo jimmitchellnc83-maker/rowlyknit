@@ -23,4 +23,29 @@ describe('deployment/nginx/conf.d/rowlyknit.conf', () => {
       /location\s+\/api\/\s*\{[^}]*proxy_pass\s+http:\/\/backend:5000/s
     );
   });
+
+  // Regression: PR after platform audit 2026-04-30 critical #5.
+  // Without plausible.io in script-src + connect-src the analytics script
+  // is blocked by CSP, the queue stub is never replaced, and every
+  // trackEvent call silently drops on prod.
+  describe('Content-Security-Policy on rowlyknit.com', () => {
+    const cspMatch = conf.match(
+      /add_header Content-Security-Policy "([^"]+)"\s+always;/
+    );
+    const csp = cspMatch?.[1] ?? '';
+
+    it('extracts a CSP header from the rowlyknit.com server block', () => {
+      expect(csp).not.toBe('');
+    });
+
+    it('allows https://plausible.io in script-src', () => {
+      const scriptSrc = csp.match(/script-src\s+([^;]+)/)?.[1] ?? '';
+      expect(scriptSrc).toMatch(/https:\/\/plausible\.io/);
+    });
+
+    it('allows https://plausible.io in connect-src', () => {
+      const connectSrc = csp.match(/connect-src\s+([^;]+)/)?.[1] ?? '';
+      expect(connectSrc).toMatch(/https:\/\/plausible\.io/);
+    });
+  });
 });
