@@ -54,6 +54,7 @@ import panelsRoutes from './routes/panels';
 import userExamplesRoutes from './routes/user-examples';
 import ogRenderRoutes from './routes/og-render';
 import calculatorsSsrRoutes from './routes/calculators-ssr';
+import abbreviationsRoutes from './routes/abbreviations';
 
 // Create Express app
 const app: Application = express();
@@ -174,6 +175,7 @@ app.use('/api', colorPlanningRoutes);
 app.use('/api/ravelry', ravelryRoutes);
 app.use('/api/usage-events', usageEventsRoutes);
 app.use('/api/users', userExamplesRoutes);
+app.use('/api/abbreviations', abbreviationsRoutes);
 app.use('/shared', sharedRoutes); // Public shared content routes
 app.use('/', ogRenderRoutes); // Server-side OG meta for /p/:slug
 app.use('/', calculatorsSsrRoutes); // Server-side JSON-LD for /calculators
