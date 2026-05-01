@@ -14,9 +14,16 @@ export async function up(knex: Knex): Promise<void> {
   const hasCol = async (col: string) =>
     knex.schema.hasColumn('handwritten_notes', col);
 
-  await knex.schema.alterTable('handwritten_notes', (table) => {
-    table.index(['project_id'], 'idx_handwritten_notes_project');
-  }).catch(() => { /* index may already exist */ });
+  // Idempotent index creation — migration #034 also creates this index, so on
+  // a fresh DB the previous `alterTable.index().catch(()=>{})` form raised
+  // "relation already exists", swallowed the JS error, and left the enclosing
+  // migration transaction aborted, which cascaded into "current transaction is
+  // aborted, commands ignored until end of transaction block" on the next
+  // hasColumn query and broke disaster-recovery rebuilds. Using raw IF NOT
+  // EXISTS keeps the transaction healthy regardless of prior state.
+  await knex.raw(
+    'CREATE INDEX IF NOT EXISTS idx_handwritten_notes_project ON handwritten_notes (project_id)'
+  );
 
   const adds: Array<(t: Knex.AlterTableBuilder) => void> = [];
 
