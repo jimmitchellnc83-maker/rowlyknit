@@ -1,6 +1,8 @@
-import { useState } from 'react';
-import { FiEdit2, FiCheck, FiX } from 'react-icons/fi';
+import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { FiEdit2, FiCheck, FiX, FiHelpCircle } from 'react-icons/fi';
 import { toast } from 'react-toastify';
+import { topicForSituation } from '../../../data/knit911';
 
 interface Props {
   currentNotes: string;
@@ -10,6 +12,15 @@ interface Props {
 export default function ProjectQuickNotes({ currentNotes, onSave }: Props) {
   const [editingNotes, setEditingNotes] = useState(false);
   const [notesText, setNotesText] = useState(currentNotes || '');
+
+  // Match the most recent ~200 chars against the Knit911 keyword index.
+  // Surfaces a contextual help link when the knitter has jotted about a
+  // recognizable problem ("dropped stitch", "curling edges", etc.).
+  const knit911Match = useMemo(() => {
+    const haystack = (currentNotes || '').slice(-400);
+    if (!haystack.trim()) return null;
+    return topicForSituation(haystack);
+  }, [currentNotes]);
 
   const handleEditNotes = () => {
     setNotesText(currentNotes || '');
@@ -74,7 +85,21 @@ export default function ProjectQuickNotes({ currentNotes, onSave }: Props) {
           </div>
         </div>
       ) : currentNotes ? (
-        <p className="text-sm text-gray-700 whitespace-pre-wrap">{currentNotes}</p>
+        <>
+          <p className="text-sm text-gray-700 whitespace-pre-wrap">{currentNotes}</p>
+          {knit911Match && (
+            <Link
+              to={`/help/knit911#${knit911Match.slug}`}
+              className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-purple-50 px-2.5 py-1.5 text-xs font-medium text-purple-700 hover:bg-purple-100 dark:bg-purple-900/20 dark:text-purple-300"
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Open the Knit911 fix in a new tab"
+            >
+              <FiHelpCircle className="h-3.5 w-3.5" />
+              Sounds like: <span className="font-semibold">{knit911Match.title}</span>
+            </Link>
+          )}
+        </>
       ) : (
         <button
           type="button"
