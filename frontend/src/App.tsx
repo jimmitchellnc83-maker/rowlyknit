@@ -59,6 +59,7 @@ const Landing = lazy(() => import('./pages/Landing'));
 const Privacy = lazy(() => import('./pages/Privacy'));
 const Terms = lazy(() => import('./pages/Terms'));
 const Glossary = lazy(() => import('./pages/Glossary'));
+const Knit911 = lazy(() => import('./pages/Knit911'));
 
 // Protected route wrapper
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -123,6 +124,7 @@ function App() {
         <Route path="/calculators/gauge" element={<ErrorBoundary><GaugeCalculator /></ErrorBoundary>} />
         <Route path="/calculators/gift-size" element={<ErrorBoundary><GiftSizeCalculator /></ErrorBoundary>} />
         <Route path="/help/glossary" element={<PublicSuspense><Glossary /></PublicSuspense>} />
+        <Route path="/help/knit911" element={<PublicSuspense><Knit911 /></PublicSuspense>} />
         <Route path="/p/:slug" element={<ErrorBoundary><PublicProjectPage /></ErrorBoundary>} />
       </Route>
 
