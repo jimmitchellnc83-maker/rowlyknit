@@ -18,6 +18,8 @@ import StashValueCard from '../components/yarn/StashValueCard';
 import YarnLabelCapture, { type ExtractedLabelData } from '../components/yarn/YarnLabelCapture';
 import PageHelpButton from '../components/PageHelpButton';
 import CollapsibleSection from '../components/forms/CollapsibleSection';
+import CareSymbolPicker from '../components/yarn/CareSymbolPicker';
+import { sanitizeCareSymbols, type CareSymbol } from '../utils/careSymbols';
 
 interface Yarn {
   id: string;
@@ -45,6 +47,7 @@ interface Yarn {
   photos?: YarnPhoto[];
   is_favorite?: boolean;
   wpi?: number | null;
+  care_symbols?: CareSymbol[];
 }
 
 interface YarnPhoto {
@@ -141,6 +144,7 @@ export default function YarnStash() {
     needleSizes: '',
     description: '',
     wpi: '',
+    careSymbols: [] as CareSymbol[],
   });
   const [showLabelCapture, setShowLabelCapture] = useState(false);
 
@@ -218,6 +222,7 @@ export default function YarnStash() {
     needleSizes: '',
     description: '',
     wpi: '',
+    careSymbols: [] as CareSymbol[],
   };
 
   const handleRavelryImport = (yarnData: RavelryYarnImportData) => {
@@ -303,6 +308,10 @@ export default function YarnStash() {
       needleSizes: y.needle_sizes || '',
       description: y.description || '',
       wpi: y.wpi != null ? y.wpi.toString() : '',
+      careSymbols: sanitizeCareSymbols(
+        (y as unknown as { care_symbols?: unknown }).care_symbols,
+        { strict: false },
+      ),
     });
 
     // Fetch photos for this yarn
@@ -881,6 +890,17 @@ export default function YarnStash() {
               </CollapsibleSection>
 
               <CollapsibleSection
+                title="Care symbols"
+                subtitle="CYC wash / dry / iron / bleach / dry-clean settings."
+                previewHint={`${formData.careSymbols.length} selected`}
+              >
+                <CareSymbolPicker
+                  value={formData.careSymbols}
+                  onChange={(careSymbols) => setFormData({ ...formData, careSymbols })}
+                />
+              </CollapsibleSection>
+
+              <CollapsibleSection
                 title="Notes"
                 subtitle="Description + personal notes."
                 previewHint="2 fields"
@@ -1157,6 +1177,17 @@ export default function YarnStash() {
                     />
                   </div>
                 </div>
+              </CollapsibleSection>
+
+              <CollapsibleSection
+                title="Care symbols"
+                subtitle="CYC wash / dry / iron / bleach / dry-clean settings."
+                previewHint={`${formData.careSymbols.length} selected`}
+              >
+                <CareSymbolPicker
+                  value={formData.careSymbols}
+                  onChange={(careSymbols) => setFormData({ ...formData, careSymbols })}
+                />
               </CollapsibleSection>
 
               <CollapsibleSection
