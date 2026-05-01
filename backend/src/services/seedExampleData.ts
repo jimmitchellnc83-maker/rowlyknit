@@ -581,7 +581,7 @@ function patternSeeds(userId: string) {
       description:
         'Seamless top-down raglan pullover in any weight. Customisable length + sleeve shaping.',
       designer: 'Example Pattern',
-      difficulty: 'beginner',
+      difficulty: 'basic',
       category: 'sweater',
       estimated_yardage: 1000,
       tags: JSON.stringify(['raglan', 'seamless', 'beginner']),

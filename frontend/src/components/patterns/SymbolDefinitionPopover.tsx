@@ -3,6 +3,7 @@ import React, { useRef, useEffect } from 'react';
 import { FiX, FiExternalLink, FiBookOpen } from 'react-icons/fi';
 import type { KnittingSymbol } from '../../data/knittingSymbols';
 import { SYMBOL_CATEGORIES } from '../../data/knittingSymbols';
+import { skillLevelBadgeClasses, skillLevelLabel } from '../../types/skillLevel';
 
 interface SymbolDefinitionPopoverProps {
   symbol: KnittingSymbol;
@@ -63,19 +64,6 @@ export default function SymbolDefinitionPopover({
       adjustedPosition.y = position.y - rect.height - 20;
     }
   }
-
-  const getDifficultyColor = (difficulty: string) => {
-    switch (difficulty) {
-      case 'beginner':
-        return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300';
-      case 'intermediate':
-        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300';
-      case 'advanced':
-        return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300';
-      default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
-    }
-  };
 
   const getCategoryColor = (category: string) => {
     switch (category) {
@@ -138,8 +126,8 @@ export default function SymbolDefinitionPopover({
           <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getCategoryColor(symbol.category)}`}>
             {SYMBOL_CATEGORIES[symbol.category]}
           </span>
-          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getDifficultyColor(symbol.difficulty)}`}>
-            {symbol.difficulty.charAt(0).toUpperCase() + symbol.difficulty.slice(1)}
+          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${skillLevelBadgeClasses(symbol.difficulty)}`}>
+            {skillLevelLabel(symbol.difficulty)}
           </span>
           <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300">
             {instanceCount} {instanceCount === 1 ? 'instance' : 'instances'} highlighted

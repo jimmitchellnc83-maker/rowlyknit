@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { toast } from 'react-toastify';
 import ModalShell from './ModalShell';
 import FileUploadField, { hasInvalidFiles } from '../../forms/FileUploadField';
+import { SKILL_LEVELS, SKILL_LEVEL_LABELS } from '../../../types/skillLevel';
 
 export interface NewPatternData {
   name: string;
@@ -104,9 +105,11 @@ export default function UploadPatternModal({ onClose, onSubmit }: UploadPatternM
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
             disabled={uploading}
           >
-            <option value="beginner">Beginner</option>
-            <option value="intermediate">Intermediate</option>
-            <option value="advanced">Advanced</option>
+            {SKILL_LEVELS.map((level) => (
+              <option key={level} value={level}>
+                {SKILL_LEVEL_LABELS[level]}
+              </option>
+            ))}
           </select>
         </div>
 

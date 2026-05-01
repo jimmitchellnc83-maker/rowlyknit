@@ -13,6 +13,13 @@ import { useUndoableDelete } from '../hooks/useUndoableDelete';
 import RavelryPatternSearch, { type RavelryPatternImportData } from '../components/RavelryPatternSearch';
 import PageHelpButton from '../components/PageHelpButton';
 import FileUploadField from '../components/forms/FileUploadField';
+import {
+  SKILL_LEVELS,
+  SKILL_LEVEL_LABELS,
+  normalizeSkillLevel,
+  skillLevelBadgeClasses,
+  skillLevelLabel,
+} from '../types/skillLevel';
 
 interface Pattern {
   id: string;
@@ -230,7 +237,7 @@ export default function Patterns() {
       name: pattern.name || '',
       description: pattern.description || '',
       designer: pattern.designer || '',
-      difficulty: pattern.difficulty || 'intermediate',
+      difficulty: normalizeSkillLevel(pattern.difficulty) || 'intermediate',
       category: pattern.category || 'sweater',
     });
     setShowEditModal(true);
@@ -287,19 +294,6 @@ export default function Patterns() {
         }
       },
     });
-  };
-
-  const getDifficultyColor = (difficulty: string) => {
-    switch (difficulty) {
-      case 'beginner':
-        return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400';
-      case 'intermediate':
-        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400';
-      case 'advanced':
-        return 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400';
-      default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200';
-    }
   };
 
   if (loading) {
@@ -486,11 +480,11 @@ export default function Patterns() {
                   </h3>
                   {pattern.difficulty && (
                     <span
-                      className={`px-2 py-1 text-xs font-medium rounded-full ${getDifficultyColor(
+                      className={`px-2 py-1 text-xs font-medium rounded-full ${skillLevelBadgeClasses(
                         pattern.difficulty
                       )}`}
                     >
-                      {pattern.difficulty}
+                      {skillLevelLabel(pattern.difficulty)}
                     </span>
                   )}
                 </div>
@@ -617,10 +611,11 @@ export default function Patterns() {
                     onChange={(e) => setFormData({ ...formData, difficulty: e.target.value })}
                     className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                   >
-                    <option value="beginner">Beginner</option>
-                    <option value="intermediate">Intermediate</option>
-                    <option value="advanced">Advanced</option>
-                    <option value="expert">Expert</option>
+                    {SKILL_LEVELS.map((level) => (
+                      <option key={level} value={level}>
+                        {SKILL_LEVEL_LABELS[level]}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
@@ -749,10 +744,11 @@ export default function Patterns() {
                     onChange={(e) => setFormData({ ...formData, difficulty: e.target.value })}
                     className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                   >
-                    <option value="beginner">Beginner</option>
-                    <option value="intermediate">Intermediate</option>
-                    <option value="advanced">Advanced</option>
-                    <option value="expert">Expert</option>
+                    {SKILL_LEVELS.map((level) => (
+                      <option key={level} value={level}>
+                        {SKILL_LEVEL_LABELS[level]}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
