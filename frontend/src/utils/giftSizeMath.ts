@@ -16,28 +16,14 @@
  * Kept client-side — stateless, offline-friendly.
  */
 
+import { EASE_TIER_INCHES, type EaseTier } from './easeTiers';
+
 export type MeasurementUnit = 'in' | 'cm';
 
-export type FitStyle = 'close' | 'fitted' | 'classic' | 'relaxed' | 'oversized';
+// Re-exported for callers that still talk in "fit style" terms.
+export type FitStyle = EaseTier;
 
 export type SizeScheme = 'women' | 'men' | 'child' | 'baby';
-
-/** Standard fit → ease mapping in inches. Standard knitwear convention. */
-export const FIT_EASE_INCHES: Record<FitStyle, number> = {
-  close: -2,
-  fitted: 0,
-  classic: 2,
-  relaxed: 4,
-  oversized: 6,
-};
-
-export const FIT_LABELS: Record<FitStyle, string> = {
-  close: 'Close fit (-2 in / -5 cm)',
-  fitted: 'Fitted (0 in / 0 cm)',
-  classic: 'Classic (+2 in / +5 cm)',
-  relaxed: 'Relaxed (+4 in / +10 cm)',
-  oversized: 'Oversized (+6 in / +15 cm)',
-};
 
 export interface SizeEntry {
   label: string;
@@ -153,7 +139,7 @@ export function recommendSizes(input: {
   const easeIn =
     input.customEaseIn != null && Number.isFinite(input.customEaseIn)
       ? input.customEaseIn
-      : FIT_EASE_INCHES[input.fit];
+      : EASE_TIER_INCHES[input.fit];
   const finishedChestIn = round1(bodyChestIn + easeIn);
 
   const recommendations = (Object.keys(SCHEMES) as SizeScheme[]).map<SizeRecommendation>(

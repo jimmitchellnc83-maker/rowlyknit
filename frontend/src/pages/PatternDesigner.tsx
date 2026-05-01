@@ -58,6 +58,7 @@ import CustomDraftSchematic from '../components/designer/CustomDraftSchematic';
 import { computeCustomDraft } from '../utils/designerMath';
 import { DEFAULT_CUSTOM_DRAFT, type CustomDraft } from '../types/customDraft';
 import { useMeasurementPrefs } from '../hooks/useMeasurementPrefs';
+import EaseTierPresets from '../components/designer/EaseTierPresets';
 
 type NumField = number | '';
 type DesignerSection = 'body' | 'sleeve';
@@ -2531,6 +2532,11 @@ export default function PatternDesigner() {
               <h2 className="mb-3 text-lg font-semibold text-gray-900 dark:text-gray-100">
                 Body block
               </h2>
+              <EaseTierPresets
+                value={form.easeAtChest}
+                unit={form.unit}
+                onSelect={(easeInUnit) => update('easeAtChest', easeInUnit)}
+              />
               <div className="grid grid-cols-2 gap-3">
                 <NumberInput
                   label="Chest / bust circumference"
