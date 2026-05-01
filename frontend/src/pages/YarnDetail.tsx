@@ -42,6 +42,7 @@ interface Yarn {
   is_favorite?: boolean;
   created_at?: string;
   updated_at?: string;
+  wpi?: number | null;
 }
 
 interface YarnPhoto {
@@ -280,6 +281,11 @@ export default function YarnDetail() {
                 {yarn.weight && (
                   <span className={`px-3 py-1 text-sm font-medium rounded-full ${getWeightColor(yarn.weight)}`}>
                     {yarn.weight}
+                  </span>
+                )}
+                {yarn.wpi != null && (
+                  <span className="px-3 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200">
+                    {yarn.wpi} WPI
                   </span>
                 )}
                 {yarn.discontinued && (
