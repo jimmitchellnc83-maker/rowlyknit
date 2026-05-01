@@ -26,6 +26,11 @@
     <priority>0.7</priority>
   </url>
   <url>
+    <loc>https://rowlyknit.com/help/knit911</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
     <loc>https://rowlyknit.com/privacy</loc>
     <changefreq>monthly</changefreq>
     <priority>0.3</priority>
