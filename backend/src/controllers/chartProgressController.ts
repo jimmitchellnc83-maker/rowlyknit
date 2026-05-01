@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import db from '../config/database';
 import logger from '../config/logger';
 import chartDirectionService from '../services/chartDirectionService';
+import { intOrNull } from '../utils/numericInput';
 
 interface CompletedCell {
   row: number;
@@ -98,8 +99,8 @@ export async function updateProgress(req: Request, res: Response): Promise<void>
     }
 
     const updateData: any = { updated_at: new Date() };
-    if (current_row !== undefined) updateData.current_row = current_row;
-    if (current_column !== undefined) updateData.current_column = current_column;
+    if (current_row !== undefined) updateData.current_row = intOrNull(current_row);
+    if (current_column !== undefined) updateData.current_column = intOrNull(current_column);
     if (completed_cells !== undefined) updateData.completed_cells = JSON.stringify(completed_cells);
     if (completed_rows !== undefined) updateData.completed_rows = JSON.stringify(completed_rows);
     if (tracking_enabled !== undefined) updateData.tracking_enabled = tracking_enabled;
@@ -152,6 +153,10 @@ export async function markCell(req: Request, res: Response): Promise<void> {
   const userId = req.user!.userId;
   const { projectId, chartId } = req.params;
   const { row, column, completed } = req.body;
+  // Coerce numeric inputs once; downstream comparisons + DB writes
+  // share the same value so '' from the form folds to null cleanly.
+  const rowInt = intOrNull(row);
+  const columnInt = intOrNull(column);
 
   try {
     // Verify project belongs to user
@@ -176,8 +181,8 @@ export async function markCell(req: Request, res: Response): Promise<void> {
         .insert({
           project_id: projectId,
           chart_id: chartId,
-          current_row: row,
-          current_column: column,
+          current_row: rowInt,
+          current_column: columnInt,
           completed_cells: JSON.stringify([]),
           completed_rows: JSON.stringify([]),
         })
@@ -190,13 +195,13 @@ export async function markCell(req: Request, res: Response): Promise<void> {
 
     if (completed) {
       // Add cell if not already completed
-      const exists = completedCells.some(c => c.row === row && c.col === column);
-      if (!exists) {
-        completedCells.push({ row, col: column });
+      const exists = completedCells.some(c => c.row === rowInt && c.col === columnInt);
+      if (!exists && rowInt != null && columnInt != null) {
+        completedCells.push({ row: rowInt, col: columnInt });
       }
     } else {
       // Remove cell
-      completedCells = completedCells.filter(c => !(c.row === row && c.col === column));
+      completedCells = completedCells.filter(c => !(c.row === rowInt && c.col === columnInt));
     }
 
     // Update progress
@@ -204,8 +209,8 @@ export async function markCell(req: Request, res: Response): Promise<void> {
       .where({ project_id: projectId, chart_id: chartId })
       .update({
         completed_cells: JSON.stringify(completedCells),
-        current_row: row,
-        current_column: column,
+        current_row: rowInt,
+        current_column: columnInt,
         updated_at: new Date(),
       })
       .returning('*');
@@ -246,6 +251,8 @@ export async function markRow(req: Request, res: Response): Promise<void> {
   const userId = req.user!.userId;
   const { projectId, chartId } = req.params;
   const { row, completed, totalColumns } = req.body;
+  // Coerce once so downstream math + DB writes share the same value.
+  const rowInt = intOrNull(row);
 
   try {
     // Verify project belongs to user
@@ -269,7 +276,7 @@ export async function markRow(req: Request, res: Response): Promise<void> {
         .insert({
           project_id: projectId,
           chart_id: chartId,
-          current_row: row,
+          current_row: rowInt,
           current_column: 0,
           completed_cells: JSON.stringify([]),
           completed_rows: JSON.stringify([]),
@@ -287,23 +294,25 @@ export async function markRow(req: Request, res: Response): Promise<void> {
 
     if (completed) {
       // Add row to completed rows if not already
-      if (!completedRows.includes(row)) {
-        completedRows.push(row);
+      if (rowInt != null && !completedRows.includes(rowInt)) {
+        completedRows.push(rowInt);
       }
 
       // Add all cells in the row
       const cols = totalColumns || 20; // Default to 20 columns if not specified
-      for (let col = 0; col < cols; col++) {
-        const exists = completedCells.some(c => c.row === row && c.col === col);
-        if (!exists) {
-          completedCells.push({ row, col });
+      if (rowInt != null) {
+        for (let col = 0; col < cols; col++) {
+          const exists = completedCells.some(c => c.row === rowInt && c.col === col);
+          if (!exists) {
+            completedCells.push({ row: rowInt, col });
+          }
         }
       }
     } else {
       // Remove row from completed rows
-      completedRows = completedRows.filter(r => r !== row);
+      completedRows = completedRows.filter(r => r !== rowInt);
       // Remove all cells from this row
-      completedCells = completedCells.filter(c => c.row !== row);
+      completedCells = completedCells.filter(c => c.row !== rowInt);
     }
 
     // Update progress
@@ -312,7 +321,7 @@ export async function markRow(req: Request, res: Response): Promise<void> {
       .update({
         completed_cells: JSON.stringify(completedCells),
         completed_rows: JSON.stringify(completedRows),
-        current_row: completed ? row + 1 : row,
+        current_row: completed && rowInt != null ? rowInt + 1 : rowInt,
         updated_at: new Date(),
       })
       .returning('*');

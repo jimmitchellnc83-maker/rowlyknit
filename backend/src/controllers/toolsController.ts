@@ -3,6 +3,7 @@ import db from '../config/database';
 import { NotFoundError, ValidationError } from '../utils/errorHandler';
 import { createAuditLog } from '../middleware/auditLog';
 import { sanitizeSearchQuery } from '../utils/inputSanitizer';
+import { intOrNull, numOrNull } from '../utils/numericInput';
 
 export async function getTools(req: Request, res: Response) {
   const userId = req.user!.userId;
@@ -106,15 +107,15 @@ export async function createTool(req: Request, res: Response) {
       tool_category: toolCategory || 'accessory',
       name,
       size,
-      size_mm: sizeMm || null,
-      cable_length_mm: cableLengthMm || null,
+      size_mm: numOrNull(sizeMm),
+      cable_length_mm: numOrNull(cableLengthMm),
       material,
-      length,
+      length: intOrNull(length),
       brand,
-      quantity: quantity || 1,
+      quantity: intOrNull(quantity) ?? 1,
       notes,
-      purchase_date: purchaseDate,
-      purchase_price: purchasePrice,
+      purchase_date: purchaseDate || null,
+      purchase_price: numOrNull(purchasePrice),
       taxonomy_type_id: taxonomyTypeId || null,
       taxonomy_label: taxonomyLabel || null,
       taxonomy_category_label: taxonomyCategoryLabel || null,
@@ -182,15 +183,15 @@ export async function updateTool(req: Request, res: Response) {
   if (type !== undefined) updateData.type = type;
   if (category !== undefined) updateData.category = category;
   if (size !== undefined) updateData.size = size;
-  if (sizeMm !== undefined) updateData.size_mm = sizeMm || null;
+  if (sizeMm !== undefined) updateData.size_mm = numOrNull(sizeMm);
   if (material !== undefined) updateData.material = material;
   if (brand !== undefined) updateData.brand = brand;
-  if (quantity !== undefined) updateData.quantity = quantity;
+  if (quantity !== undefined) updateData.quantity = intOrNull(quantity);
   if (craftType !== undefined) updateData.craft_type = craftType;
   if (toolCategory !== undefined) updateData.tool_category = toolCategory;
-  if (cableLengthMm !== undefined) updateData.cable_length_mm = cableLengthMm || null;
-  if (purchaseDate !== undefined) updateData.purchase_date = purchaseDate;
-  if (purchasePrice !== undefined) updateData.purchase_price = purchasePrice;
+  if (cableLengthMm !== undefined) updateData.cable_length_mm = numOrNull(cableLengthMm);
+  if (purchaseDate !== undefined) updateData.purchase_date = purchaseDate || null;
+  if (purchasePrice !== undefined) updateData.purchase_price = numOrNull(purchasePrice);
   if (notes !== undefined) updateData.notes = notes;
   if (taxonomyTypeId !== undefined) updateData.taxonomy_type_id = taxonomyTypeId || null;
   if (taxonomyLabel !== undefined) updateData.taxonomy_label = taxonomyLabel || null;
