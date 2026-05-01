@@ -91,6 +91,7 @@ router.put(
     body('ravelryRating').optional({ values: 'falsy' }).isNumeric(),
     body('description').optional({ values: 'null' }).isString(),
     body('isFavorite').optional().isBoolean(),
+    body('wpi').optional({ values: 'falsy' }).isFloat({ min: 0, max: 60 }),
   ],
   validate,
   asyncHandler(yarnController.updateYarn)

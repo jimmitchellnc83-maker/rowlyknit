@@ -13,6 +13,7 @@ import { useUndoableDelete } from '../hooks/useUndoableDelete';
 import HelpTooltip from '../components/HelpTooltip';
 import RavelryYarnSearch, { type RavelryYarnImportData } from '../components/RavelryYarnSearch';
 import { useMeasurementPrefs } from '../hooks/useMeasurementPrefs';
+import { wpiRangeForWeight } from '../utils/yarnWpi';
 import StashValueCard from '../components/yarn/StashValueCard';
 import YarnLabelCapture, { type ExtractedLabelData } from '../components/yarn/YarnLabelCapture';
 import PageHelpButton from '../components/PageHelpButton';
@@ -43,6 +44,7 @@ interface Yarn {
   thumbnail_path?: string | null;
   photos?: YarnPhoto[];
   is_favorite?: boolean;
+  wpi?: number | null;
 }
 
 interface YarnPhoto {
@@ -138,6 +140,7 @@ export default function YarnStash() {
     gauge: '',
     needleSizes: '',
     description: '',
+    wpi: '',
   });
   const [showLabelCapture, setShowLabelCapture] = useState(false);
 
@@ -214,6 +217,7 @@ export default function YarnStash() {
     gauge: '',
     needleSizes: '',
     description: '',
+    wpi: '',
   };
 
   const handleRavelryImport = (yarnData: RavelryYarnImportData) => {
@@ -298,6 +302,7 @@ export default function YarnStash() {
       gauge: y.gauge || '',
       needleSizes: y.needle_sizes || '',
       description: y.description || '',
+      wpi: y.wpi != null ? y.wpi.toString() : '',
     });
 
     // Fetch photos for this yarn
@@ -702,7 +707,7 @@ export default function YarnStash() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Color
@@ -733,6 +738,24 @@ export default function YarnStash() {
                     <option value="bulky">Bulky</option>
                     <option value="super-bulky">Super Bulky</option>
                   </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    WPI <span className="text-xs text-gray-500">(wraps per inch)</span>
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={60}
+                    step={0.5}
+                    value={formData.wpi}
+                    onChange={(e) => setFormData({ ...formData, wpi: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    placeholder={(() => {
+                      const range = wpiRangeForWeight(formData.weight);
+                      return range ? `e.g. ${range.min}–${range.max}` : 'optional';
+                    })()}
+                  />
                 </div>
               </div>
 
@@ -963,7 +986,7 @@ export default function YarnStash() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Color
@@ -994,6 +1017,24 @@ export default function YarnStash() {
                     <option value="bulky">Bulky</option>
                     <option value="super-bulky">Super Bulky</option>
                   </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    WPI <span className="text-xs text-gray-500">(wraps per inch)</span>
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={60}
+                    step={0.5}
+                    value={formData.wpi}
+                    onChange={(e) => setFormData({ ...formData, wpi: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    placeholder={(() => {
+                      const range = wpiRangeForWeight(formData.weight);
+                      return range ? `e.g. ${range.min}–${range.max}` : 'optional';
+                    })()}
+                  />
                 </div>
               </div>
 
