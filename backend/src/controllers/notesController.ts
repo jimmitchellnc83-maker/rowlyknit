@@ -640,7 +640,7 @@ export async function createTextNote(req: Request, res: Response) {
       pattern_id: patternId || null,
       title: title || null,
       content,
-      tags: tags || null,
+      tags: tags ? JSON.stringify(tags) : null,
       is_pinned: isPinned || false,
       created_at: new Date(),
       updated_at: new Date(),
@@ -695,7 +695,9 @@ export async function updateTextNote(req: Request, res: Response) {
   const updateData: any = { updated_at: new Date() };
   if (updates.title !== undefined) updateData.title = updates.title;
   if (updates.content !== undefined) updateData.content = updates.content;
-  if (updates.tags !== undefined) updateData.tags = updates.tags;
+  if (updates.tags !== undefined) {
+    updateData.tags = updates.tags ? JSON.stringify(updates.tags) : null;
+  }
   if (updates.isPinned !== undefined) updateData.is_pinned = updates.isPinned;
 
   let patternName: string | null = null;
