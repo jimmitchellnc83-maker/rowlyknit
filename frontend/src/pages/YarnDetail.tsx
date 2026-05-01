@@ -7,6 +7,7 @@ import ConfirmModal from '../components/ConfirmModal';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { useMeasurementPrefs } from '../hooks/useMeasurementPrefs';
 import { formatDate } from '../utils/formatDate';
+import { careGlyph, sanitizeCareSymbols, type CareSymbol } from '../utils/careSymbols';
 
 interface Yarn {
   id: string;
@@ -43,6 +44,7 @@ interface Yarn {
   created_at?: string;
   updated_at?: string;
   wpi?: number | null;
+  care_symbols?: unknown;
 }
 
 interface YarnPhoto {
@@ -364,6 +366,9 @@ export default function YarnDetail() {
             </div>
           )}
 
+          {/* Care symbols */}
+          <CareSymbolsCard raw={yarn.care_symbols} />
+
           {/* Color cards (Ravelry packs) */}
           {yarn.ravelry_id && (packsLoading || (packs && packs.length > 0)) && (
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
@@ -516,6 +521,37 @@ function StatCard({ label, value, suffix }: { label: string; value: any; suffix?
       <div className="text-xl font-semibold text-gray-900 dark:text-gray-100 mt-1">
         {value}
         {suffix && <span className="text-sm text-gray-500 font-normal">{suffix}</span>}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Renders the yarn's CYC care symbols as a grid of glyph + label
+ * pills. Renders NULL when the yarn has no symbols recorded so the
+ * card doesn't show an empty section.
+ */
+function CareSymbolsCard({ raw }: { raw: unknown }) {
+  const symbols = sanitizeCareSymbols(raw, { strict: false });
+  if (symbols.length === 0) return null;
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+      <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Care</h2>
+      <div className="flex flex-wrap gap-2">
+        {symbols.map((s: CareSymbol, idx: number) => (
+          <span
+            key={`${s.category}-${s.modifier ?? 'none'}-${idx}`}
+            className={
+              s.prohibited
+                ? 'inline-flex items-center gap-1.5 rounded-full bg-red-50 px-3 py-1 text-sm font-medium text-red-800 dark:bg-red-900/20 dark:text-red-300'
+                : 'inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1 text-sm font-medium text-gray-800 dark:bg-gray-700 dark:text-gray-200'
+            }
+            title={s.label}
+          >
+            <span aria-hidden className="font-mono text-base">{careGlyph(s)}</span>
+            {s.label}
+          </span>
+        ))}
       </div>
     </div>
   );
