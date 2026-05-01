@@ -1,15 +1,15 @@
 import { describe, it, expect } from 'vitest';
 import {
   recommendSizes,
-  FIT_EASE_INCHES,
   WOMEN_SIZES,
   MEN_SIZES,
   CHILD_SIZES,
   BABY_SIZES,
 } from './giftSizeMath';
+import { EASE_TIER_INCHES } from './easeTiers';
 
 describe('recommendSizes', () => {
-  it('maps 36 in bust + classic fit (+2 in) to womens M (36–38 finished)', () => {
+  it('maps 36 in bust + classic ease (+2 in) to womens M (36–38 finished)', () => {
     const r = recommendSizes({ bodyChest: 36, unit: 'in', fit: 'classic' });
     expect(r.bodyChestIn).toBe(36);
     expect(r.easeIn).toBe(2);
@@ -18,8 +18,8 @@ describe('recommendSizes', () => {
     expect(women.recommended?.label).toBe('M');
   });
 
-  it('maps 36 in bust + close fit (-2 in) to womens S (32–34)', () => {
-    const r = recommendSizes({ bodyChest: 36, unit: 'in', fit: 'close' });
+  it('maps 36 in bust + very close (-2 in) to womens S (32–34)', () => {
+    const r = recommendSizes({ bodyChest: 36, unit: 'in', fit: 'very_close' });
     expect(r.finishedChestIn).toBe(34);
     const women = r.recommendations.find((x) => x.scheme === 'women')!;
     expect(women.recommended?.label).toBe('S');
@@ -39,11 +39,11 @@ describe('recommendSizes', () => {
     expect(r.finishedChestIn).toBe(38);
   });
 
-  it('honors customEaseIn over the fit preset', () => {
+  it('honors customEaseIn over the tier preset', () => {
     const r = recommendSizes({
       bodyChest: 36,
       unit: 'in',
-      fit: 'fitted',
+      fit: 'close',
       customEaseIn: 8,
     });
     expect(r.easeIn).toBe(8);
@@ -51,7 +51,7 @@ describe('recommendSizes', () => {
   });
 
   it('returns null recommendation when body size is outside a scheme range', () => {
-    const r = recommendSizes({ bodyChest: 38, unit: 'in', fit: 'fitted' });
+    const r = recommendSizes({ bodyChest: 38, unit: 'in', fit: 'close' });
     const baby = r.recommendations.find((x) => x.scheme === 'baby')!;
     expect(baby.recommended).toBeNull();
     expect(baby.reason).toMatch(/outside this scheme/i);
@@ -66,7 +66,7 @@ describe('recommendSizes', () => {
   });
 
   it('returns all four schemes in the result', () => {
-    const r = recommendSizes({ bodyChest: 36, unit: 'in', fit: 'fitted' });
+    const r = recommendSizes({ bodyChest: 36, unit: 'in', fit: 'close' });
     const schemes = r.recommendations.map((x) => x.scheme).sort();
     expect(schemes).toEqual(['baby', 'child', 'men', 'women']);
   });
@@ -87,12 +87,12 @@ describe('recommendSizes', () => {
     expect(women.reason).toMatch(/between sizes|falls inside/i);
   });
 
-  it('FIT_EASE_INCHES exposes standard convention values', () => {
-    expect(FIT_EASE_INCHES).toEqual({
-      close: -2,
-      fitted: 0,
+  it('EASE_TIER_INCHES exposes CYC convention values', () => {
+    expect(EASE_TIER_INCHES).toEqual({
+      very_close: -2,
+      close: 0,
       classic: 2,
-      relaxed: 4,
+      loose: 4,
       oversized: 6,
     });
   });
