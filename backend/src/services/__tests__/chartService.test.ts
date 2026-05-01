@@ -154,6 +154,54 @@ describe('createChart validation', () => {
     expect(out.symbol_legend).toEqual({});
     expect(builder.insert).toHaveBeenCalled();
   });
+
+  it('round-trips repeatRegion / rowNotes / highlights / colorHex (no field-loss)', async () => {
+    const grid = {
+      width: 4,
+      height: 3,
+      cells: Array.from({ length: 12 }, (_, i) => ({
+        symbolId: 'k',
+        colorHex: i % 2 === 0 ? '#ff00aa' : null,
+      })),
+      workedInRound: true,
+      repeatRegion: { startCol: 1, endCol: 3, edgeStitches: 1 },
+      rowNotes: { '1': 'Cast on hint', '3': 'Watch for slipped st' },
+      highlights: { '0': 'yellow' as const, '5': 'orange' as const },
+    };
+    const builder = mockedDb.__makeBuilder();
+    // The DB returns whatever we serialise on write — emulate that so
+    // `hydrate` parses back the same shape we asked to persist.
+    builder.returning.mockResolvedValueOnce([
+      {
+        id: 'chart-roundtrip',
+        user_id: 'user-1',
+        name: 'Roundtrip',
+        grid: JSON.stringify(grid),
+        rows: 3,
+        columns: 4,
+        symbol_legend: '{}',
+        source: 'manual',
+      },
+    ]);
+    mockedDb.__setNextBuilder(builder);
+
+    const out = await createChart('user-1', { name: 'Roundtrip', grid });
+    expect(out.grid.workedInRound).toBe(true);
+    expect(out.grid.repeatRegion).toEqual({ startCol: 1, endCol: 3, edgeStitches: 1 });
+    expect(out.grid.rowNotes).toEqual({ '1': 'Cast on hint', '3': 'Watch for slipped st' });
+    expect(out.grid.highlights).toEqual({ '0': 'yellow', '5': 'orange' });
+    expect(out.grid.cells[0]?.colorHex).toBe('#ff00aa');
+    expect(out.grid.cells[1]?.colorHex).toBeNull();
+
+    // The serialised payload (what we stringified into the JSONB column)
+    // must include every field — verify that the insert call carries
+    // the full grid as JSON.
+    const insertedGrid = JSON.parse(builder.insert.mock.calls[0]![0].grid as string);
+    expect(insertedGrid.repeatRegion).toBeDefined();
+    expect(insertedGrid.rowNotes).toBeDefined();
+    expect(insertedGrid.highlights).toBeDefined();
+    expect(insertedGrid.workedInRound).toBe(true);
+  });
 });
 
 // ---------------------------------------------------------------------------
