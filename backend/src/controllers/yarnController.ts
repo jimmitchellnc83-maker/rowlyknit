@@ -3,6 +3,7 @@ import db from '../config/database';
 import { NotFoundError, ValidationError } from '../utils/errorHandler';
 import { createAuditLog } from '../middleware/auditLog';
 import { sanitizeSearchQuery } from '../utils/inputSanitizer';
+import { intOrNull, numOrNull } from '../utils/numericInput';
 import { findYarnSubstitutions } from '../services/feasibilityService';
 
 export async function getYarn(req: Request, res: Response) {
@@ -179,8 +180,17 @@ export async function createYarn(req: Request, res: Response) {
     throw new ValidationError('Yarn name is required');
   }
 
+  // Coerce HTML-form empty strings to null before they hit integer / numeric
+  // columns; without this an unfilled "Yards per skein" field 500s the insert.
+  const yardsTotalInt = intOrNull(yardsTotal);
+  const gramsTotalInt = intOrNull(gramsTotal);
+  const skeinsTotalInt = intOrNull(skeinsTotal) ?? 1;
+  const pricePerSkeinNum = numOrNull(pricePerSkein);
+  const ravelryIdInt = intOrNull(ravelryId);
+  const ravelryRatingNum = numOrNull(ravelryRating);
+
   // Compute normalized length in meters from yards (1 yd = 0.9144 m)
-  const totalLengthM = yardsTotal ? Number(yardsTotal) * 0.9144 : null;
+  const totalLengthM = yardsTotalInt != null ? yardsTotalInt * 0.9144 : null;
 
   const [yarn] = await db('yarn')
     .insert({
@@ -192,16 +202,16 @@ export async function createYarn(req: Request, res: Response) {
       color_code: colorCode,
       weight,
       fiber_content: fiberContent,
-      yards_total: yardsTotal,
-      yards_remaining: yardsTotal,
+      yards_total: yardsTotalInt,
+      yards_remaining: yardsTotalInt,
       total_length_m: totalLengthM != null ? Math.round(totalLengthM * 100) / 100 : null,
       remaining_length_m: totalLengthM != null ? Math.round(totalLengthM * 100) / 100 : null,
-      grams_total: gramsTotal,
-      grams_remaining: gramsTotal,
-      skeins_total: skeinsTotal || 1,
-      skeins_remaining: skeinsTotal || 1,
-      price_per_skein: pricePerSkein,
-      purchase_date: purchaseDate,
+      grams_total: gramsTotalInt,
+      grams_remaining: gramsTotalInt,
+      skeins_total: skeinsTotalInt,
+      skeins_remaining: skeinsTotalInt,
+      price_per_skein: pricePerSkeinNum,
+      purchase_date: purchaseDate || null,
       purchase_location: purchaseLocation,
       dye_lot: dyeLot,
       notes,
@@ -210,8 +220,8 @@ export async function createYarn(req: Request, res: Response) {
       needle_sizes: needleSizes,
       machine_washable: machineWashable,
       discontinued: discontinued || false,
-      ravelry_id: ravelryId,
-      ravelry_rating: ravelryRating,
+      ravelry_id: ravelryIdInt,
+      ravelry_rating: ravelryRatingNum,
       description,
       created_at: new Date(),
       updated_at: new Date(),
@@ -289,39 +299,52 @@ export async function updateYarn(req: Request, res: Response) {
   if (fiberContent !== undefined) updateData.fiber_content = fiberContent;
   if (yardsTotal !== undefined) {
     // Adjust remaining by the same delta so usage tracking is preserved
-    const delta = Number(yardsTotal) - (yarn.yards_total || 0);
-    updateData.yards_total = yardsTotal;
-    updateData.yards_remaining = Math.max(0, (yarn.yards_remaining || 0) + delta);
+    const yardsTotalInt = intOrNull(yardsTotal);
+    const delta = (yardsTotalInt ?? 0) - (yarn.yards_total || 0);
+    updateData.yards_total = yardsTotalInt;
+    updateData.yards_remaining = yardsTotalInt == null
+      ? null
+      : Math.max(0, (yarn.yards_remaining || 0) + delta);
     // Keep normalized meter columns in sync
-    updateData.total_length_m = Math.round(Number(yardsTotal) * 0.9144 * 100) / 100;
-    updateData.remaining_length_m = Math.max(0, Math.round(
-      ((yarn.remaining_length_m || 0) + delta * 0.9144) * 100
-    ) / 100);
+    updateData.total_length_m = yardsTotalInt == null
+      ? null
+      : Math.round(yardsTotalInt * 0.9144 * 100) / 100;
+    updateData.remaining_length_m = yardsTotalInt == null
+      ? null
+      : Math.max(0, Math.round(
+          ((yarn.remaining_length_m || 0) + delta * 0.9144) * 100
+        ) / 100);
   }
   if (gramsTotal !== undefined) {
-    const delta = Number(gramsTotal) - (yarn.grams_total || 0);
-    updateData.grams_total = gramsTotal;
-    updateData.grams_remaining = Math.max(0, (yarn.grams_remaining || 0) + delta);
+    const gramsTotalInt = intOrNull(gramsTotal);
+    const delta = (gramsTotalInt ?? 0) - (yarn.grams_total || 0);
+    updateData.grams_total = gramsTotalInt;
+    updateData.grams_remaining = gramsTotalInt == null
+      ? null
+      : Math.max(0, (yarn.grams_remaining || 0) + delta);
   }
   if (skeinsTotal !== undefined) {
-    const delta = Number(skeinsTotal) - (yarn.skeins_total || 0);
-    updateData.skeins_total = skeinsTotal;
-    updateData.skeins_remaining = Math.max(0, (yarn.skeins_remaining || 0) + delta);
+    const skeinsTotalInt = intOrNull(skeinsTotal);
+    const delta = (skeinsTotalInt ?? 0) - (yarn.skeins_total || 0);
+    updateData.skeins_total = skeinsTotalInt;
+    updateData.skeins_remaining = skeinsTotalInt == null
+      ? null
+      : Math.max(0, (yarn.skeins_remaining || 0) + delta);
   }
-  if (pricePerSkein !== undefined) updateData.price_per_skein = pricePerSkein;
-  if (purchaseDate !== undefined) updateData.purchase_date = purchaseDate;
+  if (pricePerSkein !== undefined) updateData.price_per_skein = numOrNull(pricePerSkein);
+  if (purchaseDate !== undefined) updateData.purchase_date = purchaseDate || null;
   if (purchaseLocation !== undefined) updateData.purchase_location = purchaseLocation;
   if (dyeLot !== undefined) updateData.dye_lot = dyeLot;
   if (notes !== undefined) updateData.notes = notes;
   if (tags !== undefined) updateData.tags = typeof tags === 'string' ? tags : JSON.stringify(tags);
-  if (lowStockThreshold !== undefined) updateData.low_stock_threshold = lowStockThreshold;
+  if (lowStockThreshold !== undefined) updateData.low_stock_threshold = intOrNull(lowStockThreshold);
   if (lowStockAlert !== undefined) updateData.low_stock_alert = lowStockAlert;
   if (gauge !== undefined) updateData.gauge = gauge;
   if (needleSizes !== undefined) updateData.needle_sizes = needleSizes;
   if (machineWashable !== undefined) updateData.machine_washable = machineWashable;
   if (discontinued !== undefined) updateData.discontinued = discontinued;
-  if (ravelryId !== undefined) updateData.ravelry_id = ravelryId;
-  if (ravelryRating !== undefined) updateData.ravelry_rating = ravelryRating;
+  if (ravelryId !== undefined) updateData.ravelry_id = intOrNull(ravelryId);
+  if (ravelryRating !== undefined) updateData.ravelry_rating = numOrNull(ravelryRating);
   if (description !== undefined) updateData.description = description;
   if (isFavorite !== undefined) updateData.is_favorite = isFavorite;
 
