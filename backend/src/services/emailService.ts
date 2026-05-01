@@ -199,6 +199,53 @@ class EmailService {
     });
   }
 
+  async sendAccountDeletionConfirmEmail(
+    to: string,
+    name: string,
+    confirmUrl: string,
+    graceDays: number,
+  ): Promise<void> {
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .button { display: inline-block; padding: 12px 24px; background-color: #DC2626; color: white; text-decoration: none; border-radius: 6px; margin: 20px 0; }
+          .warning { background-color: #FEF3C7; border-left: 4px solid #F59E0B; padding: 12px; margin: 20px 0; }
+          .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #ddd; font-size: 12px; color: #666; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <h1>Confirm Account Deletion</h1>
+          <p>Hi ${name},</p>
+          <p>We received a request to delete your Rowly account. Click the button below to confirm. After you confirm, your account will be permanently deleted in <strong>${graceDays} days</strong>.</p>
+          <a href="${confirmUrl}" class="button">Confirm Deletion</a>
+          <p>Or copy and paste this link into your browser:</p>
+          <p style="word-break: break-all;">${confirmUrl}</p>
+          <div class="warning">
+            <strong>Change your mind?</strong> You can cancel the deletion any time during the ${graceDays}-day grace period from your Profile page. After ${graceDays} days, all your projects, patterns, yarn, and other data will be permanently removed and cannot be recovered.
+          </div>
+          <p>If you didn't request this, please ignore this email — no action will be taken.</p>
+          <div class="footer">
+            <p>For your security, never share this email with anyone.</p>
+            <p>&copy; ${new Date().getFullYear()} Rowly. All rights reserved.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    await this.sendEmail({
+      to,
+      subject: 'Confirm your Rowly account deletion',
+      html,
+      template: 'account_deletion_confirm',
+    });
+  }
+
   async sendVerificationEmail(to: string, name: string, verificationUrl: string): Promise<void> {
     const html = `
       <!DOCTYPE html>
