@@ -1,11 +1,14 @@
 import { Router } from 'express';
 import { query } from 'express-validator';
+import * as abbreviationController from '../controllers/abbreviationController';
 import * as chartSharingController from '../controllers/chartSharingController';
 import * as projectSharingController from '../controllers/projectSharingController';
 import { validate } from '../middleware/validator';
 import { asyncHandler } from '../utils/errorHandler';
 
 const router = Router();
+
+const VALID_CRAFTS = ['knit', 'crochet', 'tunisian', 'loom-knit'];
 
 /**
  * Public Shared Content Routes
@@ -47,6 +50,40 @@ router.get(
   ],
   validate,
   asyncHandler(chartSharingController.downloadSharedChart)
+);
+
+/**
+ * Public CYC abbreviation glossary. Same controllers as the auth routes —
+ * `req.user` is undefined here so only system rows are returned. Mounted
+ * under `/shared/*` so the existing 60-req/min/IP limiter applies.
+ */
+router.get(
+  '/glossary',
+  [
+    query('craft').optional({ values: 'falsy' }).isIn(VALID_CRAFTS),
+    query('category').optional({ values: 'falsy' }).isString().isLength({ max: 32 }),
+    query('search').optional({ values: 'falsy' }).isString().isLength({ max: 100 }),
+    query('q').optional({ values: 'falsy' }).isString().isLength({ max: 100 }),
+  ],
+  validate,
+  asyncHandler(abbreviationController.list)
+);
+
+router.get(
+  '/glossary/lookup',
+  [
+    query('abbreviation').isString().notEmpty().isLength({ max: 32 }),
+    query('craft').isIn(VALID_CRAFTS),
+  ],
+  validate,
+  asyncHandler(abbreviationController.lookup)
+);
+
+router.get(
+  '/glossary/categories',
+  [query('craft').optional({ values: 'falsy' }).isIn(VALID_CRAFTS)],
+  validate,
+  asyncHandler(abbreviationController.categories)
 );
 
 export default router;
