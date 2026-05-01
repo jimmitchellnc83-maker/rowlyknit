@@ -59,6 +59,7 @@ import { computeCustomDraft } from '../utils/designerMath';
 import { DEFAULT_CUSTOM_DRAFT, type CustomDraft } from '../types/customDraft';
 import { useMeasurementPrefs } from '../hooks/useMeasurementPrefs';
 import EaseTierPresets from '../components/designer/EaseTierPresets';
+import RecipientPrefillPicker from '../components/designer/RecipientPrefillPicker';
 
 type NumField = number | '';
 type DesignerSection = 'body' | 'sleeve';
@@ -2532,6 +2533,22 @@ export default function PatternDesigner() {
               <h2 className="mb-3 text-lg font-semibold text-gray-900 dark:text-gray-100">
                 Body block
               </h2>
+              <RecipientPrefillPicker
+                target={{
+                  itemType: 'sweater',
+                  totalLengthIn:
+                    typeof form.totalLength === 'number'
+                      ? form.unit === 'cm'
+                        ? form.totalLength / 2.54
+                        : form.totalLength
+                      : undefined,
+                }}
+                unit={form.unit}
+                onApply={({ fields, recipientName }) => {
+                  setForm((prev) => ({ ...prev, ...fields }));
+                  toast.success(`Pre-filled from ${recipientName}'s measurements.`);
+                }}
+              />
               <EaseTierPresets
                 value={form.easeAtChest}
                 unit={form.unit}
