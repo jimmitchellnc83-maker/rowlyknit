@@ -4,13 +4,22 @@ import app from './app';
 import { initializeSocket } from './config/socket';
 import logger from './config/logger';
 
-// Initialize Sentry (before anything else)
+// Initialize Sentry (before anything else). When the DSN is unset in
+// production we log a loud warning so missing error tracking is visible
+// at startup; the audit caught this once already (2026-04-30) and we
+// didn't want a silent regression.
 if (process.env.SENTRY_DSN) {
   Sentry.init({
     dsn: process.env.SENTRY_DSN,
     environment: process.env.NODE_ENV,
   });
   logger.info('Sentry error monitoring initialized');
+} else if (process.env.NODE_ENV === 'production') {
+  logger.warn(
+    'SENTRY_DSN is not set — production errors are NOT being tracked. ' +
+    'Set SENTRY_DSN in backend/.env (and VITE_SENTRY_DSN at frontend build time) ' +
+    'to enable error monitoring.'
+  );
 }
 
 const PORT = process.env.PORT || 5000;

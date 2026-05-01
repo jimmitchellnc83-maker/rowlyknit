@@ -35,8 +35,11 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       return;
     }
 
-    // Create Socket.IO connection
-    const socketUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+    // Create Socket.IO connection. Fall back to same-origin (window.location.origin)
+    // rather than http://localhost:5000 so dev Firefox doesn't fail the
+    // cross-origin WebSocket handshake; Vite dev server proxies /socket.io
+    // through to the backend, and prod is already same-origin.
+    const socketUrl = import.meta.env.VITE_API_URL || window.location.origin;
 
     const newSocket = io(socketUrl, {
       auth: {
