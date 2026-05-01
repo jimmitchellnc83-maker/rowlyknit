@@ -2,13 +2,11 @@ import { Link } from 'react-router-dom';
 import ThemeToggle from '../components/ThemeToggle';
 
 /**
- * Privacy Policy — Rowly-specific draft covering the data the app
- * actually collects. **Review with legal counsel before public launch.**
- * The draft-banner at the top makes that obvious to the reader; remove
- * the banner when the document has been reviewed and finalized.
+ * Privacy Policy — covers the data the app actually collects. Update
+ * `lastUpdated` whenever the substantive text changes.
  */
 export default function Privacy() {
-  const lastUpdated = '2026-04-23';
+  const lastUpdated = '2026-05-01';
 
   return (
     <LegalShell title="Privacy Policy" lastUpdated={lastUpdated}>
@@ -140,12 +138,6 @@ function LegalShell({
       </header>
 
       <main className="mx-auto max-w-3xl px-6 pb-20">
-        <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-200">
-          <strong>Draft.</strong> This document is an engineering draft to be reviewed
-          with legal counsel before public launch. Remove this banner when the text has
-          been finalized.
-        </div>
-
         <article
           className="
             mt-8 space-y-4 text-gray-700 dark:text-gray-300

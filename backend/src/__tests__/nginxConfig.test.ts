@@ -24,6 +24,20 @@ describe('deployment/nginx/conf.d/rowlyknit.conf', () => {
     );
   });
 
+  // Regression: audit op-gap finding — auth limiter was returning 503 on
+  // rate-limit, which axios surfaces as "Service unavailable. Server might
+  // be down." (looks like an outage). 429 is the honest semantic.
+  it('configures /api/auth/ to return 429 when rate-limited (not 503)', () => {
+    const authBlocks = conf.match(
+      /location\s+\/api\/auth\/\s*\{[^}]*\}/gs
+    );
+    expect(authBlocks).not.toBeNull();
+    expect(authBlocks!.length).toBeGreaterThanOrEqual(1);
+    authBlocks!.forEach((block) => {
+      expect(block).toMatch(/limit_req_status\s+429\s*;/);
+    });
+  });
+
   // Regression: PR after platform audit 2026-04-30 critical #5.
   // Without plausible.io in script-src + connect-src the analytics script
   // is blocked by CSP, the queue stub is never replaced, and every

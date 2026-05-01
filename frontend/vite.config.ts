@@ -152,6 +152,19 @@ export default defineConfig({
         target: process.env.VITE_API_URL || 'http://localhost:5000',
         changeOrigin: true,
       },
+      // /socket.io must be proxied with ws:true so the dev WebSocket upgrade
+      // succeeds same-origin in Firefox (Chrome was tolerant of cross-origin,
+      // Firefox blocks the handshake otherwise — see
+      // WebSocketContext.tsx fallback comment).
+      '/socket.io': {
+        target: process.env.VITE_API_URL || 'http://localhost:5000',
+        ws: true,
+        changeOrigin: true,
+      },
+      '/shared': {
+        target: process.env.VITE_API_URL || 'http://localhost:5000',
+        changeOrigin: true,
+      },
     },
   },
   build: {

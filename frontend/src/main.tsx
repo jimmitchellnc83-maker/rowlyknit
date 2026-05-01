@@ -12,12 +12,21 @@ import './lib/axios'; // Initialize axios configuration with withCredentials
 import './styles/index.css';
 import 'react-toastify/dist/ReactToastify.css';
 
-// Initialize Sentry (before anything else)
+// Initialize Sentry (before anything else). In production a missing DSN
+// surfaces as a console warning so the gap is visible to anyone with
+// devtools open — the audit caught this once and we don't want to ship
+// a silent regression.
 if (import.meta.env.VITE_SENTRY_DSN) {
   Sentry.init({
     dsn: import.meta.env.VITE_SENTRY_DSN,
     environment: import.meta.env.MODE,
   });
+} else if (import.meta.env.PROD) {
+  // eslint-disable-next-line no-console
+  console.warn(
+    'VITE_SENTRY_DSN is not set — production errors are NOT being tracked. ' +
+    'Set VITE_SENTRY_DSN at build time to enable Sentry.'
+  );
 }
 
 initAnalytics();
