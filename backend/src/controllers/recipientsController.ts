@@ -3,6 +3,7 @@ import db from '../config/database';
 import { NotFoundError, ValidationError } from '../utils/errorHandler';
 import { createAuditLog } from '../middleware/auditLog';
 import { sanitizeSearchQuery } from '../utils/inputSanitizer';
+import { sanitizeMeasurements } from '../types/measurements';
 
 export async function getRecipients(req: Request, res: Response) {
   const userId = req.user!.userId;
@@ -96,7 +97,7 @@ export async function createRecipient(req: Request, res: Response) {
       last_name: lastName,
       relationship,
       birthday,
-      measurements: measurements ? JSON.stringify(measurements) : '{}',
+      measurements: JSON.stringify(sanitizeMeasurements(measurements)),
       preferences: preferences ? JSON.stringify(preferences) : '{}',
       clothing_size: clothingSize,
       shoe_size: shoeSize,
@@ -155,7 +156,9 @@ export async function updateRecipient(req: Request, res: Response) {
   if (lastName !== undefined) updateData.last_name = lastName;
   if (relationship !== undefined) updateData.relationship = relationship;
   if (birthday !== undefined) updateData.birthday = birthday;
-  if (measurements !== undefined) updateData.measurements = JSON.stringify(measurements);
+  if (measurements !== undefined) {
+    updateData.measurements = JSON.stringify(sanitizeMeasurements(measurements));
+  }
   if (preferences !== undefined) updateData.preferences = JSON.stringify(preferences);
   if (clothingSize !== undefined) updateData.clothing_size = clothingSize;
   if (shoeSize !== undefined) updateData.shoe_size = shoeSize;
