@@ -13,6 +13,11 @@
  * the size's range (or is closest to the midpoint among schemes where
  * sizes overlap).
  *
+ * **Units:** inches are CYC's authoritative unit for body sizing — the
+ * cm cells in CYC's plus-size charts contain transcription errors. We
+ * store the size tables in inches and convert cm input via the canonical
+ * 2.54 factor.
+ *
  * Kept client-side — stateless, offline-friendly.
  */
 
@@ -49,6 +54,12 @@ export const WOMEN_SIZES: SizeEntry[] = [
   { label: '5XL', minChest: 60, maxChest: 62 },
 ];
 
+/**
+ * CYC men's finished-chest circumference ranges (in inches). Plus sizes
+ * 4XL (60–62) and 5XL (64–66) round out the standard chart so a 60+ in
+ * recipient gets a useful recommendation rather than falling off the end
+ * of the table.
+ */
 export const MEN_SIZES: SizeEntry[] = [
   { label: 'XS', minChest: 32, maxChest: 34 },
   { label: 'S', minChest: 36, maxChest: 38 },
@@ -57,6 +68,8 @@ export const MEN_SIZES: SizeEntry[] = [
   { label: 'XL', minChest: 48, maxChest: 50 },
   { label: '2XL', minChest: 52, maxChest: 54 },
   { label: '3XL', minChest: 56, maxChest: 58 },
+  { label: '4XL', minChest: 60, maxChest: 62 },
+  { label: '5XL', minChest: 64, maxChest: 66 },
 ];
 
 /** Children's chest-by-age sizing (CYC standard). */
