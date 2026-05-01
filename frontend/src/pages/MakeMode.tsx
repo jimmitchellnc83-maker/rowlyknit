@@ -23,7 +23,8 @@
  */
 
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { FiHelpCircle } from 'react-icons/fi';
 import { useSeo } from '../hooks/useSeo';
 import { usePatternModel, useUpdatePatternModel } from '../hooks/usePatternModel';
 import { isMakeModeEnabled } from '../utils/featureFlags';
@@ -128,9 +129,19 @@ export default function MakeMode() {
 
   return (
     <div className="mx-auto max-w-3xl px-3 py-4 sm:px-4 sm:py-6">
-      <header className="mb-4">
-        <p className="text-xs uppercase tracking-wide text-gray-500">Make Mode (preview)</p>
-        <h1 className="text-xl font-semibold sm:text-2xl">{pattern.name || 'Untitled Pattern'}</h1>
+      <header className="mb-4 flex items-start justify-between gap-3">
+        <div>
+          <p className="text-xs uppercase tracking-wide text-gray-500">Make Mode (preview)</p>
+          <h1 className="text-xl font-semibold sm:text-2xl">{pattern.name || 'Untitled Pattern'}</h1>
+        </div>
+        <Link
+          to="/help/knit911"
+          className="flex-shrink-0 inline-flex items-center gap-1.5 rounded-md border border-purple-200 bg-purple-50 px-2.5 py-1.5 text-xs font-medium text-purple-700 hover:border-purple-400 hover:bg-purple-100 dark:border-purple-700 dark:bg-purple-900/20 dark:text-purple-300"
+          title="Common knitting problems and fixes"
+        >
+          <FiHelpCircle className="h-3.5 w-3.5" />
+          Stuck?
+        </Link>
       </header>
 
       {saveError && (
