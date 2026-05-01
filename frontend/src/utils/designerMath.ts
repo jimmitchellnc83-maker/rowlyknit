@@ -56,6 +56,17 @@ export interface BodyBlockInput {
   /** Ribbing / hem depth from cast-on edge (inches). */
   hemDepth: number;
   /**
+   * Optional hip shaping. When provided, the cast-on width is sized to the
+   * hip (instead of the chest) and the hem-to-waist section tapers from the
+   * hip width to the waist. Pairs with `waist` for a fully shaped torso —
+   * a-line fits, fitted-and-flared silhouettes, etc. Drawn from CYC's
+   * canonical hip body field.
+   */
+  hip?: {
+    hipCircumference: number;
+    easeAtHip: number;
+  };
+  /**
    * Optional waist shaping. If provided, the block narrows to `waistCircumference`
    * (plus its own ease) at the waist, then returns to chest width above. If
    * omitted, the block is a simple rectangle.
@@ -109,6 +120,9 @@ export interface BodyBlockOutput {
   finishedChest: number;
   /** Waist + easeAtWaist, when waist shaping is present. */
   finishedWaist: number | null;
+  /** Hip + easeAtHip, when hip shaping is present. NULL = the cast-on
+   *  width was sized to the chest, not the hip. */
+  finishedHip: number | null;
   /** When armhole shaping is present: initial bind-off per side (each
    *  armhole edge). Used by the sleeve-cap math to keep the underarm seam
    *  aligned. Null when no armhole shaping is requested. */
@@ -259,20 +273,25 @@ export function buildShapingFormula(
  * The output feeds both the SVG schematic and the instructions card.
  */
 export function computeBodyBlock(input: BodyBlockInput): BodyBlockOutput {
-  const { gauge, chestCircumference, easeAtChest, totalLength, hemDepth, waist, armhole, neckline } = input;
+  const { gauge, chestCircumference, easeAtChest, totalLength, hemDepth, hip, waist, armhole, neckline } = input;
 
-  // Each panel is half the circumference. Cast-on is a front-or-back panel,
-  // which is where we size for.
+  // Each panel is half the circumference. Cast-on sizes to the hip when
+  // hip shaping is requested (a-line / fitted-and-flared) and to the
+  // chest otherwise (drop-shoulder T-shape, the legacy default).
   const finishedChest = chestCircumference + easeAtChest;
   const finishedWaist = waist ? waist.waistCircumference + waist.easeAtWaist : null;
+  const finishedHip = hip ? hip.hipCircumference + hip.easeAtHip : null;
 
   const panelChestWidth = finishedChest / 2;
   const panelWaistWidth = finishedWaist !== null ? finishedWaist / 2 : null;
+  const panelHipWidth = finishedHip !== null ? finishedHip / 2 : null;
 
   const chestStitches = stitchesForWidth(panelChestWidth, gauge);
   const waistStitches =
     panelWaistWidth !== null ? stitchesForWidth(panelWaistWidth, gauge) : null;
-  const castOnStitches = chestStitches;
+  const hipStitches =
+    panelHipWidth !== null ? stitchesForWidth(panelHipWidth, gauge) : null;
+  const castOnStitches = hipStitches ?? chestStitches;
 
   const hemRows = rowsForLength(hemDepth, gauge);
   const totalRows = rowsForLength(totalLength, gauge);
@@ -328,14 +347,33 @@ export function computeBodyBlock(input: BodyBlockInput): BodyBlockOutput {
       });
     }
   } else if (bodyCoreRows > 0) {
-    steps.push({
-      label: armhole ? 'Hem to armhole' : 'Hem to shoulder',
-      startStitches: castOnStitches,
-      endStitches: chestStitches,
-      rows: bodyCoreRows,
-      direction: 'none',
-      instruction: `Work straight for ${bodyCoreRows} row${bodyCoreRows === 1 ? '' : 's'}.`,
-    });
+    if (castOnStitches !== chestStitches) {
+      // Hip-to-chest taper across the whole body core (hip-shaped cast-on
+      // without a waist breakpoint — an a-line silhouette in one section).
+      const f = buildShapingFormula(
+        castOnStitches,
+        chestStitches,
+        bodyCoreRows,
+        'hip-to-chest taper',
+      );
+      steps.push({
+        label: armhole ? 'Hem to armhole' : 'Hem to shoulder',
+        startStitches: castOnStitches,
+        endStitches: chestStitches,
+        rows: bodyCoreRows,
+        direction: f.direction,
+        instruction: f.instruction,
+      });
+    } else {
+      steps.push({
+        label: armhole ? 'Hem to armhole' : 'Hem to shoulder',
+        startStitches: castOnStitches,
+        endStitches: chestStitches,
+        rows: bodyCoreRows,
+        direction: 'none',
+        instruction: `Work straight for ${bodyCoreRows} row${bodyCoreRows === 1 ? '' : 's'}.`,
+      });
+    }
   }
 
   // Armhole + neckline + shoulder (if armhole shaping is requested).
@@ -456,6 +494,7 @@ export function computeBodyBlock(input: BodyBlockInput): BodyBlockOutput {
     finishedLength: round025(totalLength),
     finishedChest: round025(finishedChest),
     finishedWaist: finishedWaist !== null ? round025(finishedWaist) : null,
+    finishedHip: finishedHip !== null ? round025(finishedHip) : null,
     armholeInitialBindOffPerSide,
     shoulderSeamStitches,
     steps,
