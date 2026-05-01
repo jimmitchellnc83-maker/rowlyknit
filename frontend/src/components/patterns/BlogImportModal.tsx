@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import axios from 'axios';
 import { FiLink, FiLoader, FiCheck, FiX, FiAlertCircle, FiSave, FiArrowLeft } from 'react-icons/fi';
 import { logUsage } from '../../utils/logUsage';
+import { SKILL_LEVELS, SKILL_LEVEL_LABELS } from '../../types/skillLevel';
 
 interface ExtractedContent {
   title: string;
@@ -290,11 +291,11 @@ export const BlogImportModal: React.FC<BlogImportModalProps> = ({
                       onChange={(e) => handleFieldChange('difficulty', e.target.value || null)}
                     >
                       <option value="">Select difficulty</option>
-                      <option value="beginner">Beginner</option>
-                      <option value="easy">Easy</option>
-                      <option value="intermediate">Intermediate</option>
-                      <option value="advanced">Advanced</option>
-                      <option value="expert">Expert</option>
+                      {SKILL_LEVELS.map((level) => (
+                        <option key={level} value={level}>
+                          {SKILL_LEVEL_LABELS[level]}
+                        </option>
+                      ))}
                     </select>
                   </div>
                   <div className="form-group">

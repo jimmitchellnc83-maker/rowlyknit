@@ -18,6 +18,13 @@ import { ChartImageUpload } from '../components/charts';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { formatDate } from '../utils/formatDate';
 import { parsePatternDetailTab, type PatternDetailTab } from './patternDetailTabs';
+import {
+  SKILL_LEVELS,
+  SKILL_LEVEL_LABELS,
+  normalizeSkillLevel,
+  skillLevelBadgeClasses,
+  skillLevelLabel,
+} from '../types/skillLevel';
 
 interface Pattern {
   id: string;
@@ -188,7 +195,7 @@ export default function PatternDetail() {
       name: pattern.name || '',
       description: pattern.description || '',
       designer: pattern.designer || '',
-      difficulty: pattern.difficulty || 'intermediate',
+      difficulty: normalizeSkillLevel(pattern.difficulty) || 'intermediate',
       category: pattern.category || 'sweater',
       yarnRequirements: pattern.yarn_requirements || '',
       needleSizes: pattern.needle_sizes || '',
@@ -289,21 +296,6 @@ export default function PatternDetail() {
     toast.success('Chart saved for this pattern');
   };
 
-  const getDifficultyColor = (difficulty: string) => {
-    switch (difficulty) {
-      case 'beginner':
-        return 'bg-green-100 text-green-800';
-      case 'intermediate':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'advanced':
-        return 'bg-orange-100 text-orange-800';
-      case 'expert':
-        return 'bg-red-100 text-red-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
-
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -337,8 +329,8 @@ export default function PatternDetail() {
             <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-2">
               <h1 className="text-2xl md:text-3xl font-bold text-gray-900">{pattern.name}</h1>
               {pattern.difficulty && (
-                <span className={`px-3 py-1 text-sm font-medium rounded-full self-start ${getDifficultyColor(pattern.difficulty)}`}>
-                  {pattern.difficulty}
+                <span className={`px-3 py-1 text-sm font-medium rounded-full self-start ${skillLevelBadgeClasses(pattern.difficulty)}`}>
+                  {skillLevelLabel(pattern.difficulty)}
                 </span>
               )}
               {pattern.complexity && (
@@ -783,10 +775,11 @@ export default function PatternDetail() {
                     onChange={(e) => setFormData({ ...formData, difficulty: e.target.value })}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                   >
-                    <option value="beginner">Beginner</option>
-                    <option value="intermediate">Intermediate</option>
-                    <option value="advanced">Advanced</option>
-                    <option value="expert">Expert</option>
+                    {SKILL_LEVELS.map((level) => (
+                      <option key={level} value={level}>
+                        {SKILL_LEVEL_LABELS[level]}
+                      </option>
+                    ))}
                   </select>
                 </div>
 

@@ -13,7 +13,7 @@ export interface KnittingSymbol {
   rsInstruction?: string;  // Right side instruction
   wsInstruction?: string;  // Wrong side instruction
   videoUrl?: string;
-  difficulty: 'beginner' | 'intermediate' | 'advanced';
+  difficulty: 'basic' | 'intermediate' | 'complex';
 }
 
 export const KNITTING_SYMBOLS: KnittingSymbol[] = [
@@ -29,7 +29,7 @@ export const KNITTING_SYMBOLS: KnittingSymbol[] = [
     color: '#FFFFFF',
     rsInstruction: 'Knit',
     wsInstruction: 'Purl',
-    difficulty: 'beginner',
+    difficulty: 'basic',
   },
   {
     id: 'purl',
@@ -42,7 +42,7 @@ export const KNITTING_SYMBOLS: KnittingSymbol[] = [
     color: '#9CA3AF',
     rsInstruction: 'Purl',
     wsInstruction: 'Knit',
-    difficulty: 'beginner',
+    difficulty: 'basic',
   },
   {
     id: 'yarn_over',
@@ -55,7 +55,7 @@ export const KNITTING_SYMBOLS: KnittingSymbol[] = [
     color: '#8B5CF6',
     rsInstruction: 'Yarn over',
     wsInstruction: 'Purl the yarn over',
-    difficulty: 'beginner',
+    difficulty: 'basic',
   },
   {
     id: 'slip_stitch',
@@ -68,7 +68,7 @@ export const KNITTING_SYMBOLS: KnittingSymbol[] = [
     color: '#6B7280',
     rsInstruction: 'Slip 1 purlwise',
     wsInstruction: 'Slip 1 purlwise',
-    difficulty: 'beginner',
+    difficulty: 'basic',
   },
 
   // Decreases
@@ -83,7 +83,7 @@ export const KNITTING_SYMBOLS: KnittingSymbol[] = [
     color: '#EF4444',
     rsInstruction: 'Knit 2 stitches together',
     wsInstruction: 'Purl 2 stitches together',
-    difficulty: 'beginner',
+    difficulty: 'basic',
   },
   {
     id: 'ssk',
@@ -148,7 +148,7 @@ export const KNITTING_SYMBOLS: KnittingSymbol[] = [
     color: '#78350F',
     rsInstruction: 'Slip, slip, slip, knit 3 together tbl',
     wsInstruction: 'Slip, slip, slip, purl 3 together tbl',
-    difficulty: 'advanced',
+    difficulty: 'complex',
   },
 
   // Increases
@@ -189,7 +189,7 @@ export const KNITTING_SYMBOLS: KnittingSymbol[] = [
     color: '#047857',
     rsInstruction: 'Knit front and back',
     wsInstruction: 'Purl front and back',
-    difficulty: 'beginner',
+    difficulty: 'basic',
   },
   {
     id: 'pfb',
@@ -202,7 +202,7 @@ export const KNITTING_SYMBOLS: KnittingSymbol[] = [
     color: '#065F46',
     rsInstruction: 'Purl front and back',
     wsInstruction: 'Knit front and back',
-    difficulty: 'beginner',
+    difficulty: 'basic',
   },
 
   // Twisted Stitches
@@ -271,7 +271,7 @@ export const KNITTING_SYMBOLS: KnittingSymbol[] = [
     color: '#BE185D',
     rsInstruction: 'Cable 6 front',
     wsInstruction: 'Work stitches as they appear',
-    difficulty: 'advanced',
+    difficulty: 'complex',
   },
   {
     id: 'c6b',
@@ -284,7 +284,7 @@ export const KNITTING_SYMBOLS: KnittingSymbol[] = [
     color: '#9D174D',
     rsInstruction: 'Cable 6 back',
     wsInstruction: 'Work stitches as they appear',
-    difficulty: 'advanced',
+    difficulty: 'complex',
   },
   {
     id: 't3f',
@@ -297,7 +297,7 @@ export const KNITTING_SYMBOLS: KnittingSymbol[] = [
     color: '#F472B6',
     rsInstruction: 'Twist 3 front',
     wsInstruction: 'Work stitches as they appear',
-    difficulty: 'advanced',
+    difficulty: 'complex',
   },
   {
     id: 't3b',
@@ -310,7 +310,7 @@ export const KNITTING_SYMBOLS: KnittingSymbol[] = [
     color: '#F9A8D4',
     rsInstruction: 'Twist 3 back',
     wsInstruction: 'Work stitches as they appear',
-    difficulty: 'advanced',
+    difficulty: 'complex',
   },
 
   // Special Stitches
@@ -325,7 +325,7 @@ export const KNITTING_SYMBOLS: KnittingSymbol[] = [
     color: '#D1D5DB',
     rsInstruction: 'No stitch',
     wsInstruction: 'No stitch',
-    difficulty: 'beginner',
+    difficulty: 'basic',
   },
   {
     id: 'bobble',
@@ -338,7 +338,7 @@ export const KNITTING_SYMBOLS: KnittingSymbol[] = [
     color: '#A855F7',
     rsInstruction: 'Make bobble',
     wsInstruction: 'Work bobble from WS',
-    difficulty: 'advanced',
+    difficulty: 'complex',
   },
   {
     id: 'bead',
@@ -351,7 +351,7 @@ export const KNITTING_SYMBOLS: KnittingSymbol[] = [
     color: '#14B8A6',
     rsInstruction: 'Place bead',
     wsInstruction: 'Slip beaded stitch purlwise',
-    difficulty: 'advanced',
+    difficulty: 'complex',
   },
   {
     id: 'wrap_turn',

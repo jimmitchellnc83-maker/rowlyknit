@@ -13,6 +13,7 @@ import { assertPublicUrl } from '../utils/ssrfGuard';
 import { getFeasibility } from '../services/feasibilityService';
 import { calculatePatternComplexity } from '../services/patternComplexityService';
 import { countMakersForPattern } from '../services/ratingsService';
+import { normalizeSkillLevel } from '../types/skillLevel';
 
 /**
  * Serialize pattern fields for frontend.
@@ -263,7 +264,7 @@ export async function createPattern(req: Request, res: Response) {
       designer,
       source,
       source_url: sourceUrl,
-      difficulty,
+      difficulty: normalizeSkillLevel(difficulty),
       category,
       yarn_requirements: toDisplayString(yarnRequirements),
       needle_sizes: toDisplayString(needleSizes),
@@ -377,7 +378,7 @@ export async function updatePattern(req: Request, res: Response) {
   if (designer !== undefined) updateData.designer = designer;
   if (source !== undefined) updateData.source = source;
   if (sourceUrl !== undefined) updateData.source_url = sourceUrl;
-  if (difficulty !== undefined) updateData.difficulty = difficulty;
+  if (difficulty !== undefined) updateData.difficulty = normalizeSkillLevel(difficulty);
   if (category !== undefined) updateData.category = category;
   if (yarnRequirements !== undefined) updateData.yarn_requirements = toDisplayString(yarnRequirements);
   if (needleSizes !== undefined) updateData.needle_sizes = toDisplayString(needleSizes);
@@ -466,9 +467,10 @@ export async function getPatternStats(req: Request, res: Response) {
     .select(
       db.raw('COUNT(*) as total_count'),
       db.raw("COUNT(*) FILTER (WHERE is_favorite = true) as favorite_count"),
-      db.raw("COUNT(*) FILTER (WHERE difficulty = 'beginner') as beginner_count"),
+      db.raw("COUNT(*) FILTER (WHERE difficulty = 'basic') as basic_count"),
+      db.raw("COUNT(*) FILTER (WHERE difficulty = 'easy') as easy_count"),
       db.raw("COUNT(*) FILTER (WHERE difficulty = 'intermediate') as intermediate_count"),
-      db.raw("COUNT(*) FILTER (WHERE difficulty = 'advanced') as advanced_count")
+      db.raw("COUNT(*) FILTER (WHERE difficulty = 'complex') as complex_count")
     )
     .first();
 

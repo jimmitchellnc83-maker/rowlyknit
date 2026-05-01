@@ -58,12 +58,13 @@ export function extractRavelryIdFromSourceUrl(sourceUrl: string | null | undefin
   return match ? Number(match[1]) : null;
 }
 
-function difficultyFromAverage(avg: number | null | undefined): string {
+// Maps Ravelry's 1–10 difficulty average onto Rowly's CYC-aligned 4 tiers.
+export function difficultyFromAverage(avg: number | null | undefined): string {
   if (avg == null) return 'intermediate';
-  if (avg <= 2.5) return 'beginner';
-  if (avg <= 5) return 'intermediate';
-  if (avg <= 7.5) return 'advanced';
-  return 'expert';
+  if (avg <= 2.5) return 'basic';
+  if (avg <= 5) return 'easy';
+  if (avg <= 7.5) return 'intermediate';
+  return 'complex';
 }
 
 const CATEGORY_MAP: Record<string, string> = {
