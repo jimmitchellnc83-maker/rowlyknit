@@ -18,6 +18,7 @@ import CmdKTooltip from '../components/CmdKTooltip';
 import OnboardingGoalCard, {
   type OnboardingGoal,
 } from '../components/dashboard/OnboardingGoalCard';
+import CycEventBanner from '../components/cyc/CycEventBanner';
 import { metersToYards } from '../utils/yarnUnits';
 import { formatDate } from '../utils/formatDate';
 
@@ -137,6 +138,13 @@ export default function Dashboard() {
           <FiHelpCircle className="h-4 w-4" />
           Help
         </Link>
+      </div>
+
+      {/* CYC seasonal banner — renders only during Stitch Away Stress
+          (April) and I Love Yarn Day (2nd Sat of October). Idle the
+          rest of the year. */}
+      <div className="mb-6">
+        <CycEventBanner />
       </div>
 
       {isError && (
