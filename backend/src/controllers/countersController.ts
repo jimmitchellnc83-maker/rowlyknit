@@ -4,6 +4,7 @@ import { NotFoundError, ValidationError } from '../utils/errorHandler';
 import { createAuditLog } from '../middleware/auditLog';
 import { getIO } from '../config/socket';
 import logger from '../config/logger';
+import { intOrNull } from '../utils/numericInput';
 
 /**
  * Get all counters for a project
@@ -159,16 +160,20 @@ export async function createCounter(req: Request, res: Response) {
     finalSortOrder = (result?.maxOrder ?? -1) + 1;
   }
 
+  // counter_history.new_value is NOT NULL — fall back to 0 for empty
+  // input so the initial history insert still succeeds.
+  const currentValueInt = intOrNull(currentValue) ?? 0;
+
   const [counter] = await db('counters')
     .insert({
       project_id: projectId,
       name,
       type: type || 'rows',
-      current_value: currentValue,
-      target_value: targetValue,
-      increment_by: incrementBy,
-      min_value: minValue,
-      max_value: maxValue,
+      current_value: currentValueInt,
+      target_value: intOrNull(targetValue),
+      increment_by: intOrNull(incrementBy) ?? 1,
+      min_value: intOrNull(minValue),
+      max_value: intOrNull(maxValue),
       display_color: displayColor,
       is_visible: isVisible,
       increment_pattern: incrementPattern ? JSON.stringify(incrementPattern) : null,
@@ -185,7 +190,7 @@ export async function createCounter(req: Request, res: Response) {
   await db('counter_history').insert({
     counter_id: counter.id,
     old_value: 0, // For new counters, old value is 0
-    new_value: currentValue,
+    new_value: currentValueInt,
     action: 'created',
     user_note: null,
     created_at: new Date(),
@@ -237,8 +242,14 @@ export async function updateCounter(req: Request, res: Response) {
     updates[camel] !== undefined ? updates[camel] : updates[snake];
 
   const currentValueInput = resolve('currentValue', 'current_value');
+  // Coerce '' / null inputs to a number-or-null. counter_history.new_value
+  // is NOT NULL, so when the user clears the field we treat it as "no
+  // change" and keep the old value (instead of writing null and 500ing).
+  const currentValueCoerced =
+    currentValueInput !== undefined ? intOrNull(currentValueInput) : undefined;
   const oldValue = counter.current_value;
-  const newValue = currentValueInput !== undefined ? currentValueInput : oldValue;
+  const newValue =
+    currentValueCoerced != null ? currentValueCoerced : oldValue;
 
   // Prepare update data
   const updateData: any = {
@@ -260,11 +271,13 @@ export async function updateCounter(req: Request, res: Response) {
 
   if (nameVal !== undefined) updateData.name = nameVal;
   if (typeVal !== undefined) updateData.type = typeVal;
-  if (currentValueInput !== undefined) updateData.current_value = currentValueInput;
-  if (targetValue !== undefined) updateData.target_value = targetValue;
-  if (incrementBy !== undefined) updateData.increment_by = incrementBy;
-  if (minValue !== undefined) updateData.min_value = minValue;
-  if (maxValue !== undefined) updateData.max_value = maxValue;
+  // Only write current_value when the user sent a parseable number;
+  // empty-string clears get folded back to the existing value above.
+  if (currentValueCoerced != null) updateData.current_value = currentValueCoerced;
+  if (targetValue !== undefined) updateData.target_value = intOrNull(targetValue);
+  if (incrementBy !== undefined) updateData.increment_by = intOrNull(incrementBy);
+  if (minValue !== undefined) updateData.min_value = intOrNull(minValue);
+  if (maxValue !== undefined) updateData.max_value = intOrNull(maxValue);
   if (displayColor !== undefined) updateData.display_color = displayColor;
   if (isVisible !== undefined) updateData.is_visible = isVisible;
   if (incrementPattern !== undefined) {
@@ -699,7 +712,10 @@ async function checkAndExecuteCounterLinks(
 export async function incrementWithChildren(req: Request, res: Response) {
   const userId = req.user!.userId;
   const { id: projectId, counterId } = req.params;
-  const { amount = 1, mode = 'linked' } = req.body;
+  const { amount: rawAmount = 1, mode = 'linked' } = req.body;
+  // Coerce '' / null inputs back to the implicit default of 1 so child
+  // arithmetic stays in JS-number land.
+  const amount = intOrNull(rawAmount) ?? 1;
 
   // Verify project ownership
   const project = await db('projects')

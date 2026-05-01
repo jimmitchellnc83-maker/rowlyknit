@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import db from '../config/database';
 import { NotFoundError, ValidationError } from '../utils/errorHandler';
 import { createAuditLog } from '../middleware/auditLog';
+import { intOrNull } from '../utils/numericInput';
 
 // Columns safe to sort on via the listSessions endpoint. Anything outside
 // this set is rejected — `.orderBy()` interpolates its first argument as a
@@ -537,7 +538,7 @@ export async function createMilestone(req: Request, res: Response) {
     .insert({
       project_id: projectId,
       name,
-      target_rows: targetRows || null,
+      target_rows: intOrNull(targetRows),
       created_at: new Date(),
     })
     .returning('*');
@@ -585,9 +586,9 @@ export async function updateMilestone(req: Request, res: Response) {
 
   const updateData: any = {};
   if (updates.name !== undefined) updateData.name = updates.name;
-  if (updates.targetRows !== undefined) updateData.target_rows = updates.targetRows;
-  if (updates.actualRows !== undefined) updateData.actual_rows = updates.actualRows;
-  if (updates.timeSpentSeconds !== undefined) updateData.time_spent_seconds = updates.timeSpentSeconds;
+  if (updates.targetRows !== undefined) updateData.target_rows = intOrNull(updates.targetRows);
+  if (updates.actualRows !== undefined) updateData.actual_rows = intOrNull(updates.actualRows);
+  if (updates.timeSpentSeconds !== undefined) updateData.time_spent_seconds = intOrNull(updates.timeSpentSeconds);
   if (updates.completedAt !== undefined) updateData.completed_at = updates.completedAt;
 
   const [updatedMilestone] = await db('project_milestones')

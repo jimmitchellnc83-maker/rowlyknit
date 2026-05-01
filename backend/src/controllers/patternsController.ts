@@ -8,6 +8,7 @@ import axios from 'axios';
 import fs from 'fs';
 import path from 'path';
 import { sanitizeSearchQuery } from '../utils/inputSanitizer';
+import { intOrNull } from '../utils/numericInput';
 import { assertPublicUrl } from '../utils/ssrfGuard';
 import { getFeasibility } from '../services/feasibilityService';
 import { calculatePatternComplexity } from '../services/patternComplexityService';
@@ -268,7 +269,7 @@ export async function createPattern(req: Request, res: Response) {
       needle_sizes: toDisplayString(needleSizes),
       gauge: toDisplayString(gauge),
       sizes_available: toDisplayString(sizesAvailable),
-      estimated_yardage: estimatedYardage,
+      estimated_yardage: intOrNull(estimatedYardage),
       notes,
       tags: tags ? JSON.stringify(tags) : '[]',
       metadata: metadata ? JSON.stringify(metadata) : '{}',
@@ -382,7 +383,7 @@ export async function updatePattern(req: Request, res: Response) {
   if (needleSizes !== undefined) updateData.needle_sizes = toDisplayString(needleSizes);
   if (gauge !== undefined) updateData.gauge = toDisplayString(gauge);
   if (sizesAvailable !== undefined) updateData.sizes_available = toDisplayString(sizesAvailable);
-  if (estimatedYardage !== undefined) updateData.estimated_yardage = estimatedYardage;
+  if (estimatedYardage !== undefined) updateData.estimated_yardage = intOrNull(estimatedYardage);
   if (notes !== undefined) updateData.notes = notes;
   if (tags !== undefined) updateData.tags = JSON.stringify(tags);
   if (isFavorite !== undefined) updateData.is_favorite = isFavorite;

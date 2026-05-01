@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import db from '../config/database';
 import { NotFoundError, ValidationError } from '../utils/errorHandler';
 import { createAuditLog } from '../middleware/auditLog';
+import { intOrNull, numOrNull } from '../utils/numericInput';
 
 /**
  * Pattern Sections
@@ -58,9 +59,9 @@ export async function createPatternSection(req: Request, res: Response) {
     .insert({
       pattern_id: patternId,
       name,
-      page_number: pageNumber,
-      y_position: yPosition,
-      sort_order: sortOrder,
+      page_number: intOrNull(pageNumber),
+      y_position: intOrNull(yPosition),
+      sort_order: intOrNull(sortOrder),
       created_at: new Date(),
     })
     .returning('*');
@@ -107,9 +108,9 @@ export async function updatePatternSection(req: Request, res: Response) {
 
   const updateData: any = {};
   if (updates.name !== undefined) updateData.name = updates.name;
-  if (updates.pageNumber !== undefined) updateData.page_number = updates.pageNumber;
-  if (updates.yPosition !== undefined) updateData.y_position = updates.yPosition;
-  if (updates.sortOrder !== undefined) updateData.sort_order = updates.sortOrder;
+  if (updates.pageNumber !== undefined) updateData.page_number = intOrNull(updates.pageNumber);
+  if (updates.yPosition !== undefined) updateData.y_position = intOrNull(updates.yPosition);
+  if (updates.sortOrder !== undefined) updateData.sort_order = intOrNull(updates.sortOrder);
 
   const [updatedSection] = await db('pattern_sections')
     .where({ id: sectionId })
@@ -246,9 +247,9 @@ export async function createPatternBookmark(req: Request, res: Response) {
       pattern_id: patternId,
       project_id: projectId || null,
       name,
-      page_number: pageNumber,
-      y_position: yPosition,
-      zoom_level: zoomLevel,
+      page_number: intOrNull(pageNumber),
+      y_position: intOrNull(yPosition),
+      zoom_level: numOrNull(zoomLevel),
       color,
       created_at: new Date(),
       updated_at: new Date(),
@@ -297,9 +298,9 @@ export async function updatePatternBookmark(req: Request, res: Response) {
 
   const updateData: any = { updated_at: new Date() };
   if (updates.name !== undefined) updateData.name = updates.name;
-  if (updates.pageNumber !== undefined) updateData.page_number = updates.pageNumber;
-  if (updates.yPosition !== undefined) updateData.y_position = updates.yPosition;
-  if (updates.zoomLevel !== undefined) updateData.zoom_level = updates.zoomLevel;
+  if (updates.pageNumber !== undefined) updateData.page_number = intOrNull(updates.pageNumber);
+  if (updates.yPosition !== undefined) updateData.y_position = intOrNull(updates.yPosition);
+  if (updates.zoomLevel !== undefined) updateData.zoom_level = numOrNull(updates.zoomLevel);
   if (updates.color !== undefined) updateData.color = updates.color;
 
   const [updatedBookmark] = await db('pattern_bookmarks')
@@ -388,7 +389,7 @@ export async function reorderPatternBookmarks(req: Request, res: Response) {
     for (const item of bookmarks) {
       await trx('pattern_bookmarks')
         .where({ id: item.id, pattern_id: patternId })
-        .update({ sort_order: item.sortOrder });
+        .update({ sort_order: intOrNull(item.sortOrder) });
     }
   });
 
@@ -475,10 +476,10 @@ export async function createPatternHighlight(req: Request, res: Response) {
     .insert({
       pattern_id: patternId,
       project_id: projectId || null,
-      page_number: pageNumber,
+      page_number: intOrNull(pageNumber),
       coordinates: JSON.stringify(coordinates),
       color: color || '#FFFF00',
-      opacity: opacity || 0.3,
+      opacity: numOrNull(opacity) ?? 0.3,
       created_at: new Date(),
     })
     .returning('*');
@@ -526,7 +527,7 @@ export async function updatePatternHighlight(req: Request, res: Response) {
   const updateData: any = {};
   if (updates.coordinates !== undefined) updateData.coordinates = JSON.stringify(updates.coordinates);
   if (updates.color !== undefined) updateData.color = updates.color;
-  if (updates.opacity !== undefined) updateData.opacity = updates.opacity;
+  if (updates.opacity !== undefined) updateData.opacity = numOrNull(updates.opacity);
 
   const [updatedHighlight] = await db('pattern_highlights')
     .where({ id: highlightId })
@@ -666,7 +667,7 @@ export async function createPatternAnnotation(req: Request, res: Response) {
     .insert({
       pattern_id: patternId,
       project_id: projectId || null,
-      page_number: pageNumber || null,
+      page_number: intOrNull(pageNumber),
       annotation_type: annotationType,
       data: data ? JSON.stringify(data) : null,
       image_url: imageUrl || null,
