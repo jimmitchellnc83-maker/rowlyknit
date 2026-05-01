@@ -218,6 +218,71 @@ describe('computeBodyBlock — with waist shaping', () => {
   });
 });
 
+describe('computeBodyBlock — with hip shaping (CYC a-line)', () => {
+  const aLineInput: BodyBlockInput = {
+    gauge: STANDARD_GAUGE,
+    chestCircumference: 36,
+    easeAtChest: 4,
+    totalLength: 24,
+    hemDepth: 2,
+    hip: {
+      hipCircumference: 42,
+      easeAtHip: 2,
+    },
+  };
+
+  it('casts on at the hip width when hip shaping is requested', () => {
+    const out = computeBodyBlock(aLineInput);
+    // Hip panel = 44/2 = 22 in; 22 × (20/4) = 110 sts
+    expect(out.castOnStitches).toBe(110);
+  });
+
+  it('exposes finishedHip for schematic labels', () => {
+    const out = computeBodyBlock(aLineInput);
+    expect(out.finishedHip).toBe(44);
+  });
+
+  it('tapers from hip to chest across the body core when no waist breakpoint', () => {
+    const out = computeBodyBlock(aLineInput);
+    const body = out.steps.find((s) => s.label === 'Hem to shoulder')!;
+    expect(body.startStitches).toBe(110);
+    expect(body.endStitches).toBe(100);
+    expect(body.direction).toBe('decrease');
+  });
+
+  it('combines hip + waist into a fully shaped torso (hip → waist → chest)', () => {
+    const out = computeBodyBlock({
+      ...aLineInput,
+      waist: {
+        waistCircumference: 30,
+        easeAtWaist: 2,
+        waistHeightFromHem: 8,
+      },
+    });
+    const below = out.steps.find((s) => s.label === 'Hem to waist')!;
+    const above = out.steps.find((s) => s.label === 'Waist to bust')!;
+    // Hem-to-waist starts at hip, not chest.
+    expect(below.startStitches).toBe(110);
+    // Waist panel = 32/2 = 16 in × 5 = 80 sts.
+    expect(below.endStitches).toBe(80);
+    expect(below.direction).toBe('decrease');
+    // Waist-to-bust ends at the chest.
+    expect(above.endStitches).toBe(100);
+  });
+
+  it('returns NULL finishedHip when hip shaping is not requested', () => {
+    const out = computeBodyBlock({
+      gauge: STANDARD_GAUGE,
+      chestCircumference: 36,
+      easeAtChest: 4,
+      totalLength: 24,
+      hemDepth: 2,
+    });
+    expect(out.finishedHip).toBeNull();
+    expect(out.castOnStitches).toBe(100); // chest, not hip
+  });
+});
+
 describe('computeSleeve', () => {
   const baseInput: SleeveInput = {
     gauge: STANDARD_GAUGE,
