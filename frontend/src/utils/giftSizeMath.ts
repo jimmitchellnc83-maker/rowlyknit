@@ -13,31 +13,22 @@
  * the size's range (or is closest to the midpoint among schemes where
  * sizes overlap).
  *
+ * **Units:** inches are CYC's authoritative unit for body sizing — the
+ * cm cells in CYC's plus-size charts contain transcription errors. We
+ * store the size tables in inches and convert cm input via the canonical
+ * 2.54 factor.
+ *
  * Kept client-side — stateless, offline-friendly.
  */
 
+import { EASE_TIER_INCHES, type EaseTier } from './easeTiers';
+
 export type MeasurementUnit = 'in' | 'cm';
 
-export type FitStyle = 'close' | 'fitted' | 'classic' | 'relaxed' | 'oversized';
+// Re-exported for callers that still talk in "fit style" terms.
+export type FitStyle = EaseTier;
 
 export type SizeScheme = 'women' | 'men' | 'child' | 'baby';
-
-/** Standard fit → ease mapping in inches. Standard knitwear convention. */
-export const FIT_EASE_INCHES: Record<FitStyle, number> = {
-  close: -2,
-  fitted: 0,
-  classic: 2,
-  relaxed: 4,
-  oversized: 6,
-};
-
-export const FIT_LABELS: Record<FitStyle, string> = {
-  close: 'Close fit (-2 in / -5 cm)',
-  fitted: 'Fitted (0 in / 0 cm)',
-  classic: 'Classic (+2 in / +5 cm)',
-  relaxed: 'Relaxed (+4 in / +10 cm)',
-  oversized: 'Oversized (+6 in / +15 cm)',
-};
 
 export interface SizeEntry {
   label: string;
@@ -63,6 +54,12 @@ export const WOMEN_SIZES: SizeEntry[] = [
   { label: '5XL', minChest: 60, maxChest: 62 },
 ];
 
+/**
+ * CYC men's finished-chest circumference ranges (in inches). Plus sizes
+ * 4XL (60–62) and 5XL (64–66) round out the standard chart so a 60+ in
+ * recipient gets a useful recommendation rather than falling off the end
+ * of the table.
+ */
 export const MEN_SIZES: SizeEntry[] = [
   { label: 'XS', minChest: 32, maxChest: 34 },
   { label: 'S', minChest: 36, maxChest: 38 },
@@ -71,6 +68,8 @@ export const MEN_SIZES: SizeEntry[] = [
   { label: 'XL', minChest: 48, maxChest: 50 },
   { label: '2XL', minChest: 52, maxChest: 54 },
   { label: '3XL', minChest: 56, maxChest: 58 },
+  { label: '4XL', minChest: 60, maxChest: 62 },
+  { label: '5XL', minChest: 64, maxChest: 66 },
 ];
 
 /** Children's chest-by-age sizing (CYC standard). */
@@ -153,7 +152,7 @@ export function recommendSizes(input: {
   const easeIn =
     input.customEaseIn != null && Number.isFinite(input.customEaseIn)
       ? input.customEaseIn
-      : FIT_EASE_INCHES[input.fit];
+      : EASE_TIER_INCHES[input.fit];
   const finishedChestIn = round1(bodyChestIn + easeIn);
 
   const recommendations = (Object.keys(SCHEMES) as SizeScheme[]).map<SizeRecommendation>(

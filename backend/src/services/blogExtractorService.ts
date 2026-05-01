@@ -3,6 +3,7 @@ import { JSDOM } from 'jsdom';
 import { Readability } from '@mozilla/readability';
 import db from '../config/database';
 import logger from '../config/logger';
+import { normalizeSkillLevel } from '../types/skillLevel';
 
 export interface ExtractedContent {
   title: string;
@@ -268,21 +269,13 @@ class BlogExtractorService {
   }
 
   private extractDifficulty(content: string): string | null {
-    const difficulties: Record<string, string> = {
-      'beginner': 'beginner',
-      'easy': 'easy',
-      'intermediate': 'intermediate',
-      'advanced': 'advanced',
-      'expert': 'expert',
-      'experienced': 'advanced',
-    };
-
-    for (const [keyword, level] of Object.entries(difficulties)) {
+    const keywords = ['basic', 'beginner', 'easy', 'intermediate', 'complex', 'advanced', 'expert', 'experienced'];
+    for (const keyword of keywords) {
       if (content.includes(`difficulty: ${keyword}`) ||
           content.includes(`level: ${keyword}`) ||
           content.includes(`skill level: ${keyword}`) ||
           content.includes(`(${keyword})`)) {
-        return level;
+        return normalizeSkillLevel(keyword);
       }
     }
     return null;

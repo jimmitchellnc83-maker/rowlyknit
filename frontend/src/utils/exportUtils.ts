@@ -238,9 +238,9 @@ export function exportPatternsToCSV(patterns: any[]): void {
     ...patterns.map((p) => [
       escapeCSV(p.name),
       escapeCSV(p.designer),
-      escapeCSV(p.pattern_type),
-      escapeCSV(p.difficulty_level),
-      escapeCSV(p.needle_size),
+      escapeCSV(p.category),
+      escapeCSV(p.difficulty),
+      escapeCSV(p.needle_sizes),
       escapeCSV(p.gauge),
       escapeCSV(p.notes),
     ].join(',')),

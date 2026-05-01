@@ -9,6 +9,8 @@ import {
   FiFileText,
   FiShare2,
   FiLayers,
+  FiBookOpen,
+  FiChevronRight,
 } from 'react-icons/fi';
 
 interface HelpSection {
@@ -45,6 +47,40 @@ export default function Help() {
           the gotchas you'll hit.
         </p>
       </header>
+
+      <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-3">
+        <Link
+          to="/help/glossary"
+          className="group flex items-center gap-4 rounded-lg border border-purple-200 bg-purple-50 p-4 transition hover:border-purple-400 hover:shadow dark:border-purple-700 dark:bg-purple-900/20"
+        >
+          <FiBookOpen className="h-8 w-8 flex-shrink-0 text-purple-600 dark:text-purple-300" />
+          <div className="flex-1">
+            <div className="flex items-center justify-between">
+              <h2 className="font-semibold text-gray-900 dark:text-gray-100">Stitch Abbreviations</h2>
+              <FiChevronRight className="h-5 w-5 text-gray-400 transition group-hover:text-purple-600" />
+            </div>
+            <p className="mt-1 text-sm text-gray-700 dark:text-gray-300">
+              195 canonical CYC abbreviations across knit, crochet, Tunisian, loom-knit.
+            </p>
+          </div>
+        </Link>
+
+        <Link
+          to="/help/knit911"
+          className="group flex items-center gap-4 rounded-lg border border-purple-200 bg-purple-50 p-4 transition hover:border-purple-400 hover:shadow dark:border-purple-700 dark:bg-purple-900/20"
+        >
+          <FiBookOpen className="h-8 w-8 flex-shrink-0 text-purple-600 dark:text-purple-300" />
+          <div className="flex-1">
+            <div className="flex items-center justify-between">
+              <h2 className="font-semibold text-gray-900 dark:text-gray-100">Knit911</h2>
+              <FiChevronRight className="h-5 w-5 text-gray-400 transition group-hover:text-purple-600" />
+            </div>
+            <p className="mt-1 text-sm text-gray-700 dark:text-gray-300">
+              18 plain-language fixes for the most common knitting problems.
+            </p>
+          </div>
+        </Link>
+      </div>
 
       <nav aria-label="Help sections" className="mb-10 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500 mb-3">Jump to</h2>

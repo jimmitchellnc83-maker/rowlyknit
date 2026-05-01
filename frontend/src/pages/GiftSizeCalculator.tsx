@@ -3,14 +3,18 @@ import { Link } from 'react-router-dom';
 import { FiArrowLeft, FiUsers, FiCheck, FiSave } from 'react-icons/fi';
 import {
   recommendSizes,
-  FIT_EASE_INCHES,
-  FIT_LABELS,
   SCHEME_LABELS,
   type FitStyle,
   type MeasurementUnit,
   type SizeRecommendation,
   type SizeScheme,
 } from '../utils/giftSizeMath';
+import {
+  EASE_TIERS,
+  EASE_TIER_INCHES,
+  EASE_TIER_LABELS,
+  EASE_TIER_VERBOSE_LABELS,
+} from '../utils/easeTiers';
 import { useSeo } from '../hooks/useSeo';
 import { useAuthStore } from '../stores/authStore';
 import { useMeasurementPrefs } from '../hooks/useMeasurementPrefs';
@@ -18,8 +22,6 @@ import { trackEvent } from '../lib/analytics';
 import SaveCalcToProjectModal, { type CalculatorMemoPayload } from '../components/calculators/SaveCalcToProjectModal';
 
 type NumField = number | '';
-
-const FIT_ORDER: FitStyle[] = ['close', 'fitted', 'classic', 'relaxed', 'oversized'];
 
 const SCHEME_ORDER: SizeScheme[] = ['women', 'men', 'child', 'baby'];
 
@@ -31,8 +33,8 @@ const FAQS: Array<{ q: string; a: string }> = [
     a: 'Estimate their chest measurement from a similar-sized garment in their closet (lay it flat, measure across the chest just below the armholes, then double). Pick a fit style that matches what they normally wear. The calculator handles the rest.',
   },
   {
-    q: "What's the difference between fitted, classic, and oversized?",
-    a: 'Fit style controls ease — how much bigger the finished garment is than the body. Close-fit is negative (stretches over the body), classic is +2 in, relaxed is +4 in, and oversized is +6 in or more. Pick the same style as a sweater they already wear and like.',
+    q: "What's the difference between close, classic, and oversized?",
+    a: 'Fit style controls ease — how much bigger the finished garment is than the body. Very close is negative (stretches over the body), close is zero, classic is +2 in, loose is +4 in, and oversized is +6 in or more. Pick the same style as a sweater they already wear and like.',
   },
   {
     q: 'Can I use this for hats, baby clothes, or other knitted gifts?',
@@ -224,7 +226,7 @@ export default function GiftSizeCalculator() {
       inputs: {
         body_chest: formatLen(result.bodyChestIn),
         unit,
-        fit_style: useCustomEase ? `custom (${signedFormatLen(result.easeIn)} ease)` : `${fit} (${FIT_LABELS[fit]})`,
+        fit_style: useCustomEase ? `custom (${signedFormatLen(result.easeIn)} ease)` : `${fit} (${EASE_TIER_VERBOSE_LABELS[fit]})`,
       },
       outputs: {
         finished_chest: formatLen(result.finishedChestIn),
@@ -299,9 +301,9 @@ export default function GiftSizeCalculator() {
               onChange={(e) => setFit(e.target.value as FitStyle)}
               className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900 focus:border-transparent focus:ring-2 focus:ring-purple-500 disabled:opacity-60 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
             >
-              {FIT_ORDER.map((f) => (
+              {EASE_TIERS.map((f) => (
                 <option key={f} value={f}>
-                  {FIT_LABELS[f]}
+                  {EASE_TIER_VERBOSE_LABELS[f]}
                 </option>
               ))}
             </select>
@@ -346,11 +348,11 @@ export default function GiftSizeCalculator() {
                 }}
                 className="w-24 rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900 focus:border-transparent focus:ring-2 focus:ring-purple-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
               />
-              <span className="text-gray-600 dark:text-gray-400">{unit} (positive = loose, negative = close-fit)</span>
+              <span className="text-gray-600 dark:text-gray-400">{unit} (positive = loose, negative = body-hugging)</span>
             </div>
           ) : (
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              Preset: {fit} → {signedFormatLen(FIT_EASE_INCHES[fit])} of ease
+              Preset: {EASE_TIER_LABELS[fit].toLowerCase()} → {signedFormatLen(EASE_TIER_INCHES[fit])} of ease
             </p>
           )}
         </div>

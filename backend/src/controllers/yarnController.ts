@@ -3,6 +3,7 @@ import db from '../config/database';
 import { NotFoundError, ValidationError } from '../utils/errorHandler';
 import { createAuditLog } from '../middleware/auditLog';
 import { sanitizeSearchQuery } from '../utils/inputSanitizer';
+import { sanitizeCareSymbols } from '../types/careSymbols';
 import { intOrNull, numOrNull } from '../utils/numericInput';
 import { findYarnSubstitutions } from '../services/feasibilityService';
 
@@ -174,6 +175,8 @@ export async function createYarn(req: Request, res: Response) {
     ravelryId,
     ravelryRating,
     description,
+    wpi,
+    careSymbols,
   } = req.body;
 
   if (!name) {
@@ -188,6 +191,7 @@ export async function createYarn(req: Request, res: Response) {
   const pricePerSkeinNum = numOrNull(pricePerSkein);
   const ravelryIdInt = intOrNull(ravelryId);
   const ravelryRatingNum = numOrNull(ravelryRating);
+  const wpiNum = numOrNull(wpi);
 
   // Compute normalized length in meters from yards (1 yd = 0.9144 m)
   const totalLengthM = yardsTotalInt != null ? yardsTotalInt * 0.9144 : null;
@@ -223,6 +227,8 @@ export async function createYarn(req: Request, res: Response) {
       ravelry_id: ravelryIdInt,
       ravelry_rating: ravelryRatingNum,
       description,
+      wpi: wpiNum,
+      care_symbols: JSON.stringify(sanitizeCareSymbols(careSymbols)),
       created_at: new Date(),
       updated_at: new Date(),
     })
@@ -284,6 +290,8 @@ export async function updateYarn(req: Request, res: Response) {
     ravelryRating,
     description,
     isFavorite,
+    wpi,
+    careSymbols,
   } = req.body;
 
   const updateData: any = {
@@ -347,6 +355,10 @@ export async function updateYarn(req: Request, res: Response) {
   if (ravelryRating !== undefined) updateData.ravelry_rating = numOrNull(ravelryRating);
   if (description !== undefined) updateData.description = description;
   if (isFavorite !== undefined) updateData.is_favorite = isFavorite;
+  if (wpi !== undefined) updateData.wpi = numOrNull(wpi);
+  if (careSymbols !== undefined) {
+    updateData.care_symbols = JSON.stringify(sanitizeCareSymbols(careSymbols));
+  }
 
   const [updatedYarn] = await db('yarn')
     .where({ id })

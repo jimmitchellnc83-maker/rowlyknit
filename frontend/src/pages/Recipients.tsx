@@ -7,6 +7,11 @@ import ConfirmModal from '../components/ConfirmModal';
 import ListControls, { applyListControls, type SortOption } from '../components/ListControls';
 import { LoadingCardGrid, ErrorState } from '../components/LoadingSpinner';
 import { useRecipients, useCreateRecipient, useUpdateRecipient, useDeleteRecipient } from '../hooks/useApi';
+import MeasurementsFields from '../components/recipients/MeasurementsFields';
+import {
+  sanitizeMeasurements,
+  type RecipientMeasurements,
+} from '../types/measurements';
 
 interface Recipient {
   id: string;
@@ -15,7 +20,17 @@ interface Recipient {
   relationship: string;
   clothing_size: string;
   notes: string;
+  measurements?: RecipientMeasurements | null;
 }
+
+const EMPTY_FORM = {
+  firstName: '',
+  lastName: '',
+  relationship: '',
+  clothingSize: '',
+  notes: '',
+  measurements: {} as RecipientMeasurements,
+};
 
 const nameKey = (r: Recipient) => `${(r.last_name || '').toLowerCase()} ${(r.first_name || '').toLowerCase()}`;
 
@@ -54,13 +69,7 @@ export default function Recipients() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingRecipient, setEditingRecipient] = useState<Recipient | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
-  const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
-    relationship: '',
-    clothingSize: '',
-    notes: '',
-  });
+  const [formData, setFormData] = useState(EMPTY_FORM);
 
   const closeAllModals = useCallback(() => {
     setShowCreateModal(false);
@@ -75,17 +84,15 @@ export default function Recipients() {
 
   const handleCreateRecipient = async (e: React.FormEvent) => {
     e.preventDefault();
-    createRecipient.mutate(formData, {
+    const payload = {
+      ...formData,
+      measurements: sanitizeMeasurements(formData.measurements),
+    };
+    createRecipient.mutate(payload, {
       onSuccess: () => {
         toast.success('Recipient added successfully!');
         setShowCreateModal(false);
-        setFormData({
-          firstName: '',
-          lastName: '',
-          relationship: '',
-          clothingSize: '',
-          notes: '',
-        });
+        setFormData(EMPTY_FORM);
       },
       onError: (error: any) => {
         toast.error(error.response?.data?.message || 'Failed to add recipient');
@@ -101,6 +108,7 @@ export default function Recipients() {
       relationship: recipient.relationship || '',
       clothingSize: recipient.clothing_size || '',
       notes: recipient.notes || '',
+      measurements: sanitizeMeasurements(recipient.measurements),
     });
     setShowEditModal(true);
   };
@@ -109,18 +117,16 @@ export default function Recipients() {
     e.preventDefault();
     if (!editingRecipient) return;
 
-    updateRecipientMutation.mutate({ id: editingRecipient.id, formData }, {
+    const payload = {
+      ...formData,
+      measurements: sanitizeMeasurements(formData.measurements),
+    };
+    updateRecipientMutation.mutate({ id: editingRecipient.id, formData: payload }, {
       onSuccess: () => {
         toast.success('Recipient updated successfully!');
         setShowEditModal(false);
         setEditingRecipient(null);
-        setFormData({
-          firstName: '',
-          lastName: '',
-          relationship: '',
-          clothingSize: '',
-          notes: '',
-        });
+        setFormData(EMPTY_FORM);
       },
       onError: (error: any) => {
         toast.error(error.response?.data?.message || 'Failed to update recipient');
@@ -333,6 +339,11 @@ export default function Recipients() {
                 </div>
               </div>
 
+              <MeasurementsFields
+                value={formData.measurements}
+                onChange={(measurements) => setFormData({ ...formData, measurements })}
+              />
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Notes</label>
                 <textarea
@@ -340,7 +351,7 @@ export default function Recipients() {
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                   className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                   rows={3}
-                  placeholder="Preferences, measurements, color likes/dislikes, etc."
+                  placeholder="Preferences, color likes/dislikes, gift deadlines, etc."
                 />
               </div>
 
@@ -435,6 +446,11 @@ export default function Recipients() {
                 </div>
               </div>
 
+              <MeasurementsFields
+                value={formData.measurements}
+                onChange={(measurements) => setFormData({ ...formData, measurements })}
+              />
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Notes</label>
                 <textarea
@@ -442,7 +458,7 @@ export default function Recipients() {
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                   className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                   rows={3}
-                  placeholder="Preferences, measurements, color likes/dislikes, etc."
+                  placeholder="Preferences, color likes/dislikes, gift deadlines, etc."
                 />
               </div>
 
@@ -452,13 +468,7 @@ export default function Recipients() {
                   onClick={() => {
                     setShowEditModal(false);
                     setEditingRecipient(null);
-                    setFormData({
-                      firstName: '',
-                      lastName: '',
-                      relationship: '',
-                      clothingSize: '',
-                      notes: '',
-                    });
+                    setFormData(EMPTY_FORM);
                   }}
                   disabled={updateRecipientMutation.isPending}
                   className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition disabled:opacity-50 disabled:cursor-not-allowed"

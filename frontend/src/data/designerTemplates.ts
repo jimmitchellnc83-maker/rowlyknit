@@ -269,6 +269,16 @@ export const DESIGNER_TEMPLATES: DesignerTemplate[] = [
     itemType: 'blanket',
     fields: { blanketWidth: 66, blanketLength: 90, blanketBorderDepth: 3 },
   },
+  {
+    // Warm Up America's "rectangle" charity program: knitters and
+    // crocheters worldwide make 7 in × 9 in panels that get joined
+    // into afghans for shelters. Spec: warmupamerica.org/get-involved.
+    id: 'blanket-warm-up-america',
+    name: 'Warm Up America 7"×9" rectangle',
+    description: 'Charity panel — joined into afghans for shelters',
+    itemType: 'blanket',
+    fields: { blanketWidth: 7, blanketLength: 9, blanketBorderDepth: 0 },
+  },
 
   // ---------- Shawl ----------
   {

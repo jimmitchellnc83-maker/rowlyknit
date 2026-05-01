@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { FiSearch, FiX, FiDownload, FiStar, FiLoader, FiLink } from 'react-icons/fi';
 import axios from 'axios';
 import { useFocusTrap } from '../hooks/useFocusTrap';
+import { difficultyFromAverage } from '../lib/ravelryImport';
 
 interface RavelryPattern {
   id: number;
@@ -171,14 +172,7 @@ export default function RavelryPatternSearch({ isOpen, onClose, onImport }: Rave
       }
     }
 
-    // Map Ravelry difficulty (1-10 scale) to app difficulty levels
-    let difficulty = 'intermediate';
-    if (merged.difficultyAverage != null) {
-      if (merged.difficultyAverage <= 2.5) difficulty = 'beginner';
-      else if (merged.difficultyAverage <= 5) difficulty = 'intermediate';
-      else if (merged.difficultyAverage <= 7.5) difficulty = 'advanced';
-      else difficulty = 'expert';
-    }
+    const difficulty = difficultyFromAverage(merged.difficultyAverage);
 
     // Map Ravelry categories to the app's category options
     const categoryMap: Record<string, string> = {
