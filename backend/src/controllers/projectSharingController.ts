@@ -9,11 +9,15 @@ import {
 import { streamSafeUpload } from '../utils/uploadStorage';
 
 // PATCH /api/projects/:id/visibility — owner toggles whether a project is
-// publicly viewable. Generates a stable slug on first publish.
+// publicly viewable, and optionally whether project notes ride along
+// with the public projection. Generates a stable slug on first publish.
 export async function updateProjectVisibility(req: Request, res: Response) {
   const userId = req.user!.userId;
   const { id } = req.params;
-  const { isPublic } = req.body as { isPublic?: boolean };
+  const { isPublic, publicNotes } = req.body as {
+    isPublic?: boolean;
+    publicNotes?: boolean;
+  };
 
   if (typeof isPublic !== 'boolean') {
     return res.status(400).json({
@@ -21,11 +25,18 @@ export async function updateProjectVisibility(req: Request, res: Response) {
       message: 'isPublic must be a boolean',
     });
   }
+  if (publicNotes !== undefined && typeof publicNotes !== 'boolean') {
+    return res.status(400).json({
+      success: false,
+      message: 'publicNotes must be a boolean',
+    });
+  }
 
   const result = await setProjectVisibility({
     projectId: id,
     userId,
     isPublic,
+    publicNotes,
   });
 
   if (!result) {
@@ -37,7 +48,11 @@ export async function updateProjectVisibility(req: Request, res: Response) {
     action: isPublic ? 'project_published' : 'project_unpublished',
     entityType: 'project',
     entityId: id,
-    newValues: { isPublic: result.isPublic, shareSlug: result.shareSlug },
+    newValues: {
+      isPublic: result.isPublic,
+      shareSlug: result.shareSlug,
+      publicNotes: result.publicNotes,
+    },
   });
 
   return res.json({
@@ -46,6 +61,7 @@ export async function updateProjectVisibility(req: Request, res: Response) {
       isPublic: result.isPublic,
       shareSlug: result.shareSlug,
       publishedAt: result.publishedAt,
+      publicNotes: result.publicNotes,
     },
   });
 }

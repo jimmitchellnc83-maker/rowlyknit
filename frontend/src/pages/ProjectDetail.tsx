@@ -61,6 +61,7 @@ interface Project {
   is_public?: boolean;
   share_slug?: string | null;
   published_at?: string | null;
+  public_notes?: boolean;
   photos: any[];
   counters: any[];
   pieces?: any[];
@@ -783,6 +784,7 @@ export default function ProjectDetail() {
           projectName={project.name}
           initialIsPublic={!!project.is_public}
           initialShareSlug={project.share_slug ?? null}
+          initialPublicNotes={!!project.public_notes}
           onClose={() => setShowShareModal(false)}
           onChange={(next) =>
             setProject((prev) =>
@@ -792,6 +794,7 @@ export default function ProjectDetail() {
                     is_public: next.isPublic,
                     share_slug: next.shareSlug,
                     published_at: next.publishedAt,
+                    public_notes: next.publicNotes,
                   }
                 : prev,
             )

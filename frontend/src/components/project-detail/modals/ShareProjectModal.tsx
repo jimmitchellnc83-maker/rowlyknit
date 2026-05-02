@@ -10,8 +10,14 @@ interface ShareProjectModalProps {
   projectName: string;
   initialIsPublic: boolean;
   initialShareSlug: string | null;
+  initialPublicNotes: boolean;
   onClose: () => void;
-  onChange: (next: { isPublic: boolean; shareSlug: string | null; publishedAt: string | null }) => void;
+  onChange: (next: {
+    isPublic: boolean;
+    shareSlug: string | null;
+    publishedAt: string | null;
+    publicNotes: boolean;
+  }) => void;
 }
 
 const APP_URL =
@@ -36,11 +42,13 @@ export default function ShareProjectModal({
   projectName,
   initialIsPublic,
   initialShareSlug,
+  initialPublicNotes,
   onClose,
   onChange,
 }: ShareProjectModalProps) {
   const [isPublic, setIsPublic] = useState(initialIsPublic);
   const [shareSlug, setShareSlug] = useState<string | null>(initialShareSlug);
+  const [publicNotes, setPublicNotes] = useState(initialPublicNotes);
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -55,32 +63,45 @@ export default function ShareProjectModal({
     return () => window.removeEventListener('keydown', handler);
   }, [onClose]);
 
-  const updateVisibility = async (next: boolean) => {
+  const patchVisibility = async (
+    next: { isPublic: boolean; publicNotes?: boolean }
+  ) => {
     setSaving(true);
     try {
-      const res = await axios.patch(`/api/projects/${projectId}/visibility`, {
-        isPublic: next,
-      });
+      const payload: Record<string, boolean> = { isPublic: next.isPublic };
+      if (typeof next.publicNotes === 'boolean') {
+        payload.publicNotes = next.publicNotes;
+      }
+      const res = await axios.patch(
+        `/api/projects/${projectId}/visibility`,
+        payload
+      );
       const data = res.data.data as {
         isPublic: boolean;
         shareSlug: string | null;
         publishedAt: string | null;
+        publicNotes: boolean;
       };
       setIsPublic(data.isPublic);
       setShareSlug(data.shareSlug);
+      setPublicNotes(data.publicNotes);
       onChange(data);
-      if (data.isPublic) {
+      if (data.isPublic && next.publicNotes === undefined) {
         trackEvent('Project Shared', { method: 'toggle' });
         toast.success('Project is now public — share away!');
-      } else {
+      } else if (!data.isPublic && next.publicNotes === undefined) {
         toast.info('Project is private again');
       }
     } catch (err: any) {
-      toast.error(err.response?.data?.message ?? 'Failed to update visibility');
+      toast.error(err.response?.data?.message ?? 'Failed to update share settings');
     } finally {
       setSaving(false);
     }
   };
+
+  const updateVisibility = (next: boolean) => patchVisibility({ isPublic: next });
+  const updatePublicNotes = (next: boolean) =>
+    patchVisibility({ isPublic, publicNotes: next });
 
   const handleCopy = async () => {
     if (!publicUrl) return;
@@ -110,7 +131,7 @@ export default function ShareProjectModal({
             </p>
             <p className="mt-1 text-sm text-gray-600">
               {isPublic
-                ? 'Anyone with the link can view a curated page (photos, yarn, gauge, notes). No row counts or in-progress data.'
+                ? 'Anyone with the link can view a curated page (photos, yarn, gauge). Row counts, free-form metadata, and project notes are hidden by default.'
                 : 'Only you can see this project. Toggle on to generate a shareable link.'}
             </p>
           </div>
@@ -131,6 +152,35 @@ export default function ShareProjectModal({
             />
           </button>
         </div>
+
+        {isPublic ? (
+          <div className="flex items-start justify-between gap-4 rounded-lg border border-gray-200 p-4">
+            <div>
+              <p className="font-medium text-gray-900">Include project notes</p>
+              <p className="mt-1 text-sm text-gray-600">
+                Notes are hidden from the public page by default. Turn this on to
+                share your written notes too — careful if they reference recipients,
+                gift dates, or anything else you don't want public.
+              </p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={publicNotes}
+              onClick={() => updatePublicNotes(!publicNotes)}
+              disabled={saving}
+              className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition ${
+                publicNotes ? 'bg-purple-600' : 'bg-gray-300'
+              } disabled:opacity-50`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition ${
+                  publicNotes ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
+          </div>
+        ) : null}
 
         {isPublic && publicUrl ? (
           <>
