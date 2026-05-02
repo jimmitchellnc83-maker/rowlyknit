@@ -8,10 +8,10 @@ import { asyncHandler } from '../utils/errorHandler';
 const router = Router();
 
 // All GDPR endpoints require authentication. Confirmation links emailed
-// to the user open the front-end's /profile/security page, which posts
-// the token while the user is still logged in. If they sign out first,
-// they must sign in to confirm — that's intentional belt-and-suspenders
-// over a rare edge case.
+// to the user open the front-end's /account/delete/confirm page, which
+// posts the token while the user is still logged in. If they sign out
+// first, they must sign in to confirm — that's intentional belt-and-
+// suspenders over a rare edge case.
 router.use(authenticate);
 
 /**
