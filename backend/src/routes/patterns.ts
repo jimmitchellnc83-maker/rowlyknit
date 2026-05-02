@@ -4,6 +4,7 @@ import * as patternsController from '../controllers/patternsController';
 import * as blogImportController from '../controllers/blogImportController';
 import * as patternExportController from '../controllers/patternExportController';
 import * as gaugeAdjustmentController from '../controllers/gaugeAdjustmentController';
+import { listPatternCrops as listPatternCropsHandler } from '../controllers/sourceFilesController';
 import { authenticate } from '../middleware/auth';
 import { validate, validateUUID, validatePagination, validateSearch } from '../middleware/validator';
 import { asyncHandler } from '../utils/errorHandler';
@@ -236,6 +237,22 @@ router.get(
   '/:id/feasibility',
   validateUUID('id'),
   asyncHandler(patternsController.getPatternFeasibility)
+);
+
+/**
+ * @route   GET /api/patterns/:id/crops
+ * @desc    List Wave 2 pattern_crops attached to this pattern
+ * @access  Private
+ */
+router.get(
+  '/:id/crops',
+  validateUUID('id'),
+  // Reuse the source-files controller — it reads req.params.patternId.
+  // The mini-adapter renames the URL param so the route can stay /:id.
+  asyncHandler(async (req, res) => {
+    (req.params as Record<string, string>).patternId = req.params.id;
+    return listPatternCropsHandler(req, res);
+  })
 );
 
 /**

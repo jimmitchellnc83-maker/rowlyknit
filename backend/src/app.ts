@@ -55,6 +55,7 @@ import ogRenderRoutes from './routes/og-render';
 import calculatorsSsrRoutes from './routes/calculators-ssr';
 import abbreviationsRoutes from './routes/abbreviations';
 import gdprRoutes from './routes/gdpr';
+import sourceFilesRoutes from './routes/source-files';
 
 // Create Express app
 const app: Application = express();
@@ -180,6 +181,7 @@ app.use('/api/usage-events', usageEventsRoutes);
 app.use('/api/users', userExamplesRoutes);
 app.use('/api/abbreviations', abbreviationsRoutes);
 app.use('/api/gdpr', gdprRoutes);
+app.use('/api/source-files', sourceFilesRoutes);
 app.use('/shared', sharedRoutes); // Public shared content routes
 app.use('/', ogRenderRoutes); // Server-side OG meta for /p/:slug
 app.use('/', calculatorsSsrRoutes); // Server-side JSON-LD for /calculators
