@@ -146,6 +146,13 @@ export async function uploadSourceFile(req: Request, res: Response): Promise<voi
     }
   }
 
+  // Capture upload-context patternId so the file appears in that
+  // pattern's Sources tab immediately, before any crops are drawn.
+  const uploadPatternId =
+    typeof req.body.patternId === 'string' && req.body.patternId.length > 0
+      ? req.body.patternId
+      : null;
+
   const sf = await createSourceFile({
     userId,
     craft,
@@ -157,6 +164,7 @@ export async function uploadSourceFile(req: Request, res: Response): Promise<voi
     sizeBytes: file.size,
     pageCount,
     pageDimensions,
+    intendedPatternId: uploadPatternId,
   });
 
   // updateSourceFileParseResult sets the parse status; we already wrote
