@@ -2,12 +2,23 @@ import { Router } from 'express';
 import { body } from 'express-validator';
 import * as gdprController from '../controllers/gdprController';
 import { authenticate } from '../middleware/auth';
+import { requireSweepToken } from '../middleware/requireSweepToken';
 import { validate, validateUUID } from '../middleware/validator';
 import { asyncHandler } from '../utils/errorHandler';
 
 const router = Router();
 
-// All GDPR endpoints require authentication. Confirmation links emailed
+/**
+ * @route   POST /api/gdpr/sweep
+ * @desc    Execute scheduled deletions whose 30-day grace has elapsed.
+ *          Token-gated for the GitHub Actions cron — declared BEFORE
+ *          `router.use(authenticate)` so it doesn't require a user
+ *          session.
+ * @access  Bearer GDPR_SWEEP_TOKEN
+ */
+router.post('/sweep', requireSweepToken, asyncHandler(gdprController.runDeletionSweep));
+
+// Everything below is for logged-in humans. Confirmation links emailed
 // to the user open the front-end's /account/delete/confirm page, which
 // posts the token while the user is still logged in. If they sign out
 // first, they must sign in to confirm — that's intentional belt-and-
