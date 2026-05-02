@@ -289,28 +289,42 @@ export default function SourceFilePdfViewer({
                 .filter((c) => c.pageNumber === pageNumber)
                 .map((c) => {
                   const isActive = activeCropId === c.id;
-                  return (
-                    <div
-                      key={c.id}
-                      className={`absolute border-2 ${
+                  // Fullpage crops back the "Annotate page" surface; we
+                  // don't want them rendered as a giant purple rectangle
+                  // that obscures the page. Drop the bbox styling but
+                  // keep the wrapper so the AnnotationLayer can still
+                  // mount over the full page area.
+                  const EPS = 1e-6;
+                  const isFullpage =
+                    Math.abs(c.cropX) < EPS &&
+                    Math.abs(c.cropY) < EPS &&
+                    Math.abs(c.cropWidth - 1) < EPS &&
+                    Math.abs(c.cropHeight - 1) < EPS;
+                  const wrapperClass = isFullpage
+                    ? 'absolute pointer-events-none'
+                    : `absolute border-2 ${
                         isActive
                           ? 'border-purple-700 bg-purple-200 bg-opacity-15'
                           : 'border-purple-500 bg-purple-200 bg-opacity-25'
-                      }`}
+                      }`;
+                  return (
+                    <div
+                      key={c.id}
+                      className={wrapperClass}
                       style={{
                         left: `${c.cropX * 100}%`,
                         top: `${c.cropY * 100}%`,
                         width: `${c.cropWidth * 100}%`,
                         height: `${c.cropHeight * 100}%`,
-                        pointerEvents: tool ? 'none' : 'auto',
+                        pointerEvents: isFullpage ? 'none' : tool ? 'none' : 'auto',
                       }}
                       onClick={(e) => {
-                        if (tool) return;
+                        if (isFullpage || tool) return;
                         e.stopPropagation();
                         setActiveCropId(isActive ? null : c.id);
                       }}
                     >
-                      {c.label ? (
+                      {c.label && !isFullpage ? (
                         <span className="absolute -top-5 left-0 text-xs bg-purple-600 text-white px-1.5 py-0.5 rounded pointer-events-none">
                           {c.label}
                         </span>
