@@ -13,6 +13,8 @@ import {
   streamSafeUpload,
   uploadRoot,
 } from '../utils/uploadStorage';
+import { assertPublicUrl } from '../utils/ssrfGuard';
+import { ForbiddenError, ValidationError } from '../utils/errorHandler';
 
 const unlinkAsync = promisify(fs.unlink);
 
@@ -768,16 +770,19 @@ export const uploadYarnPhotoFromUrl = async (req: Request, res: Response) => {
       });
     }
 
+    // Defends against SSRF: rejects non-http(s), IPv6, and any hostname
+    // that resolves to RFC-1918 / loopback / link-local / multicast.
+    // 169.254.169.254 (cloud metadata) is in the link-local block.
     try {
-      const parsedUrl = new URL(photoUrl);
-      if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
-        throw new Error('Invalid protocol');
+      await assertPublicUrl(photoUrl);
+    } catch (err) {
+      if (err instanceof ValidationError) {
+        return res.status(400).json({ success: false, message: 'Invalid photo URL' });
       }
-    } catch {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid photo URL',
-      });
+      if (err instanceof ForbiddenError) {
+        return res.status(403).json({ success: false, message: 'Photo URL is not allowed' });
+      }
+      throw err;
     }
 
     const yarn = await db('yarn')
@@ -868,12 +873,15 @@ export const uploadPatternThumbnailFromUrl = async (req: Request, res: Response)
     }
 
     try {
-      const parsedUrl = new URL(photoUrl);
-      if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
-        throw new Error('Invalid protocol');
+      await assertPublicUrl(photoUrl);
+    } catch (err) {
+      if (err instanceof ValidationError) {
+        return res.status(400).json({ success: false, message: 'Invalid photo URL' });
       }
-    } catch {
-      return res.status(400).json({ success: false, message: 'Invalid photo URL' });
+      if (err instanceof ForbiddenError) {
+        return res.status(403).json({ success: false, message: 'Photo URL is not allowed' });
+      }
+      throw err;
     }
 
     const pattern = await db('patterns')

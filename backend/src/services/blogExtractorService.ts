@@ -4,6 +4,7 @@ import { Readability } from '@mozilla/readability';
 import db from '../config/database';
 import logger from '../config/logger';
 import { normalizeSkillLevel } from '../types/skillLevel';
+import { assertPublicUrl } from '../utils/ssrfGuard';
 
 export interface ExtractedContent {
   title: string;
@@ -54,11 +55,10 @@ class BlogExtractorService {
     let importRecord: any = null;
 
     try {
-      // Validate URL
-      const parsedUrl = new URL(url);
-      if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
-        throw new Error('Invalid URL protocol. Only HTTP and HTTPS are supported.');
-      }
+      // SSRF guard — protocol + DNS resolution checks. Rejects internal /
+      // metadata IPs that would otherwise let an attacker pivot the
+      // outbound fetch into our infra.
+      await assertPublicUrl(url);
 
       // Create import record
       const [record] = await db('pattern_imports')
