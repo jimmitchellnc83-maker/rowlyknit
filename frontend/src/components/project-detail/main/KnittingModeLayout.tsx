@@ -8,6 +8,7 @@ import CounterHierarchy from '../../counters/CounterHierarchy';
 import { SessionTimer, SessionHistory } from '../../sessions';
 import { AudioNotes } from '../../notes/AudioNotes';
 import QuickKeysPanel from '../../quickkeys/QuickKeysPanel';
+import PiecesQuickPanel from './PiecesQuickPanel';
 import type { ChartData } from '../../designer/ChartGrid';
 
 interface Props {
@@ -139,6 +140,12 @@ export default function KnittingModeLayout({
 
       {/* Sidebar - Right Column */}
       <div className="space-y-4 md:space-y-6">
+        {/* Pieces strip surfaces the project's panel/piece state inside
+            Make Mode so the knitter can see the active piece + reach
+            Panel Knitting without backing out. Renders nothing when
+            the project has no pieces or panel groups. */}
+        <PiecesQuickPanel projectId={projectId} />
+
         {/* QuickKeys for the project's primary pattern. Renders nothing
             when the pattern has no QuickKey crops, so projects without
             saved snippets don't see an empty panel. */}
