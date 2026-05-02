@@ -28,12 +28,11 @@ afterEach(() => {
 });
 
 describe('QuickKeysPanel', () => {
-  it('renders nothing when the pattern has no QuickKeys', async () => {
+  it('renders an empty-state hint when the pattern has no QuickKeys', async () => {
     vi.mocked(listQuickKeysForPattern).mockResolvedValueOnce([]);
-    const { container } = render(<QuickKeysPanel patternId="pat-1" />);
-    await waitFor(() => {
-      expect(container.firstChild).toBeNull();
-    });
+    render(<QuickKeysPanel patternId="pat-1" />);
+    expect(await screen.findByText(/No QuickKeys yet/i)).toBeInTheDocument();
+    expect(screen.getByText(/tap the ★/i)).toBeInTheDocument();
   });
 
   it('renders the list when QuickKeys exist', async () => {

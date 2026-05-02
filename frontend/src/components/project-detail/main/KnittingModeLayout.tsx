@@ -9,6 +9,7 @@ import { SessionTimer, SessionHistory } from '../../sessions';
 import { AudioNotes } from '../../notes/AudioNotes';
 import QuickKeysPanel from '../../quickkeys/QuickKeysPanel';
 import PiecesQuickPanel from './PiecesQuickPanel';
+import MarkerHistoryPanel from '../../marker-state/MarkerHistoryPanel';
 import type { ChartData } from '../../designer/ChartGrid';
 
 interface Props {
@@ -146,12 +147,17 @@ export default function KnittingModeLayout({
             the project has no pieces or panel groups. */}
         <PiecesQuickPanel projectId={projectId} />
 
-        {/* QuickKeys for the project's primary pattern. Renders nothing
-            when the pattern has no QuickKey crops, so projects without
-            saved snippets don't see an empty panel. */}
+        {/* QuickKeys for the project's primary pattern. Renders an
+            empty-state hint when the pattern has no starred crops yet
+            so the feature is discoverable instead of invisible. */}
         {patterns.length > 0 && patterns[0]?.id && (
           <QuickKeysPanel patternId={patterns[0].id} />
         )}
+
+        {/* Marker history — most-recent counter / panel / chart marker
+            changes with one-tap rewind. Renders an empty state when
+            there's no history yet. */}
+        <MarkerHistoryPanel projectId={projectId} />
 
         <div className="bg-white rounded-lg shadow-lg p-4 md:p-6">
           <div className="flex items-center justify-between mb-4">
