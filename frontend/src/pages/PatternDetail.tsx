@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
-import { FiArrowLeft, FiBookmark, FiEdit2, FiTrash2, FiFileText, FiGrid, FiTool, FiBook, FiCheckCircle, FiPlay } from 'react-icons/fi';
+import { FiArrowLeft, FiBookmark, FiEdit2, FiTrash2, FiFileText, FiGrid, FiTool, FiBook, FiCheckCircle } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { PDFCollation } from '../components/patterns';
@@ -345,22 +345,6 @@ export default function PatternDetail() {
           </div>
 
           <div className="flex gap-2 flex-wrap">
-            <button
-              onClick={() => navigate(`/patterns/${id}/make`)}
-              className="flex items-center justify-center px-4 py-3 md:py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition min-h-[48px] md:min-h-0 flex-1 sm:flex-none font-medium shadow-sm"
-              title="Open this pattern in Make Mode for active knitting"
-            >
-              <FiPlay className="mr-2 h-5 w-5 md:h-4 md:w-4" />
-              <span className="text-base md:text-sm">Make Mode</span>
-            </button>
-            <button
-              onClick={() => navigate(`/patterns/${id}/author`)}
-              className="flex items-center justify-center px-4 py-3 md:py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition min-h-[48px] md:min-h-0 flex-1 sm:flex-none"
-              title="Open Author Mode to edit pattern structure (canonical patterns only)"
-            >
-              <FiEdit2 className="mr-2 h-5 w-5 md:h-4 md:w-4" />
-              <span className="text-base md:text-sm">Author Mode</span>
-            </button>
             <button
               onClick={handleEditClick}
               className="flex items-center justify-center px-4 py-3 md:py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition min-h-[48px] md:min-h-0 flex-1 sm:flex-none"
