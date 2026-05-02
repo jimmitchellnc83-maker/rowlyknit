@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { FiFile, FiLayers, FiPlus, FiTrash2 } from 'react-icons/fi';
+import { FiFile, FiLayers, FiPlus, FiTrash2, FiEdit2 } from 'react-icons/fi';
 import { toast } from 'react-toastify';
 import {
   ASPECT_PRESETS,
@@ -14,9 +14,13 @@ import {
   type JoinLayout,
 } from '../../lib/wave6';
 import BlankPageDrawingModal from './BlankPageDrawingModal';
+import JoinLayoutEditor from './JoinLayoutEditor';
 
 interface Props {
   projectId: string;
+  /** Pattern IDs attached to this project. Passed through to the join
+   *  layout editor so it can fetch + display the available crops. */
+  patternIds?: string[];
 }
 
 /**
@@ -29,11 +33,12 @@ interface Props {
  * This section renders inside the project's normal layout, which means
  * Wave 6 stops being backend-only.
  */
-export default function LayoutsAndPagesSection({ projectId }: Props) {
+export default function LayoutsAndPagesSection({ projectId, patternIds = [] }: Props) {
   const [layouts, setLayouts] = useState<JoinLayout[]>([]);
   const [pages, setPages] = useState<BlankPage[]>([]);
   const [loading, setLoading] = useState(true);
   const [openPage, setOpenPage] = useState<BlankPage | null>(null);
+  const [openLayout, setOpenLayout] = useState<JoinLayout | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -144,12 +149,24 @@ export default function LayoutsAndPagesSection({ projectId }: Props) {
                 key={l.id}
                 className="flex items-center justify-between rounded px-3 py-2 bg-gray-50 dark:bg-gray-900/40"
               >
-                <span className="text-sm text-gray-800 dark:text-gray-200">
+                <button
+                  type="button"
+                  onClick={() => setOpenLayout(l)}
+                  className="text-sm text-left text-gray-800 dark:text-gray-200 hover:text-blue-600 flex-1"
+                >
                   {l.name}
                   <span className="ml-2 text-xs text-gray-500">
                     {l.regions.length} region{l.regions.length === 1 ? '' : 's'}
                   </span>
-                </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setOpenLayout(l)}
+                  className="text-blue-600 hover:text-blue-800 text-xs mr-2"
+                  aria-label={`Edit ${l.name}`}
+                >
+                  <FiEdit2 className="h-4 w-4" />
+                </button>
                 <button
                   type="button"
                   onClick={() => handleDeleteLayout(l)}
@@ -225,6 +242,19 @@ export default function LayoutsAndPagesSection({ projectId }: Props) {
           onSaved={(saved) => {
             setPages((prev) => prev.map((p) => (p.id === saved.id ? saved : p)));
             setOpenPage(saved);
+          }}
+        />
+      )}
+
+      {openLayout && (
+        <JoinLayoutEditor
+          projectId={projectId}
+          layout={openLayout}
+          patternIds={patternIds}
+          onClose={() => setOpenLayout(null)}
+          onSaved={(saved) => {
+            setLayouts((prev) => prev.map((l) => (l.id === saved.id ? saved : l)));
+            setOpenLayout(saved);
           }}
         />
       )}

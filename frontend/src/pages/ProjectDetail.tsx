@@ -707,7 +707,10 @@ export default function ProjectDetail() {
             </section>
 
             <section id="section-layouts-pages">
-              <LayoutsAndPagesSection projectId={id!} />
+              <LayoutsAndPagesSection
+                projectId={id!}
+                patternIds={(project?.patterns ?? []).map((p: { id: string }) => p.id)}
+              />
             </section>
 
             <section id="section-sessions">
