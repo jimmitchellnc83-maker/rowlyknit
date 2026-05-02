@@ -89,7 +89,7 @@ export async function createAnnotation(
   if (!crop) {
     throw new ValidationError('crop not found for user');
   }
-  const [row] = await db('pattern_annotations')
+  const [row] = await db('pattern_crop_annotations')
     .insert({
       pattern_crop_id: input.cropId,
       user_id: input.userId,
@@ -104,7 +104,7 @@ export async function listAnnotationsForCrop(
   cropId: string,
   userId: string
 ): Promise<PatternAnnotation[]> {
-  const rows = await db('pattern_annotations')
+  const rows = await db('pattern_crop_annotations')
     .where({ pattern_crop_id: cropId, user_id: userId })
     .whereNull('deleted_at')
     .orderBy('created_at', 'asc');
@@ -124,12 +124,12 @@ export async function updateAnnotation(input: {
   }
   const update: Record<string, unknown> = { updated_at: new Date() };
   if (input.payload !== undefined) update.payload = JSON.stringify(input.payload);
-  const updated = await db('pattern_annotations')
+  const updated = await db('pattern_crop_annotations')
     .where({ id: input.annotationId, user_id: input.userId })
     .whereNull('deleted_at')
     .update(update);
   if (updated === 0) return null;
-  const row = await db('pattern_annotations')
+  const row = await db('pattern_crop_annotations')
     .where({ id: input.annotationId })
     .first();
   return row ? mapRow(row as PatternAnnotationRow) : null;
@@ -139,7 +139,7 @@ export async function softDeleteAnnotation(
   annotationId: string,
   userId: string
 ): Promise<boolean> {
-  const updated = await db('pattern_annotations')
+  const updated = await db('pattern_crop_annotations')
     .where({ id: annotationId, user_id: userId })
     .whereNull('deleted_at')
     .update({ deleted_at: new Date() });

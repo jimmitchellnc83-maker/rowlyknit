@@ -5,6 +5,7 @@ import { createAuditLog } from '../middleware/auditLog';
 import { getIO } from '../config/socket';
 import logger from '../config/logger';
 import { intOrNull } from '../utils/numericInput';
+import { recordPosition as recordMarkerPosition } from '../services/markerStateService';
 
 /**
  * Get all counters for a project
@@ -316,6 +317,15 @@ export async function updateCounter(req: Request, res: Response) {
     } catch (socketError) {
       logger.error('[Counter Update] Failed to emit WebSocket event:', socketError);
     }
+
+    // Wave 4 marker state mirror — best-effort, never blocks the write.
+    void recordMarkerPosition({
+      projectId,
+      surface: 'counter',
+      surfaceRef: counterId,
+      position: { currentValue: newValue },
+      userId,
+    });
   }
 
   await createAuditLog(req, {
@@ -697,6 +707,14 @@ async function checkAndExecuteCounterLinks(
           logger.error(`[Counter Links] Failed to emit WebSocket event:`, socketError);
         }
 
+        void recordMarkerPosition({
+          projectId: targetCounter.project_id,
+          surface: 'counter',
+          surfaceRef: link.target_counter_id,
+          position: { currentValue: targetNewValue, linkedFrom: counterId },
+          userId,
+        });
+
         logger.debug(`[Counter Links] Successfully updated linked counter ${link.target_counter_id}`);
       }
     } catch (error) {
@@ -855,6 +873,16 @@ export async function incrementWithChildren(req: Request, res: Response) {
     });
   } catch (socketError) {
     logger.error('[Counter Hierarchy] Failed to emit WebSocket events:', socketError);
+  }
+
+  for (const update of updates) {
+    void recordMarkerPosition({
+      projectId,
+      surface: 'counter',
+      surfaceRef: update.id,
+      position: { currentValue: update.new_value, reset: update.reset },
+      userId,
+    });
   }
 
   // Audit log

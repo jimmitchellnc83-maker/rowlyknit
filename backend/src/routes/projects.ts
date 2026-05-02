@@ -6,6 +6,7 @@ import * as gaugeAdjustmentController from '../controllers/gaugeAdjustmentContro
 import * as chartProgressController from '../controllers/chartProgressController';
 import * as markerAnalyticsController from '../controllers/markerAnalyticsController';
 import * as sourceFilesController from '../controllers/sourceFilesController';
+import * as markerStateController from '../controllers/markerStateController';
 import { authenticate } from '../middleware/auth';
 import { validate, validateUUID, validatePagination, validateSearch } from '../middleware/validator';
 import { asyncHandler } from '../utils/errorHandler';
@@ -160,6 +161,29 @@ router.patch(
   ],
   validate,
   asyncHandler(sourceFilesController.pinSourceFile)
+);
+
+/**
+ * @route   GET /api/projects/:id/marker-history
+ * @desc    Wave 4 — recent marker-state moves across counter/panel/chart
+ * @access  Private
+ */
+router.get(
+  '/:id/marker-history',
+  validateUUID('id'),
+  asyncHandler(markerStateController.listMarkerHistoryHandler)
+);
+
+/**
+ * @route   POST /api/projects/:id/marker-history/:entryId/rewind
+ * @desc    Wave 4 — apply a history snapshot, log the rewind
+ * @access  Private
+ */
+router.post(
+  '/:id/marker-history/:entryId/rewind',
+  [validateUUID('id'), validateUUID('entryId')],
+  validate,
+  asyncHandler(markerStateController.rewindMarkerHistoryHandler)
 );
 
 /**
