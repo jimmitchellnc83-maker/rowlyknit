@@ -1,0 +1,45 @@
+name: GDPR deletion sweep
+
+# Hits POST /api/gdpr/sweep every night at 03:00 UTC. The endpoint
+# finds deletion requests whose 30-day grace window has elapsed and
+# hard-deletes the user (CASCADE FKs do the rest). Idempotent — if
+# nothing is due, the call returns counts of zero.
+#
+# Required GitHub Secrets (production environment):
+#   GDPR_SWEEP_TOKEN — same value as the GDPR_SWEEP_TOKEN env var on
+#                      the production droplet's backend container.
+#                      Generate with: openssl rand -hex 32
+#
+# Manual trigger via the Actions tab is supported (workflow_dispatch)
+# for testing or one-off runs.
+
+on:
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch: {}
+
+jobs:
+  sweep:
+    name: Run scheduled deletions
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+    steps:
+      - name: POST /api/gdpr/sweep
+        env:
+          SWEEP_TOKEN: ${{ secrets.GDPR_SWEEP_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SWEEP_TOKEN}" ]; then
+            echo "GDPR_SWEEP_TOKEN secret is not set — refusing to call the endpoint."
+            exit 1
+          fi
+
+          response=$(curl --silent --show-error --fail \
+            --max-time 60 \
+            -X POST \
+            -H "Authorization: Bearer ${SWEEP_TOKEN}" \
+            -H "Content-Type: application/json" \
+            https://rowlyknit.com/api/gdpr/sweep)
+
+          echo "Sweep response: ${response}"

@@ -113,6 +113,11 @@ export async function cancelDeletionRequest(req: Request, res: Response) {
   });
 }
 
+export async function runDeletionSweep(_req: Request, res: Response) {
+  const result = await gdprService.executeScheduledDeletions();
+  res.json({ success: true, data: result });
+}
+
 function stripDeletionToken<T extends { confirmation_token: string | null }>(row: T): Omit<T, 'confirmation_token'> {
   // Tokens are one-shot secrets — never echo them back to the client.
   const { confirmation_token: _t, ...rest } = row;
