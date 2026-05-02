@@ -7,6 +7,7 @@ import PatternPreview from '../../PatternPreview';
 import CounterHierarchy from '../../counters/CounterHierarchy';
 import { SessionTimer, SessionHistory } from '../../sessions';
 import { AudioNotes } from '../../notes/AudioNotes';
+import QuickKeysPanel from '../../quickkeys/QuickKeysPanel';
 import type { ChartData } from '../../designer/ChartGrid';
 
 interface Props {
@@ -138,6 +139,13 @@ export default function KnittingModeLayout({
 
       {/* Sidebar - Right Column */}
       <div className="space-y-4 md:space-y-6">
+        {/* QuickKeys for the project's primary pattern. Renders nothing
+            when the pattern has no QuickKey crops, so projects without
+            saved snippets don't see an empty panel. */}
+        {patterns.length > 0 && patterns[0]?.id && (
+          <QuickKeysPanel patternId={patterns[0].id} />
+        )}
+
         <div className="bg-white rounded-lg shadow-lg p-4 md:p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg md:text-xl font-bold text-gray-900">Session Timer</h2>

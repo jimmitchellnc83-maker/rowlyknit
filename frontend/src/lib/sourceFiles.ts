@@ -274,9 +274,15 @@ export async function deleteAnnotation(
 
 export interface QuickKeyEntry {
   cropId: string;
+  sourceFileId: string;
   label: string | null;
   quickKeyPosition: number | null;
   pageNumber: number;
+  /** Normalized crop rectangle (0..1 of the page). Top-left origin. */
+  cropX: number;
+  cropY: number;
+  cropWidth: number;
+  cropHeight: number;
 }
 
 export async function setCropQuickKey(

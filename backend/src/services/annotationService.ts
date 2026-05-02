@@ -195,9 +195,14 @@ export async function listQuickKeysForPattern(
 ): Promise<
   Array<{
     cropId: string;
+    sourceFileId: string;
     label: string | null;
     quickKeyPosition: number | null;
     pageNumber: number;
+    cropX: number;
+    cropY: number;
+    cropWidth: number;
+    cropHeight: number;
   }>
 > {
   const rows = await db('pattern_crops')
@@ -207,12 +212,27 @@ export async function listQuickKeysForPattern(
       { column: 'quickkey_position', order: 'asc' },
       { column: 'created_at', order: 'asc' },
     ])
-    .select('id', 'label', 'quickkey_position', 'page_number');
+    .select(
+      'id',
+      'source_file_id',
+      'label',
+      'quickkey_position',
+      'page_number',
+      'crop_x',
+      'crop_y',
+      'crop_width',
+      'crop_height',
+    );
   return rows.map((r) => ({
     cropId: r.id,
+    sourceFileId: r.source_file_id,
     label: r.label ?? null,
     quickKeyPosition:
       r.quickkey_position === null ? null : Number(r.quickkey_position),
     pageNumber: r.page_number,
+    cropX: Number(r.crop_x),
+    cropY: Number(r.crop_y),
+    cropWidth: Number(r.crop_width),
+    cropHeight: Number(r.crop_height),
   }));
 }

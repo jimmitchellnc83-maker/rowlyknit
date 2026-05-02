@@ -211,13 +211,53 @@ describe('listQuickKeysForPattern', () => {
 
   it('returns rows mapped to the camelCase shape', async () => {
     dbBuilders.pattern_crops.select.mockResolvedValueOnce([
-      { id: 'crop-1', label: 'A', quickkey_position: 0, page_number: 1 },
-      { id: 'crop-2', label: 'B', quickkey_position: 1, page_number: 5 },
+      {
+        id: 'crop-1',
+        source_file_id: 'sf-1',
+        label: 'A',
+        quickkey_position: 0,
+        page_number: 1,
+        crop_x: 0.1,
+        crop_y: 0.2,
+        crop_width: 0.3,
+        crop_height: 0.4,
+      },
+      {
+        id: 'crop-2',
+        source_file_id: 'sf-2',
+        label: 'B',
+        quickkey_position: 1,
+        page_number: 5,
+        crop_x: 0,
+        crop_y: 0,
+        crop_width: 1,
+        crop_height: 1,
+      },
     ]);
     const rows = await listQuickKeysForPattern('pat-1', 'u-1');
     expect(rows).toEqual([
-      { cropId: 'crop-1', label: 'A', quickKeyPosition: 0, pageNumber: 1 },
-      { cropId: 'crop-2', label: 'B', quickKeyPosition: 1, pageNumber: 5 },
+      {
+        cropId: 'crop-1',
+        sourceFileId: 'sf-1',
+        label: 'A',
+        quickKeyPosition: 0,
+        pageNumber: 1,
+        cropX: 0.1,
+        cropY: 0.2,
+        cropWidth: 0.3,
+        cropHeight: 0.4,
+      },
+      {
+        cropId: 'crop-2',
+        sourceFileId: 'sf-2',
+        label: 'B',
+        quickKeyPosition: 1,
+        pageNumber: 5,
+        cropX: 0,
+        cropY: 0,
+        cropWidth: 1,
+        cropHeight: 1,
+      },
     ]);
   });
 });
