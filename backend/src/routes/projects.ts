@@ -7,6 +7,7 @@ import * as chartProgressController from '../controllers/chartProgressController
 import * as markerAnalyticsController from '../controllers/markerAnalyticsController';
 import * as sourceFilesController from '../controllers/sourceFilesController';
 import * as markerStateController from '../controllers/markerStateController';
+import * as joinLayoutController from '../controllers/joinLayoutController';
 import { authenticate } from '../middleware/auth';
 import { validate, validateUUID, validatePagination, validateSearch } from '../middleware/validator';
 import { asyncHandler } from '../utils/errorHandler';
@@ -184,6 +185,81 @@ router.post(
   [validateUUID('id'), validateUUID('entryId')],
   validate,
   asyncHandler(markerStateController.rewindMarkerHistoryHandler)
+);
+
+// =========================
+// Wave 6 — Join layouts
+// =========================
+router.post(
+  '/:id/join-layouts',
+  [
+    validateUUID('id'),
+    body('name').isString().isLength({ min: 1, max: 120 }),
+    body('regions').optional().isArray(),
+  ],
+  validate,
+  asyncHandler(joinLayoutController.createJoinLayoutHandler)
+);
+router.get(
+  '/:id/join-layouts',
+  validateUUID('id'),
+  asyncHandler(joinLayoutController.listJoinLayoutsHandler)
+);
+router.patch(
+  '/:id/join-layouts/:layoutId',
+  [
+    validateUUID('id'),
+    validateUUID('layoutId'),
+    body('name').optional().isString().isLength({ min: 1, max: 120 }),
+    body('regions').optional().isArray(),
+  ],
+  validate,
+  asyncHandler(joinLayoutController.updateJoinLayoutHandler)
+);
+router.delete(
+  '/:id/join-layouts/:layoutId',
+  [validateUUID('id'), validateUUID('layoutId')],
+  validate,
+  asyncHandler(joinLayoutController.deleteJoinLayoutHandler)
+);
+
+// =========================
+// Wave 6 — Blank pages
+// =========================
+router.post(
+  '/:id/blank-pages',
+  [
+    validateUUID('id'),
+    body('width').isFloat({ gt: 0 }),
+    body('height').isFloat({ gt: 0 }),
+    body('aspectKind').optional().isIn(['letter', 'a4', 'square', 'custom']),
+    body('craft').optional().isIn(['knit', 'crochet']),
+    body('name').optional({ values: 'null' }).isString().isLength({ max: 120 }),
+  ],
+  validate,
+  asyncHandler(joinLayoutController.createBlankPageHandler)
+);
+router.get(
+  '/:id/blank-pages',
+  validateUUID('id'),
+  asyncHandler(joinLayoutController.listBlankPagesHandler)
+);
+router.patch(
+  '/:id/blank-pages/:pageId',
+  [
+    validateUUID('id'),
+    validateUUID('pageId'),
+    body('name').optional({ values: 'null' }).isString().isLength({ max: 120 }),
+    body('strokes').optional().isArray(),
+  ],
+  validate,
+  asyncHandler(joinLayoutController.updateBlankPageHandler)
+);
+router.delete(
+  '/:id/blank-pages/:pageId',
+  [validateUUID('id'), validateUUID('pageId')],
+  validate,
+  asyncHandler(joinLayoutController.deleteBlankPageHandler)
 );
 
 /**
