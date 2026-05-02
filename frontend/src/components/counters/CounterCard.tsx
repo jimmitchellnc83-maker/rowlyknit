@@ -28,7 +28,7 @@ export default function CounterCard({ counter, onUpdate: _onUpdate, onEdit, onDe
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
 
-  const { isConnected, emitCounterIncrement, emitCounterDecrement, emitCounterReset, onCounterUpdate, offCounterUpdate } = useWebSocket();
+  const { isConnected, onCounterUpdate, offCounterUpdate } = useWebSocket();
 
   useEffect(() => {
     setCount(counter.current_value);
@@ -130,9 +130,10 @@ export default function CounterCard({ counter, onUpdate: _onUpdate, onEdit, onDe
         return prevCount; // Don't update if exceeds max
       }
 
-      // Update server and emit WebSocket event with new value
+      // Update server. The controller emits `counter:updated` to the
+      // project room after the DB write, which other clients pick up
+      // through onCounterUpdate; no client-side emit needed.
       updateCountOnServer(newCount);
-      emitCounterIncrement(counter.id, counter.project_id, newCount);
       onCommit?.(newCount);
 
       return newCount;
@@ -155,9 +156,7 @@ export default function CounterCard({ counter, onUpdate: _onUpdate, onEdit, onDe
         return prevCount; // Don't update if below min
       }
 
-      // Update server and emit WebSocket event with new value
       updateCountOnServer(newCount);
-      emitCounterDecrement(counter.id, counter.project_id, newCount);
       onCommit?.(newCount);
 
       return newCount;
@@ -192,7 +191,6 @@ export default function CounterCard({ counter, onUpdate: _onUpdate, onEdit, onDe
     const resetValue = counter.min_value;
     setCount(resetValue);
     updateCountOnServer(resetValue);
-    emitCounterReset(counter.id, counter.project_id);
     triggerHaptic('medium');
     toast.success('Counter reset');
   };

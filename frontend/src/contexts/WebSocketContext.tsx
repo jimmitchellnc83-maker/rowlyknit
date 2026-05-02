@@ -7,10 +7,9 @@ interface WebSocketContextType {
   isConnected: boolean;
   joinProject: (projectId: string) => void;
   leaveProject: (projectId: string) => void;
-  emitCounterUpdate: (counterId: string, projectId: string, currentValue: number) => void;
-  emitCounterIncrement: (counterId: string, projectId: string, currentValue: number) => void;
-  emitCounterDecrement: (counterId: string, projectId: string, currentValue: number) => void;
-  emitCounterReset: (counterId: string, projectId: string) => void;
+  // Note: there's no client emit for counter changes anymore. The
+  // server controller emits `counter:updated` after each write, which
+  // the listener below picks up. See backend/src/config/socket.ts.
   onCounterUpdate: (callback: (data: { counterId: string; projectId: string; currentValue: number }) => void) => void;
   offCounterUpdate: (callback: (data: { counterId: string; projectId: string; currentValue: number }) => void) => void;
 }
@@ -89,30 +88,6 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   }, []);
 
-  const emitCounterUpdate = useCallback((counterId: string, projectId: string, currentValue: number) => {
-    if (socketRef.current?.connected) {
-      socketRef.current.emit('counter:update', { counterId, projectId, currentValue });
-    }
-  }, []);
-
-  const emitCounterIncrement = useCallback((counterId: string, projectId: string, currentValue: number) => {
-    if (socketRef.current?.connected) {
-      socketRef.current.emit('counter:increment', { counterId, projectId, currentValue });
-    }
-  }, []);
-
-  const emitCounterDecrement = useCallback((counterId: string, projectId: string, currentValue: number) => {
-    if (socketRef.current?.connected) {
-      socketRef.current.emit('counter:decrement', { counterId, projectId, currentValue });
-    }
-  }, []);
-
-  const emitCounterReset = useCallback((counterId: string, projectId: string) => {
-    if (socketRef.current?.connected) {
-      socketRef.current.emit('counter:reset', { counterId, projectId });
-    }
-  }, []);
-
   // Use socket state (not just ref) as dependency so callbacks rebind after reconnect
   const onCounterUpdate = useCallback((callback: (data: any) => void) => {
     if (socketRef.current) {
@@ -135,10 +110,6 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     isConnected,
     joinProject,
     leaveProject,
-    emitCounterUpdate,
-    emitCounterIncrement,
-    emitCounterDecrement,
-    emitCounterReset,
     onCounterUpdate,
     offCounterUpdate,
   };
