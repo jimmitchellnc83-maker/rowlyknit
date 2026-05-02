@@ -45,8 +45,10 @@ function parseJsonOrPassthrough<T>(value: T | string | null): T | null {
   return value;
 }
 
-function mapSourceFileRow(row: SourceFileRow): SourceFile {
-  return {
+function mapSourceFileRow(
+  row: SourceFileRow & { attachment_count?: number | string },
+): SourceFile {
+  const out: SourceFile = {
     id: row.id,
     userId: row.user_id,
     craft: row.craft,
@@ -64,6 +66,10 @@ function mapSourceFileRow(row: SourceFileRow): SourceFile {
     updatedAt: toIsoNonNull(row.updated_at),
     deletedAt: toIso(row.deleted_at),
   };
+  if (row.attachment_count !== undefined && row.attachment_count !== null) {
+    out.attachmentCount = Number(row.attachment_count);
+  }
+  return out;
 }
 
 function mapCropRow(row: PatternCropRow): PatternCrop {
@@ -165,13 +171,45 @@ export async function getSourceFileById(
 
 export async function listSourceFilesForUser(
   userId: string,
-  filters?: { craft?: SourceFile['craft']; kind?: SourceFile['kind'] }
+  filters?: {
+    craft?: SourceFile['craft'];
+    kind?: SourceFile['kind'];
+    /** Restricts results to source files that have at least one crop
+     *  attached to this pattern. Default behavior (when omitted) returns
+     *  all files for the user — meant for global search; pattern + project
+     *  surfaces should always pass this so the list isn't a global file
+     *  dump (PRD doc 03 release anti-pattern). */
+    patternId?: string;
+  },
 ): Promise<SourceFile[]> {
-  let q = db('source_files').where({ user_id: userId }).whereNull('deleted_at');
-  if (filters?.craft) q = q.where({ craft: filters.craft });
-  if (filters?.kind) q = q.where({ kind: filters.kind });
-  const rows = await q.orderBy('created_at', 'desc');
-  return rows.map((r) => mapSourceFileRow(r as SourceFileRow));
+  let q = db('source_files as sf')
+    .where('sf.user_id', userId)
+    .whereNull('sf.deleted_at')
+    .leftJoin('pattern_crops as pc_count', function joinCount() {
+      this.on('pc_count.source_file_id', '=', 'sf.id')
+        .andOnNotNull('pc_count.pattern_id')
+        .andOnNull('pc_count.deleted_at');
+    })
+    .groupBy('sf.id')
+    .select('sf.*')
+    .select(db.raw('COUNT(DISTINCT pc_count.pattern_id)::int AS attachment_count'));
+
+  if (filters?.craft) q = q.where('sf.craft', filters.craft);
+  if (filters?.kind) q = q.where('sf.kind', filters.kind);
+
+  if (filters?.patternId) {
+    const patternId = filters.patternId;
+    q = q.whereExists(function existsScopedCrop() {
+      this.select(db.raw('1'))
+        .from('pattern_crops as pc_filter')
+        .whereRaw('pc_filter.source_file_id = sf.id')
+        .andWhere('pc_filter.pattern_id', patternId)
+        .whereNull('pc_filter.deleted_at');
+    });
+  }
+
+  const rows = await q.orderBy('sf.created_at', 'desc');
+  return rows.map((r) => mapSourceFileRow(r as SourceFileRow & { attachment_count: number }));
 }
 
 export async function updateSourceFileParseResult(

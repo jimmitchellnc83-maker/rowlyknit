@@ -39,6 +39,10 @@ export interface SourceFile {
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
+  /** Number of distinct patterns this file has crops attached to. Set by
+   *  `listSourceFiles`; absent on direct lookups. UI uses > 1 to render
+   *  a "Shared" badge so reused files don't look accidental. */
+  attachmentCount?: number;
 }
 
 export interface PatternCrop {
@@ -88,6 +92,11 @@ export async function uploadSourceFile(
 export async function listSourceFiles(filters?: {
   craft?: Craft;
   kind?: SourceFileKind;
+  /** Scope to source files that have at least one crop attached to this
+   *  pattern. Pattern + project surfaces should always pass this; the
+   *  unfiltered call returns the user's whole library and is meant for
+   *  global search only. */
+  patternId?: string;
 }): Promise<SourceFile[]> {
   const res = await axios.get('/api/source-files', { params: filters });
   return res.data.data.sourceFiles as SourceFile[];

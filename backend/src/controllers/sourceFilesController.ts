@@ -186,12 +186,15 @@ export async function uploadSourceFile(req: Request, res: Response): Promise<voi
 // GET /api/source-files
 export async function listSourceFiles(req: Request, res: Response): Promise<void> {
   const userId = req.user!.userId;
-  const filters: { craft?: Craft; kind?: SourceFileKind } = {};
+  const filters: { craft?: Craft; kind?: SourceFileKind; patternId?: string } = {};
   if (typeof req.query.craft === 'string' && (VALID_CRAFTS as string[]).includes(req.query.craft)) {
     filters.craft = req.query.craft as Craft;
   }
   if (typeof req.query.kind === 'string' && (VALID_KINDS as string[]).includes(req.query.kind)) {
     filters.kind = req.query.kind as SourceFileKind;
+  }
+  if (typeof req.query.patternId === 'string' && req.query.patternId.length > 0) {
+    filters.patternId = req.query.patternId;
   }
   const sourceFiles = await listSourceFilesForUser(userId, filters);
   res.json({ success: true, data: { sourceFiles } });
