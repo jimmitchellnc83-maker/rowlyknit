@@ -31,6 +31,9 @@ export default function MarkerHistoryPanel({ projectId }: Props) {
   const [history, setHistory] = useState<MarkerStateHistoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [rewinding, setRewinding] = useState<string | null>(null);
+  /** Entry id pending confirmation. Inline confirm avoids the jarring
+   *  browser confirm() dialog. */
+  const [pendingRewind, setPendingRewind] = useState<string | null>(null);
 
   const fetchHistory = useCallback(async () => {
     try {
@@ -61,9 +64,9 @@ export default function MarkerHistoryPanel({ projectId }: Props) {
     };
   }, [projectId]);
 
-  async function handleRewind(entryId: string) {
-    if (!window.confirm('Rewind to this earlier position?')) return;
+  async function handleConfirmRewind(entryId: string) {
     setRewinding(entryId);
+    setPendingRewind(null);
     try {
       await rewindMarkerHistory(projectId, entryId);
       toast.success('Position rewound.');
@@ -113,20 +116,41 @@ export default function MarkerHistoryPanel({ projectId }: Props) {
                     <span className="ml-1 text-gray-500">· {h.surfaceRef}</span>
                   ) : null}
                 </span>
-                <button
-                  type="button"
-                  disabled={!h.previousPosition || rewinding === h.id}
-                  onClick={() => handleRewind(h.id)}
-                  className="text-blue-600 hover:text-blue-800 disabled:opacity-40 flex items-center gap-1"
-                  title={
-                    h.previousPosition
-                      ? 'Rewind to the position before this change'
-                      : 'No prior position to rewind to'
-                  }
-                >
-                  <FiCornerUpLeft className="h-3.5 w-3.5" />
-                  Rewind
-                </button>
+                {pendingRewind === h.id ? (
+                  <span className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => handleConfirmRewind(h.id)}
+                      disabled={rewinding === h.id}
+                      className="text-blue-600 hover:text-blue-800 font-medium"
+                    >
+                      Confirm
+                    </button>
+                    <span className="text-gray-400">·</span>
+                    <button
+                      type="button"
+                      onClick={() => setPendingRewind(null)}
+                      className="text-gray-500 hover:text-gray-700"
+                    >
+                      Cancel
+                    </button>
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={!h.previousPosition || rewinding === h.id}
+                    onClick={() => setPendingRewind(h.id)}
+                    className="text-blue-600 hover:text-blue-800 disabled:opacity-40 flex items-center gap-1"
+                    title={
+                      h.previousPosition
+                        ? 'Rewind to the position before this change'
+                        : 'No prior position to rewind to'
+                    }
+                  >
+                    <FiCornerUpLeft className="h-3.5 w-3.5" />
+                    Rewind
+                  </button>
+                )}
               </div>
               <div className="mt-1 grid grid-cols-2 gap-2 text-[11px] text-gray-500">
                 <span>

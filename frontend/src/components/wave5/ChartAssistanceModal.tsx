@@ -4,6 +4,7 @@ import { FiCheck, FiGrid, FiX, FiZap } from 'react-icons/fi';
 import { toast } from 'react-toastify';
 import { sourceFileBytesUrl, type PatternCrop } from '../../lib/sourceFiles';
 import {
+  confirmMagicMarkerMatches,
   findMagicMarkerMatches,
   getChartAlignment,
   listChartSymbolPalette,
@@ -60,6 +61,7 @@ export default function ChartAssistanceModal({ sourceFileId, crop, onClose }: Pr
   const [lastHash, setLastHash] = useState<string | null>(null);
   const [matches, setMatches] = useState<MatchCandidate[]>([]);
   const [findingMatches, setFindingMatches] = useState(false);
+  const [confirming, setConfirming] = useState(false);
 
   // Symbol picker state (replaces window.prompt). When pendingCell is
   // set, the user has tapped a cell and a picker overlay is shown.
@@ -251,6 +253,35 @@ export default function ChartAssistanceModal({ sourceFileId, crop, onClose }: Pr
     }
   }
 
+  async function handleApplyMatches() {
+    if (!crop.chartId || matches.length === 0) return;
+    // All matches share the symbol of the seed sample (the last one
+    // recorded). Use that symbol when writing into the canonical chart.
+    const symbol = samples[samples.length - 1]?.symbol;
+    if (!symbol) {
+      toast.error('No seed sample to apply.');
+      return;
+    }
+    setConfirming(true);
+    try {
+      const result = await confirmMagicMarkerMatches(sourceFileId, crop.id, {
+        chartId: crop.chartId,
+        symbol,
+        cells: matches.map((m) => ({ row: m.gridRow, col: m.gridCol })),
+      });
+      toast.success(
+        `Wrote ${result.updatedCells} cell${result.updatedCells === 1 ? '' : 's'} of "${symbol}" into the chart.`,
+      );
+      // Clear the local matches highlight to reflect that they're now
+      // committed; the user can re-find to keep iterating.
+      setMatches([]);
+    } catch {
+      toast.error('Could not apply matches to the chart.');
+    } finally {
+      setConfirming(false);
+    }
+  }
+
   // Compute pixel rect of the chart grid inside the rendered page so the
   // overlay sits exactly over the crop's grid region.
   const gridPx = (() => {
@@ -412,10 +443,30 @@ export default function ChartAssistanceModal({ sourceFileId, crop, onClose }: Pr
                       {findingMatches ? 'Searching…' : 'Find similar to last sample'}
                     </button>
                     {matches.length > 0 && (
-                      <p className="mt-2 text-[11px] text-gray-500 flex items-center gap-1">
-                        <FiCheck className="h-3 w-3 text-green-600" />
-                        {matches.length} candidate cells highlighted on the chart.
-                      </p>
+                      <>
+                        <p className="mt-2 text-[11px] text-gray-500 flex items-center gap-1">
+                          <FiCheck className="h-3 w-3 text-green-600" />
+                          {matches.length} candidate cells highlighted on the chart.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={handleApplyMatches}
+                          disabled={!crop.chartId || confirming}
+                          title={
+                            crop.chartId
+                              ? 'Write the matching cells into the chart\'s canonical grid'
+                              : 'Link this crop to a chart first to apply matches.'
+                          }
+                          className="mt-2 w-full rounded bg-green-600 px-3 py-2 text-white text-sm font-medium hover:bg-green-700 disabled:opacity-50"
+                        >
+                          {confirming ? 'Applying…' : 'Apply matches to chart'}
+                        </button>
+                        {!crop.chartId && (
+                          <p className="mt-1 text-[10px] text-gray-500 italic">
+                            Link this crop to a chart to push matches into the canonical grid.
+                          </p>
+                        )}
+                      </>
                     )}
                   </div>
                 )}
