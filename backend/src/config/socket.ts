@@ -74,41 +74,15 @@ export const initializeSocket = (httpServer: HTTPServer): Server => {
       logger.info(`User ${userId} left project room: ${projectId}`);
     });
 
-    // Counter events
-    socket.on('counter:update', (data: { counterId: string; projectId: string; currentCount: number }) => {
-      // Broadcast to all users in the project room except sender
-      socket.to(`project:${data.projectId}`).emit('counter:updated', data);
-      logger.info(`Counter ${data.counterId} updated to ${data.currentCount} in project ${data.projectId}`);
-    });
-
-    socket.on('counter:increment', (data: { counterId: string; projectId: string; currentCount: number }) => {
-      socket.to(`project:${data.projectId}`).emit('counter:incremented', data);
-    });
-
-    socket.on('counter:decrement', (data: { counterId: string; projectId: string; currentCount: number }) => {
-      socket.to(`project:${data.projectId}`).emit('counter:decremented', data);
-    });
-
-    socket.on('counter:reset', (data: { counterId: string; projectId: string }) => {
-      socket.to(`project:${data.projectId}`).emit('counter:reset', data);
-    });
-
-    // Project update events
-    socket.on('project:update', (data: { projectId: string; updates: any }) => {
-      socket.to(`project:${data.projectId}`).emit('project:updated', data);
-      logger.info(`Project ${data.projectId} updated`);
-    });
-
-    // Photo events
-    socket.on('photo:uploaded', (data: { projectId: string; photo: any }) => {
-      socket.to(`project:${data.projectId}`).emit('photo:added', data);
-      logger.info(`Photo uploaded to project ${data.projectId}`);
-    });
-
-    socket.on('photo:deleted', (data: { projectId: string; photoId: string }) => {
-      socket.to(`project:${data.projectId}`).emit('photo:removed', data);
-      logger.info(`Photo ${data.photoId} deleted from project ${data.projectId}`);
-    });
+    // Counter / project / photo broadcasts intentionally are NOT
+    // accepted from clients. Pre-2026-05-02 there were `socket.on(...)`
+    // handlers that re-emitted client-supplied data into
+    // `project:${data.projectId}` with no membership check, so any
+    // authenticated user could push fake counter/project/photo updates
+    // to OTHER projects' rooms. The server-side controllers
+    // (countersController emits `counter:updated` after each write)
+    // are the only authoritative real-time source now; the frontend
+    // listener handles `counter:updated` directly.
 
     // Disconnect
     socket.on('disconnect', () => {
