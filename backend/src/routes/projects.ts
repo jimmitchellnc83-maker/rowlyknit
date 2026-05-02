@@ -5,6 +5,7 @@ import * as projectSharingController from '../controllers/projectSharingControll
 import * as gaugeAdjustmentController from '../controllers/gaugeAdjustmentController';
 import * as chartProgressController from '../controllers/chartProgressController';
 import * as markerAnalyticsController from '../controllers/markerAnalyticsController';
+import * as sourceFilesController from '../controllers/sourceFilesController';
 import { authenticate } from '../middleware/auth';
 import { validate, validateUUID, validatePagination, validateSearch } from '../middleware/validator';
 import { asyncHandler } from '../utils/errorHandler';
@@ -142,6 +143,23 @@ router.patch(
   [validateUUID('id'), body('isPublic').isBoolean()],
   validate,
   asyncHandler(projectSharingController.updateProjectVisibility)
+);
+
+/**
+ * @route   PATCH /api/projects/:projectId/patterns/:patternId/source-file
+ * @desc    Pin a Wave 2 source file to a project_patterns linkage
+ * @access  Private
+ */
+router.patch(
+  '/:projectId/patterns/:patternId/source-file',
+  [
+    validateUUID('projectId'),
+    validateUUID('patternId'),
+    // Accept null OR a string (UUID validation happens server-side).
+    body('sourceFileId').custom((v) => v === null || typeof v === 'string'),
+  ],
+  validate,
+  asyncHandler(sourceFilesController.pinSourceFile)
 );
 
 /**
