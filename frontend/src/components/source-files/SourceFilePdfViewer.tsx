@@ -15,6 +15,7 @@ import {
 import { trackEvent } from '../../lib/analytics';
 import { dragToRect, isMeaningfulRect, pointInPage } from './cropMath';
 import AnnotationLayer from './AnnotationLayer';
+import ChartAssistanceModal from '../wave5/ChartAssistanceModal';
 
 pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
 
@@ -63,6 +64,9 @@ export default function SourceFilePdfViewer({
     cropHeight: number;
   } | null>(null);
   const [activeCropId, setActiveCropId] = useState<string | null>(null);
+  // Wave 5 — chart assistance modal state. Stores the crop currently
+  // open in the assistance UI (null = closed).
+  const [chartAssistCrop, setChartAssistCrop] = useState<PatternCrop | null>(null);
   const [tool, setTool] = useState<AnnotationTool>(null);
   const pageRefs = useRef<Map<number, HTMLDivElement>>(new Map());
 
@@ -428,6 +432,15 @@ export default function SourceFilePdfViewer({
                     </button>
                     <button
                       type="button"
+                      onClick={() => setChartAssistCrop(c)}
+                      className="text-xs text-blue-600 hover:text-blue-800"
+                      aria-label="Open chart assistance"
+                      title="Align grid + Magic Marker"
+                    >
+                      ⬚
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => handleDeleteCrop(c)}
                       className="text-xs text-red-600 hover:text-red-800"
                       aria-label="Delete crop"
@@ -441,6 +454,14 @@ export default function SourceFilePdfViewer({
           )}
         </div>
       </aside>
+
+      {chartAssistCrop && (
+        <ChartAssistanceModal
+          sourceFileId={sourceFile.id}
+          crop={chartAssistCrop}
+          onClose={() => setChartAssistCrop(null)}
+        />
+      )}
     </div>
   );
 }
