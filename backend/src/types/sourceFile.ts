@@ -86,6 +86,9 @@ export interface PatternCrop {
   label: string | null;
   /** Wave 4: when this crop encloses a chart, the canonical chart id. */
   chartId: string | null;
+  /** Wave 3 QuickKey fields. */
+  isQuickKey: boolean;
+  quickKeyPosition: number | null;
   metadata: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
@@ -105,6 +108,9 @@ export interface PatternCropRow {
   crop_height: number;
   label: string | null;
   chart_id: string | null;
+  /** Optional — present after migration #073 (Wave 3). */
+  is_quickkey?: boolean;
+  quickkey_position?: number | null;
   metadata: Record<string, unknown> | string;
   created_at: Date | string;
   updated_at: Date | string;

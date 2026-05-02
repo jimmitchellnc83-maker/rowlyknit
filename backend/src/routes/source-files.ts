@@ -4,6 +4,7 @@ import { authenticate } from '../middleware/auth';
 import { validate, validateUUID } from '../middleware/validator';
 import { asyncHandler } from '../utils/errorHandler';
 import * as sf from '../controllers/sourceFilesController';
+import * as ann from '../controllers/annotationsController';
 
 const router = Router();
 router.use(authenticate);
@@ -97,6 +98,77 @@ router.delete(
   [validateUUID('id'), validateUUID('cropId')],
   validate,
   asyncHandler(sf.deleteSourceFileCrop)
+);
+
+// =========================
+// Wave 3 — Annotations
+// =========================
+
+// POST /api/source-files/:id/crops/:cropId/annotations
+router.post(
+  '/:id/crops/:cropId/annotations',
+  [
+    validateUUID('id'),
+    validateUUID('cropId'),
+    body('annotationType').isIn(['pen', 'highlight', 'text', 'stamp']),
+    body('payload').isObject(),
+  ],
+  validate,
+  asyncHandler(ann.createAnnotationHandler)
+);
+
+// GET /api/source-files/:id/crops/:cropId/annotations
+router.get(
+  '/:id/crops/:cropId/annotations',
+  [validateUUID('id'), validateUUID('cropId')],
+  validate,
+  asyncHandler(ann.listAnnotationsHandler)
+);
+
+// PATCH /api/source-files/:id/crops/:cropId/annotations/:annotationId
+router.patch(
+  '/:id/crops/:cropId/annotations/:annotationId',
+  [
+    validateUUID('id'),
+    validateUUID('cropId'),
+    validateUUID('annotationId'),
+    body('payload').optional().isObject(),
+  ],
+  validate,
+  // Re-route :annotationId → :id so the controller's signature is uniform.
+  asyncHandler(async (req, res) => {
+    (req.params as Record<string, string>).id = req.params.annotationId;
+    return ann.updateAnnotationHandler(req, res);
+  })
+);
+
+// DELETE /api/source-files/:id/crops/:cropId/annotations/:annotationId
+router.delete(
+  '/:id/crops/:cropId/annotations/:annotationId',
+  [validateUUID('id'), validateUUID('cropId'), validateUUID('annotationId')],
+  validate,
+  asyncHandler(async (req, res) => {
+    (req.params as Record<string, string>).id = req.params.annotationId;
+    return ann.deleteAnnotationHandler(req, res);
+  })
+);
+
+// =========================
+// Wave 3 — QuickKey
+// =========================
+
+// PATCH /api/source-files/:id/crops/:cropId/quickkey
+router.patch(
+  '/:id/crops/:cropId/quickkey',
+  [
+    validateUUID('id'),
+    validateUUID('cropId'),
+    body('isQuickKey').isBoolean(),
+    body('position').optional({ values: 'null' }).isInt({ min: 0 }),
+    body('label').optional({ values: 'null' }).isString().isLength({ max: 120 }),
+  ],
+  validate,
+  asyncHandler(ann.setQuickKeyHandler)
 );
 
 export default router;
