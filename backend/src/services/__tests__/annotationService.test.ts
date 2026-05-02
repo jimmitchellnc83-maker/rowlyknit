@@ -17,7 +17,7 @@ const dbBuilders: any = {
     orderBy: jest.fn().mockReturnThis(),
     select: jest.fn().mockResolvedValue([]),
   },
-  pattern_annotations: {
+  pattern_crop_annotations: {
     where: jest.fn().mockReturnThis(),
     whereNull: jest.fn().mockReturnThis(),
     first: jest.fn(),
@@ -115,7 +115,7 @@ describe('createAnnotation ownership gate', () => {
         payload: { strokes: [], color: '#000', width: 0.01 },
       })
     ).rejects.toThrow(ValidationError);
-    expect(dbBuilders.pattern_annotations.insert).not.toHaveBeenCalled();
+    expect(dbBuilders.pattern_crop_annotations.insert).not.toHaveBeenCalled();
   });
 
   it('inserts when ownership passes', async () => {
@@ -127,7 +127,7 @@ describe('createAnnotation ownership gate', () => {
       payload: { strokes: [[{ x: 0, y: 0 }]], color: '#000', width: 0.01 },
     });
     expect(r.id).toBe('ann-1');
-    expect(dbBuilders.pattern_annotations.insert).toHaveBeenCalled();
+    expect(dbBuilders.pattern_crop_annotations.insert).toHaveBeenCalled();
   });
 });
 
@@ -137,13 +137,13 @@ describe('softDeleteAnnotation', () => {
   });
 
   it('returns false when no row matches the user', async () => {
-    dbBuilders.pattern_annotations.update.mockResolvedValueOnce(0);
+    dbBuilders.pattern_crop_annotations.update.mockResolvedValueOnce(0);
     const ok = await softDeleteAnnotation('ann-foreign', 'u-attacker');
     expect(ok).toBe(false);
   });
 
   it('returns true when the user owns the row', async () => {
-    dbBuilders.pattern_annotations.update.mockResolvedValueOnce(1);
+    dbBuilders.pattern_crop_annotations.update.mockResolvedValueOnce(1);
     const ok = await softDeleteAnnotation('ann-1', 'u-1');
     expect(ok).toBe(true);
   });

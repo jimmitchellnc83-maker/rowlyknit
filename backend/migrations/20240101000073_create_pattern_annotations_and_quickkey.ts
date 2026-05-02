@@ -18,7 +18,7 @@ import { Knex } from 'knex';
 const ANNOTATION_TYPES = ['pen', 'highlight', 'text', 'stamp'];
 
 export async function up(knex: Knex): Promise<void> {
-  await knex.schema.createTable('pattern_annotations', (t) => {
+  await knex.schema.createTable('pattern_crop_annotations', (t) => {
     t.uuid('id').primary().defaultTo(knex.raw('gen_random_uuid()'));
     t.uuid('pattern_crop_id')
       .notNullable()
@@ -48,8 +48,8 @@ export async function up(knex: Knex): Promise<void> {
   });
 
   await knex.raw(`
-    ALTER TABLE pattern_annotations
-      ADD CONSTRAINT pattern_annotations_type_check
+    ALTER TABLE pattern_crop_annotations
+      ADD CONSTRAINT pattern_crop_annotations_type_check
         CHECK (annotation_type IN (${ANNOTATION_TYPES.map((s) => `'${s}'`).join(', ')}))
   `);
 
@@ -75,5 +75,5 @@ export async function down(knex: Knex): Promise<void> {
     t.dropColumn('is_quickkey');
     t.dropColumn('quickkey_position');
   });
-  await knex.schema.dropTableIfExists('pattern_annotations');
+  await knex.schema.dropTableIfExists('pattern_crop_annotations');
 }
