@@ -21,11 +21,37 @@ export interface ChartCellShape {
   colorHex?: string | null;
 }
 
+/** Match the frontend's `ChartData` so persisted charts round-trip
+ *  every field. The grid is JSON-blobbed into the `grid` JSONB column,
+ *  so undeclared fields used to silently survive the round-trip — but
+ *  TypeScript would forget they existed once the row was hydrated.
+ *  Declaring them here closes that gap. */
+export type ChartHighlightColor = 'yellow' | 'orange' | 'green';
+
+export interface ChartRepeatRegionShape {
+  /** 0-indexed column boundaries, inclusive on the left, exclusive on
+   *  the right. `[2, 6)` means columns 2, 3, 4, 5 are the repeat. */
+  startCol: number;
+  endCol: number;
+  /** Stitch count outside the repeat (the `+ E` in "multiple of N
+   *  stitches, plus E"). Optional — defaults to 0 / not surfaced. */
+  edgeStitches?: number;
+}
+
 export interface ChartGridShape {
   width: number;
   height: number;
   cells: ChartCellShape[];
   workedInRound?: boolean;
+  /** Repeat-box bounds — drives the bold border in the renderer and
+   *  the cast-on preamble ("multiple of N + E"). */
+  repeatRegion?: ChartRepeatRegionShape;
+  /** Per-row notes keyed by KNITTER row number (1-indexed from the
+   *  bottom). Surfaced alongside the written instructions. */
+  rowNotes?: Record<string, string>;
+  /** Sparse cell-index → highlight-color map. Translucent overlay drawn
+   *  above the symbol layer; doesn't change underlying stitch data. */
+  highlights?: Record<string, ChartHighlightColor>;
 }
 
 export interface ChartRow {
