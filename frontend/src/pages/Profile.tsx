@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { FiUser, FiMail, FiLock, FiSave, FiLink, FiCheck, FiXCircle, FiSliders, FiRefreshCw, FiHeart, FiBookOpen, FiMic, FiCompass } from 'react-icons/fi';
+import { FiUser, FiMail, FiLock, FiSave, FiLink, FiCheck, FiXCircle, FiSliders, FiRefreshCw, FiHeart, FiBookOpen, FiMic, FiCompass, FiShield } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { useAuthStore } from '../stores/authStore';
 import VoicePreferences from '../components/VoicePreferences';
 import OnboardingTab from '../components/profile/OnboardingTab';
+import PrivacyTab from '../components/profile/PrivacyTab';
 
-type ProfileTab = 'profile' | 'password' | 'units' | 'voice' | 'onboarding' | 'integrations';
+type ProfileTab = 'profile' | 'password' | 'units' | 'voice' | 'onboarding' | 'integrations' | 'privacy';
 
 export default function Profile() {
   const { user, setUser } = useAuthStore();
@@ -61,6 +62,8 @@ export default function Profile() {
       tab === 'password' ||
       tab === 'units' ||
       tab === 'voice' ||
+      tab === 'onboarding' ||
+      tab === 'privacy' ||
       tab === 'profile'
     ) {
       setActiveTab(tab);
@@ -278,6 +281,17 @@ export default function Profile() {
         >
           <FiLink className="h-4 w-4" />
           Integrations
+        </button>
+        <button
+          onClick={() => changeTab('privacy')}
+          className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-md text-sm font-medium transition ${
+            activeTab === 'privacy'
+              ? 'bg-white dark:bg-gray-800 text-purple-600 shadow'
+              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+          }`}
+        >
+          <FiShield className="h-4 w-4" />
+          Privacy &amp; Data
         </button>
       </div>
 
@@ -515,6 +529,9 @@ export default function Profile() {
 
       {/* Getting started / onboarding Tab */}
       {activeTab === 'onboarding' && <OnboardingTab />}
+
+      {/* Privacy & Data Tab */}
+      {activeTab === 'privacy' && <PrivacyTab />}
 
       {/* Integrations Tab */}
       {activeTab === 'integrations' && (

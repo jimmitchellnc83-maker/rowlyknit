@@ -43,6 +43,7 @@ import Register from './pages/auth/Register';
 import ForgotPassword from './pages/auth/ForgotPassword';
 import ResetPassword from './pages/auth/ResetPassword';
 import VerifyEmail from './pages/auth/VerifyEmail';
+import AccountDeleteConfirm from './pages/auth/AccountDeleteConfirm';
 import RavelryCallback from './pages/auth/RavelryCallback';
 import RavelrySync from './pages/RavelrySync';
 import RavelryStashSync from './pages/RavelryStashSync';
@@ -156,6 +157,7 @@ function App() {
         />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/verify-email" element={<VerifyEmail />} />
+        <Route path="/account/delete/confirm" element={<AccountDeleteConfirm />} />
       </Route>
 
       {/* Protected routes */}
