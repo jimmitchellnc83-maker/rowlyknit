@@ -27,7 +27,6 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { FiHelpCircle } from 'react-icons/fi';
 import { useSeo } from '../hooks/useSeo';
 import { usePatternModel, useUpdatePatternModel } from '../hooks/usePatternModel';
-import { isMakeModeEnabled } from '../utils/featureFlags';
 import {
   decrementCounter,
   decrementRow,
@@ -74,25 +73,6 @@ export default function MakeMode() {
     if (!pattern) return;
     setProgress(pattern.progressState ?? {});
   }, [pattern]);
-
-  if (!isMakeModeEnabled()) {
-    return (
-      <div className="mx-auto max-w-2xl px-4 py-12 text-center">
-        <h1 className="mb-2 text-xl font-semibold">Make Mode is disabled</h1>
-        <p className="text-gray-600 dark:text-gray-300">
-          Set <code className="rounded bg-gray-100 px-1 dark:bg-gray-800">VITE_DESIGNER_MAKE_MODE=1</code>{' '}
-          to enable this preview.
-        </p>
-        <button
-          type="button"
-          onClick={() => navigate('/patterns')}
-          className="mt-6 rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
-        >
-          Back to patterns
-        </button>
-      </div>
-    );
-  }
 
   if (isLoading) {
     return <div className="mx-auto max-w-3xl px-4 py-8">Loading pattern…</div>;

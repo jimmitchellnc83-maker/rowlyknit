@@ -109,7 +109,7 @@ export default function Help() {
             <li>Click <em>New Marker</em> and give it a title, note text, and priority.</li>
             <li>Pick a trigger type (see below).</li>
             <li>Optionally link it to a counter — the marker will fire based on that counter's value.</li>
-            <li>Save. Active markers appear as banners in Knitting Mode when their trigger condition is true.</li>
+            <li>Save. Active markers appear as banners in Make Mode when their trigger condition is true.</li>
           </ol>
           <h3 className="mt-4 font-semibold">Trigger types</h3>
           <ul className="list-disc pl-6 space-y-1">

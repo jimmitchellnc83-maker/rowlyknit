@@ -25,7 +25,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useSeo } from '../hooks/useSeo';
 import { usePatternModel, useUpdatePatternModel } from '../hooks/usePatternModel';
-import { isAuthorModeEnabled } from '../utils/featureFlags';
 import { resolveDialectAbbreviation, type TerminologyDialect } from '../utils/techniqueRules';
 import { DESIGNER_EVENTS, trackDesignerEvent } from '../lib/designerAnalytics';
 import type { CanonicalPattern, PatternSection, Technique } from '../types/pattern';
@@ -67,25 +66,6 @@ export default function AuthorMode() {
     setNotes(pattern.notes ?? '');
     setDirty(false);
   }, [pattern]);
-
-  if (!isAuthorModeEnabled()) {
-    return (
-      <div className="mx-auto max-w-2xl px-4 py-12 text-center">
-        <h1 className="mb-2 text-xl font-semibold">Author Mode is disabled</h1>
-        <p className="text-gray-600 dark:text-gray-300">
-          Set <code className="rounded bg-gray-100 px-1 dark:bg-gray-800">VITE_DESIGNER_AUTHOR_MODE=1</code>{' '}
-          to enable this preview.
-        </p>
-        <button
-          type="button"
-          onClick={() => navigate('/patterns')}
-          className="mt-6 rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
-        >
-          Back to patterns
-        </button>
-      </div>
-    );
-  }
 
   if (isLoading) {
     return <div className="mx-auto max-w-3xl px-4 py-8">Loading pattern…</div>;

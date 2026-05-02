@@ -13,10 +13,6 @@ import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
-vi.mock('../utils/featureFlags', () => ({
-  isAuthorModeEnabled: vi.fn(),
-}));
-
 vi.mock('../hooks/usePatternModel', () => ({
   usePatternModel: vi.fn(),
   useUpdatePatternModel: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
@@ -27,7 +23,6 @@ vi.mock('../hooks/useSeo', () => ({
 }));
 
 import AuthorMode from './AuthorMode';
-import { isAuthorModeEnabled } from '../utils/featureFlags';
 import { usePatternModel } from '../hooks/usePatternModel';
 
 const renderRoute = () => {
@@ -47,21 +42,8 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-describe('AuthorMode — feature flag gate', () => {
-  it('renders the disabled notice when the flag is off', () => {
-    vi.mocked(isAuthorModeEnabled).mockReturnValue(false);
-    vi.mocked(usePatternModel).mockReturnValue({ data: undefined, isLoading: false } as any);
-
-    renderRoute();
-
-    expect(screen.getByText(/author mode is disabled/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /back to patterns/i })).toBeInTheDocument();
-  });
-});
-
 describe('AuthorMode — loading + error', () => {
   it('shows a loading message while the pattern fetches', () => {
-    vi.mocked(isAuthorModeEnabled).mockReturnValue(true);
     vi.mocked(usePatternModel).mockReturnValue({ data: undefined, isLoading: true } as any);
 
     renderRoute();
@@ -70,7 +52,6 @@ describe('AuthorMode — loading + error', () => {
   });
 
   it('shows the not-found state when the query errors', () => {
-    vi.mocked(isAuthorModeEnabled).mockReturnValue(true);
     vi.mocked(usePatternModel).mockReturnValue({
       data: undefined,
       isLoading: false,
@@ -125,8 +106,7 @@ describe('AuthorMode — happy path render', () => {
   };
 
   it('renders pattern metadata, sections, and gauge', () => {
-    vi.mocked(isAuthorModeEnabled).mockReturnValue(true);
-    vi.mocked(usePatternModel).mockReturnValue({
+vi.mocked(usePatternModel).mockReturnValue({
       data: samplePattern,
       isLoading: false,
     } as any);
@@ -143,8 +123,7 @@ describe('AuthorMode — happy path render', () => {
   });
 
   it('does not render the US/UK toggle for knit patterns', () => {
-    vi.mocked(isAuthorModeEnabled).mockReturnValue(true);
-    vi.mocked(usePatternModel).mockReturnValue({
+vi.mocked(usePatternModel).mockReturnValue({
       data: samplePattern,
       isLoading: false,
     } as any);
@@ -155,8 +134,7 @@ describe('AuthorMode — happy path render', () => {
   });
 
   it('renders the US/UK toggle for crochet patterns', () => {
-    vi.mocked(isAuthorModeEnabled).mockReturnValue(true);
-    vi.mocked(usePatternModel).mockReturnValue({
+vi.mocked(usePatternModel).mockReturnValue({
       data: { ...samplePattern, craft: 'crochet' },
       isLoading: false,
     } as any);

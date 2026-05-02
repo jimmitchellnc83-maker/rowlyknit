@@ -99,7 +99,7 @@ export default function Landing() {
           <Pillar
             icon={<FiCheckSquare className="h-6 w-6" />}
             title="Run the project"
-            body="Knitting Mode locks onto your active row. Counters, Guided Pieces for multi-panel patterns, PDF and chart row markers, notes and checklists — everything works together so you never lose your place."
+            body="Make Mode locks onto your active row. Counters, Guided Pieces for multi-panel patterns, PDF and chart row markers, notes and checklists — everything works together so you never lose your place."
           />
           <Pillar
             id="pillar-plan"

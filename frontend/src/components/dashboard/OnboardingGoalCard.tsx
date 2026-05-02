@@ -19,7 +19,7 @@ const OPTIONS: GoalOption[] = [
   {
     goal: 'follow_pattern',
     title: 'Follow a pattern step by step',
-    body: 'Upload a PDF or paste from the web. Knitting Mode keeps you on the active row.',
+    body: 'Upload a PDF or paste from the web. Make Mode keeps you on the active row.',
     icon: FiBookOpen,
   },
   {
