@@ -88,6 +88,18 @@ router.delete(
 );
 
 /**
+ * @route   GET /api/projects/:id/audio-notes/:noteId/stream
+ * @desc    Stream the recorded audio file for an audio note
+ * @access  Private
+ */
+router.get(
+  '/projects/:id/audio-notes/:noteId/stream',
+  [validateUUID('id'), validateUUID('noteId')],
+  validate,
+  asyncHandler(notesController.streamAudioNote)
+);
+
+/**
  * Structured Memos Routes
  */
 
@@ -287,6 +299,13 @@ router.delete(
   [validateUUID('id'), validateUUID('noteId')],
   validate,
   asyncHandler(notesController.deleteHandwrittenNote)
+);
+
+router.get(
+  '/projects/:id/handwritten-notes/:noteId/image',
+  [validateUUID('id'), validateUUID('noteId')],
+  validate,
+  asyncHandler(notesController.streamHandwrittenNote)
 );
 
 export default router;

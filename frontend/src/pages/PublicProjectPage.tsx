@@ -17,8 +17,8 @@ interface PublicProject {
   notes: string | null;
   viewCount: number;
   publishedAt: string | null;
-  primaryPhoto: { url: string; caption: string | null } | null;
-  photos: Array<{ url: string; caption: string | null }>;
+  primaryPhoto: { url: string; thumbnailUrl: string; caption: string | null } | null;
+  photos: Array<{ url: string; thumbnailUrl: string; caption: string | null }>;
   yarn: Array<{ name: string; brand: string | null; weight: string | null; color: string | null }>;
 }
 

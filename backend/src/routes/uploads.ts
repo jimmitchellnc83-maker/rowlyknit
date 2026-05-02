@@ -22,6 +22,20 @@ router.get(
   uploadsController.getProjectPhotos
 );
 
+router.get(
+  '/projects/:projectId/photos/:photoId',
+  validateUUID('projectId'),
+  validateUUID('photoId'),
+  uploadsController.serveProjectPhoto
+);
+
+router.get(
+  '/projects/:projectId/photos/:photoId/thumbnail',
+  validateUUID('projectId'),
+  validateUUID('photoId'),
+  uploadsController.serveProjectPhoto
+);
+
 router.delete(
   '/projects/:projectId/photos/:photoId',
   validateUUID('projectId'),
@@ -77,6 +91,20 @@ router.get(
   uploadsController.getYarnPhotos
 );
 
+router.get(
+  '/yarn/:yarnId/photos/:photoId',
+  validateUUID('yarnId'),
+  validateUUID('photoId'),
+  uploadsController.serveYarnPhoto
+);
+
+router.get(
+  '/yarn/:yarnId/photos/:photoId/thumbnail',
+  validateUUID('yarnId'),
+  validateUUID('photoId'),
+  uploadsController.serveYarnPhoto
+);
+
 router.delete(
   '/yarn/:yarnId/photos/:photoId',
   validateUUID('yarnId'),
@@ -88,6 +116,12 @@ router.post(
   '/patterns/:patternId/thumbnail/from-url',
   validateUUID('patternId'),
   uploadsController.uploadPatternThumbnailFromUrl
+);
+
+router.get(
+  '/patterns/:patternId/thumbnail',
+  validateUUID('patternId'),
+  uploadsController.servePatternThumbnail
 );
 
 export default router;

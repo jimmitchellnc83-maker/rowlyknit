@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { body, query } from 'express-validator';
+import { body, param, query } from 'express-validator';
 import * as patternsController from '../controllers/patternsController';
 import * as blogImportController from '../controllers/blogImportController';
 import * as patternExportController from '../controllers/patternExportController';
@@ -47,6 +47,35 @@ router.post(
   ],
   validate,
   asyncHandler(patternsController.collatePatterns)
+);
+
+/**
+ * @route   GET /api/patterns/collations/:collationId/download
+ * @desc    Download a previously-collated multi-pattern PDF
+ * @access  Private (owner only)
+ */
+router.get(
+  '/collations/:collationId/download',
+  [param('collationId').isUUID().withMessage('Collation ID must be a valid UUID')],
+  validate,
+  asyncHandler(patternsController.downloadPatternCollation)
+);
+
+/**
+ * @route   GET /api/patterns/exports/:userId/:filename
+ * @desc    Stream a previously-generated pattern-export PDF
+ * @access  Private (path-encoded user must match req.user)
+ */
+router.get(
+  '/exports/:userId/:filename',
+  [
+    param('userId').isUUID().withMessage('User ID must be a valid UUID'),
+    param('filename')
+      .matches(/^[a-f0-9]{32}\.pdf$/)
+      .withMessage('Filename must be a 32-hex token with a .pdf suffix'),
+  ],
+  validate,
+  asyncHandler(patternsController.downloadPatternExport)
 );
 
 /**

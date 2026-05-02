@@ -6,6 +6,7 @@ import logger from '../config/logger';
 import fs from 'fs';
 import path from 'path';
 import transcriptionService from '../services/transcriptionService';
+import { generateStorageFilename, streamSafeUpload } from '../utils/uploadStorage';
 
 /**
  * Audio Notes
@@ -124,21 +125,18 @@ export async function createAudioNote(req: Request, res: Response) {
     patternName = pattern.name;
   }
 
-  // Generate unique filename and ensure upload directory exists
-  const timestamp = Date.now();
+  // Random storage filename so the public path doesn't leak project id /
+  // timestamp; the auth-streaming endpoint resolves filename via
+  // `audio_notes.storage_filename`.
   const ext = path.extname(file.originalname) || '.webm';
-  const filename = `audio-${projectId}-${timestamp}${ext}`;
+  const filename = generateStorageFilename(ext);
   const uploadRoot = process.env.UPLOAD_DIR || path.join(__dirname, '..', '..', 'uploads');
   const audioDir = path.join(uploadRoot, 'audio');
   await fs.promises.mkdir(audioDir, { recursive: true });
 
   const filepath = path.join(audioDir, filename);
 
-  // Save audio file
   await fs.promises.writeFile(filepath, file.buffer);
-
-  // Create audioUrl (relative path for serving)
-  const audioUrl = `/uploads/audio/${filename}`;
 
   // Auto-transcribe when no transcription was provided
   let finalTranscription = transcription || null;
@@ -166,12 +164,17 @@ export async function createAudioNote(req: Request, res: Response) {
     .insert({
       project_id: projectId,
       pattern_id: patternId || null,
-      audio_url: audioUrl,
+      storage_filename: filename,
+      audio_url: '',
       transcription: finalTranscription,
       duration_seconds: durationSeconds || 0,
       created_at: new Date(),
     })
     .returning('*');
+
+  const audioUrl = `/api/projects/${projectId}/audio-notes/${audioNote.id}/stream`;
+  await db('audio_notes').where({ id: audioNote.id }).update({ audio_url: audioUrl });
+  audioNote.audio_url = audioUrl;
 
   const responseNote = patternName
     ? { ...audioNote, pattern_name: patternName }
@@ -842,10 +845,10 @@ export async function createHandwrittenNote(req: Request, res: Response) {
     throw new NotFoundError('Project not found');
   }
 
-  // Save image file
-  const timestamp = Date.now();
+  // Random storage filename; the auth endpoint reads
+  // `handwritten_notes.storage_filename` to resolve to disk.
   const ext = path.extname(file.originalname) || '.png';
-  const filename = `handwritten-${projectId}-${timestamp}${ext}`;
+  const filename = generateStorageFilename(ext);
   const uploadRoot = process.env.UPLOAD_DIR || path.join(__dirname, '..', '..', 'uploads');
   const notesDir = path.join(uploadRoot, 'handwritten');
   await fs.promises.mkdir(notesDir, { recursive: true });
@@ -853,13 +856,12 @@ export async function createHandwrittenNote(req: Request, res: Response) {
   const filepath = path.join(notesDir, filename);
   await fs.promises.writeFile(filepath, file.buffer);
 
-  const imageUrl = `/uploads/handwritten/${filename}`;
-
   const [note] = await db('handwritten_notes')
     .insert({
       project_id: projectId,
       pattern_id: patternId || null,
-      image_url: imageUrl,
+      storage_filename: filename,
+      image_url: '',
       original_filename: file.originalname,
       file_size: file.size,
       page_number: pageNumber || null,
@@ -867,6 +869,10 @@ export async function createHandwrittenNote(req: Request, res: Response) {
       created_at: new Date(),
     })
     .returning('*');
+
+  const imageUrl = `/api/projects/${projectId}/handwritten-notes/${note.id}/image`;
+  await db('handwritten_notes').where({ id: note.id }).update({ image_url: imageUrl });
+  note.image_url = imageUrl;
 
   await createAuditLog(req, {
     userId,
@@ -910,8 +916,10 @@ export async function deleteHandwrittenNote(req: Request, res: Response) {
   // Delete the image file
   try {
     const uploadRoot = process.env.UPLOAD_DIR || path.join(__dirname, '..', '..', 'uploads');
-    const filepath = path.join(uploadRoot, note.image_url.replace('/uploads/', ''));
-    await fs.promises.unlink(filepath);
+    if (note.storage_filename) {
+      const filepath = path.join(uploadRoot, 'handwritten', note.storage_filename);
+      await fs.promises.unlink(filepath);
+    }
   } catch {
     // File may already be deleted
   }
@@ -929,5 +937,65 @@ export async function deleteHandwrittenNote(req: Request, res: Response) {
   res.json({
     success: true,
     message: 'Handwritten note deleted successfully',
+  });
+}
+
+/**
+ * Stream an audio note. Replaces the old `/uploads/audio/<filename>`
+ * static path — the row's `storage_filename` is a random hex token and
+ * the only person who can hit this is the project owner.
+ */
+export async function streamAudioNote(req: Request, res: Response) {
+  const userId = req.user!.userId;
+  const { id: projectId, noteId } = req.params;
+
+  const project = await db('projects')
+    .where({ id: projectId, user_id: userId })
+    .whereNull('deleted_at')
+    .first();
+  if (!project) {
+    throw new NotFoundError('Project not found');
+  }
+
+  const note = await db('audio_notes')
+    .where({ id: noteId, project_id: projectId })
+    .first();
+  if (!note || !note.storage_filename) {
+    throw new NotFoundError('Audio note not found');
+  }
+
+  await streamSafeUpload(res, {
+    subdir: 'audio',
+    filename: note.storage_filename,
+    mimeType: 'audio/webm',
+  });
+}
+
+/**
+ * Stream a handwritten-note image with the same ownership gate.
+ */
+export async function streamHandwrittenNote(req: Request, res: Response) {
+  const userId = req.user!.userId;
+  const { id: projectId, noteId } = req.params;
+
+  const project = await db('projects')
+    .where({ id: projectId, user_id: userId })
+    .whereNull('deleted_at')
+    .first();
+  if (!project) {
+    throw new NotFoundError('Project not found');
+  }
+
+  const note = await db('handwritten_notes')
+    .where({ id: noteId, project_id: projectId })
+    .first();
+  if (!note || !note.storage_filename) {
+    throw new NotFoundError('Handwritten note not found');
+  }
+
+  await streamSafeUpload(res, {
+    subdir: 'handwritten',
+    filename: note.storage_filename,
+    mimeType: 'image/png',
   });
 }

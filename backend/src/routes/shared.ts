@@ -26,6 +26,21 @@ router.get(
 );
 
 /**
+ * @route   GET /shared/project/:slug/photos/:photoId(/thumbnail)
+ * @desc    Stream a project photo from a publicly-shared project. Slug
+ *          acts as the capability; unpublishing kills the URL.
+ * @access  Public (rate-limited via /shared/* limiter)
+ */
+router.get(
+  '/project/:slug/photos/:photoId',
+  asyncHandler(projectSharingController.viewSharedProjectPhoto)
+);
+router.get(
+  '/project/:slug/photos/:photoId/thumbnail',
+  asyncHandler(projectSharingController.viewSharedProjectPhoto)
+);
+
+/**
  * @route   GET /shared/chart/:token
  * @desc    View shared chart (public)
  * @access  Public

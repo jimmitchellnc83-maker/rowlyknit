@@ -5,7 +5,6 @@ import compression from 'compression';
 import cookieParser from 'cookie-parser';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
-import path from 'path';
 
 // Load environment variables
 dotenv.config();
@@ -130,8 +129,11 @@ app.use(auditMiddleware);
 app.use('/api/', apiLimiter);
 app.use('/shared/', publicSharedLimiter);
 
-// Static files (uploads)
-app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
+// Static `/uploads` mount intentionally removed (migration 070, 2026-05-02).
+// Every uploaded asset is now served by an authenticated streaming
+// endpoint with ownership/sharing checks (see uploadsController,
+// notesController, projectSharingController). Filenames on disk are
+// random hex tokens so guessing a row id no longer yields a URL.
 
 // Import health check handlers
 import { healthCheckHandler, livenessProbe, readinessProbe } from './utils/healthCheck';

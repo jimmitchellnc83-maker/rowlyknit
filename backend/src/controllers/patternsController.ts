@@ -5,8 +5,10 @@ import { createAuditLog } from '../middleware/auditLog';
 import logger from '../config/logger';
 import { PDFDocument, rgb } from 'pdf-lib';
 import axios from 'axios';
+import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
+import { streamSafeUpload } from '../utils/uploadStorage';
 import { sanitizeSearchQuery } from '../utils/inputSanitizer';
 import { intOrNull } from '../utils/numericInput';
 import { assertPublicUrl } from '../utils/ssrfGuard';
@@ -588,18 +590,19 @@ export async function collatePatterns(req: Request, res: Response) {
       fs.mkdirSync(collatedDir, { recursive: true });
     }
 
-    const timestamp = Date.now();
-    const filename = `collated-${timestamp}.pdf`;
+    const filename = `${crypto.randomBytes(16).toString('hex')}.pdf`;
     const filePath = path.join(collatedDir, filename);
 
     fs.writeFileSync(filePath, pdfBytes);
 
-    // Store collation record in database
+    // Store collation record in database. file_path is the on-disk
+    // filename only — the URL exposed to the client routes through an
+    // authenticated endpoint that re-checks ownership.
     const [collation] = await db('pattern_collations')
       .insert({
         user_id: userId,
         pattern_ids: JSON.stringify(patternIds),
-        file_path: `collated/${filename}`,
+        file_path: filename,
         file_size: pdfBytes.byteLength,
         page_count: mergedPdf.getPageCount(),
         created_at: new Date(),
@@ -620,7 +623,7 @@ export async function collatePatterns(req: Request, res: Response) {
       data: {
         collation: {
           id: collation.id,
-          fileUrl: `/uploads/collated/${filename}`,
+          fileUrl: `/api/patterns/collations/${collation.id}/download`,
           pageCount: mergedPdf.getPageCount(),
           fileSize: pdfBytes.byteLength,
           patternCount: patternIds.length,
@@ -631,4 +634,47 @@ export async function collatePatterns(req: Request, res: Response) {
     logger.error('Error collating PDFs', { error: error.message, stack: error.stack });
     throw new Error('Failed to collate PDF files');
   }
+}
+
+// Stream a previously-generated pattern-export PDF. Replaces the old
+// `/uploads/exports/<userId>/<filename>` static URL. The userId in the
+// path must match the requesting user; combined with the random hex
+// filename, this means even a logged-in attacker can't enumerate
+// another user's exports.
+export async function downloadPatternExport(req: Request, res: Response) {
+  const { userId: pathUserId, filename } = req.params;
+  if (req.user?.userId !== pathUserId) {
+    return res.status(404).json({ success: false, message: 'Export not found' });
+  }
+  await streamSafeUpload(res, {
+    subdir: `exports/${pathUserId}`,
+    filename,
+    mimeType: 'application/pdf',
+    disposition: 'attachment',
+    downloadFilename: 'rowly-pattern.pdf',
+  });
+}
+
+// Stream a previously-collated PDF. Replaces the old `/uploads/collated/...`
+// static URL — the on-disk filename is a random hex token and the
+// streamer enforces ownership.
+export async function downloadPatternCollation(req: Request, res: Response) {
+  const userId = req.user!.userId;
+  const { collationId } = req.params;
+
+  const collation = await db('pattern_collations')
+    .where({ id: collationId, user_id: userId })
+    .first();
+
+  if (!collation || !collation.file_path) {
+    throw new NotFoundError('Collation not found');
+  }
+
+  await streamSafeUpload(res, {
+    subdir: 'collated',
+    filename: collation.file_path,
+    mimeType: 'application/pdf',
+    disposition: 'attachment',
+    downloadFilename: 'rowly-collated.pdf',
+  });
 }

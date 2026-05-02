@@ -4,7 +4,9 @@ import { createAuditLog } from '../middleware/auditLog';
 import {
   setProjectVisibility,
   getPublicProjectBySlug,
+  getPublicProjectPhoto,
 } from '../services/projectSharingService';
+import { streamSafeUpload } from '../utils/uploadStorage';
 
 // PATCH /api/projects/:id/visibility — owner toggles whether a project is
 // publicly viewable. Generates a stable slug on first publish.
@@ -66,4 +68,40 @@ export async function viewSharedProject(req: Request, res: Response) {
     success: true,
     data: { project },
   });
+}
+
+// GET /shared/project/:slug/photos/:photoId(/thumbnail) — public photo
+// streamer that re-checks `is_public=true` on every fetch. Filenames on
+// disk are random hex tokens so guessing the slug doesn't get you a
+// neighbor's photo.
+export async function viewSharedProjectPhoto(req: Request, res: Response) {
+  const { slug, photoId } = req.params;
+  const variant = req.path.endsWith('/thumbnail') ? 'thumbnail' : 'full';
+
+  const photo = await getPublicProjectPhoto(slug, photoId);
+  if (!photo) {
+    return res.status(404).json({
+      success: false,
+      message: 'Photo not found or no longer public',
+    });
+  }
+
+  if (variant === 'thumbnail') {
+    if (!photo.thumbnail_filename) {
+      return res.status(404).json({ success: false, message: 'Thumbnail not found' });
+    }
+    await streamSafeUpload(res, {
+      subdir: 'projects/thumbnails',
+      filename: photo.thumbnail_filename,
+      mimeType: photo.mime_type ?? 'image/webp',
+      cacheControl: 'public, max-age=86400',
+    });
+  } else {
+    await streamSafeUpload(res, {
+      subdir: 'projects',
+      filename: photo.filename,
+      mimeType: photo.mime_type ?? 'image/webp',
+      cacheControl: 'public, max-age=86400',
+    });
+  }
 }

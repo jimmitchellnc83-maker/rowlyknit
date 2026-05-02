@@ -8,6 +8,11 @@ import { promisify } from 'util';
 import db from '../config/database';
 import logger from '../config/logger';
 import { sanitizeHeaderValue } from '../utils/inputSanitizer';
+import {
+  generateStorageFilename,
+  streamSafeUpload,
+  uploadRoot,
+} from '../utils/uploadStorage';
 
 const unlinkAsync = promisify(fs.unlink);
 
@@ -131,9 +136,8 @@ export const uploadProjectPhoto = async (req: Request, res: Response) => {
       });
     }
 
-    const timestamp = Date.now();
-    const filename = `project-${projectId}-${timestamp}.webp`;
-    const thumbnailFilename = `project-${projectId}-${timestamp}-thumb.webp`;
+    const filename = generateStorageFilename('.webp');
+    const thumbnailFilename = generateStorageFilename('.webp');
 
     const filepath = path.join('uploads/projects', filename);
     const thumbnailPath = path.join('uploads/projects/thumbnails', thumbnailFilename);
@@ -153,15 +157,16 @@ export const uploadProjectPhoto = async (req: Request, res: Response) => {
     // Get image metadata
     const metadata = await sharp(req.file.buffer).metadata();
 
-    // Save to database
+    // Insert first to get the photo id, then update file_path /
+    // thumbnail_path with the auth-streaming URLs (which embed the id).
     const [photo] = await db('project_photos')
       .insert({
         project_id: projectId,
         filename: filename,
         thumbnail_filename: thumbnailFilename,
         original_filename: req.file.originalname,
-        file_path: `/uploads/projects/${filename}`,
-        thumbnail_path: `/uploads/projects/thumbnails/${thumbnailFilename}`,
+        file_path: '',
+        thumbnail_path: '',
         mime_type: 'image/webp',
         size: req.file.size,
         width: metadata.width,
@@ -169,6 +174,14 @@ export const uploadProjectPhoto = async (req: Request, res: Response) => {
         caption: req.body.caption || null,
       })
       .returning('*');
+
+    const filePathUrl = `/api/uploads/projects/${projectId}/photos/${photo.id}`;
+    const thumbnailPathUrl = `/api/uploads/projects/${projectId}/photos/${photo.id}/thumbnail`;
+    await db('project_photos')
+      .where({ id: photo.id })
+      .update({ file_path: filePathUrl, thumbnail_path: thumbnailPathUrl });
+    photo.file_path = filePathUrl;
+    photo.thumbnail_path = thumbnailPathUrl;
 
     res.status(201).json({
       success: true,
@@ -334,9 +347,8 @@ export const uploadPatternFile = async (req: Request, res: Response) => {
       });
     }
 
-    const timestamp = Date.now();
     const ext = path.extname(req.file.originalname) || '.pdf';
-    const filename = `pattern-${patternId}-${timestamp}${ext}`;
+    const filename = generateStorageFilename(ext);
     const filepath = path.join('uploads/patterns', filename);
 
     // Save the file
@@ -345,20 +357,25 @@ export const uploadPatternFile = async (req: Request, res: Response) => {
     // Determine file type
     const fileType = getFileType(req.file.mimetype, req.file.originalname);
 
-    // Save to database
+    // Insert first to get the id, then write the auth-endpoint URL into
+    // file_path so callers always get an authenticated link back.
     const [file] = await db('pattern_files')
       .insert({
         pattern_id: patternId,
         user_id: userId,
         filename: filename,
         original_filename: req.file.originalname,
-        file_path: `/uploads/patterns/${filename}`,
+        file_path: '',
         mime_type: req.file.mimetype,
         size: req.file.size,
         file_type: fileType,
         description: req.body.description || null,
       })
       .returning('*');
+
+    const downloadUrl = `/api/uploads/patterns/${patternId}/files/${file.id}/download`;
+    await db('pattern_files').where({ id: file.id }).update({ file_path: downloadUrl });
+    file.file_path = downloadUrl;
 
     res.status(201).json({
       success: true,
@@ -479,69 +496,172 @@ export const downloadPatternFile = async (req: Request, res: Response) => {
     const userId = req.user!.userId;
     const { patternId, fileId } = req.params;
 
-    // Verify pattern exists and belongs to user
     const pattern = await db('patterns')
       .where({ id: patternId, user_id: userId })
       .whereNull('deleted_at')
       .first();
 
     if (!pattern) {
-      return res.status(404).json({
-        success: false,
-        message: 'Pattern not found',
-      });
+      return res.status(404).json({ success: false, message: 'Pattern not found' });
     }
 
-    // Get file
     const file = await db('pattern_files')
       .where({ id: fileId, pattern_id: patternId, user_id: userId })
       .whereNull('deleted_at')
       .first();
 
     if (!file) {
-      return res.status(404).json({
-        success: false,
-        message: 'File not found',
-      });
+      return res.status(404).json({ success: false, message: 'File not found' });
     }
 
-    const filepath = path.join('uploads/patterns', file.filename);
-
-    if (!fs.existsSync(filepath)) {
-      return res.status(404).json({
-        success: false,
-        message: 'File not found on server',
-      });
-    }
-
-    // Set headers for download/viewing
-    res.setHeader('Content-Type', file.mime_type);
-
-    // Sanitize filename to prevent header injection attacks
     const sanitizedFilename = sanitizeHeaderValue(file.original_filename);
-
-    // Use inline disposition for PDFs and images to allow browser viewing
-    // Use attachment for other file types to trigger download
     const forceDownload = req.query.download === 'true';
     const isViewableInBrowser = file.file_type === 'pdf' || file.file_type === 'image';
+    const disposition: 'inline' | 'attachment' =
+      isViewableInBrowser && !forceDownload ? 'inline' : 'attachment';
 
-    if (isViewableInBrowser && !forceDownload) {
-      res.setHeader('Content-Disposition', `inline; filename="${sanitizedFilename}"`);
-    } else {
-      res.setHeader('Content-Disposition', `attachment; filename="${sanitizedFilename}"`);
-    }
-
-    // Stream the file
-    const fileStream = fs.createReadStream(filepath);
-    fileStream.pipe(res);
+    await streamSafeUpload(res, {
+      subdir: 'patterns',
+      filename: file.filename,
+      mimeType: file.mime_type,
+      cacheControl: 'private, max-age=300, must-revalidate',
+      disposition,
+      downloadFilename: sanitizedFilename,
+    });
   } catch (error: any) {
     logger.error('Error downloading pattern file', { error: error.message, stack: error.stack });
-    res.status(500).json({
-      success: false,
-      message: 'Failed to download pattern file',
-    });
+    if (!res.headersSent) {
+      res.status(500).json({ success: false, message: 'Failed to download pattern file' });
+    }
   }
 };
+
+// ============================================
+// AUTHENTICATED STREAMING ENDPOINTS
+// ============================================
+//
+// These replace the old `app.use('/uploads', express.static(...))`
+// mount. Each one verifies ownership before streaming, and the
+// underlying helper rejects anything that isn't `<32-hex>.<ext>` so a
+// poisoned DB row can't traverse the upload tree.
+
+const photoVariant = (req: Request): 'full' | 'thumbnail' =>
+  req.path.endsWith('/thumbnail') ? 'thumbnail' : 'full';
+
+export const serveProjectPhoto = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user!.userId;
+    const { projectId, photoId } = req.params;
+
+    const project = await db('projects')
+      .where({ id: projectId, user_id: userId })
+      .whereNull('deleted_at')
+      .first();
+    if (!project) {
+      return res.status(404).json({ success: false, message: 'Project not found' });
+    }
+
+    const photo = await db('project_photos')
+      .where({ id: photoId, project_id: projectId })
+      .whereNull('deleted_at')
+      .first();
+    if (!photo) {
+      return res.status(404).json({ success: false, message: 'Photo not found' });
+    }
+
+    const variant = photoVariant(req);
+    if (variant === 'thumbnail') {
+      await streamSafeUpload(res, {
+        subdir: 'projects/thumbnails',
+        filename: photo.thumbnail_filename,
+        mimeType: photo.mime_type ?? 'image/webp',
+      });
+    } else {
+      await streamSafeUpload(res, {
+        subdir: 'projects',
+        filename: photo.filename,
+        mimeType: photo.mime_type ?? 'image/webp',
+      });
+    }
+  } catch (error: any) {
+    logger.error('Error serving project photo', { error: error.message });
+    if (!res.headersSent) {
+      res.status(500).json({ success: false, message: 'Failed to serve photo' });
+    }
+  }
+};
+
+export const serveYarnPhoto = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user!.userId;
+    const { yarnId, photoId } = req.params;
+
+    const yarn = await db('yarn')
+      .where({ id: yarnId, user_id: userId })
+      .whereNull('deleted_at')
+      .first();
+    if (!yarn) {
+      return res.status(404).json({ success: false, message: 'Yarn not found' });
+    }
+
+    const photo = await db('yarn_photos')
+      .where({ id: photoId, yarn_id: yarnId })
+      .whereNull('deleted_at')
+      .first();
+    if (!photo) {
+      return res.status(404).json({ success: false, message: 'Photo not found' });
+    }
+
+    const variant = photoVariant(req);
+    if (variant === 'thumbnail') {
+      await streamSafeUpload(res, {
+        subdir: 'yarn/thumbnails',
+        filename: photo.thumbnail_filename,
+        mimeType: photo.mime_type ?? 'image/webp',
+      });
+    } else {
+      await streamSafeUpload(res, {
+        subdir: 'yarn',
+        filename: photo.filename,
+        mimeType: photo.mime_type ?? 'image/webp',
+      });
+    }
+  } catch (error: any) {
+    logger.error('Error serving yarn photo', { error: error.message });
+    if (!res.headersSent) {
+      res.status(500).json({ success: false, message: 'Failed to serve photo' });
+    }
+  }
+};
+
+export const servePatternThumbnail = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user!.userId;
+    const { patternId } = req.params;
+
+    const pattern = await db('patterns')
+      .where({ id: patternId, user_id: userId })
+      .whereNull('deleted_at')
+      .first();
+    if (!pattern || !pattern.thumbnail_storage_filename) {
+      return res.status(404).json({ success: false, message: 'Thumbnail not found' });
+    }
+
+    await streamSafeUpload(res, {
+      subdir: 'patterns',
+      filename: pattern.thumbnail_storage_filename,
+      mimeType: 'image/webp',
+    });
+  } catch (error: any) {
+    logger.error('Error serving pattern thumbnail', { error: error.message });
+    if (!res.headersSent) {
+      res.status(500).json({ success: false, message: 'Failed to serve thumbnail' });
+    }
+  }
+};
+
+// Keep the import to silence unused warning when uploadRoot grows callers later.
+void uploadRoot;
 
 // ============================================
 // YARN PHOTO UPLOAD FUNCTIONS
@@ -574,9 +694,8 @@ export const uploadYarnPhoto = async (req: Request, res: Response) => {
       });
     }
 
-    const timestamp = Date.now();
-    const filename = `yarn-${yarnId}-${timestamp}.webp`;
-    const thumbnailFilename = `yarn-${yarnId}-${timestamp}-thumb.webp`;
+    const filename = generateStorageFilename('.webp');
+    const thumbnailFilename = generateStorageFilename('.webp');
 
     const filepath = path.join('uploads/yarn', filename);
     const thumbnailPath = path.join('uploads/yarn/thumbnails', thumbnailFilename);
@@ -596,7 +715,6 @@ export const uploadYarnPhoto = async (req: Request, res: Response) => {
     // Get image metadata
     const metadata = await sharp(req.file.buffer).metadata();
 
-    // Save to database
     const [photo] = await db('yarn_photos')
       .insert({
         yarn_id: yarnId,
@@ -604,8 +722,8 @@ export const uploadYarnPhoto = async (req: Request, res: Response) => {
         filename: filename,
         thumbnail_filename: thumbnailFilename,
         original_filename: req.file.originalname,
-        file_path: `/uploads/yarn/${filename}`,
-        thumbnail_path: `/uploads/yarn/thumbnails/${thumbnailFilename}`,
+        file_path: '',
+        thumbnail_path: '',
         mime_type: 'image/webp',
         size: req.file.size,
         width: metadata.width,
@@ -613,6 +731,14 @@ export const uploadYarnPhoto = async (req: Request, res: Response) => {
         caption: req.body.caption || null,
       })
       .returning('*');
+
+    const filePathUrl = `/api/uploads/yarn/${yarnId}/photos/${photo.id}`;
+    const thumbnailPathUrl = `/api/uploads/yarn/${yarnId}/photos/${photo.id}/thumbnail`;
+    await db('yarn_photos')
+      .where({ id: photo.id })
+      .update({ file_path: filePathUrl, thumbnail_path: thumbnailPathUrl });
+    photo.file_path = filePathUrl;
+    photo.thumbnail_path = thumbnailPathUrl;
 
     res.status(201).json({
       success: true,
@@ -676,9 +802,8 @@ export const uploadYarnPhotoFromUrl = async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, message: 'Invalid image' });
     }
 
-    const timestamp = Date.now();
-    const filename = `yarn-${yarnId}-${timestamp}.webp`;
-    const thumbnailFilename = `yarn-${yarnId}-${timestamp}-thumb.webp`;
+    const filename = generateStorageFilename('.webp');
+    const thumbnailFilename = generateStorageFilename('.webp');
     const filepath = path.join('uploads/yarn', filename);
     const thumbnailPath = path.join('uploads/yarn/thumbnails', thumbnailFilename);
 
@@ -699,8 +824,8 @@ export const uploadYarnPhotoFromUrl = async (req: Request, res: Response) => {
         filename,
         thumbnail_filename: thumbnailFilename,
         original_filename: 'ravelry-import.webp',
-        file_path: `/uploads/yarn/${filename}`,
-        thumbnail_path: `/uploads/yarn/thumbnails/${thumbnailFilename}`,
+        file_path: '',
+        thumbnail_path: '',
         mime_type: 'image/webp',
         size: buffer.length,
         width: metadata.width,
@@ -708,6 +833,14 @@ export const uploadYarnPhotoFromUrl = async (req: Request, res: Response) => {
         caption: 'Imported from Ravelry',
       })
       .returning('*');
+
+    const filePathUrl = `/api/uploads/yarn/${yarnId}/photos/${photo.id}`;
+    const thumbnailPathUrl = `/api/uploads/yarn/${yarnId}/photos/${photo.id}/thumbnail`;
+    await db('yarn_photos')
+      .where({ id: photo.id })
+      .update({ file_path: filePathUrl, thumbnail_path: thumbnailPathUrl });
+    photo.file_path = filePathUrl;
+    photo.thumbnail_path = thumbnailPathUrl;
 
     res.status(201).json({
       success: true,
@@ -765,8 +898,7 @@ export const uploadPatternThumbnailFromUrl = async (req: Request, res: Response)
       return res.status(400).json({ success: false, message: 'Invalid image' });
     }
 
-    const timestamp = Date.now();
-    const filename = `pattern-${patternId}-${timestamp}.webp`;
+    const filename = generateStorageFilename('.webp');
     const filepath = path.join('uploads/patterns', filename);
 
     await sharp(buffer)
@@ -774,11 +906,15 @@ export const uploadPatternThumbnailFromUrl = async (req: Request, res: Response)
       .webp({ quality: 85 })
       .toFile(filepath);
 
-    const thumbnailUrl = `/uploads/patterns/${filename}`;
+    const thumbnailUrl = `/api/uploads/patterns/${patternId}/thumbnail`;
 
     await db('patterns')
       .where({ id: patternId, user_id: userId })
-      .update({ thumbnail_url: thumbnailUrl, updated_at: db.fn.now() });
+      .update({
+        thumbnail_url: thumbnailUrl,
+        thumbnail_storage_filename: filename,
+        updated_at: db.fn.now(),
+      });
 
     res.status(201).json({
       success: true,
