@@ -80,6 +80,11 @@ function mapCropRow(row: PatternCropRow): PatternCrop {
     cropHeight: Number(row.crop_height),
     label: row.label,
     chartId: row.chart_id,
+    isQuickKey: !!row.is_quickkey,
+    quickKeyPosition:
+      row.quickkey_position === undefined || row.quickkey_position === null
+        ? null
+        : Number(row.quickkey_position),
     metadata:
       (parseJsonOrPassthrough<Record<string, unknown>>(row.metadata) as
         | Record<string, unknown>

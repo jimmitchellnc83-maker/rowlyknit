@@ -7,12 +7,14 @@ import {
   createCrop,
   deleteCrop,
   listCropsForSourceFile,
+  setCropQuickKey,
   type PatternCrop,
   type SourceFile,
   sourceFileBytesUrl,
 } from '../../lib/sourceFiles';
 import { trackEvent } from '../../lib/analytics';
 import { dragToRect, isMeaningfulRect, pointInPage } from './cropMath';
+import AnnotationLayer from './AnnotationLayer';
 
 pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
 
@@ -33,6 +35,8 @@ interface SourceFilePdfViewerProps {
   patternId?: string;
   onCropCreated?: (crop: PatternCrop) => void;
 }
+
+type AnnotationTool = 'pen' | 'highlight' | 'eraser' | null;
 
 interface DragRect {
   page: number;
@@ -58,6 +62,8 @@ export default function SourceFilePdfViewer({
     cropWidth: number;
     cropHeight: number;
   } | null>(null);
+  const [activeCropId, setActiveCropId] = useState<string | null>(null);
+  const [tool, setTool] = useState<AnnotationTool>(null);
   const pageRefs = useRef<Map<number, HTMLDivElement>>(new Map());
 
   const fileUrl = useMemo(() => sourceFileBytesUrl(sourceFile.id), [sourceFile.id]);
@@ -163,6 +169,31 @@ export default function SourceFilePdfViewer({
     }
   }
 
+  async function handleToggleQuickKey(crop: PatternCrop) {
+    const current = crop.isQuickKey;
+    try {
+      const next = !current;
+      const result = await setCropQuickKey(sourceFile.id, crop.id, {
+        isQuickKey: next,
+        position: next ? Date.now() : null,
+      });
+      setCrops((prev) =>
+        prev.map((c) =>
+          c.id === crop.id
+            ? {
+                ...c,
+                isQuickKey: result.isQuickKey,
+                quickKeyPosition: result.quickKeyPosition,
+              }
+            : c
+        )
+      );
+      trackEvent('QuickKey Toggled', { isQuickKey: result.isQuickKey });
+    } catch {
+      toast.error('Failed to update QuickKey');
+    }
+  }
+
   function jumpToPage(page: number) {
     const ref = pageRefs.current.get(page);
     if (ref) ref.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -194,24 +225,44 @@ export default function SourceFilePdfViewer({
               {/* Saved crops on this page */}
               {crops
                 .filter((c) => c.pageNumber === pageNumber)
-                .map((c) => (
-                  <div
-                    key={c.id}
-                    className="absolute border-2 border-purple-500 bg-purple-200 bg-opacity-25 pointer-events-none"
-                    style={{
-                      left: `${c.cropX * 100}%`,
-                      top: `${c.cropY * 100}%`,
-                      width: `${c.cropWidth * 100}%`,
-                      height: `${c.cropHeight * 100}%`,
-                    }}
-                  >
-                    {c.label ? (
-                      <span className="absolute -top-5 left-0 text-xs bg-purple-600 text-white px-1.5 py-0.5 rounded">
-                        {c.label}
-                      </span>
-                    ) : null}
-                  </div>
-                ))}
+                .map((c) => {
+                  const isActive = activeCropId === c.id;
+                  return (
+                    <div
+                      key={c.id}
+                      className={`absolute border-2 ${
+                        isActive
+                          ? 'border-purple-700 bg-purple-200 bg-opacity-15'
+                          : 'border-purple-500 bg-purple-200 bg-opacity-25'
+                      }`}
+                      style={{
+                        left: `${c.cropX * 100}%`,
+                        top: `${c.cropY * 100}%`,
+                        width: `${c.cropWidth * 100}%`,
+                        height: `${c.cropHeight * 100}%`,
+                        pointerEvents: tool ? 'none' : 'auto',
+                      }}
+                      onClick={(e) => {
+                        if (tool) return;
+                        e.stopPropagation();
+                        setActiveCropId(isActive ? null : c.id);
+                      }}
+                    >
+                      {c.label ? (
+                        <span className="absolute -top-5 left-0 text-xs bg-purple-600 text-white px-1.5 py-0.5 rounded pointer-events-none">
+                          {c.label}
+                        </span>
+                      ) : null}
+                      {isActive ? (
+                        <AnnotationLayer
+                          sourceFileId={sourceFile.id}
+                          cropId={c.id}
+                          tool={tool}
+                        />
+                      ) : null}
+                    </div>
+                  );
+                })}
               {/* Active drag preview */}
               {drag && drag.page === pageNumber ? (
                 <div
@@ -242,6 +293,59 @@ export default function SourceFilePdfViewer({
       </div>
 
       <aside className="w-72 flex-shrink-0 flex flex-col gap-4">
+        {activeCropId ? (
+          <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-3">
+            <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">
+              Annotate active crop
+            </p>
+            <div className="mt-2 flex gap-1">
+              <button
+                type="button"
+                onClick={() => setTool(tool === 'pen' ? null : 'pen')}
+                className={`flex-1 rounded px-2 py-1 text-xs ${
+                  tool === 'pen'
+                    ? 'bg-purple-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                Pen
+              </button>
+              <button
+                type="button"
+                onClick={() => setTool(tool === 'highlight' ? null : 'highlight')}
+                className={`flex-1 rounded px-2 py-1 text-xs ${
+                  tool === 'highlight'
+                    ? 'bg-yellow-500 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                Highlight
+              </button>
+              <button
+                type="button"
+                onClick={() => setTool(tool === 'eraser' ? null : 'eraser')}
+                className={`flex-1 rounded px-2 py-1 text-xs ${
+                  tool === 'eraser'
+                    ? 'bg-red-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                Erase
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveCropId(null);
+                setTool(null);
+              }}
+              className="mt-2 w-full text-xs text-gray-500 hover:text-gray-700"
+            >
+              Done
+            </button>
+          </div>
+        ) : null}
+
         {pendingRect ? (
           <div className="rounded-lg border border-orange-300 bg-orange-50 dark:bg-orange-900/20 p-3">
             <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
@@ -285,33 +389,54 @@ export default function SourceFilePdfViewer({
             </p>
           ) : (
             <ul className="mt-2 space-y-1">
-              {crops.map((c) => (
-                <li
-                  key={c.id}
-                  className="flex items-center justify-between gap-2 rounded px-2 py-1 text-sm hover:bg-gray-50 dark:hover:bg-gray-800"
-                >
-                  <button
-                    type="button"
-                    onClick={() => jumpToPage(c.pageNumber)}
-                    className="flex-1 text-left truncate"
+              {crops.map((c) => {
+                const isQK = c.isQuickKey;
+                return (
+                  <li
+                    key={c.id}
+                    className={`flex items-center justify-between gap-2 rounded px-2 py-1 text-sm ${
+                      activeCropId === c.id
+                        ? 'bg-purple-50 dark:bg-purple-900/20'
+                        : 'hover:bg-gray-50 dark:hover:bg-gray-800'
+                    }`}
                   >
-                    <span className="text-gray-700 dark:text-gray-300">
-                      p{c.pageNumber}
-                    </span>{' '}
-                    <span className="text-gray-900 dark:text-gray-100">
-                      {c.label ?? <em className="text-gray-400">unlabeled</em>}
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteCrop(c)}
-                    className="text-xs text-red-600 hover:text-red-800"
-                    aria-label="Delete crop"
-                  >
-                    ×
-                  </button>
-                </li>
-              ))}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        jumpToPage(c.pageNumber);
+                        setActiveCropId(c.id);
+                      }}
+                      className="flex-1 text-left truncate"
+                    >
+                      <span className="text-gray-700 dark:text-gray-300">
+                        p{c.pageNumber}
+                      </span>{' '}
+                      <span className="text-gray-900 dark:text-gray-100">
+                        {c.label ?? <em className="text-gray-400">unlabeled</em>}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleToggleQuickKey(c)}
+                      className={`text-sm leading-none ${
+                        isQK ? 'text-yellow-500' : 'text-gray-300 hover:text-yellow-500'
+                      }`}
+                      aria-label={isQK ? 'Remove from QuickKeys' : 'Save as QuickKey'}
+                      title={isQK ? 'Remove from QuickKeys' : 'Save as QuickKey'}
+                    >
+                      ★
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteCrop(c)}
+                      className="text-xs text-red-600 hover:text-red-800"
+                      aria-label="Delete crop"
+                    >
+                      ×
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>

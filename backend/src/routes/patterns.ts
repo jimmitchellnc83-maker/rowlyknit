@@ -5,6 +5,7 @@ import * as blogImportController from '../controllers/blogImportController';
 import * as patternExportController from '../controllers/patternExportController';
 import * as gaugeAdjustmentController from '../controllers/gaugeAdjustmentController';
 import { listPatternCrops as listPatternCropsHandler } from '../controllers/sourceFilesController';
+import { listQuickKeysHandler } from '../controllers/annotationsController';
 import { authenticate } from '../middleware/auth';
 import { validate, validateUUID, validatePagination, validateSearch } from '../middleware/validator';
 import { asyncHandler } from '../utils/errorHandler';
@@ -252,6 +253,20 @@ router.get(
   asyncHandler(async (req, res) => {
     (req.params as Record<string, string>).patternId = req.params.id;
     return listPatternCropsHandler(req, res);
+  })
+);
+
+/**
+ * @route   GET /api/patterns/:id/quickkeys
+ * @desc    List Wave 3 QuickKey crops for a pattern
+ * @access  Private
+ */
+router.get(
+  '/:id/quickkeys',
+  validateUUID('id'),
+  asyncHandler(async (req, res) => {
+    (req.params as Record<string, string>).patternId = req.params.id;
+    return listQuickKeysHandler(req, res);
   })
 );
 

@@ -54,6 +54,8 @@ export interface PatternCrop {
   cropHeight: number;
   label: string | null;
   chartId: string | null;
+  isQuickKey: boolean;
+  quickKeyPosition: number | null;
   metadata: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
@@ -180,4 +182,113 @@ export async function pinSourceFileToProjectPattern(args: {
     `/api/projects/${args.projectId}/patterns/${args.patternId}/source-file`,
     { sourceFileId: args.sourceFileId }
   );
+}
+
+// =========================
+// Wave 3 — Annotations
+// =========================
+
+export type AnnotationType = 'pen' | 'highlight' | 'text' | 'stamp';
+
+export interface PenStrokePayload {
+  strokes: Array<Array<{ x: number; y: number }>>;
+  color: string;
+  width: number;
+  opacity?: number;
+}
+
+export interface TextAnnotationPayload {
+  x: number;
+  y: number;
+  text: string;
+  fontSize?: number;
+  color?: string;
+}
+
+export interface StampAnnotationPayload {
+  x: number;
+  y: number;
+  symbol: string;
+}
+
+export type AnnotationPayload =
+  | PenStrokePayload
+  | TextAnnotationPayload
+  | StampAnnotationPayload;
+
+export interface PatternAnnotation {
+  id: string;
+  patternCropId: string;
+  userId: string;
+  annotationType: AnnotationType;
+  payload: AnnotationPayload;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
+}
+
+export async function createAnnotation(
+  sourceFileId: string,
+  cropId: string,
+  input: { annotationType: AnnotationType; payload: AnnotationPayload }
+): Promise<PatternAnnotation> {
+  const res = await axios.post(
+    `/api/source-files/${sourceFileId}/crops/${cropId}/annotations`,
+    input
+  );
+  return res.data.data.annotation as PatternAnnotation;
+}
+
+export async function listAnnotations(
+  sourceFileId: string,
+  cropId: string
+): Promise<PatternAnnotation[]> {
+  const res = await axios.get(
+    `/api/source-files/${sourceFileId}/crops/${cropId}/annotations`
+  );
+  return res.data.data.annotations as PatternAnnotation[];
+}
+
+export async function deleteAnnotation(
+  sourceFileId: string,
+  cropId: string,
+  annotationId: string
+): Promise<void> {
+  await axios.delete(
+    `/api/source-files/${sourceFileId}/crops/${cropId}/annotations/${annotationId}`
+  );
+}
+
+// =========================
+// Wave 3 — QuickKey
+// =========================
+
+export interface QuickKeyEntry {
+  cropId: string;
+  label: string | null;
+  quickKeyPosition: number | null;
+  pageNumber: number;
+}
+
+export async function setCropQuickKey(
+  sourceFileId: string,
+  cropId: string,
+  args: { isQuickKey: boolean; position?: number | null; label?: string | null }
+): Promise<{ isQuickKey: boolean; quickKeyPosition: number | null; label: string | null }> {
+  const res = await axios.patch(
+    `/api/source-files/${sourceFileId}/crops/${cropId}/quickkey`,
+    args
+  );
+  return res.data.data as {
+    isQuickKey: boolean;
+    quickKeyPosition: number | null;
+    label: string | null;
+  };
+}
+
+export async function listQuickKeysForPattern(
+  patternId: string
+): Promise<QuickKeyEntry[]> {
+  const res = await axios.get(`/api/patterns/${patternId}/quickkeys`);
+  return res.data.data.quickKeys as QuickKeyEntry[];
 }
