@@ -10,6 +10,7 @@ import type { DesignerFormSnapshot } from '../utils/designerSnapshot';
 import { SessionManager } from '../components/sessions';
 import { useWebSocket } from '../contexts/WebSocketContext';
 import MagicMarkerManager from '../components/magic-markers/MagicMarkerManager';
+import LayoutsAndPagesSection from '../components/wave6/LayoutsAndPagesSection';
 import LoadingSpinner from '../components/LoadingSpinner';
 import PatternPreview from '../components/PatternPreview';
 import ConfirmModal from '../components/ConfirmModal';
@@ -154,6 +155,10 @@ function buildSectionDefinitions(project: Project): SectionDefinition[] {
     {
       id: 'markers',
       label: 'Markers',
+    },
+    {
+      id: 'layouts-pages',
+      label: 'Layouts & Pages',
     },
     {
       id: 'sessions',
@@ -699,6 +704,10 @@ export default function ProjectDetail() {
                 projectId={id!}
                 counters={project?.counters || []}
               />
+            </section>
+
+            <section id="section-layouts-pages">
+              <LayoutsAndPagesSection projectId={id!} />
             </section>
 
             <section id="section-sessions">
