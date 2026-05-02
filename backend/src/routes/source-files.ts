@@ -5,6 +5,7 @@ import { validate, validateUUID } from '../middleware/validator';
 import { asyncHandler } from '../utils/errorHandler';
 import * as sf from '../controllers/sourceFilesController';
 import * as ann from '../controllers/annotationsController';
+import * as ca from '../controllers/chartAlignmentController';
 
 const router = Router();
 router.use(authenticate);
@@ -169,6 +170,80 @@ router.patch(
   ],
   validate,
   asyncHandler(ann.setQuickKeyHandler)
+);
+
+// =========================
+// Wave 5 — Chart alignment + Magic Marker
+// =========================
+
+// PUT /api/source-files/:id/crops/:cropId/alignment
+router.put(
+  '/:id/crops/:cropId/alignment',
+  [
+    validateUUID('id'),
+    validateUUID('cropId'),
+    body('gridX').isFloat({ min: 0, max: 1 }),
+    body('gridY').isFloat({ min: 0, max: 1 }),
+    body('gridWidth').isFloat({ gt: 0, max: 1 }),
+    body('gridHeight').isFloat({ gt: 0, max: 1 }),
+    body('cellsAcross').isInt({ min: 1 }),
+    body('cellsDown').isInt({ min: 1 }),
+  ],
+  validate,
+  asyncHandler(ca.setAlignmentHandler)
+);
+
+// GET /api/source-files/:id/crops/:cropId/alignment
+router.get(
+  '/:id/crops/:cropId/alignment',
+  [validateUUID('id'), validateUUID('cropId')],
+  validate,
+  asyncHandler(ca.getAlignmentHandler)
+);
+
+// POST /api/source-files/:id/crops/:cropId/magic-marker/sample
+router.post(
+  '/:id/crops/:cropId/magic-marker/sample',
+  [
+    validateUUID('id'),
+    validateUUID('cropId'),
+    body('chartAlignmentId').isUUID(),
+    body('symbol').isString().isLength({ min: 1, max: 32 }),
+    body('gridRow').isInt({ min: 0 }),
+    body('gridCol').isInt({ min: 0 }),
+    body('imageHash').optional({ values: 'null' }).isString().isLength({ max: 64 }),
+    body('matchMetadata').optional({ values: 'null' }).isObject(),
+  ],
+  validate,
+  asyncHandler(ca.recordSampleHandler)
+);
+
+// POST /api/source-files/:id/crops/:cropId/magic-marker/match
+router.post(
+  '/:id/crops/:cropId/magic-marker/match',
+  [
+    validateUUID('id'),
+    validateUUID('cropId'),
+    body('chartAlignmentId').isUUID(),
+    body('targetHash').isString().isLength({ min: 1, max: 64 }),
+    body('maxDistance').optional().isInt({ min: 0, max: 64 }),
+  ],
+  validate,
+  asyncHandler(ca.findMatchesHandler)
+);
+
+// POST /api/source-files/:id/crops/:cropId/magic-marker/confirm
+router.post(
+  '/:id/crops/:cropId/magic-marker/confirm',
+  [
+    validateUUID('id'),
+    validateUUID('cropId'),
+    body('chartId').isUUID(),
+    body('symbol').isString().isLength({ min: 1, max: 32 }),
+    body('cells').isArray(),
+  ],
+  validate,
+  asyncHandler(ca.confirmMatchesHandler)
 );
 
 export default router;
