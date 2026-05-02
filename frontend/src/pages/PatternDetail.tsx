@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
-import { FiArrowLeft, FiEdit2, FiTrash2, FiFileText, FiGrid, FiTool, FiBook, FiCheckCircle } from 'react-icons/fi';
+import { FiArrowLeft, FiBookmark, FiEdit2, FiTrash2, FiFileText, FiGrid, FiTool, FiBook, FiCheckCircle } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { PDFCollation } from '../components/patterns';
@@ -15,6 +15,7 @@ import type { DesignerFormSnapshot } from '../utils/designerSnapshot';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ConfirmModal from '../components/ConfirmModal';
 import { ChartImageUpload } from '../components/charts';
+import SourceFilesPanel from '../components/source-files/SourceFilesPanel';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { formatDate } from '../utils/formatDate';
 import { parsePatternDetailTab, type PatternDetailTab } from './patternDetailTabs';
@@ -420,6 +421,19 @@ export default function PatternDetail() {
               </div>
             </button>
             <button
+              onClick={() => setActiveTab('sources')}
+              className={`px-4 md:px-6 py-4 md:py-3 text-sm md:text-base font-medium border-b-2 whitespace-nowrap flex-shrink-0 ${
+                activeTab === 'sources'
+                  ? 'border-purple-600 text-purple-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <FiBookmark className="h-5 w-5 md:h-4 md:w-4" />
+                <span className="hidden sm:inline">Sources</span>
+              </div>
+            </button>
+            <button
               onClick={() => setActiveTab('tools')}
               className={`px-4 md:px-6 py-4 md:py-3 text-sm md:text-base font-medium border-b-2 whitespace-nowrap flex-shrink-0 ${
                 activeTab === 'tools'
@@ -665,6 +679,13 @@ export default function PatternDetail() {
               )}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Sources Tab — Wave 2 PDF/crop surface */}
+      {activeTab === 'sources' && id && (
+        <div className="bg-white dark:bg-gray-900 rounded-lg shadow p-6 min-h-[600px]">
+          <SourceFilesPanel patternId={id} />
         </div>
       )}
 

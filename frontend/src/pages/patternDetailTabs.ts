@@ -10,6 +10,7 @@ export const PATTERN_DETAIL_TABS = [
   'overview',
   'viewer',
   'charts',
+  'sources',
   'tools',
   'feasibility',
 ] as const;
