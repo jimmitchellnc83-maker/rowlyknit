@@ -47,18 +47,23 @@ interface SetVisibilityInput {
   projectId: string;
   userId: string;
   isPublic: boolean;
+  // Optional: opt-in to leaking project notes onto the public page.
+  // Falsy/undefined = no change; explicit true/false flips it.
+  publicNotes?: boolean;
 }
 
 interface SetVisibilityResult {
   isPublic: boolean;
   shareSlug: string | null;
   publishedAt: Date | null;
+  publicNotes: boolean;
 }
 
 export async function setProjectVisibility({
   projectId,
   userId,
   isPublic,
+  publicNotes,
 }: SetVisibilityInput): Promise<SetVisibilityResult | null> {
   const project = await db('projects')
     .where({ id: projectId, user_id: userId })
@@ -77,16 +82,22 @@ export async function setProjectVisibility({
     publishedAt = new Date();
   }
 
-  await db('projects')
-    .where({ id: projectId, user_id: userId })
-    .update({
-      is_public: isPublic,
-      share_slug: shareSlug,
-      published_at: publishedAt,
-      updated_at: new Date(),
-    });
+  const update: Record<string, unknown> = {
+    is_public: isPublic,
+    share_slug: shareSlug,
+    published_at: publishedAt,
+    updated_at: new Date(),
+  };
+  if (typeof publicNotes === 'boolean') {
+    update.public_notes = publicNotes;
+  }
 
-  return { isPublic, shareSlug, publishedAt };
+  await db('projects').where({ id: projectId, user_id: userId }).update(update);
+
+  const finalPublicNotes =
+    typeof publicNotes === 'boolean' ? publicNotes : Boolean(project.public_notes);
+
+  return { isPublic, shareSlug, publishedAt, publicNotes: finalPublicNotes };
 }
 
 interface PublicProjectView {
@@ -97,13 +108,48 @@ interface PublicProjectView {
   status: string;
   startedDate: string | null;
   completedDate: string | null;
-  metadata: Record<string, unknown>;
+  // Allowlisted subset of metadata — see `extractPublicMetadata`. Free-form
+  // metadata is NOT projected, so private fields (recipient names,
+  // designer-internal notes, scratch JSON) don't leak. Cross-craft:
+  // grow this shape, don't replace it, when crochet/etc. land.
+  metadata: PublicMetadata;
   notes: string | null;
   viewCount: number;
   publishedAt: string | null;
   primaryPhoto: { url: string; thumbnailUrl: string; caption: string | null } | null;
   photos: Array<{ url: string; thumbnailUrl: string; caption: string | null }>;
   yarn: Array<{ name: string; brand: string | null; weight: string | null; color: string | null }>;
+}
+
+export interface PublicMetadata {
+  gauge?: {
+    stitches?: number;
+    rows?: number;
+    measurement?: number;
+    unit?: string;
+  };
+  needles?: string;
+  finishedSize?: string;
+}
+
+function extractPublicMetadata(raw: unknown): PublicMetadata {
+  const m =
+    typeof raw === 'string'
+      ? (JSON.parse(raw) as Record<string, unknown>)
+      : (raw as Record<string, unknown> | null) ?? {};
+  const result: PublicMetadata = {};
+  const gauge = m.gauge as Record<string, unknown> | undefined;
+  if (gauge && typeof gauge === 'object') {
+    const safe: PublicMetadata['gauge'] = {};
+    if (typeof gauge.stitches === 'number') safe.stitches = gauge.stitches;
+    if (typeof gauge.rows === 'number') safe.rows = gauge.rows;
+    if (typeof gauge.measurement === 'number') safe.measurement = gauge.measurement;
+    if (typeof gauge.unit === 'string') safe.unit = gauge.unit;
+    if (Object.keys(safe).length > 0) result.gauge = safe;
+  }
+  if (typeof m.needles === 'string') result.needles = m.needles;
+  if (typeof m.finishedSize === 'string') result.finishedSize = m.finishedSize;
+  return result;
 }
 
 // Public photos go through a slug-gated streaming endpoint
@@ -165,11 +211,11 @@ export async function getPublicProjectBySlug(slug: string): Promise<PublicProjec
     status: project.status,
     startedDate: project.start_date ?? null,
     completedDate: project.actual_completion_date ?? null,
-    metadata:
-      typeof project.metadata === 'string'
-        ? JSON.parse(project.metadata)
-        : project.metadata ?? {},
-    notes: project.notes ?? null,
+    // Strip metadata to an allowlist; opt-in for notes via public_notes.
+    // Existing publishers default to `notes: null` until they re-enable
+    // sharing notes from the share modal.
+    metadata: extractPublicMetadata(project.metadata),
+    notes: project.public_notes ? project.notes ?? null : null,
     viewCount: project.view_count ?? 0,
     publishedAt: project.published_at ?? null,
     primaryPhoto: primaryPhoto
