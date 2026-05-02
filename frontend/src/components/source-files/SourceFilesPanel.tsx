@@ -37,7 +37,10 @@ export default function SourceFilesPanel({
 
   useEffect(() => {
     let cancelled = false;
-    listSourceFiles()
+    // Scope the list to the current pattern when one is in context. The
+    // unscoped call returns the user's whole file library which made the
+    // panel look like a global file dump (PRD doc 03 anti-pattern).
+    listSourceFiles(patternId ? { patternId } : undefined)
       .then((rows) => {
         if (cancelled) return;
         setSourceFiles(rows);
@@ -49,9 +52,9 @@ export default function SourceFilesPanel({
     return () => {
       cancelled = true;
     };
-    // intentional: only on mount
+    // intentional: only on mount + when patternId changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [patternId]);
 
   async function handleFile(file: File) {
     setUploading(true);
@@ -148,7 +151,17 @@ export default function SourceFilesPanel({
                   className="flex-1 text-left truncate"
                   title={sf.originalFilename ?? sf.id}
                 >
-                  {sf.originalFilename ?? '(unnamed)'}
+                  <span className="flex items-center gap-1.5">
+                    <span className="truncate">{sf.originalFilename ?? '(unnamed)'}</span>
+                    {sf.attachmentCount !== undefined && sf.attachmentCount > 1 && (
+                      <span
+                        className="flex-shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-800 dark:bg-amber-900/40 dark:text-amber-200"
+                        title={`Attached to ${sf.attachmentCount} patterns`}
+                      >
+                        Shared
+                      </span>
+                    )}
+                  </span>
                   <span className="block text-xs text-gray-500">
                     {sf.kind} · {sf.craft}
                     {sf.pageCount ? ` · ${sf.pageCount}p` : ''}

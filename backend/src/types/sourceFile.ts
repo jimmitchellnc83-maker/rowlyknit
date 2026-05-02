@@ -48,6 +48,12 @@ export interface SourceFile {
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
+
+  // Optional, populated by `listSourceFilesForUser` so the UI can render
+  // a "Shared" badge when the same file is referenced by crops on more
+  // than one pattern. Distinct count of pattern_ids on this file's
+  // pattern_crops rows; absent on direct lookups (`getSourceFileById`).
+  attachmentCount?: number;
 }
 
 export interface SourceFileRow {
