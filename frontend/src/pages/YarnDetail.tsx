@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { FiArrowLeft, FiEdit2, FiTrash2, FiPackage, FiAlertCircle, FiFolder } from 'react-icons/fi';
+import { FiArrowLeft, FiEdit2, FiTrash2, FiPackage, FiAlertCircle, FiFolder, FiRepeat } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import ConfirmModal from '../components/ConfirmModal';
@@ -210,6 +210,21 @@ export default function YarnDetail() {
           Back to Stash
         </button>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              const params = new URLSearchParams();
+              if (yarn.weight) params.set('weight', yarn.weight);
+              if (yarn.fiber_content) params.set('fiber', yarn.fiber_content);
+              if (yarn.yards_remaining != null) params.set('yardage', String(yarn.yards_remaining));
+              params.set('returnTo', `/yarn/${id}`);
+              navigate(`/calculators/yarn-sub?${params.toString()}`);
+            }}
+            title="Find what else in your stash could stand in for this yarn"
+            className="flex items-center gap-2 px-4 py-2 bg-purple-50 text-purple-600 rounded-lg hover:bg-purple-100 transition"
+          >
+            <FiRepeat className="h-4 w-4" />
+            Substitute this
+          </button>
           <button
             onClick={() => navigate(`/yarn?edit=${id}`)}
             className="flex items-center gap-2 px-4 py-2 bg-purple-50 text-purple-600 rounded-lg hover:bg-purple-100 transition"
