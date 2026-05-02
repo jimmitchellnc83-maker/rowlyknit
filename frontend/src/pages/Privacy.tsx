@@ -69,11 +69,14 @@ export default function Privacy() {
 
       <h2>Your rights</h2>
       <p>
-        You can access, export, correct, or delete your Rowly data at any time. For
-        requests not yet available in the product UI, email{' '}
+        You can access, export, correct, or delete your Rowly data at any time from{' '}
+        <a href="/profile?tab=privacy">Profile &rarr; Privacy &amp; Data</a>. Exports
+        bundle every project, pattern, yarn entry, photo, and account record we hold;
+        deletion runs after a 30-day grace window so you can change your mind. Residents
+        of the EU/UK (GDPR) and California (CCPA) have additional rights — for anything
+        not yet self-serve, email{' '}
         <a href="mailto:hello@rowlyknit.com">hello@rowlyknit.com</a> and we will respond
-        within 30 days. Residents of the EU/UK (GDPR) and California (CCPA) have
-        additional rights; contact us to exercise them.
+        within 30 days.
       </p>
 
       <h2>Cookies</h2>
