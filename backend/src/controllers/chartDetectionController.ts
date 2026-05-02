@@ -8,6 +8,7 @@ import {
 import path from 'path';
 import fs from 'fs/promises';
 import { v4 as uuidv4 } from 'uuid';
+import { generateStorageFilename, streamSafeUpload } from '../utils/uploadStorage';
 
 // Upload directory for chart images
 const UPLOAD_DIR = process.env.UPLOAD_DIR || './uploads/charts';
@@ -51,12 +52,15 @@ export const detectFromImage = async (req: Request, res: Response) => {
     // Ensure upload directory exists
     await fs.mkdir(UPLOAD_DIR, { recursive: true });
 
-    // Save original image
+    // Random on-disk filename so URL guessing can't enumerate; the
+    // public URL routes through /api/charts/detection/:id/image which
+    // re-checks ownership before streaming.
     const imageExt = path.extname(originalFilename) || '.png';
-    const imagePath = path.join(UPLOAD_DIR, `${detectionId}${imageExt}`);
+    const storageFilename = generateStorageFilename(imageExt);
+    const imagePath = path.join(UPLOAD_DIR, storageFilename);
     await fs.writeFile(imagePath, imageBuffer);
 
-    const imageUrl = `/uploads/charts/${detectionId}${imageExt}`;
+    const imageUrl = `/api/charts/detection/${detectionId}/image`;
 
     // Create pending detection record
     await db('detected_charts').insert({
@@ -64,6 +68,7 @@ export const detectFromImage = async (req: Request, res: Response) => {
       user_id: userId,
       project_id: project_id || null,
       original_image_url: imageUrl,
+      storage_filename: storageFilename,
       status: 'processing',
     });
 
@@ -419,11 +424,8 @@ export const deleteDetection = async (req: Request, res: Response) => {
     }
 
     // Delete image file if exists
-    if (detection.original_image_url) {
-      const imagePath = path.join(
-        process.cwd(),
-        detection.original_image_url.replace(/^\//, '')
-      );
+    if (detection.storage_filename) {
+      const imagePath = path.join(UPLOAD_DIR, detection.storage_filename);
       try {
         await fs.unlink(imagePath);
       } catch (e) {
@@ -438,6 +440,33 @@ export const deleteDetection = async (req: Request, res: Response) => {
     logger.error('Error deleting detection:', error);
     return res.status(500).json({ error: 'Failed to delete detection' });
   }
+};
+
+/**
+ * Stream the original detection image. Replaces the old
+ * `/uploads/charts/<detectionId>.<ext>` path served by the static mount.
+ * GET /api/charts/detection/:detectionId/image
+ */
+export const streamDetectionImage = async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
+  if (!userId) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const { detectionId } = req.params;
+  const detection = await db('detected_charts')
+    .where({ id: detectionId, user_id: userId })
+    .first('storage_filename');
+
+  if (!detection || !detection.storage_filename) {
+    return res.status(404).json({ error: 'Detection not found' });
+  }
+
+  await streamSafeUpload(res, {
+    subdir: 'charts',
+    filename: detection.storage_filename,
+    mimeType: 'image/png',
+  });
 };
 
 export default {

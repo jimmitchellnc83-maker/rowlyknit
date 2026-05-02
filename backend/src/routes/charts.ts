@@ -65,6 +65,17 @@ router.get(
 );
 
 /**
+ * @route   GET /api/charts/detection/:detectionId/image
+ * @desc    Stream the original uploaded chart image (auth + ownership)
+ * @access  Private
+ */
+router.get(
+  '/detection/:detectionId/image',
+  validateUUID('detectionId'),
+  asyncHandler(chartDetectionController.streamDetectionImage)
+);
+
+/**
  * @route   POST /api/charts/detection/:detectionId/correct
  * @desc    Apply corrections to detected chart
  * @access  Private

@@ -1,4 +1,5 @@
 import { PDFDocument, StandardFonts, rgb, PDFFont } from 'pdf-lib';
+import { randomBytes } from 'crypto';
 import db from '../config/database';
 import logger from '../config/logger';
 import fs from 'fs';
@@ -424,18 +425,19 @@ class PatternExportService {
         }
       );
 
-      // Save PDF
+      // Save PDF in a per-user export bucket. Filename is a random hex
+      // token so the URL can't be guessed, and the auth endpoint at
+      // /api/patterns/exports/:userId/:filename verifies the requesting
+      // user matches the path before streaming.
       const pdfBytes = await pdfDoc.save();
       const uploadDir = process.env.UPLOAD_DIR || path.join(__dirname, '../../uploads');
-      const exportsDir = path.join(uploadDir, 'exports');
+      const exportsDir = path.join(uploadDir, 'exports', userId);
 
       if (!fs.existsSync(exportsDir)) {
         fs.mkdirSync(exportsDir, { recursive: true });
       }
 
-      const timestamp = Date.now();
-      const safePatternName = patternData.name.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 30);
-      const filename = `${safePatternName}_${timestamp}.pdf`;
+      const filename = `${randomBytes(16).toString('hex')}.pdf`;
       const filePath = path.join(exportsDir, filename);
 
       fs.writeFileSync(filePath, pdfBytes);
@@ -444,14 +446,13 @@ class PatternExportService {
         userId,
         patternId,
         projectId,
-        filename,
         fileSize: pdfBytes.byteLength,
       });
 
       return {
         success: true,
-        filePath: `exports/${filename}`,
-        fileUrl: `/uploads/exports/${filename}`,
+        filePath: path.join('exports', userId, filename),
+        fileUrl: `/api/patterns/exports/${userId}/${filename}`,
         fileSize: pdfBytes.byteLength,
       };
     } catch (error) {

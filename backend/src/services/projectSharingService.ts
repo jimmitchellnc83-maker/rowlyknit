@@ -101,15 +101,18 @@ interface PublicProjectView {
   notes: string | null;
   viewCount: number;
   publishedAt: string | null;
-  primaryPhoto: { url: string; caption: string | null } | null;
-  photos: Array<{ url: string; caption: string | null }>;
+  primaryPhoto: { url: string; thumbnailUrl: string; caption: string | null } | null;
+  photos: Array<{ url: string; thumbnailUrl: string; caption: string | null }>;
   yarn: Array<{ name: string; brand: string | null; weight: string | null; color: string | null }>;
 }
 
-const UPLOAD_BASE = (process.env.PUBLIC_UPLOAD_URL ?? '/uploads').replace(/\/$/, '');
-
-function photoUrl(filename: string): string {
-  return `${UPLOAD_BASE}/${filename}`;
+// Public photos go through a slug-gated streaming endpoint
+// (`/shared/project/:slug/photos/:photoId`). The endpoint re-checks
+// `is_public=true` on every fetch, so unpublishing a project also
+// kills the photo URLs without churning DB rows.
+function photoUrl(slug: string, photoId: string, variant: 'full' | 'thumbnail'): string {
+  const suffix = variant === 'thumbnail' ? '/thumbnail' : '';
+  return `/shared/project/${slug}/photos/${photoId}${suffix}`;
 }
 
 export async function getPublicProjectBySlug(slug: string): Promise<PublicProjectView | null> {
@@ -147,7 +150,8 @@ export async function getPublicProjectBySlug(slug: string): Promise<PublicProjec
     });
 
   const mappedPhotos = photos.map((p) => ({
-    url: photoUrl(p.filename),
+    url: photoUrl(slug, p.id, 'full'),
+    thumbnailUrl: photoUrl(slug, p.id, 'thumbnail'),
     caption: p.caption ?? null,
   }));
   const primaryPhoto =
@@ -169,7 +173,11 @@ export async function getPublicProjectBySlug(slug: string): Promise<PublicProjec
     viewCount: project.view_count ?? 0,
     publishedAt: project.published_at ?? null,
     primaryPhoto: primaryPhoto
-      ? { url: photoUrl(primaryPhoto.filename), caption: primaryPhoto.caption ?? null }
+      ? {
+          url: photoUrl(slug, primaryPhoto.id, 'full'),
+          thumbnailUrl: photoUrl(slug, primaryPhoto.id, 'thumbnail'),
+          caption: primaryPhoto.caption ?? null,
+        }
       : null,
     photos: mappedPhotos,
     yarn: yarn.map((y) => ({
@@ -179,4 +187,26 @@ export async function getPublicProjectBySlug(slug: string): Promise<PublicProjec
       color: y.color ?? null,
     })),
   };
+}
+
+/**
+ * Resolve a public project photo by share slug + photo id. Returns the
+ * project_photos row if the project is currently published, else null —
+ * unpublishing kills the URL without rewriting any DB rows.
+ */
+export async function getPublicProjectPhoto(
+  slug: string,
+  photoId: string
+): Promise<{ filename: string; thumbnail_filename: string | null; mime_type: string | null } | null> {
+  const project = await db('projects')
+    .where({ share_slug: slug, is_public: true })
+    .whereNull('deleted_at')
+    .first('id');
+  if (!project) return null;
+
+  const photo = await db('project_photos')
+    .where({ id: photoId, project_id: project.id })
+    .whereNull('deleted_at')
+    .first('filename', 'thumbnail_filename', 'mime_type');
+  return photo ?? null;
 }
