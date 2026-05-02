@@ -48,11 +48,24 @@ export default function QuickKeysPanel({ patternId }: Props) {
   }, [patternId]);
 
   if (loading) return null;
-  if (qks.length === 0) return null;
 
   const sorted = [...qks].sort(
     (a, b) => (a.quickKeyPosition ?? 999) - (b.quickKeyPosition ?? 999),
   );
+
+  if (sorted.length === 0) {
+    return (
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+        <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200 flex items-center gap-1.5 mb-2">
+          <FiBookmark className="h-4 w-4 text-purple-500" />
+          QuickKeys
+        </h3>
+        <p className="text-xs text-gray-500 dark:text-gray-400">
+          No QuickKeys yet. Open the pattern's Sources tab, draw a crop on a PDF, then tap the ★ on the crop to pin it as a QuickKey. It appears here next time you knit.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
