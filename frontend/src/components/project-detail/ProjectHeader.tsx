@@ -61,9 +61,9 @@ export default function ProjectHeader({
     setKnittingMode(next);
     writeKnittingMode(projectId, next);
     if (next) {
-      toast.success('Knitting Mode activated! 🧶');
+      toast.success('Make Mode activated! 🧶');
     } else {
-      toast.info('Knitting Mode deactivated');
+      toast.info('Make Mode deactivated');
     }
   };
 
@@ -101,10 +101,10 @@ export default function ProjectHeader({
         <div className="flex gap-2 flex-wrap">
           <button
             onClick={handleToggleKnittingMode}
-            className={`px-4 py-3 md:py-2 rounded-lg transition flex items-center min-h-[48px] md:min-h-0 ${
+            className={`px-4 py-3 md:py-2 rounded-lg transition flex items-center min-h-[48px] md:min-h-0 font-medium ${
               knittingMode
                 ? 'bg-green-600 text-white hover:bg-green-700'
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                : 'bg-purple-600 text-white hover:bg-purple-700 shadow-sm'
             }`}
           >
             {knittingMode ? (
@@ -113,10 +113,10 @@ export default function ProjectHeader({
               <FiEye className="mr-2 h-5 w-5 md:h-4 md:w-4" />
             )}
             <span className="text-base md:text-sm">
-              {knittingMode ? 'Exit Knitting Mode' : 'Knitting Mode'}
+              {knittingMode ? 'Exit Make Mode' : 'Resume Knitting'}
             </span>
           </button>
-          <HelpTooltip text="A focused view with just your pattern, counters, and timer. Great for active knitting sessions." />
+          <HelpTooltip text="Make Mode — focused active-knitting workspace with your pattern, counters, markers, timer, and references." />
           <button
             onClick={onShare}
             aria-label={isPublic ? 'Share — currently public' : 'Share — currently private'}

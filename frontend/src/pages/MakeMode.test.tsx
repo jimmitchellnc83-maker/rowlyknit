@@ -12,11 +12,6 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
-vi.mock('../utils/featureFlags', () => ({
-  isMakeModeEnabled: vi.fn(),
-  isAuthorModeEnabled: vi.fn(),
-}));
-
 vi.mock('../hooks/usePatternModel', () => ({
   usePatternModel: vi.fn(),
   useUpdatePatternModel: vi.fn(() => ({
@@ -30,7 +25,6 @@ vi.mock('../hooks/useSeo', () => ({
 }));
 
 import MakeMode from './MakeMode';
-import { isMakeModeEnabled } from '../utils/featureFlags';
 import { usePatternModel, useUpdatePatternModel } from '../hooks/usePatternModel';
 
 const renderRoute = () => {
@@ -90,25 +84,14 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-describe('MakeMode — feature flag gate', () => {
-  it('renders the disabled notice when the flag is off', () => {
-    vi.mocked(isMakeModeEnabled).mockReturnValue(false);
-    vi.mocked(usePatternModel).mockReturnValue({ data: undefined, isLoading: false } as any);
-    renderRoute();
-    expect(screen.getByText(/make mode is disabled/i)).toBeInTheDocument();
-  });
-});
-
 describe('MakeMode — loading + error', () => {
   it('shows loading state while the pattern fetches', () => {
-    vi.mocked(isMakeModeEnabled).mockReturnValue(true);
     vi.mocked(usePatternModel).mockReturnValue({ data: undefined, isLoading: true } as any);
     renderRoute();
     expect(screen.getByText(/loading pattern/i)).toBeInTheDocument();
   });
 
   it('shows the not-found state on error', () => {
-    vi.mocked(isMakeModeEnabled).mockReturnValue(true);
     vi.mocked(usePatternModel).mockReturnValue({
       data: undefined,
       isLoading: false,
@@ -121,7 +104,6 @@ describe('MakeMode — loading + error', () => {
 
 describe('MakeMode — happy path', () => {
   it('renders pattern name + active section + counters panel', () => {
-    vi.mocked(isMakeModeEnabled).mockReturnValue(true);
     vi.mocked(usePatternModel).mockReturnValue({
       data: samplePattern,
       isLoading: false,
@@ -144,8 +126,7 @@ describe('MakeMode — happy path', () => {
       mutateAsync,
       isPending: false,
     } as any);
-    vi.mocked(isMakeModeEnabled).mockReturnValue(true);
-    vi.mocked(usePatternModel).mockReturnValue({
+vi.mocked(usePatternModel).mockReturnValue({
       data: samplePattern,
       isLoading: false,
     } as any);
@@ -166,8 +147,7 @@ describe('MakeMode — happy path', () => {
   });
 
   it('disables +1 when the section is at total', () => {
-    vi.mocked(isMakeModeEnabled).mockReturnValue(true);
-    const atTotal = {
+const atTotal = {
       ...samplePattern,
       progressState: { rowsBySection: { 'sec-body': 120 } },
     };
@@ -180,8 +160,7 @@ describe('MakeMode — happy path', () => {
   });
 
   it('shows the "at the same time" panel when another section has progress', () => {
-    vi.mocked(isMakeModeEnabled).mockReturnValue(true);
-    const concurrent = {
+const concurrent = {
       ...samplePattern,
       progressState: {
         rowsBySection: { 'sec-body': 30, 'sec-sleeve': 12 },
@@ -203,8 +182,7 @@ describe('MakeMode — happy path', () => {
       mutateAsync,
       isPending: false,
     } as any);
-    vi.mocked(isMakeModeEnabled).mockReturnValue(true);
-    vi.mocked(usePatternModel).mockReturnValue({
+vi.mocked(usePatternModel).mockReturnValue({
       data: samplePattern,
       isLoading: false,
     } as any);

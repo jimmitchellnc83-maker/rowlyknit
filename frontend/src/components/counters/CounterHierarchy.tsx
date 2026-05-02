@@ -542,7 +542,7 @@ export default function CounterHierarchy({ projectId, onCounterChange, linkedCha
       {primaryCounters.length === 0 ? (
         <div className="text-center py-12 bg-gray-50 dark:bg-gray-800/50 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-700">
           <p className="text-gray-700 dark:text-gray-200 font-medium mb-1">
-            Add a counter to unlock Knitting Mode
+            Add a counter to unlock Make Mode
           </p>
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-4 mx-auto max-w-md">
             A basic row counter is enough to start — Rowly tracks where you are and steps forward on voice or keyboard.

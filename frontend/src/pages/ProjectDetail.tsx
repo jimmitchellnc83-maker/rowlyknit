@@ -149,7 +149,7 @@ function buildSectionDefinitions(project: Project): SectionDefinition[] {
       detail:
         counterCount > 0
           ? `${counterCount} active`
-          : 'Add one to unlock Knitting Mode',
+          : 'Add one to unlock Make Mode',
     },
     {
       id: 'markers',
