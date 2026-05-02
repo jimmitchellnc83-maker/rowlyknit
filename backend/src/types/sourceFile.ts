@@ -49,6 +49,11 @@ export interface SourceFile {
   updatedAt: string;
   deletedAt: string | null;
 
+  /** Set on upload from a pattern surface so freshly-uploaded files
+   *  appear in that pattern's Sources tab even before crops are drawn.
+   *  Migration #077. Nullable. */
+  intendedPatternId: string | null;
+
   // Optional, populated by `listSourceFilesForUser` so the UI can render
   // a "Shared" badge when the same file is referenced by crops on more
   // than one pattern. Distinct count of pattern_ids on this file's
@@ -70,6 +75,7 @@ export interface SourceFileRow {
   page_dimensions: PageDimension[] | string | null;
   parse_status: SourceFileParseStatus;
   parse_error: string | null;
+  intended_pattern_id: string | null;
   created_at: Date | string;
   updated_at: Date | string;
   deleted_at: Date | string | null;
@@ -134,6 +140,9 @@ export interface CreateSourceFileInput {
   sizeBytes?: number | null;
   pageCount?: number | null;
   pageDimensions?: PageDimension[] | null;
+  /** Pattern this file was uploaded for. Stored on the source_file row
+   *  so the pattern's Sources tab includes it before any crops exist. */
+  intendedPatternId?: string | null;
 }
 
 export interface CreateCropInput {

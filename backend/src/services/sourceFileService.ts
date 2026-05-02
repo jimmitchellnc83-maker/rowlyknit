@@ -62,6 +62,7 @@ function mapSourceFileRow(
     pageDimensions: parseJsonOrPassthrough<PageDimension[]>(row.page_dimensions),
     parseStatus: row.parse_status,
     parseError: row.parse_error,
+    intendedPatternId: row.intended_pattern_id ?? null,
     createdAt: toIsoNonNull(row.created_at),
     updatedAt: toIsoNonNull(row.updated_at),
     deletedAt: toIso(row.deleted_at),
@@ -153,6 +154,7 @@ export async function createSourceFile(
         input.pageDimensions === undefined || input.pageDimensions === null
           ? null
           : JSON.stringify(input.pageDimensions),
+      intended_pattern_id: input.intendedPatternId ?? null,
     })
     .returning('*');
   return mapSourceFileRow(row as SourceFileRow);
@@ -199,12 +201,20 @@ export async function listSourceFilesForUser(
 
   if (filters?.patternId) {
     const patternId = filters.patternId;
-    q = q.whereExists(function existsScopedCrop() {
-      this.select(db.raw('1'))
-        .from('pattern_crops as pc_filter')
-        .whereRaw('pc_filter.source_file_id = sf.id')
-        .andWhere('pc_filter.pattern_id', patternId)
-        .whereNull('pc_filter.deleted_at');
+    // Scope to files that EITHER have a crop on this pattern OR were
+    // explicitly uploaded for this pattern (intended_pattern_id set on
+    // upload). The OR closes the freshly-uploaded-without-crops gap
+    // that PR #346 left behind.
+    q = q.where(function patternScope() {
+      this.where('sf.intended_pattern_id', patternId).orWhereExists(
+        function existsScopedCrop() {
+          this.select(db.raw('1'))
+            .from('pattern_crops as pc_filter')
+            .whereRaw('pc_filter.source_file_id = sf.id')
+            .andWhere('pc_filter.pattern_id', patternId)
+            .whereNull('pc_filter.deleted_at');
+        },
+      );
     });
   }
 

@@ -32,9 +32,15 @@ Thumbs.db
 # Claude Code worktrees + session artifacts
 .claude/worktrees/
 .claude/*.local.*
+backend/.claude/
 *.swp
 *.swo
 *~
+
+# Local sqlite test DBs
+backend/rowly.db
+*.sqlite
+*.sqlite3
 
 # Coverage
 coverage/
