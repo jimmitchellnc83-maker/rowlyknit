@@ -203,6 +203,47 @@ export default function SourceFilePdfViewer({
     if (ref) ref.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
+  /**
+   * Open full-page annotation for a given page. Finds (or lazily
+   * creates) the page's "fullpage" crop — a (0,0,1,1) rectangle that
+   * covers the whole page — and selects it. Pen/highlight/eraser then
+   * draw across the entire page via the existing AnnotationLayer.
+   * Closes the user-audit gap "Full PDF annotation does not exist."
+   */
+  async function openFullPageAnnotation(page: number) {
+    const EPS = 1e-6;
+    const isFullpage = (c: PatternCrop) =>
+      c.pageNumber === page &&
+      Math.abs(c.cropX) < EPS &&
+      Math.abs(c.cropY) < EPS &&
+      Math.abs(c.cropWidth - 1) < EPS &&
+      Math.abs(c.cropHeight - 1) < EPS;
+
+    const existing = crops.find(isFullpage);
+    if (existing) {
+      setActiveCropId(existing.id);
+      setTool('pen');
+      return;
+    }
+    try {
+      const crop = await createCrop(sourceFile.id, {
+        pageNumber: page,
+        cropX: 0,
+        cropY: 0,
+        cropWidth: 1,
+        cropHeight: 1,
+        label: `Page ${page} annotations`,
+        patternId: patternId ?? null,
+      });
+      setCrops((prev) => [...prev, crop]);
+      setActiveCropId(crop.id);
+      setTool('pen');
+      trackEvent('Page Annotation Opened', { page });
+    } catch {
+      toast.error('Could not open page annotations');
+    }
+  }
+
   return (
     <div className="flex gap-4 h-full">
       <div className="flex-1 overflow-auto bg-gray-50 dark:bg-gray-900 rounded-lg p-4">
@@ -225,6 +266,23 @@ export default function SourceFilePdfViewer({
               onPointerUp={(e) => handlePagePointerUp(pageNumber, e)}
               style={{ touchAction: 'none' }}
             >
+              {/* Per-page annotation control. Sits above the PDF so it
+                  is always reachable; click opens (or creates) the
+                  page's fullpage crop and selects pen mode. */}
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs text-gray-500">Page {pageNumber}</span>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    void openFullPageAnnotation(pageNumber);
+                  }}
+                  className="text-xs rounded bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/40 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-200 px-2 py-1 font-medium"
+                  title="Annotate the whole page (pen, highlight, eraser)"
+                >
+                  Annotate page
+                </button>
+              </div>
               <Page pageNumber={pageNumber} width={600} />
               {/* Saved crops on this page */}
               {crops
