@@ -6,11 +6,13 @@ import { sourceFileBytesUrl, type PatternCrop } from '../../lib/sourceFiles';
 import {
   findMagicMarkerMatches,
   getChartAlignment,
+  listChartSymbolPalette,
   recordMagicMarkerSample,
   setChartAlignment,
   type ChartAlignment,
   type MatchCandidate,
 } from '../../lib/wave5';
+import type { ChartSymbolTemplate } from '../../types/chartSymbol';
 import { dHashRegion } from './dHash';
 
 pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
@@ -59,7 +61,28 @@ export default function ChartAssistanceModal({ sourceFileId, crop, onClose }: Pr
   const [matches, setMatches] = useState<MatchCandidate[]>([]);
   const [findingMatches, setFindingMatches] = useState(false);
 
+  // Symbol picker state (replaces window.prompt). When pendingCell is
+  // set, the user has tapped a cell and a picker overlay is shown.
+  const [palette, setPalette] = useState<ChartSymbolTemplate[]>([]);
+  const [pendingCell, setPendingCell] = useState<{ row: number; col: number } | null>(null);
+  const [symbolDraft, setSymbolDraft] = useState<string>('');
+
   const pageContainerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    listChartSymbolPalette()
+      .then((p) => {
+        if (cancelled) return;
+        setPalette([...p.system, ...p.custom]);
+      })
+      .catch(() => {
+        // No palette is OK — picker degrades to free-form input.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const targetWidth = useMemo(
     () =>
@@ -158,19 +181,21 @@ export default function ChartAssistanceModal({ sourceFileId, crop, onClose }: Pr
     }
   }
 
-  async function handleCellTap(row: number, col: number) {
+  function handleCellTap(row: number, col: number) {
     if (!alignment) return;
-    const symbol = window.prompt(
-      `Tag cell (row ${row + 1}, col ${col + 1}) with a chart symbol:`,
-      '',
-    );
-    if (!symbol) return;
+    setPendingCell({ row, col });
+    setSymbolDraft('');
+  }
+
+  async function commitSymbol(symbol: string) {
+    if (!alignment || !pendingCell) return;
     const trimmed = symbol.trim();
     if (!trimmed || trimmed.length > 32) {
       toast.error('Symbol must be 1–32 characters.');
       return;
     }
 
+    const { row, col } = pendingCell;
     let hash: string | null = null;
     const cropPx = cropToPagePixels();
     const canvas = getPageCanvas();
@@ -197,6 +222,8 @@ export default function ChartAssistanceModal({ sourceFileId, crop, onClose }: Pr
       setSamples((prev) => [...prev, { row, col, symbol: trimmed, hash }]);
       if (hash) setLastHash(hash);
       toast.success(`Tagged ${trimmed} at (${row + 1}, ${col + 1}).`);
+      setPendingCell(null);
+      setSymbolDraft('');
     } catch {
       toast.error('Could not save sample.');
     }
@@ -340,6 +367,20 @@ export default function ChartAssistanceModal({ sourceFileId, crop, onClose }: Pr
                   </button>
                 </div>
 
+                {alignment && pendingCell && (
+                  <SymbolPicker
+                    palette={palette}
+                    value={symbolDraft}
+                    onChange={setSymbolDraft}
+                    onCommit={(sym) => commitSymbol(sym)}
+                    onCancel={() => {
+                      setPendingCell(null);
+                      setSymbolDraft('');
+                    }}
+                    cellLabel={`row ${pendingCell.row + 1}, col ${pendingCell.col + 1}`}
+                  />
+                )}
+
                 {alignment && (
                   <div className="rounded border border-gray-200 dark:border-gray-700 p-3">
                     <h5 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">
@@ -462,6 +503,98 @@ function GridOverlay(props: {
           })}
         </div>
       ))}
+    </div>
+  );
+}
+
+function SymbolPicker(props: {
+  palette: ChartSymbolTemplate[];
+  value: string;
+  onChange: (v: string) => void;
+  onCommit: (v: string) => void;
+  onCancel: () => void;
+  cellLabel: string;
+}) {
+  const { palette, value, onChange, onCommit, onCancel, cellLabel } = props;
+
+  // Filter palette by what the user has typed. If empty input, show
+  // first 12 entries; otherwise filter by symbol substring (case-insens).
+  const filtered = useMemo(() => {
+    const v = value.trim().toLowerCase();
+    if (!v) return palette.slice(0, 12);
+    return palette
+      .filter(
+        (s) =>
+          s.symbol.toLowerCase().includes(v) ||
+          (s.name ?? '').toLowerCase().includes(v) ||
+          (s.abbreviation ?? '').toLowerCase().includes(v),
+      )
+      .slice(0, 12);
+  }, [palette, value]);
+
+  return (
+    <div className="rounded border border-blue-300 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-700 p-3">
+      <div className="flex items-center justify-between mb-2">
+        <h5 className="text-xs font-semibold uppercase tracking-wide text-blue-800 dark:text-blue-200">
+          Tag {cellLabel}
+        </h5>
+        <button
+          type="button"
+          onClick={onCancel}
+          aria-label="Cancel"
+          className="text-blue-700 dark:text-blue-300 hover:text-blue-900 text-xs"
+        >
+          Cancel
+        </button>
+      </div>
+      <input
+        autoFocus
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && value.trim()) {
+            e.preventDefault();
+            onCommit(value);
+          }
+          if (e.key === 'Escape') {
+            e.preventDefault();
+            onCancel();
+          }
+        }}
+        placeholder="Type a symbol (k, p, yo) or pick below"
+        maxLength={32}
+        className="w-full rounded border border-blue-300 dark:border-blue-700 px-2 py-1 text-sm dark:bg-gray-900 dark:text-gray-100"
+      />
+      {palette.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1">
+          {filtered.length === 0 ? (
+            <span className="text-[11px] text-blue-700 dark:text-blue-300">
+              No matches — press Enter to use "{value.trim()}" anyway.
+            </span>
+          ) : (
+            filtered.map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => onCommit(s.symbol)}
+                title={s.name ?? s.symbol}
+                className="rounded bg-white dark:bg-gray-800 border border-blue-300 dark:border-blue-700 px-2 py-1 text-xs hover:bg-blue-100 dark:hover:bg-blue-900/40 font-mono"
+              >
+                {s.symbol}
+              </button>
+            ))
+          )}
+        </div>
+      )}
+      <button
+        type="button"
+        onClick={() => onCommit(value)}
+        disabled={!value.trim()}
+        className="mt-2 w-full rounded bg-blue-600 px-3 py-1.5 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+      >
+        Save
+      </button>
     </div>
   );
 }

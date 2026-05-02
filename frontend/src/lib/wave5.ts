@@ -7,6 +7,7 @@
  */
 
 import axios from 'axios';
+import type { SymbolPalette } from '../types/chartSymbol';
 
 export interface ChartAlignment {
   id: string;
@@ -127,4 +128,15 @@ export async function confirmMagicMarkerMatches(
     input,
   );
   return res.data.data as { updatedCells: number };
+}
+
+/**
+ * Fetches the chart symbol palette (system + custom) so the chart-
+ * assistance modal can offer real symbols instead of a free-form prompt.
+ */
+export async function listChartSymbolPalette(
+  filters?: { craft?: 'knit' | 'crochet'; technique?: string },
+): Promise<SymbolPalette> {
+  const res = await axios.get('/api/charts/symbols/palette', { params: filters });
+  return res.data.data as SymbolPalette;
 }
