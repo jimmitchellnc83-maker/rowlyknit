@@ -4,10 +4,15 @@
  */
 
 import crypto from 'crypto';
+import bcrypt from 'bcrypt';
 import QRCode from 'qrcode';
 import db from '../config/database';
 
 const APP_URL = process.env.APP_URL || 'http://localhost:3000';
+// 12 rounds matches utils/password.ts. Hash format ($2b$12$...) lets us
+// detect legacy SHA256 entries by absence of the "$2" prefix and rehash
+// them lazily on the next successful verify.
+const BCRYPT_ROUNDS = parseInt(process.env.BCRYPT_ROUNDS || '12');
 
 export interface ShareOptions {
   visibility: 'public' | 'private';
@@ -31,19 +36,66 @@ export const generateShareToken = (): string => {
   return crypto.randomBytes(16).toString('hex');
 };
 
-/**
- * Hash password for share protection
- */
-export const hashPassword = (password: string): string => {
-  return crypto.createHash('sha256').update(password).digest('hex');
-};
+function isBcryptHash(hash: string): boolean {
+  return /^\$2[aby]\$/.test(hash);
+}
 
 /**
- * Verify share password
+ * Hash a share password for storage. New shares always use bcrypt.
  */
-export const verifyPassword = (password: string, hash: string): boolean => {
-  return hashPassword(password) === hash;
-};
+export async function hashSharePassword(password: string): Promise<string> {
+  return bcrypt.hash(password, BCRYPT_ROUNDS);
+}
+
+/**
+ * Constant-time hex string compare. Used for legacy SHA256 entries that
+ * predate this PR; the comparison is replaced with the bcrypt path on
+ * the next successful verify (see verifySharePassword).
+ */
+function timingSafeHexEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  try {
+    return crypto.timingSafeEqual(Buffer.from(a, 'hex'), Buffer.from(b, 'hex'));
+  } catch {
+    return false;
+  }
+}
+
+function legacySha256(password: string): string {
+  return crypto.createHash('sha256').update(password).digest('hex');
+}
+
+/**
+ * Verify a share password against the stored hash. Bcrypt path is the
+ * default; legacy SHA256 hashes still verify (timing-safe), and on
+ * success the row's hash is rehashed with bcrypt — so the legacy hash
+ * survives at most one more login.
+ */
+export async function verifySharePassword(
+  password: string,
+  hash: string,
+  rehash?: { table: string; column: string; where: Record<string, unknown> }
+): Promise<boolean> {
+  if (isBcryptHash(hash)) {
+    return bcrypt.compare(password, hash);
+  }
+  // Legacy SHA256
+  if (!timingSafeHexEqual(legacySha256(password), hash)) {
+    return false;
+  }
+  if (rehash) {
+    try {
+      const upgraded = await hashSharePassword(password);
+      await db(rehash.table)
+        .where(rehash.where)
+        .update({ [rehash.column]: upgraded });
+    } catch {
+      // Best-effort. Verify still succeeds; the hash will be retried
+      // on the next call.
+    }
+  }
+  return true;
+}
 
 /**
  * Create shareable link for a chart
@@ -59,7 +111,7 @@ export const createChartShareLink = async (
     ? new Date(Date.now() + options.expires_in_days * 24 * 60 * 60 * 1000)
     : null;
 
-  const passwordHash = options.password ? hashPassword(options.password) : null;
+  const passwordHash = options.password ? await hashSharePassword(options.password) : null;
 
   await db('shared_charts').insert({
     chart_id: chartId,
@@ -152,9 +204,20 @@ export const getSharedChart = async (
     return null;
   }
 
-  // Check password if protected
-  if (share.password_hash && (!password || !verifyPassword(password, share.password_hash))) {
-    throw new Error('Password required');
+  // Check password if protected. Verify upgrades legacy SHA256 hashes
+  // to bcrypt on the first successful match.
+  if (share.password_hash) {
+    if (!password) {
+      throw new Error('Password required');
+    }
+    const ok = await verifySharePassword(password, share.password_hash, {
+      table: 'shared_charts',
+      column: 'password_hash',
+      where: { id: share.id },
+    });
+    if (!ok) {
+      throw new Error('Password required');
+    }
   }
 
   // Get chart data
