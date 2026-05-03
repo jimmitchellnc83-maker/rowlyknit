@@ -174,14 +174,30 @@ export default function MarkerHistoryPanel({ projectId }: Props) {
 }
 
 function summarizePosition(p: Record<string, unknown>): string {
-  // Position is a free-form bag. Surface row e.g. {row: 12} or
-  // {row: 12, col: 3}. Render the most knitting-relevant fields first
-  // and gracefully fall back to JSON for unknown shapes.
-  const known = ['row', 'col', 'panel', 'page', 'index'];
+  // Position is a free-form bag whose shape depends on the surface.
+  // Counters write {currentValue, reset}; panels write {panelIndex,
+  // rowInPanel}; charts write {row, col}. Render the most knitting-
+  // relevant fields first; only fall back to raw JSON for shapes we
+  // genuinely don't recognize (which should be rare in practice and
+  // means we should add a key here).
+  const labels: Array<[string, string]> = [
+    ['currentValue', 'count'],
+    ['currentCount', 'count'],
+    ['row', 'row'],
+    ['col', 'col'],
+    ['panelIndex', 'panel'],
+    ['rowInPanel', 'row in panel'],
+    ['panel', 'panel'],
+    ['page', 'page'],
+    ['index', 'index'],
+  ];
   const parts: string[] = [];
-  for (const k of known) {
-    if (p[k] !== undefined && p[k] !== null) {
-      parts.push(`${k} ${String(p[k])}`);
+  const seen = new Set<string>();
+  for (const [key, label] of labels) {
+    if (seen.has(label)) continue;
+    if (p[key] !== undefined && p[key] !== null) {
+      parts.push(`${label} ${String(p[key])}`);
+      seen.add(label);
     }
   }
   if (parts.length > 0) return parts.join(', ');

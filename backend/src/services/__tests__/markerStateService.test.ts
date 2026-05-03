@@ -157,4 +157,73 @@ describe('rewindTo', () => {
     const r = await rewindTo({ historyId: 'h-1', userId: 'u-1' });
     expect(r).toBeNull();
   });
+
+  it('writes the previous currentValue back to the counters row when surface=counter', async () => {
+    // Locks in the audit-2026-05-03 fix: the marker_states mirror was
+    // being updated on rewind, but the counters table was not, so the
+    // toast said "Position rewound" while the user's counter stayed at
+    // its post-increment value.
+    const queryChain: any = {
+      leftJoin: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      whereNull: jest.fn().mockReturnThis(),
+      first: jest.fn().mockResolvedValueOnce({
+        id: 'h-1',
+        marker_state_id: 'state-1',
+        project_id: 'p-1',
+        previous_position: '{"currentValue":47,"reset":false}',
+        new_position: '{"currentValue":48,"reset":false}',
+        surface: 'counter',
+        surface_ref: 'counter-1',
+      }),
+    };
+    const countersUpdate = jest.fn().mockResolvedValue(1);
+    const countersChain: any = {
+      where: jest.fn().mockReturnThis(),
+      update: countersUpdate,
+    };
+    const dbMock = jest.requireMock('../../config/database')
+      .default as jest.Mock;
+    dbMock
+      .mockImplementationOnce(() => queryChain) // marker_state_history join
+      .mockImplementationOnce(() => dbBuilders.marker_states) // marker_states.update
+      .mockImplementationOnce(() => countersChain) // counters.update
+      .mockImplementationOnce(() => dbBuilders.marker_state_history); // history.insert
+    await rewindTo({ historyId: 'h-1', userId: 'u-1' });
+    expect(countersChain.where).toHaveBeenCalledWith({
+      id: 'counter-1',
+      project_id: 'p-1',
+    });
+    expect(countersUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ current_value: 47 })
+    );
+  });
+
+  it('does not touch counters when surface is not counter', async () => {
+    const queryChain: any = {
+      leftJoin: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      whereNull: jest.fn().mockReturnThis(),
+      first: jest.fn().mockResolvedValueOnce({
+        id: 'h-2',
+        marker_state_id: 'state-2',
+        project_id: 'p-1',
+        previous_position: '{"row":3,"col":2}',
+        new_position: '{"row":4,"col":2}',
+        surface: 'chart',
+        surface_ref: 'chart-1',
+      }),
+    };
+    // Only three db() calls happen for non-counter surfaces:
+    //   marker_state_history join → marker_states.update → history.insert.
+    // The counters branch is skipped, so we never mock a counters chain.
+    const dbMock = jest.requireMock('../../config/database')
+      .default as jest.Mock;
+    dbMock
+      .mockImplementationOnce(() => queryChain)
+      .mockImplementationOnce(() => dbBuilders.marker_states)
+      .mockImplementationOnce(() => dbBuilders.marker_state_history);
+    const r = await rewindTo({ historyId: 'h-2', userId: 'u-1' });
+    expect(r).not.toBeNull();
+  });
 });

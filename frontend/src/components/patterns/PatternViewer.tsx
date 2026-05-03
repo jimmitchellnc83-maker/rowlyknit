@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
-import { Document, Page, pdfjs } from 'react-pdf';
+import { Document, Page } from 'react-pdf';
 import {
   FiZoomIn,
   FiZoomOut,
@@ -10,7 +10,7 @@ import {
   FiSearch,
   FiX,
   FiMaximize,
-  
+
   FiBookmark,
   FiMove,
   FiEdit3,
@@ -25,9 +25,7 @@ import HelpTooltip from '../HelpTooltip';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
-
-// Configure PDF.js worker - use local file for production reliability
-pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
+import '../../lib/pdfjsWorker';
 
 interface PatternViewerProps {
   fileUrl: string;

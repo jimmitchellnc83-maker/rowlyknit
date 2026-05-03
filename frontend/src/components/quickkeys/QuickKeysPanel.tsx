@@ -1,13 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Document, Page, pdfjs } from 'react-pdf';
+import { Document, Page } from 'react-pdf';
 import { FiBookmark, FiX, FiZoomIn } from 'react-icons/fi';
 import {
   listQuickKeysForPattern,
   sourceFileBytesUrl,
   type QuickKeyEntry,
 } from '../../lib/sourceFiles';
-
-pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
+import '../../lib/pdfjsWorker';
 
 interface Props {
   patternId: string;
