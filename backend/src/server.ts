@@ -2,6 +2,7 @@ import http from 'http';
 import * as Sentry from '@sentry/node';
 import app from './app';
 import { initializeSocket } from './config/socket';
+import { assertDatabaseReady } from './config/database';
 import logger from './config/logger';
 
 // Initialize Sentry (before anything else). When the DSN is unset in
@@ -35,13 +36,18 @@ httpServer.headersTimeout = 66000;   // slightly above keepAliveTimeout
 // Initialize Socket.IO
 initializeSocket(httpServer);
 
-// Start server
+// Start server. Database readiness now runs here (was at module-import
+// time inside config/database.ts) so unit tests don't crash on a missing
+// Postgres. assertDatabaseReady will process.exit(1) on failure outside
+// the test env, mirroring the prior behavior at the right boundary.
 if (process.env.NODE_ENV !== 'test') {
-  httpServer.listen(PORT, () => {
-    logger.info(`🚀 Rowly API server running on port ${PORT}`);
-    logger.info(`📝 Environment: ${process.env.NODE_ENV}`);
-    logger.info(`🔗 Health check: http://localhost:${PORT}/health`);
-    logger.info(`🔌 Socket.IO ready for real-time connections`);
+  void assertDatabaseReady().then(() => {
+    httpServer.listen(PORT, () => {
+      logger.info(`🚀 Rowly API server running on port ${PORT}`);
+      logger.info(`📝 Environment: ${process.env.NODE_ENV}`);
+      logger.info(`🔗 Health check: http://localhost:${PORT}/health`);
+      logger.info(`🔌 Socket.IO ready for real-time connections`);
+    });
   });
 }
 

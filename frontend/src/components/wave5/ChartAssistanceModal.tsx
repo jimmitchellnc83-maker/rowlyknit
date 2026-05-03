@@ -61,6 +61,24 @@ export default function ChartAssistanceModal({ sourceFileId, crop, onClose }: Pr
   const [findingMatches, setFindingMatches] = useState(false);
   const [confirming, setConfirming] = useState(false);
 
+  // Magic Marker user-controlled sensitivity. Higher = more permissive
+  // (returns more candidates). Range matches the underlying dHash space:
+  // 0 (identical) → 64 (totally different). 12 is the historical default
+  // that worked well for tight chart symbols on a clean PDF; users can
+  // loosen for blurry scans or tighten when they're getting noise. The
+  // value is the Hamming distance threshold passed to the scan loop.
+  const SENSITIVITY_MIN = 4;
+  const SENSITIVITY_MAX = 24;
+  const [sensitivity, setSensitivity] = useState<number>(12);
+
+  // Per-candidate selection. Default: every newly-found match is
+  // selected. The user can deselect false positives in the side panel
+  // before applying. Apply writes ONLY selected cells.
+  const [selectedMatchKeys, setSelectedMatchKeys] = useState<Set<string>>(
+    new Set(),
+  );
+  const matchKey = (row: number, col: number) => `${row}:${col}`;
+
   // Symbol picker state (replaces window.prompt). When pendingCell is
   // set, the user has tapped a cell and a picker overlay is shown.
   const [palette, setPalette] = useState<ChartSymbolTemplate[]>([]);
@@ -259,13 +277,12 @@ export default function ChartAssistanceModal({ sourceFileId, crop, onClose }: Pr
     try {
       const cellW = (cropPx.w * alignment.gridWidth) / alignment.cellsAcross;
       const cellH = (cropPx.h * alignment.gridHeight) / alignment.cellsDown;
-      const sampledKeys = new Set(samples.map((s) => `${s.row}:${s.col}`));
+      const sampledKeys = new Set(samples.map((s) => matchKey(s.row, s.col)));
       const candidates: MatchCandidate[] = [];
-      const MAX_DISTANCE = 12;
 
       for (let row = 0; row < alignment.cellsDown; row++) {
         for (let col = 0; col < alignment.cellsAcross; col++) {
-          if (sampledKeys.has(`${row}:${col}`)) continue;
+          if (sampledKeys.has(matchKey(row, col))) continue;
           const cellX = cropPx.x + cropPx.w * alignment.gridX + col * cellW;
           const cellY = cropPx.y + cropPx.h * alignment.gridY + row * cellH;
           let hash: string;
@@ -280,7 +297,7 @@ export default function ChartAssistanceModal({ sourceFileId, crop, onClose }: Pr
           } catch {
             continue;
           }
-          if (distance <= MAX_DISTANCE) {
+          if (distance <= sensitivity) {
             candidates.push({
               sampleId: '',
               symbol: seedSymbol,
@@ -294,6 +311,11 @@ export default function ChartAssistanceModal({ sourceFileId, crop, onClose }: Pr
 
       candidates.sort((a, b) => a.distance - b.distance);
       setMatches(candidates);
+      // Default: every freshly-found candidate is selected. The user can
+      // deselect individual cells before Apply.
+      setSelectedMatchKeys(
+        new Set(candidates.map((c) => matchKey(c.gridRow, c.gridCol))),
+      );
       toast.info(
         candidates.length === 0
           ? 'No matches found.'
@@ -306,6 +328,16 @@ export default function ChartAssistanceModal({ sourceFileId, crop, onClose }: Pr
     }
   }
 
+  function toggleMatchSelection(row: number, col: number) {
+    setSelectedMatchKeys((prev) => {
+      const next = new Set(prev);
+      const key = matchKey(row, col);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
   async function handleApplyMatches() {
     if (!crop.chartId || matches.length === 0) return;
     // All matches share the symbol of the seed sample (the last one
@@ -315,19 +347,32 @@ export default function ChartAssistanceModal({ sourceFileId, crop, onClose }: Pr
       toast.error('No seed sample to apply.');
       return;
     }
+
+    // Apply only the user-selected subset. Filtering happens here so
+    // toggle-state stays a UI concern; the persistence call only sees
+    // the cells the user has explicitly opted into.
+    const selected = matches.filter((m) =>
+      selectedMatchKeys.has(matchKey(m.gridRow, m.gridCol)),
+    );
+    if (selected.length === 0) {
+      toast.error('Select at least one match before applying.');
+      return;
+    }
+
     setConfirming(true);
     try {
       const result = await confirmMagicMarkerMatches(sourceFileId, crop.id, {
         chartId: crop.chartId,
         symbol,
-        cells: matches.map((m) => ({ row: m.gridRow, col: m.gridCol })),
+        cells: selected.map((m) => ({ row: m.gridRow, col: m.gridCol })),
       });
       toast.success(
         `Wrote ${result.updatedCells} cell${result.updatedCells === 1 ? '' : 's'} of "${symbol}" into the chart.`,
       );
-      // Clear the local matches highlight to reflect that they're now
+      // Clear the local matches + selection to reflect that they're
       // committed; the user can re-find to keep iterating.
       setMatches([]);
+      setSelectedMatchKeys(new Set());
     } catch {
       toast.error('Could not apply matches to the chart.');
     } finally {
@@ -413,7 +458,9 @@ export default function ChartAssistanceModal({ sourceFileId, crop, onClose }: Pr
                     cellsDown={alignment.cellsDown}
                     samples={samples}
                     matches={matches}
+                    selectedMatchKeys={selectedMatchKeys}
                     onCellClick={handleCellTap}
+                    onMatchToggle={toggleMatchSelection}
                   />
                 )}
               </div>
@@ -506,7 +553,7 @@ export default function ChartAssistanceModal({ sourceFileId, crop, onClose }: Pr
                     <p className="text-xs text-gray-600 dark:text-gray-300 mb-2">
                       Tap a grid cell on the chart to tag it with a symbol. Tagged samples become reference fingerprints.
                     </p>
-                    <ul className="space-y-1 max-h-40 overflow-y-auto text-xs">
+                    <ul className="space-y-1 max-h-32 overflow-y-auto text-xs">
                       {samples.length === 0 && (
                         <li className="text-gray-400">No samples yet.</li>
                       )}
@@ -519,6 +566,39 @@ export default function ChartAssistanceModal({ sourceFileId, crop, onClose }: Pr
                         </li>
                       ))}
                     </ul>
+
+                    {/* Sensitivity control. Slider value = max Hamming
+                         distance allowed in the chart-wide scan. Lower
+                         is stricter; higher returns more candidates. */}
+                    <div className="mt-3">
+                      <div className="flex items-center justify-between mb-1">
+                        <label
+                          htmlFor="magic-marker-sensitivity"
+                          className="text-[11px] text-gray-500 uppercase tracking-wide"
+                        >
+                          Sensitivity (d≤{sensitivity})
+                        </label>
+                        <span className="text-[10px] text-gray-400">
+                          {sensitivity <= 8 ? 'Strict' : sensitivity >= 18 ? 'Loose' : 'Balanced'}
+                        </span>
+                      </div>
+                      <input
+                        id="magic-marker-sensitivity"
+                        type="range"
+                        min={SENSITIVITY_MIN}
+                        max={SENSITIVITY_MAX}
+                        step={1}
+                        value={sensitivity}
+                        onChange={(e) => setSensitivity(Number(e.target.value))}
+                        className="w-full"
+                        aria-label="Magic Marker sensitivity"
+                      />
+                      <div className="flex justify-between text-[10px] text-gray-400">
+                        <span>Strict</span>
+                        <span>Loose</span>
+                      </div>
+                    </div>
+
                     <button
                       type="button"
                       onClick={handleFindSimilar}
@@ -526,26 +606,90 @@ export default function ChartAssistanceModal({ sourceFileId, crop, onClose }: Pr
                       className="mt-3 w-full rounded bg-purple-600 px-3 py-2 text-white text-sm font-medium hover:bg-purple-700 disabled:opacity-50 flex items-center justify-center gap-1.5"
                     >
                       <FiZap className="h-4 w-4" />
-                      {findingMatches ? 'Searching…' : 'Find similar to last sample'}
+                      {findingMatches
+                        ? 'Searching…'
+                        : matches.length > 0
+                        ? 'Refine with new sensitivity'
+                        : 'Find similar to last sample'}
                     </button>
+
                     {matches.length > 0 && (
                       <>
-                        <p className="mt-2 text-[11px] text-gray-500 flex items-center gap-1">
-                          <FiCheck className="h-3 w-3 text-green-600" />
-                          {matches.length} candidate cells highlighted on the chart.
-                        </p>
+                        <div className="mt-3 flex items-center justify-between">
+                          <p className="text-[11px] text-gray-500 flex items-center gap-1">
+                            <FiCheck className="h-3 w-3 text-green-600" />
+                            {selectedMatchKeys.size}/{matches.length} selected
+                          </p>
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setSelectedMatchKeys(
+                                  new Set(
+                                    matches.map((m) =>
+                                      matchKey(m.gridRow, m.gridCol),
+                                    ),
+                                  ),
+                                )
+                              }
+                              className="text-[10px] text-blue-600 hover:underline"
+                              aria-label="Select all matches"
+                            >
+                              All
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedMatchKeys(new Set())}
+                              className="text-[10px] text-blue-600 hover:underline"
+                              aria-label="Deselect all matches"
+                            >
+                              None
+                            </button>
+                          </div>
+                        </div>
+
+                        <ul className="mt-2 max-h-40 overflow-y-auto rounded border border-gray-200 dark:border-gray-700 divide-y divide-gray-200 dark:divide-gray-700">
+                          {matches.map((m) => {
+                            const key = matchKey(m.gridRow, m.gridCol);
+                            const checked = selectedMatchKeys.has(key);
+                            return (
+                              <li key={key} className="flex items-center px-2 py-1 text-xs">
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  onChange={() =>
+                                    toggleMatchSelection(m.gridRow, m.gridCol)
+                                  }
+                                  aria-label={`Toggle match at row ${m.gridRow + 1}, col ${m.gridCol + 1}`}
+                                  className="mr-2"
+                                />
+                                <span className="flex-1 text-gray-700 dark:text-gray-200">
+                                  ({m.gridRow + 1}, {m.gridCol + 1})
+                                </span>
+                                <span className="text-gray-500 font-mono">
+                                  d={m.distance}
+                                </span>
+                              </li>
+                            );
+                          })}
+                        </ul>
+
                         <button
                           type="button"
                           onClick={handleApplyMatches}
-                          disabled={!crop.chartId || confirming}
+                          disabled={
+                            !crop.chartId || confirming || selectedMatchKeys.size === 0
+                          }
                           title={
                             crop.chartId
-                              ? 'Write the matching cells into the chart\'s canonical grid'
+                              ? 'Write the selected cells into the chart\'s canonical grid'
                               : 'Link this crop to a chart first to apply matches.'
                           }
                           className="mt-2 w-full rounded bg-green-600 px-3 py-2 text-white text-sm font-medium hover:bg-green-700 disabled:opacity-50"
                         >
-                          {confirming ? 'Applying…' : 'Apply matches to chart'}
+                          {confirming
+                            ? 'Applying…'
+                            : `Apply ${selectedMatchKeys.size} selected to chart`}
                         </button>
                         {!crop.chartId && (
                           <p className="mt-1 text-[10px] text-gray-500 italic">
@@ -674,9 +818,20 @@ function GridOverlay(props: {
   cellsDown: number;
   samples: Array<{ row: number; col: number; symbol: string }>;
   matches: MatchCandidate[];
+  selectedMatchKeys: Set<string>;
   onCellClick: (row: number, col: number) => void;
+  onMatchToggle: (row: number, col: number) => void;
 }) {
-  const { pxRect, cellsAcross, cellsDown, samples, matches, onCellClick } = props;
+  const {
+    pxRect,
+    cellsAcross,
+    cellsDown,
+    samples,
+    matches,
+    selectedMatchKeys,
+    onCellClick,
+    onMatchToggle,
+  } = props;
   const cellW = pxRect.w / cellsAcross;
   const cellH = pxRect.h / cellsDown;
   const sampleKey = (r: number, c: number) => `${r}:${c}`;
@@ -696,27 +851,44 @@ function GridOverlay(props: {
       {Array.from({ length: cellsDown }).map((_, row) => (
         <div key={row} className="flex">
           {Array.from({ length: cellsAcross }).map((__, col) => {
-            const sampled = sampledByCell.get(sampleKey(row, col));
-            const matched = matchedByCell.get(sampleKey(row, col));
+            const key = sampleKey(row, col);
+            const sampled = sampledByCell.get(key);
+            const matched = matchedByCell.get(key);
+            const isSelectedMatch = matched && selectedMatchKeys.has(key);
             const baseBorder = 'border border-blue-400/40';
-            const accent = sampled
-              ? 'bg-amber-400/40'
-              : matched
-              ? 'bg-purple-400/40'
-              : '';
+            // Three states: sampled (amber), selected match (purple),
+            // deselected match (grey, dashed border so the user can see
+            // which cells they've turned off).
+            let accent = '';
+            let borderOverride = '';
+            if (sampled) {
+              accent = 'bg-amber-400/40';
+            } else if (matched && isSelectedMatch) {
+              accent = 'bg-purple-400/40';
+            } else if (matched && !isSelectedMatch) {
+              accent = 'bg-gray-400/20';
+              borderOverride = 'border border-dashed border-gray-400';
+            }
+            const handleClick = () => {
+              // Tap a sample-eligible cell tags it. Tap a match cell to
+              // toggle its inclusion in Apply. Sampled cells fall back
+              // to the tag flow (re-tag).
+              if (matched) onMatchToggle(row, col);
+              else onCellClick(row, col);
+            };
             return (
               <button
                 key={col}
                 type="button"
-                onClick={() => onCellClick(row, col)}
+                onClick={handleClick}
                 title={
                   sampled
                     ? `Sample: ${sampled.symbol}`
                     : matched
-                    ? `Match: ${matched.symbol} (d=${matched.distance})`
+                    ? `Match: ${matched.symbol} (d=${matched.distance}) — tap to ${isSelectedMatch ? 'deselect' : 'select'}`
                     : `Tap to tag (row ${row + 1}, col ${col + 1})`
                 }
-                className={`${baseBorder} ${accent} hover:bg-blue-400/30 transition-colors`}
+                className={`${borderOverride || baseBorder} ${accent} hover:bg-blue-400/30 transition-colors`}
                 style={{ width: `${cellW}px`, height: `${cellH}px` }}
               />
             );

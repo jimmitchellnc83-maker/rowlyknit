@@ -32,6 +32,7 @@ import {
   createSourceFile,
   getCropById,
   getSourceFileById,
+  isPatternOwnedByUser,
   listCropsForPattern,
   listCropsForSourceFile,
   listSourceFilesForUser,
@@ -113,6 +114,26 @@ export async function uploadSourceFile(req: Request, res: Response): Promise<voi
   const craft = parseCraft(req.body.craft, 'knit');
   const kind = parseKind(req.body.kind, 'pattern_pdf');
 
+  // Capture upload-context patternId AND verify ownership BEFORE any
+  // disk write or PDF parse. A hostile client passing another user's
+  // patternId must fail before the buffer is committed to storage —
+  // otherwise the request leaves an orphan file under the user's
+  // upload tree even though the row never gets created (Codex finding
+  // on PR #368). The check is also defense-in-depth for storage
+  // bloat from repeated invalid attempts.
+  const rawPatternId =
+    typeof req.body.patternId === 'string' && req.body.patternId.length > 0
+      ? req.body.patternId
+      : null;
+  let uploadPatternId: string | null = null;
+  if (rawPatternId) {
+    const owns = await isPatternOwnedByUser(rawPatternId, userId);
+    if (!owns) {
+      throw new ValidationError('pattern not found for user');
+    }
+    uploadPatternId = rawPatternId;
+  }
+
   // Pick a subdir per kind so disk layout matches the file class.
   const subdir =
     kind === 'chart_image'
@@ -146,13 +167,6 @@ export async function uploadSourceFile(req: Request, res: Response): Promise<voi
     }
   }
 
-  // Capture upload-context patternId so the file appears in that
-  // pattern's Sources tab immediately, before any crops are drawn.
-  const uploadPatternId =
-    typeof req.body.patternId === 'string' && req.body.patternId.length > 0
-      ? req.body.patternId
-      : null;
-
   const sf = await createSourceFile({
     userId,
     craft,
@@ -177,12 +191,15 @@ export async function uploadSourceFile(req: Request, res: Response): Promise<voi
   }
 
   // Optional: link to a project_patterns row if the caller passed one.
+  // Reuse uploadPatternId — already ownership-verified above. The
+  // service further checks project ownership + project_patterns row
+  // existence; a missing membership simply skips the pin (no error
+  // path because the file upload itself already succeeded).
   const projectId = typeof req.body.projectId === 'string' ? req.body.projectId : null;
-  const patternId = typeof req.body.patternId === 'string' ? req.body.patternId : null;
-  if (projectId && patternId) {
+  if (projectId && uploadPatternId) {
     await pinSourceFileToProjectPattern({
       projectId,
-      patternId,
+      patternId: uploadPatternId,
       sourceFileId: sf.id,
       userId,
     });

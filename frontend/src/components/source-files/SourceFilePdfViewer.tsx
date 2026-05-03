@@ -93,7 +93,12 @@ export default function SourceFilePdfViewer({
     undo: 0,
     redo: 0,
   });
-  const pageRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+  // Outer wrapper holds the page header + PDF surface together so jumpToPage
+  // scrolls to the page label. Inner refs point at the PDF-only coordinate
+  // surface — pointer math, overlays, AnnotationLayer, and chart-assistance
+  // alignment all read this so the page header sits outside the unit square.
+  const pageWrapperRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+  const pdfSurfaceRefs = useRef<Map<number, HTMLDivElement>>(new Map());
 
   const fileUrl = useMemo(() => sourceFileBytesUrl(sourceFile.id), [sourceFile.id]);
 
@@ -224,7 +229,7 @@ export default function SourceFilePdfViewer({
   }
 
   function jumpToPage(page: number) {
-    const ref = pageRefs.current.get(page);
+    const ref = pageWrapperRefs.current.get(page);
     if (ref) ref.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
@@ -282,24 +287,19 @@ export default function SourceFilePdfViewer({
             <div
               key={pageNumber}
               ref={(el) => {
-                if (el) pageRefs.current.set(pageNumber, el);
+                if (el) pageWrapperRefs.current.set(pageNumber, el);
               }}
               data-testid={`pdf-page-${pageNumber}`}
-              className="relative inline-block mb-4 select-none"
-              onPointerDown={(e) => handlePagePointerDown(pageNumber, e)}
-              onPointerMove={(e) => handlePagePointerMove(pageNumber, e)}
-              onPointerUp={(e) => handlePagePointerUp(pageNumber, e)}
-              style={{ touchAction: 'none' }}
+              className="mb-4 select-none"
             >
-              {/* Per-page annotation control. Sits above the PDF so it
-                  is always reachable; click opens (or creates) the
-                  page's fullpage crop and selects pen mode. */}
+              {/* Page header — sits OUTSIDE the PDF coordinate surface so
+                  pointer math, overlays, and the AnnotationLayer never
+                  see the header's pixels. */}
               <div className="flex items-center justify-between mb-1">
                 <span className="text-xs text-gray-500">Page {pageNumber}</span>
                 <button
                   type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
+                  onClick={() => {
                     void openFullPageAnnotation(pageNumber);
                   }}
                   className="text-xs rounded bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/40 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-200 px-2 py-1 font-medium"
@@ -308,90 +308,106 @@ export default function SourceFilePdfViewer({
                   Annotate page
                 </button>
               </div>
-              <Page pageNumber={pageNumber} width={600} />
-              {/* Saved crops on this page */}
-              {crops
-                .filter((c) => c.pageNumber === pageNumber)
-                .map((c) => {
-                  const isActive = activeCropId === c.id;
-                  // Fullpage crops back the "Annotate page" surface; we
-                  // don't want them rendered as a giant purple rectangle
-                  // that obscures the page. Drop the bbox styling but
-                  // keep the wrapper so the AnnotationLayer can still
-                  // mount over the full page area.
-                  const EPS = 1e-6;
-                  const isFullpage =
-                    Math.abs(c.cropX) < EPS &&
-                    Math.abs(c.cropY) < EPS &&
-                    Math.abs(c.cropWidth - 1) < EPS &&
-                    Math.abs(c.cropHeight - 1) < EPS;
-                  const wrapperClass = isFullpage
-                    ? 'absolute pointer-events-none'
-                    : `absolute border-2 ${
-                        isActive
-                          ? 'border-purple-700 bg-purple-200 bg-opacity-15'
-                          : 'border-purple-500 bg-purple-200 bg-opacity-25'
-                      }`;
-                  return (
-                    <div
-                      key={c.id}
-                      className={wrapperClass}
-                      style={{
-                        left: `${c.cropX * 100}%`,
-                        top: `${c.cropY * 100}%`,
-                        width: `${c.cropWidth * 100}%`,
-                        height: `${c.cropHeight * 100}%`,
-                        pointerEvents: isFullpage ? 'none' : tool ? 'none' : 'auto',
-                      }}
-                      onClick={(e) => {
-                        if (isFullpage || tool) return;
-                        e.stopPropagation();
-                        setActiveCropId(isActive ? null : c.id);
-                      }}
-                    >
-                      {c.label && !isFullpage ? (
-                        <span className="absolute -top-5 left-0 text-xs bg-purple-600 text-white px-1.5 py-0.5 rounded pointer-events-none">
-                          {c.label}
-                        </span>
-                      ) : null}
-                      {isActive ? (
-                        <AnnotationLayer
-                          ref={annotationLayerRef}
-                          sourceFileId={sourceFile.id}
-                          cropId={c.id}
-                          tool={tool}
-                          color={tool === 'highlight' ? highlightColor : penColor}
-                          strokeWidth={strokeWidth}
-                          onStackChange={setStackCounts}
-                        />
-                      ) : null}
-                    </div>
-                  );
-                })}
-              {/* Active drag preview */}
-              {drag && drag.page === pageNumber ? (
-                <div
-                  className="absolute border-2 border-dashed border-purple-700 bg-purple-300 bg-opacity-30 pointer-events-none"
-                  style={{
-                    left: `${Math.min(drag.startX, drag.currentX) * 100}%`,
-                    top: `${Math.min(drag.startY, drag.currentY) * 100}%`,
-                    width: `${Math.abs(drag.currentX - drag.startX) * 100}%`,
-                    height: `${Math.abs(drag.currentY - drag.startY) * 100}%`,
-                  }}
-                />
-              ) : null}
-              {/* Pending rect (not yet saved) */}
-              {pendingRect && pendingRect.page === pageNumber ? (
-                <div
-                  className="absolute border-2 border-orange-500 bg-orange-200 bg-opacity-30 pointer-events-none"
-                  style={{
-                    left: `${pendingRect.cropX * 100}%`,
-                    top: `${pendingRect.cropY * 100}%`,
-                    width: `${pendingRect.cropWidth * 100}%`,
-                    height: `${pendingRect.cropHeight * 100}%`,
-                  }}
-                />
-              ) : null}
+              {/* PDF coordinate surface — the only element the pointer
+                  handlers and overlays talk to. getBoundingClientRect()
+                  on this div returns PDF-only pixels, so a crop drawn at
+                  the top of the visible PDF starts at y=0. */}
+              <div
+                ref={(el) => {
+                  if (el) pdfSurfaceRefs.current.set(pageNumber, el);
+                }}
+                data-testid={`pdf-surface-${pageNumber}`}
+                className="relative inline-block"
+                onPointerDown={(e) => handlePagePointerDown(pageNumber, e)}
+                onPointerMove={(e) => handlePagePointerMove(pageNumber, e)}
+                onPointerUp={(e) => handlePagePointerUp(pageNumber, e)}
+                style={{ touchAction: 'none' }}
+              >
+                <Page pageNumber={pageNumber} width={600} />
+                {/* Saved crops on this page */}
+                {crops
+                  .filter((c) => c.pageNumber === pageNumber)
+                  .map((c) => {
+                    const isActive = activeCropId === c.id;
+                    // Fullpage crops back the "Annotate page" surface; we
+                    // don't want them rendered as a giant purple rectangle
+                    // that obscures the page. Drop the bbox styling but
+                    // keep the wrapper so the AnnotationLayer can still
+                    // mount over the full page area.
+                    const EPS = 1e-6;
+                    const isFullpage =
+                      Math.abs(c.cropX) < EPS &&
+                      Math.abs(c.cropY) < EPS &&
+                      Math.abs(c.cropWidth - 1) < EPS &&
+                      Math.abs(c.cropHeight - 1) < EPS;
+                    const wrapperClass = isFullpage
+                      ? 'absolute pointer-events-none'
+                      : `absolute border-2 ${
+                          isActive
+                            ? 'border-purple-700 bg-purple-200 bg-opacity-15'
+                            : 'border-purple-500 bg-purple-200 bg-opacity-25'
+                        }`;
+                    return (
+                      <div
+                        key={c.id}
+                        className={wrapperClass}
+                        style={{
+                          left: `${c.cropX * 100}%`,
+                          top: `${c.cropY * 100}%`,
+                          width: `${c.cropWidth * 100}%`,
+                          height: `${c.cropHeight * 100}%`,
+                          pointerEvents: isFullpage ? 'none' : tool ? 'none' : 'auto',
+                        }}
+                        onClick={(e) => {
+                          if (isFullpage || tool) return;
+                          e.stopPropagation();
+                          setActiveCropId(isActive ? null : c.id);
+                        }}
+                      >
+                        {c.label && !isFullpage ? (
+                          <span className="absolute -top-5 left-0 text-xs bg-purple-600 text-white px-1.5 py-0.5 rounded pointer-events-none">
+                            {c.label}
+                          </span>
+                        ) : null}
+                        {isActive ? (
+                          <AnnotationLayer
+                            ref={annotationLayerRef}
+                            sourceFileId={sourceFile.id}
+                            cropId={c.id}
+                            tool={tool}
+                            color={tool === 'highlight' ? highlightColor : penColor}
+                            strokeWidth={strokeWidth}
+                            onStackChange={setStackCounts}
+                          />
+                        ) : null}
+                      </div>
+                    );
+                  })}
+                {/* Active drag preview */}
+                {drag && drag.page === pageNumber ? (
+                  <div
+                    className="absolute border-2 border-dashed border-purple-700 bg-purple-300 bg-opacity-30 pointer-events-none"
+                    style={{
+                      left: `${Math.min(drag.startX, drag.currentX) * 100}%`,
+                      top: `${Math.min(drag.startY, drag.currentY) * 100}%`,
+                      width: `${Math.abs(drag.currentX - drag.startX) * 100}%`,
+                      height: `${Math.abs(drag.currentY - drag.startY) * 100}%`,
+                    }}
+                  />
+                ) : null}
+                {/* Pending rect (not yet saved) */}
+                {pendingRect && pendingRect.page === pageNumber ? (
+                  <div
+                    className="absolute border-2 border-orange-500 bg-orange-200 bg-opacity-30 pointer-events-none"
+                    style={{
+                      left: `${pendingRect.cropX * 100}%`,
+                      top: `${pendingRect.cropY * 100}%`,
+                      width: `${pendingRect.cropWidth * 100}%`,
+                      height: `${pendingRect.cropHeight * 100}%`,
+                    }}
+                  />
+                ) : null}
+              </div>
             </div>
           ))}
         </Document>
