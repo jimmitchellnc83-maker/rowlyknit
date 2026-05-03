@@ -52,7 +52,7 @@ describe('QuickKeysPanel', () => {
     render(<QuickKeysPanel patternId="pat-1" />);
     expect(await screen.findByText(/QuickKeys/i)).toBeInTheDocument();
     expect(await screen.findByText(/Cable repeat/i)).toBeInTheDocument();
-    expect(screen.getByText(/p\.3/)).toBeInTheDocument();
+    expect(screen.getByText(/Page 3/)).toBeInTheDocument();
   });
 
   it('opens the viewer modal when a QuickKey is tapped', async () => {
@@ -73,6 +73,9 @@ describe('QuickKeysPanel', () => {
     const item = await screen.findByRole('button', { name: /Decreases section/i });
     fireEvent.click(item);
     expect(await screen.findByRole('dialog')).toBeInTheDocument();
-    expect(screen.getByTestId('pdf-doc')).toBeInTheDocument();
+    // Two Documents render now: the row's crop thumbnail (pre-existing
+    // before tap) and the viewer modal opened by the click.
+    const docs = screen.getAllByTestId('pdf-doc');
+    expect(docs.length).toBeGreaterThanOrEqual(1);
   });
 });

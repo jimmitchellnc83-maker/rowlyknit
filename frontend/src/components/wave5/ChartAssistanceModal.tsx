@@ -5,7 +5,6 @@ import { toast } from 'react-toastify';
 import { sourceFileBytesUrl, type PatternCrop } from '../../lib/sourceFiles';
 import {
   confirmMagicMarkerMatches,
-  findMagicMarkerMatches,
   getChartAlignment,
   listChartSymbolPalette,
   recordMagicMarkerSample,
@@ -14,7 +13,7 @@ import {
   type MatchCandidate,
 } from '../../lib/wave5';
 import type { ChartSymbolTemplate } from '../../types/chartSymbol';
-import { dHashRegion } from './dHash';
+import { dHashRegion, hammingDistance } from './dHash';
 import '../../lib/pdfjsWorker';
 
 interface Props {
@@ -230,23 +229,78 @@ export default function ChartAssistanceModal({ sourceFileId, crop, onClose }: Pr
     }
   }
 
+  /**
+   * Chart-wide scan: render every cell of the alignment, hash it from
+   * the rendered PDF canvas, compare to the seed hash, return the cells
+   * within max Hamming distance that aren't already a sample (so the
+   * find pass doesn't recommend cells the user has explicitly tagged).
+   *
+   * This is what "find similar" should always have done — pre-2026-05
+   * the path only re-queried the samples table, which produced zero
+   * useful matches because the samples table is exactly the cells the
+   * user has already tagged by hand.
+   */
   async function handleFindSimilar() {
     if (!alignment || !lastHash) return;
+    const cropPx = cropToPagePixels();
+    const canvas = getPageCanvas();
+    if (!cropPx || !canvas) {
+      toast.error('PDF page not ready yet — try again in a second.');
+      return;
+    }
+
+    const seedSymbol = samples[samples.length - 1]?.symbol;
+    if (!seedSymbol) {
+      toast.error('Tag at least one cell before searching for similar ones.');
+      return;
+    }
+
     setFindingMatches(true);
     try {
-      const candidates = await findMagicMarkerMatches(sourceFileId, crop.id, {
-        chartAlignmentId: alignment.id,
-        targetHash: lastHash,
-        maxDistance: 12,
-      });
+      const cellW = (cropPx.w * alignment.gridWidth) / alignment.cellsAcross;
+      const cellH = (cropPx.h * alignment.gridHeight) / alignment.cellsDown;
+      const sampledKeys = new Set(samples.map((s) => `${s.row}:${s.col}`));
+      const candidates: MatchCandidate[] = [];
+      const MAX_DISTANCE = 12;
+
+      for (let row = 0; row < alignment.cellsDown; row++) {
+        for (let col = 0; col < alignment.cellsAcross; col++) {
+          if (sampledKeys.has(`${row}:${col}`)) continue;
+          const cellX = cropPx.x + cropPx.w * alignment.gridX + col * cellW;
+          const cellY = cropPx.y + cropPx.h * alignment.gridY + row * cellH;
+          let hash: string;
+          try {
+            hash = dHashRegion(canvas, cellX, cellY, cellW, cellH);
+          } catch {
+            continue;
+          }
+          let distance: number;
+          try {
+            distance = hammingDistance(hash, lastHash);
+          } catch {
+            continue;
+          }
+          if (distance <= MAX_DISTANCE) {
+            candidates.push({
+              sampleId: '',
+              symbol: seedSymbol,
+              gridRow: row,
+              gridCol: col,
+              distance,
+            });
+          }
+        }
+      }
+
+      candidates.sort((a, b) => a.distance - b.distance);
       setMatches(candidates);
       toast.info(
         candidates.length === 0
           ? 'No matches found.'
-          : `${candidates.length} candidate${candidates.length === 1 ? '' : 's'} found.`,
+          : `${candidates.length} candidate${candidates.length === 1 ? '' : 's'} found across the chart.`,
       );
     } catch {
-      toast.error('Match lookup failed.');
+      toast.error('Match scan failed.');
     } finally {
       setFindingMatches(false);
     }
@@ -376,17 +430,50 @@ export default function ChartAssistanceModal({ sourceFileId, crop, onClose }: Pr
                   <h5 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">
                     {alignment ? 'Edit grid' : 'Set up grid'}
                   </h5>
+
                   <div className="grid grid-cols-2 gap-2">
-                    <NumericField label="Cells across" value={draftCellsAcross} onChange={setDraftCellsAcross} />
-                    <NumericField label="Cells down" value={draftCellsDown} onChange={setDraftCellsDown} />
-                    <NumericField label="Grid x" value={draftGridX} onChange={setDraftGridX} step={0.01} />
-                    <NumericField label="Grid y" value={draftGridY} onChange={setDraftGridY} step={0.01} />
-                    <NumericField label="Grid w" value={draftGridW} onChange={setDraftGridW} step={0.01} />
-                    <NumericField label="Grid h" value={draftGridH} onChange={setDraftGridH} step={0.01} />
+                    <CellsControl
+                      label="Cells across"
+                      value={draftCellsAcross}
+                      onChange={setDraftCellsAcross}
+                    />
+                    <CellsControl
+                      label="Cells down"
+                      value={draftCellsDown}
+                      onChange={setDraftCellsDown}
+                    />
                   </div>
-                  <p className="mt-2 text-[11px] text-gray-500">
-                    Coords are 0–1 inside the crop. Defaults cover the whole crop.
-                  </p>
+
+                  <div className="mt-3 rounded border border-gray-200 dark:border-gray-700 p-2">
+                    <p className="mb-1 text-[11px] uppercase tracking-wide text-gray-500">
+                      Nudge grid origin
+                    </p>
+                    <NudgePad
+                      onNudge={(dx, dy) => {
+                        const step = 0.005;
+                        setDraftGridX((v) => clampDelta(v, dx * step));
+                        setDraftGridY((v) => clampDelta(v, dy * step));
+                      }}
+                      onResize={(dw, dh) => {
+                        const step = 0.005;
+                        setDraftGridW((v) => clampDelta(v, dw * step));
+                        setDraftGridH((v) => clampDelta(v, dh * step));
+                      }}
+                    />
+                  </div>
+
+                  <details className="mt-3">
+                    <summary className="cursor-pointer text-[11px] text-gray-500">
+                      Numeric coords (advanced)
+                    </summary>
+                    <div className="mt-2 grid grid-cols-2 gap-2">
+                      <NumericField label="Grid x" value={draftGridX} onChange={setDraftGridX} step={0.01} />
+                      <NumericField label="Grid y" value={draftGridY} onChange={setDraftGridY} step={0.01} />
+                      <NumericField label="Grid w" value={draftGridW} onChange={setDraftGridW} step={0.01} />
+                      <NumericField label="Grid h" value={draftGridH} onChange={setDraftGridH} step={0.01} />
+                    </div>
+                  </details>
+
                   <button
                     type="button"
                     onClick={handleSaveAlignment}
@@ -472,6 +559,89 @@ export default function ChartAssistanceModal({ sourceFileId, crop, onClose }: Pr
               </>
             )}
           </aside>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function clampDelta(current: string, delta: number): string {
+  const n = Number(current);
+  if (!Number.isFinite(n)) return current;
+  const next = Math.max(0, Math.min(1, n + delta));
+  return next.toFixed(3);
+}
+
+function CellsControl(props: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const n = Math.max(1, Math.round(Number(props.value) || 1));
+  const step = (delta: number) =>
+    props.onChange(String(Math.max(1, n + delta)));
+  return (
+    <div className="text-xs">
+      <span className="block text-gray-500 mb-1">{props.label}</span>
+      <div className="flex items-center gap-1">
+        <button
+          type="button"
+          aria-label={`Decrease ${props.label}`}
+          onClick={() => step(-1)}
+          className="min-h-[36px] min-w-[36px] rounded border border-gray-300 dark:border-gray-700 px-2 text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-800"
+        >
+          −
+        </button>
+        <input
+          type="number"
+          min={1}
+          step={1}
+          value={props.value}
+          onChange={(e) => props.onChange(e.target.value)}
+          className="flex-1 rounded border border-gray-300 dark:border-gray-700 px-2 py-1 text-sm dark:bg-gray-800 dark:text-gray-100"
+        />
+        <button
+          type="button"
+          aria-label={`Increase ${props.label}`}
+          onClick={() => step(1)}
+          className="min-h-[36px] min-w-[36px] rounded border border-gray-300 dark:border-gray-700 px-2 text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-800"
+        >
+          +
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function NudgePad(props: {
+  onNudge: (dx: number, dy: number) => void;
+  onResize: (dw: number, dh: number) => void;
+}) {
+  const btn =
+    'min-h-[36px] min-w-[36px] rounded border border-gray-300 dark:border-gray-700 px-2 text-xs text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-800';
+  return (
+    <div className="grid grid-cols-2 gap-2">
+      <div>
+        <p className="text-[10px] text-gray-500 mb-1">Move</p>
+        <div className="grid grid-cols-3 gap-1">
+          <span />
+          <button type="button" aria-label="Move up" className={btn} onClick={() => props.onNudge(0, -1)}>↑</button>
+          <span />
+          <button type="button" aria-label="Move left" className={btn} onClick={() => props.onNudge(-1, 0)}>←</button>
+          <span className="flex items-center justify-center text-[10px] text-gray-400">orig</span>
+          <button type="button" aria-label="Move right" className={btn} onClick={() => props.onNudge(1, 0)}>→</button>
+          <span />
+          <button type="button" aria-label="Move down" className={btn} onClick={() => props.onNudge(0, 1)}>↓</button>
+          <span />
+        </div>
+      </div>
+      <div>
+        <p className="text-[10px] text-gray-500 mb-1">Resize</p>
+        <div className="grid grid-cols-2 gap-1">
+          <button type="button" aria-label="Narrower" className={btn} onClick={() => props.onResize(-1, 0)}>− W</button>
+          <button type="button" aria-label="Wider" className={btn} onClick={() => props.onResize(1, 0)}>+ W</button>
+          <button type="button" aria-label="Shorter" className={btn} onClick={() => props.onResize(0, -1)}>− H</button>
+          <button type="button" aria-label="Taller" className={btn} onClick={() => props.onResize(0, 1)}>+ H</button>
         </div>
       </div>
     </div>

@@ -1,30 +1,22 @@
 /**
- * Make Mode — PR 6 of the Designer rebuild.
+ * Make Mode — canonical pattern execution surface.
  *
  * Reads a canonical Pattern + its `progress_state` and renders a
- * mobile-first row tracker with linked counters and per-section
- * progress. Behind the `VITE_DESIGNER_MAKE_MODE` flag.
+ * mobile-first row tracker with linked counters, per-section progress,
+ * and the PDF source files / QuickKeys the knitter pinned during setup.
  *
- * Per the PRD's "design-to-make continuity" principle, this is the
- * differentiation surface for Rowly. v1 covers the hands-busy
- * mechanics:
- *   - Big tap targets for +1 / -1 row
+ *   - Big tap targets for +1 / -1 row (44px+ for thumb access)
  *   - Multiple linked counters with named labels
  *   - Per-section progress visible at a glance ("at the same time")
  *   - Active-section selector
+ *   - Source files + QuickKeys embedded so the user can reference any
+ *     pinned chart snippet without losing row state
  *   - Persistence via PUT /api/pattern-models/:id
- *
- * Deferred to later PRs:
- *   - Active row highlighting on the chart (depends on canonical chart
- *     rendering layer)
- *   - Repeat-aware reminders (depends on RepeatBlock content in the
- *     section model)
- *   - Voice / shortcut input
  */
 
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { FiHelpCircle } from 'react-icons/fi';
+import { FiHelpCircle, FiBookOpen, FiFileText } from 'react-icons/fi';
 import { useSeo } from '../hooks/useSeo';
 import { usePatternModel, useUpdatePatternModel } from '../hooks/usePatternModel';
 import {
@@ -41,7 +33,9 @@ import {
   setRow,
 } from '../utils/progressMath';
 import { DESIGNER_EVENTS, trackDesignerEvent } from '../lib/designerAnalytics';
-import type { PatternSection, ProgressState } from '../types/pattern';
+import type { CanonicalPattern, PatternSection, ProgressState } from '../types/pattern';
+import QuickKeysPanel from '../components/quickkeys/QuickKeysPanel';
+import SourceFilesPanel from '../components/source-files/SourceFilesPanel';
 
 // 2026-04-28 product call: take the legacy compute totals out of band
 // for now so Make Mode doesn't depend on the canonical chart layer.
@@ -108,10 +102,10 @@ export default function MakeMode() {
     sortedSections.find((s) => s.id === progress.activeSectionId) ?? sortedSections[0];
 
   return (
-    <div className="mx-auto max-w-3xl px-3 py-4 sm:px-4 sm:py-6">
+    <div className="mx-auto max-w-6xl px-3 py-4 sm:px-4 sm:py-6">
       <header className="mb-4 flex items-start justify-between gap-3">
         <div>
-          <p className="text-xs uppercase tracking-wide text-gray-500">Make Mode (preview)</p>
+          <p className="text-xs uppercase tracking-wide text-gray-500">Make Mode</p>
           <h1 className="text-xl font-semibold sm:text-2xl">{pattern.name || 'Untitled Pattern'}</h1>
         </div>
         <Link
@@ -130,40 +124,132 @@ export default function MakeMode() {
         </div>
       )}
 
-      <SectionPicker
-        sections={sortedSections}
-        progress={progress}
-        onPick={(sectionId) => {
-          persist(setActiveSection(progress, sectionId));
-          trackDesignerEvent(DESIGNER_EVENTS.ACTIVE_SECTION_SWITCHED, {
-            craft: pattern.craft,
-            technique: pattern.technique,
-            sectionKind: sortedSections.find((s) => s.id === sectionId)?.kind ?? 'unknown',
-          });
-        }}
-      />
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+        <div className="lg:col-span-3 space-y-4">
+          <SectionPicker
+            sections={sortedSections}
+            progress={progress}
+            onPick={(sectionId) => {
+              persist(setActiveSection(progress, sectionId));
+              trackDesignerEvent(DESIGNER_EVENTS.ACTIVE_SECTION_SWITCHED, {
+                craft: pattern.craft,
+                technique: pattern.technique,
+                sectionKind: sortedSections.find((s) => s.id === sectionId)?.kind ?? 'unknown',
+              });
+            }}
+          />
 
-      {activeSection && (
-        <ActiveSectionPanel
-          section={activeSection}
-          progress={progress}
-          onMutate={persist}
-          isPending={update.isPending}
-          analyticsContext={{ craft: pattern.craft, technique: pattern.technique }}
-        />
-      )}
+          {activeSection && (
+            <ActiveSectionPanel
+              section={activeSection}
+              progress={progress}
+              onMutate={persist}
+              isPending={update.isPending}
+              analyticsContext={{ craft: pattern.craft, technique: pattern.technique }}
+            />
+          )}
 
-      <ConcurrentSections
-        sections={sortedSections}
-        progress={progress}
-        activeSectionId={activeSection?.id ?? null}
-      />
+          <ConcurrentSections
+            sections={sortedSections}
+            progress={progress}
+            activeSectionId={activeSection?.id ?? null}
+          />
 
-      <CountersPanel
-        progress={progress}
-        onMutate={persist}
-        analyticsContext={{ craft: pattern.craft, technique: pattern.technique }}
-      />
+          <CountersPanel
+            progress={progress}
+            onMutate={persist}
+            analyticsContext={{ craft: pattern.craft, technique: pattern.technique }}
+          />
+        </div>
+
+        <div className="lg:col-span-2 space-y-4">
+          <ReferenceMaterials
+            pattern={pattern}
+            activeRow={activeSection ? rowForSection(progress, activeSection.id) : undefined}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Reference panel: source PDFs + QuickKeys for the canonical pattern.
+ * Source files attach to the legacy pattern row that the canonical
+ * pattern was derived from (`pattern.sourcePatternId`). When that link
+ * is missing, render a hint so the user knows where to look — instead
+ * of an empty silent panel.
+ */
+function ReferenceMaterials({
+  pattern,
+  activeRow,
+}: {
+  pattern: CanonicalPattern;
+  activeRow?: number;
+}) {
+  const [tab, setTab] = useState<'quickkeys' | 'pdfs'>('quickkeys');
+  const sourcePatternId = pattern.sourcePatternId;
+
+  if (!sourcePatternId) {
+    return (
+      <div className="rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-700 dark:bg-amber-900/20 p-4">
+        <h2 className="text-sm font-semibold text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
+          <FiFileText className="h-4 w-4" /> Pattern PDFs
+        </h2>
+        <p className="mt-2 text-xs text-amber-800 dark:text-amber-300">
+          This pattern doesn't have a linked PDF yet. Open the pattern's
+          Sources tab to upload one — your QuickKeys and crops will
+          appear here automatically.
+        </p>
+        <Link
+          to={`/patterns/${pattern.id}?tab=sources`}
+          className="mt-2 inline-block text-xs font-medium text-amber-900 dark:text-amber-200 underline"
+        >
+          Open Sources tab
+        </Link>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-lg bg-white dark:bg-gray-800 shadow">
+      <div className="flex border-b border-gray-200 dark:border-gray-700">
+        <button
+          type="button"
+          onClick={() => setTab('quickkeys')}
+          aria-pressed={tab === 'quickkeys'}
+          className={`flex-1 min-h-[44px] flex items-center justify-center gap-1.5 text-sm font-medium ${
+            tab === 'quickkeys'
+              ? 'text-purple-700 dark:text-purple-300 border-b-2 border-purple-600'
+              : 'text-gray-500 dark:text-gray-400'
+          }`}
+        >
+          <FiBookOpen className="h-4 w-4" />
+          QuickKeys
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab('pdfs')}
+          aria-pressed={tab === 'pdfs'}
+          className={`flex-1 min-h-[44px] flex items-center justify-center gap-1.5 text-sm font-medium ${
+            tab === 'pdfs'
+              ? 'text-purple-700 dark:text-purple-300 border-b-2 border-purple-600'
+              : 'text-gray-500 dark:text-gray-400'
+          }`}
+        >
+          <FiFileText className="h-4 w-4" />
+          PDFs
+        </button>
+      </div>
+      <div className="p-3">
+        {tab === 'quickkeys' ? (
+          <QuickKeysPanel patternId={sourcePatternId} activeRow={activeRow} />
+        ) : (
+          <div className="min-h-[400px]">
+            <SourceFilesPanel patternId={sourcePatternId} />
+          </div>
+        )}
+      </div>
     </div>
   );
 }
