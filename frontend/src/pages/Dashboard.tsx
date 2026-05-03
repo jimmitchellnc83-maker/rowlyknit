@@ -104,9 +104,14 @@ export default function Dashboard() {
   const lowStockYarn = dashboardData?.lowStockYarn ?? [];
 
   // Lightweight per-project pattern map — used to flag "this project doesn't
-  // have a pattern attached yet" on the Continue cards. Falls back gracefully
-  // when the endpoint hiccups so the Dashboard always renders.
-  const { data: feasibilitySummaries } = useQuery<FeasibilitySummary[]>({
+  // have a pattern attached yet" on the Continue cards. We only treat a
+  // project as missing a pattern once the query has SUCCEEDED — while the
+  // request is in flight or has errored, an empty `data` would otherwise
+  // make every active project look unconfigured. The Dashboard still
+  // renders in all states; the warning chrome just stays hidden.
+  const { data: feasibilitySummaries, isSuccess: feasibilityLoaded } = useQuery<
+    FeasibilitySummary[]
+  >({
     queryKey: ['dashboard-feasibility-summary'],
     queryFn: async () => {
       const { data } = await axios.get('/api/projects/feasibility-summary');
@@ -115,13 +120,17 @@ export default function Dashboard() {
     staleTime: 30_000,
   });
 
-  const projectHasPattern = useMemo(() => {
+  // Tri-state: `true` (has pattern) / `false` (confirmed missing) / `null`
+  // (unknown — feasibility query loading or errored). Callers should only
+  // treat `false` as a missing-pattern signal; `null` keeps the UI neutral.
+  const patternStatusFor = useMemo(() => {
+    if (!feasibilityLoaded) return (_id: string): boolean | null => null;
     const set = new Set<string>();
     for (const s of feasibilitySummaries ?? []) {
       if (s.patternId) set.add(s.projectId);
     }
-    return (id: string) => set.has(id);
-  }, [feasibilitySummaries]);
+    return (id: string): boolean | null => set.has(id);
+  }, [feasibilitySummaries, feasibilityLoaded]);
 
   // The Continue queue: most recent ACTIVE projects, capped to 3 cards. We
   // surface only active projects so this section reads as "things you're
@@ -133,12 +142,15 @@ export default function Dashboard() {
 
   // Setup-gap rollups across the recent slice — each card has its own hint
   // already; this banner gives an at-a-glance count when several projects
-  // are missing the same thing so the user can act in bulk.
+  // are missing the same thing so the user can act in bulk. Stays at 0
+  // until the feasibility query has succeeded so we never falsely accuse
+  // configured projects while the request is in flight or has errored.
   const setupGapCount = useMemo(() => {
+    if (!feasibilityLoaded) return 0;
     return recentProjects.filter(
-      (p: any) => p.status === 'active' && !projectHasPattern(p.id),
+      (p: any) => p.status === 'active' && patternStatusFor(p.id) === false,
     ).length;
-  }, [recentProjects, projectHasPattern]);
+  }, [recentProjects, patternStatusFor, feasibilityLoaded]);
 
   const quickActions = [
     {
@@ -237,7 +249,7 @@ export default function Dashboard() {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {continueQueue.map((project: any) => {
-              const missingPattern = !projectHasPattern(project.id);
+              const missingPattern = patternStatusFor(project.id) === false;
               return (
                 <Link
                   key={project.id}

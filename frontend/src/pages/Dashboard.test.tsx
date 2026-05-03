@@ -9,7 +9,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
@@ -129,7 +129,7 @@ describe('Dashboard — Continue area', () => {
     }
   });
 
-  it('flags projects without a pattern as a setup gap', async () => {
+  it('flags projects without a pattern as a setup gap once feasibility data loads', async () => {
     renderDashboard();
     // p1 has no pattern (only p2 does in the feasibility summary).
     expect(
@@ -139,6 +139,63 @@ describe('Dashboard — Continue area', () => {
     expect(
       await screen.findByText(/1 active project is missing a pattern/i),
     ).toBeInTheDocument();
+  });
+
+  it('does not show missing-pattern warnings while feasibility data is still loading', async () => {
+    // Feasibility summary never resolves → query stays in pending state.
+    // Continue cards must still render; missing-pattern chrome must stay
+    // hidden so we don't falsely accuse configured projects.
+    const get = axios.get as unknown as ReturnType<typeof vi.fn>;
+    get.mockImplementation((url: string) => {
+      if (url === '/api/users/me/examples') {
+        return Promise.resolve({ data: { data: { onboardingGoal: 'track_project' } } });
+      }
+      if (url === '/api/projects/feasibility-summary') {
+        return new Promise(() => {
+          /* never resolves */
+        });
+      }
+      return Promise.resolve({ data: { data: {} } });
+    });
+
+    renderDashboard();
+    // Cards still render — Dashboard isn't blocked on feasibility.
+    expect(await screen.findAllByTestId('continue-project-card')).toHaveLength(2);
+    // Give React Query a tick to settle into its pending state.
+    await new Promise((r) => setTimeout(r, 50));
+    expect(screen.queryByText(/no pattern attached yet/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/active project is missing a pattern/i),
+    ).not.toBeInTheDocument();
+  });
+
+  it('does not show missing-pattern warnings or setup-gap banner when feasibility query errors', async () => {
+    // Feasibility summary fails → with retry:false the query lands in error
+    // state. Continue cards must still render; missing-pattern chrome must
+    // stay hidden so an unrelated outage doesn't pollute the Dashboard.
+    const get = axios.get as unknown as ReturnType<typeof vi.fn>;
+    get.mockImplementation((url: string) => {
+      if (url === '/api/users/me/examples') {
+        return Promise.resolve({ data: { data: { onboardingGoal: 'track_project' } } });
+      }
+      if (url === '/api/projects/feasibility-summary') {
+        return Promise.reject(new Error('boom'));
+      }
+      return Promise.resolve({ data: { data: {} } });
+    });
+
+    renderDashboard();
+    // Cards render even though the side query errored.
+    expect(await screen.findAllByTestId('continue-project-card')).toHaveLength(2);
+    // Allow React Query to flush the rejected promise.
+    await waitFor(() => {
+      expect(
+        screen.queryByText(/no pattern attached yet/i),
+      ).not.toBeInTheDocument();
+    });
+    expect(
+      screen.queryByText(/active project is missing a pattern/i),
+    ).not.toBeInTheDocument();
   });
 });
 
