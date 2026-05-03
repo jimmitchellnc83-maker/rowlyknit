@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Document, Page, pdfjs } from 'react-pdf';
+import { Document, Page } from 'react-pdf';
 import { FiCheck, FiGrid, FiX, FiZap } from 'react-icons/fi';
 import { toast } from 'react-toastify';
 import { sourceFileBytesUrl, type PatternCrop } from '../../lib/sourceFiles';
@@ -15,8 +15,7 @@ import {
 } from '../../lib/wave5';
 import type { ChartSymbolTemplate } from '../../types/chartSymbol';
 import { dHashRegion } from './dHash';
-
-pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
+import '../../lib/pdfjsWorker';
 
 interface Props {
   sourceFileId: string;

@@ -40,6 +40,15 @@ export default function LayoutsAndPagesSection({ projectId, patternIds = [] }: P
   const [openPage, setOpenPage] = useState<BlankPage | null>(null);
   const [openLayout, setOpenLayout] = useState<JoinLayout | null>(null);
 
+  // Inline create / delete-confirm state. We deliberately avoid
+  // `window.prompt`/`window.confirm` here — they synchronously block the
+  // renderer, and the create-layout flow froze the tab in the audit run.
+  const [layoutDraftName, setLayoutDraftName] = useState<string | null>(null);
+  const [pageDraftName, setPageDraftName] = useState<string | null>(null);
+  const [pageDraftAspect, setPageDraftAspect] = useState<BlankPageAspect>('letter');
+  const [pendingLayoutDelete, setPendingLayoutDelete] = useState<string | null>(null);
+  const [pendingPageDelete, setPendingPageDelete] = useState<string | null>(null);
+
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
@@ -61,58 +70,52 @@ export default function LayoutsAndPagesSection({ projectId, patternIds = [] }: P
   }, [projectId]);
 
   async function handleCreateLayout() {
-    const name = window.prompt('Name this layout (e.g. "Front + Sleeves side-by-side"):');
+    const name = (layoutDraftName ?? '').trim();
     if (!name) return;
     try {
-      const created = await createJoinLayout(projectId, { name: name.trim() });
+      const created = await createJoinLayout(projectId, { name });
       setLayouts((prev) => [created, ...prev]);
+      setLayoutDraftName(null);
       toast.success('Layout created. Add regions in the next iteration.');
     } catch {
       toast.error('Failed to create layout.');
     }
   }
 
-  async function handleDeleteLayout(layout: JoinLayout) {
-    if (!window.confirm(`Delete "${layout.name}"?`)) return;
+  async function handleDeleteLayout(layoutId: string) {
     try {
-      await deleteJoinLayout(projectId, layout.id);
-      setLayouts((prev) => prev.filter((l) => l.id !== layout.id));
+      await deleteJoinLayout(projectId, layoutId);
+      setLayouts((prev) => prev.filter((l) => l.id !== layoutId));
+      setPendingLayoutDelete(null);
     } catch {
       toast.error('Failed to delete.');
     }
   }
 
   async function handleCreatePage() {
-    const aspect = (window.prompt(
-      'Aspect (letter, a4, square, custom):',
-      'letter',
-    ) ?? '').toLowerCase().trim() as BlankPageAspect;
-    const presets = ASPECT_PRESETS[aspect] ?? ASPECT_PRESETS.letter;
-    const finalAspect: BlankPageAspect = (
-      ['letter', 'a4', 'square', 'custom'] as BlankPageAspect[]
-    ).includes(aspect)
-      ? aspect
-      : 'letter';
-    const name = window.prompt('Page name (optional):') ?? null;
+    const presets = ASPECT_PRESETS[pageDraftAspect] ?? ASPECT_PRESETS.letter;
+    const name = (pageDraftName ?? '').trim() || null;
     try {
       const created = await createBlankPage(projectId, {
-        name: name?.trim() || null,
-        aspectKind: finalAspect,
+        name,
+        aspectKind: pageDraftAspect,
         width: presets.width,
         height: presets.height,
       });
       setPages((prev) => [created, ...prev]);
+      setPageDraftName(null);
+      setPageDraftAspect('letter');
       setOpenPage(created);
     } catch {
       toast.error('Failed to create page.');
     }
   }
 
-  async function handleDeletePage(page: BlankPage) {
-    if (!window.confirm(`Delete "${page.name ?? 'untitled page'}"?`)) return;
+  async function handleDeletePage(pageId: string) {
     try {
-      await deleteBlankPage(projectId, page.id);
-      setPages((prev) => prev.filter((p) => p.id !== page.id));
+      await deleteBlankPage(projectId, pageId);
+      setPages((prev) => prev.filter((p) => p.id !== pageId));
+      setPendingPageDelete(null);
     } catch {
       toast.error('Failed to delete.');
     }
@@ -129,7 +132,7 @@ export default function LayoutsAndPagesSection({ projectId, patternIds = [] }: P
           </h2>
           <button
             type="button"
-            onClick={handleCreateLayout}
+            onClick={() => setLayoutDraftName(layoutDraftName === null ? '' : null)}
             className="text-sm rounded bg-blue-600 text-white px-3 py-1.5 hover:bg-blue-700 flex items-center gap-1"
           >
             <FiPlus className="h-4 w-4" /> New layout
@@ -138,6 +141,38 @@ export default function LayoutsAndPagesSection({ projectId, patternIds = [] }: P
         <p className="text-sm text-gray-500 mb-3">
           Combine multiple chart crops onto one canvas — pin a sleeve chart next to the body chart so you can read both at once.
         </p>
+        {layoutDraftName !== null && (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              void handleCreateLayout();
+            }}
+            className="mb-3 flex items-center gap-2 rounded border border-blue-200 bg-blue-50 px-3 py-2 dark:border-blue-900/60 dark:bg-blue-950/40"
+          >
+            <input
+              type="text"
+              autoFocus
+              placeholder='e.g. "Front + Sleeves side-by-side"'
+              value={layoutDraftName}
+              onChange={(e) => setLayoutDraftName(e.target.value)}
+              className="flex-1 rounded border border-gray-300 px-2 py-1 text-sm dark:border-gray-700 dark:bg-gray-900"
+            />
+            <button
+              type="submit"
+              disabled={!layoutDraftName.trim()}
+              className="rounded bg-blue-600 px-3 py-1 text-sm text-white hover:bg-blue-700 disabled:opacity-50"
+            >
+              Create
+            </button>
+            <button
+              type="button"
+              onClick={() => setLayoutDraftName(null)}
+              className="rounded px-2 py-1 text-sm text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
+            >
+              Cancel
+            </button>
+          </form>
+        )}
         {loading ? (
           <p className="text-xs text-gray-400">Loading…</p>
         ) : layouts.length === 0 ? (
@@ -167,14 +202,34 @@ export default function LayoutsAndPagesSection({ projectId, patternIds = [] }: P
                 >
                   <FiEdit2 className="h-4 w-4" />
                 </button>
-                <button
-                  type="button"
-                  onClick={() => handleDeleteLayout(l)}
-                  className="text-red-600 hover:text-red-800 text-xs"
-                  aria-label={`Delete ${l.name}`}
-                >
-                  <FiTrash2 className="h-4 w-4" />
-                </button>
+                {pendingLayoutDelete === l.id ? (
+                  <span className="flex items-center gap-1 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteLayout(l.id)}
+                      className="font-medium text-red-600 hover:text-red-800"
+                    >
+                      Confirm
+                    </button>
+                    <span className="text-gray-400">·</span>
+                    <button
+                      type="button"
+                      onClick={() => setPendingLayoutDelete(null)}
+                      className="text-gray-500 hover:text-gray-700"
+                    >
+                      Cancel
+                    </button>
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setPendingLayoutDelete(l.id)}
+                    className="text-red-600 hover:text-red-800 text-xs"
+                    aria-label={`Delete ${l.name}`}
+                  >
+                    <FiTrash2 className="h-4 w-4" />
+                  </button>
+                )}
               </li>
             ))}
           </ul>
@@ -190,7 +245,7 @@ export default function LayoutsAndPagesSection({ projectId, patternIds = [] }: P
           </h2>
           <button
             type="button"
-            onClick={handleCreatePage}
+            onClick={() => setPageDraftName(pageDraftName === null ? '' : null)}
             className="text-sm rounded bg-purple-600 text-white px-3 py-1.5 hover:bg-purple-700 flex items-center gap-1"
           >
             <FiPlus className="h-4 w-4" /> New blank page
@@ -199,6 +254,51 @@ export default function LayoutsAndPagesSection({ projectId, patternIds = [] }: P
         <p className="text-sm text-gray-500 mb-3">
           A clean drawing surface for sketches, notes, schematics — anything you'd grab a piece of graph paper for.
         </p>
+        {pageDraftName !== null && (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              void handleCreatePage();
+            }}
+            className="mb-3 flex flex-wrap items-center gap-2 rounded border border-purple-200 bg-purple-50 px-3 py-2 dark:border-purple-900/60 dark:bg-purple-950/40"
+          >
+            <input
+              type="text"
+              autoFocus
+              placeholder="Page name (optional)"
+              value={pageDraftName}
+              onChange={(e) => setPageDraftName(e.target.value)}
+              className="flex-1 min-w-[12rem] rounded border border-gray-300 px-2 py-1 text-sm dark:border-gray-700 dark:bg-gray-900"
+            />
+            <select
+              value={pageDraftAspect}
+              onChange={(e) => setPageDraftAspect(e.target.value as BlankPageAspect)}
+              className="rounded border border-gray-300 bg-white px-2 py-1 text-sm dark:border-gray-700 dark:bg-gray-900"
+              aria-label="Page aspect"
+            >
+              <option value="letter">Letter</option>
+              <option value="a4">A4</option>
+              <option value="square">Square</option>
+              <option value="custom">Custom</option>
+            </select>
+            <button
+              type="submit"
+              className="rounded bg-purple-600 px-3 py-1 text-sm text-white hover:bg-purple-700"
+            >
+              Create
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setPageDraftName(null);
+                setPageDraftAspect('letter');
+              }}
+              className="rounded px-2 py-1 text-sm text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
+            >
+              Cancel
+            </button>
+          </form>
+        )}
         {loading ? (
           <p className="text-xs text-gray-400">Loading…</p>
         ) : pages.length === 0 ? (
@@ -220,14 +320,34 @@ export default function LayoutsAndPagesSection({ projectId, patternIds = [] }: P
                     {p.aspectKind} · {Array.isArray(p.strokes) ? p.strokes.length : 0} strokes
                   </span>
                 </button>
-                <button
-                  type="button"
-                  onClick={() => handleDeletePage(p)}
-                  className="text-red-600 hover:text-red-800 text-xs"
-                  aria-label={`Delete ${p.name ?? 'page'}`}
-                >
-                  <FiTrash2 className="h-4 w-4" />
-                </button>
+                {pendingPageDelete === p.id ? (
+                  <span className="flex items-center gap-1 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => handleDeletePage(p.id)}
+                      className="font-medium text-red-600 hover:text-red-800"
+                    >
+                      Confirm
+                    </button>
+                    <span className="text-gray-400">·</span>
+                    <button
+                      type="button"
+                      onClick={() => setPendingPageDelete(null)}
+                      className="text-gray-500 hover:text-gray-700"
+                    >
+                      Cancel
+                    </button>
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setPendingPageDelete(p.id)}
+                    className="text-red-600 hover:text-red-800 text-xs"
+                    aria-label={`Delete ${p.name ?? 'page'}`}
+                  >
+                    <FiTrash2 className="h-4 w-4" />
+                  </button>
+                )}
               </li>
             ))}
           </ul>

@@ -236,6 +236,22 @@ export async function rewindTo(args: {
     updated_at: new Date(),
   });
 
+  // Propagate the rewind to the underlying surface table. The
+  // marker_states row is a mirror — without this writeback the user
+  // sees a "Position rewound" toast but their counter / panel state
+  // doesn't actually move. Counters are the only surface that owns
+  // a primitive value mirrored 1-to-1 into marker_states; panel and
+  // chart progress live in their own tables and have their own undo
+  // affordances, so we leave those alone for now.
+  if (entry.surface === 'counter' && entry.surface_ref) {
+    const prevValue = (previous as { currentValue?: unknown }).currentValue;
+    if (typeof prevValue === 'number' && Number.isFinite(prevValue)) {
+      await db('counters')
+        .where({ id: entry.surface_ref, project_id: entry.project_id })
+        .update({ current_value: prevValue, updated_at: new Date() });
+    }
+  }
+
   // Log the rewind itself so someone can undo the undo.
   const newPos =
     parseJsonOrPassthrough<MarkerPosition>(entry.new_position) ?? {};

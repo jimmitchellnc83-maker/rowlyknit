@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Document, Page, pdfjs } from 'react-pdf';
+import { Document, Page } from 'react-pdf';
 import { toast } from 'react-toastify';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
+import '../../lib/pdfjsWorker';
 import {
   createCrop,
   deleteCrop,
@@ -16,8 +17,6 @@ import { trackEvent } from '../../lib/analytics';
 import { dragToRect, isMeaningfulRect, pointInPage } from './cropMath';
 import AnnotationLayer from './AnnotationLayer';
 import ChartAssistanceModal from '../wave5/ChartAssistanceModal';
-
-pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
 
 /**
  * Wave 2 PR 3 — PDF viewer + crop drawing UI on top of the SourceFile

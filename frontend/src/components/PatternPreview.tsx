@@ -2,12 +2,10 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { FiExternalLink } from 'react-icons/fi';
 import axios from 'axios';
-import { Document, Page, pdfjs } from 'react-pdf';
+import { Document, Page } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
-
-// Configure PDF.js worker - use local file for production reliability
-pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
+import '../lib/pdfjsWorker';
 
 interface Pattern {
   id: string;
