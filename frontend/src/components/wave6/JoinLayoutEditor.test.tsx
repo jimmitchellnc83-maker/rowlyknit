@@ -195,6 +195,29 @@ describe('JoinLayoutEditor — visual canvas', () => {
     expect(numericSummary).toBeInTheDocument();
   });
 
+  it('renders resize handles whose hit area meets the 24px touch minimum', async () => {
+    listCropsForPatternMock.mockResolvedValue([CROP_A]);
+    render(
+      <JoinLayoutEditor
+        projectId="p1"
+        layout={makeLayout([])}
+        patternIds={['pat-1']}
+        onClose={() => {}}
+        onSaved={() => {}}
+      />,
+    );
+    // Add a region; it auto-becomes the active region, so the corner
+    // handles mount on its card.
+    fireEvent.click(await screen.findByRole('button', { name: /Add Body chart/i }));
+    expect(await screen.findByText(/Regions \(1\)/)).toBeInTheDocument();
+    const handles = await screen.findAllByRole('button', { name: /Resize (nw|ne|sw|se)/i });
+    expect(handles.length).toBe(4);
+    for (const h of handles) {
+      const size = Number(h.getAttribute('data-handle-size'));
+      expect(size).toBeGreaterThanOrEqual(24);
+    }
+  });
+
   it('removes a region when its trash button is clicked', async () => {
     listCropsForPatternMock.mockResolvedValue([CROP_A]);
     render(

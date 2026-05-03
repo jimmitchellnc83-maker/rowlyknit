@@ -1,6 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Document, Page } from 'react-pdf';
 import { toast } from 'react-toastify';
+import {
+  FiEdit3,
+  FiCheck,
+  FiTrash2,
+  FiRotateCcw,
+  FiRotateCw,
+  FiBookmark,
+  FiGrid,
+} from 'react-icons/fi';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 import '../../lib/pdfjsWorker';
@@ -26,7 +35,16 @@ import ChartAssistanceModal from '../wave5/ChartAssistanceModal';
  *
  * Coords are normalized 0..1 against the rendered page size, so the
  * same crop survives a re-rasterization at a different zoom level —
- * that's the contract Waves 3/4/5/6 all consume.
+ * that's the contract Waves 3/4/5/6 all consume. The page width comes
+ * from the live container size (ResizeObserver), so the PDF stays
+ * fluid across desktop / tablet / narrow window — no fixed 600px box
+ * that overflows on a phone or under-fills a 27" monitor.
+ *
+ * Annotation tooling lives in a floating toolbar that pops in when the
+ * user starts annotating an active crop. Big touch targets, distinct
+ * pen / highlighter / eraser controls, and the per-tool settings
+ * (color, width, opacity) sit in a single panel near the PDF surface
+ * instead of a cramped sidebar.
  */
 
 interface SourceFilePdfViewerProps {
@@ -44,6 +62,38 @@ interface DragRect {
   startY: number;
   currentX: number;
   currentY: number;
+}
+
+const PEN_COLORS = [
+  '#7c3aed', // purple (default pen)
+  '#1d4ed8', // blue
+  '#dc2626', // red
+  '#16a34a', // green
+  '#0f172a', // ink black
+];
+const HIGHLIGHT_COLORS = [
+  '#facc15', // yellow (default highlight)
+  '#fb923c', // orange
+  '#34d399', // mint
+  '#60a5fa', // sky
+  '#f472b6', // pink
+];
+
+/** Per-tool default stroke widths in normalized crop units (0..1). */
+const PEN_DEFAULT_WIDTH = 0.005;
+const HIGHLIGHT_DEFAULT_WIDTH = 0.025;
+const ERASER_DEFAULT_RADIUS = 0.02;
+
+/**
+ * Sensible bounds for the rendered PDF page width: never tinier than
+ * 320px (legibility floor on a small phone) and never wider than 900px
+ * (text wraps strangely beyond that on a 27" monitor + the rendered
+ * raster blows up). Padding accounts for the scroll container's px-4.
+ */
+function clampPageWidth(containerWidth: number): number {
+  if (!Number.isFinite(containerWidth) || containerWidth <= 0) return 600;
+  const usable = containerWidth - 32;
+  return Math.max(320, Math.min(usable, 900));
 }
 
 export default function SourceFilePdfViewer({
@@ -67,27 +117,13 @@ export default function SourceFilePdfViewer({
   // open in the assistance UI (null = closed).
   const [chartAssistCrop, setChartAssistCrop] = useState<PatternCrop | null>(null);
   const [tool, setTool] = useState<AnnotationTool>(null);
-  // Annotation toolbar state. Pen and highlight share the same color
-  // wheel so the user can pin a marker color to a project (e.g. red
-  // for "rip back here") without re-picking on every stroke.
-  const PEN_COLORS = [
-    '#7c3aed', // purple (default pen)
-    '#1d4ed8', // blue
-    '#dc2626', // red
-    '#16a34a', // green
-    '#0f172a', // ink black
-  ];
-  const HIGHLIGHT_COLORS = [
-    '#facc15', // yellow (default highlight)
-    '#fb923c', // orange
-    '#34d399', // mint
-    '#60a5fa', // sky
-    '#f472b6', // pink
-  ];
+  // Pen/highlighter colors and per-tool widths persist independently so
+  // switching tools doesn't trash the user's previous setup.
   const [penColor, setPenColor] = useState<string>(PEN_COLORS[0]);
   const [highlightColor, setHighlightColor] = useState<string>(HIGHLIGHT_COLORS[0]);
-  /** Stroke width in normalized crop units. 0.005 = hairline; 0.025 = chunky. */
-  const [strokeWidth, setStrokeWidth] = useState<number>(0.005);
+  const [penWidth, setPenWidth] = useState<number>(PEN_DEFAULT_WIDTH);
+  const [highlightWidth, setHighlightWidth] = useState<number>(HIGHLIGHT_DEFAULT_WIDTH);
+  const [eraserRadius, setEraserRadius] = useState<number>(ERASER_DEFAULT_RADIUS);
   const annotationLayerRef = useRef<AnnotationLayerHandle | null>(null);
   const [stackCounts, setStackCounts] = useState<{ undo: number; redo: number }>({
     undo: 0,
@@ -99,6 +135,28 @@ export default function SourceFilePdfViewer({
   // alignment all read this so the page header sits outside the unit square.
   const pageWrapperRefs = useRef<Map<number, HTMLDivElement>>(new Map());
   const pdfSurfaceRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+
+  /** Container that ResizeObserver watches — its width drives the PDF
+   *  page render width so pages reflow on viewport resize. */
+  const pdfScrollRef = useRef<HTMLDivElement | null>(null);
+  const [containerWidth, setContainerWidth] = useState<number>(600);
+  const targetPageWidth = useMemo(
+    () => clampPageWidth(containerWidth),
+    [containerWidth],
+  );
+
+  useEffect(() => {
+    const el = pdfScrollRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    // Seed once so the first paint isn't stuck at the default.
+    setContainerWidth(el.getBoundingClientRect().width);
+    const ro = new ResizeObserver((entries) => {
+      const w = entries[0]?.contentRect.width ?? 0;
+      if (w > 0) setContainerWidth(w);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   const fileUrl = useMemo(() => sourceFileBytesUrl(sourceFile.id), [sourceFile.id]);
 
@@ -124,6 +182,8 @@ export default function SourceFilePdfViewer({
 
   function handlePagePointerDown(page: number, e: React.PointerEvent<HTMLDivElement>) {
     if (e.button !== 0) return;
+    // Don't let crop-drag steal the gesture from an active annotation.
+    if (tool && activeCropId) return;
     const target = e.currentTarget;
     target.setPointerCapture(e.pointerId);
     const point = pointInPage(target.getBoundingClientRect(), {
@@ -238,7 +298,6 @@ export default function SourceFilePdfViewer({
    * creates) the page's "fullpage" crop — a (0,0,1,1) rectangle that
    * covers the whole page — and selects it. Pen/highlight/eraser then
    * draw across the entire page via the existing AnnotationLayer.
-   * Closes the user-audit gap "Full PDF annotation does not exist."
    */
   async function openFullPageAnnotation(page: number) {
     const EPS = 1e-6;
@@ -274,9 +333,23 @@ export default function SourceFilePdfViewer({
     }
   }
 
+  const annotationActive = activeCropId !== null;
+  const activeStrokeWidth =
+    tool === 'highlight'
+      ? highlightWidth
+      : tool === 'eraser'
+        ? eraserRadius
+        : penWidth;
+  const activeColor = tool === 'highlight' ? highlightColor : penColor;
+
   return (
-    <div className="flex gap-4 h-full">
-      <div className="flex-1 overflow-auto bg-gray-50 dark:bg-gray-900 rounded-lg p-4">
+    <div className="flex flex-col lg:flex-row gap-4 h-full min-h-0 relative">
+      {/* PDF surface — fluid width via ResizeObserver. */}
+      <div
+        ref={pdfScrollRef}
+        className="flex-1 min-w-0 overflow-auto bg-gray-50 dark:bg-gray-900 rounded-lg p-2 sm:p-4"
+        data-testid="pdf-scroll-container"
+      >
         <Document
           file={fileUrl}
           onLoadSuccess={handleDocumentLoad}
@@ -302,9 +375,10 @@ export default function SourceFilePdfViewer({
                   onClick={() => {
                     void openFullPageAnnotation(pageNumber);
                   }}
-                  className="text-xs rounded bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/40 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-200 px-2 py-1 font-medium"
+                  className="inline-flex items-center gap-1 text-xs sm:text-sm rounded bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/40 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-200 px-3 py-2 font-medium min-h-[36px]"
                   title="Annotate the whole page (pen, highlight, eraser)"
                 >
+                  <FiEdit3 className="h-4 w-4" />
                   Annotate page
                 </button>
               </div>
@@ -317,13 +391,13 @@ export default function SourceFilePdfViewer({
                   if (el) pdfSurfaceRefs.current.set(pageNumber, el);
                 }}
                 data-testid={`pdf-surface-${pageNumber}`}
-                className="relative inline-block"
+                className="relative inline-block max-w-full"
                 onPointerDown={(e) => handlePagePointerDown(pageNumber, e)}
                 onPointerMove={(e) => handlePagePointerMove(pageNumber, e)}
                 onPointerUp={(e) => handlePagePointerUp(pageNumber, e)}
                 style={{ touchAction: 'none' }}
               >
-                <Page pageNumber={pageNumber} width={600} />
+                <Page pageNumber={pageNumber} width={targetPageWidth} />
                 {/* Saved crops on this page */}
                 {crops
                   .filter((c) => c.pageNumber === pageNumber)
@@ -375,8 +449,8 @@ export default function SourceFilePdfViewer({
                             sourceFileId={sourceFile.id}
                             cropId={c.id}
                             tool={tool}
-                            color={tool === 'highlight' ? highlightColor : penColor}
-                            strokeWidth={strokeWidth}
+                            color={activeColor}
+                            strokeWidth={activeStrokeWidth}
                             onStackChange={setStackCounts}
                           />
                         ) : null}
@@ -413,126 +487,12 @@ export default function SourceFilePdfViewer({
         </Document>
       </div>
 
-      <aside className="w-72 flex-shrink-0 flex flex-col gap-4">
-        {activeCropId ? (
-          <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-3">
-            <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">
-              Annotate active crop
-            </p>
-            <div className="mt-2 flex gap-1">
-              <button
-                type="button"
-                onClick={() => setTool(tool === 'pen' ? null : 'pen')}
-                aria-pressed={tool === 'pen'}
-                className={`flex-1 min-h-[36px] rounded px-2 py-1 text-xs ${
-                  tool === 'pen'
-                    ? 'bg-purple-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                Pen
-              </button>
-              <button
-                type="button"
-                onClick={() => setTool(tool === 'highlight' ? null : 'highlight')}
-                aria-pressed={tool === 'highlight'}
-                className={`flex-1 min-h-[36px] rounded px-2 py-1 text-xs ${
-                  tool === 'highlight'
-                    ? 'bg-yellow-500 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                Highlight
-              </button>
-              <button
-                type="button"
-                onClick={() => setTool(tool === 'eraser' ? null : 'eraser')}
-                aria-pressed={tool === 'eraser'}
-                className={`flex-1 min-h-[36px] rounded px-2 py-1 text-xs ${
-                  tool === 'eraser'
-                    ? 'bg-red-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                Erase
-              </button>
-            </div>
-
-            {(tool === 'pen' || tool === 'highlight') && (
-              <>
-                <p className="mt-3 text-[10px] uppercase tracking-wide text-gray-500">
-                  Color
-                </p>
-                <div className="mt-1 flex flex-wrap gap-1">
-                  {(tool === 'highlight' ? HIGHLIGHT_COLORS : PEN_COLORS).map((c) => {
-                    const selected = (tool === 'highlight' ? highlightColor : penColor) === c;
-                    return (
-                      <button
-                        key={c}
-                        type="button"
-                        aria-label={`Use color ${c}`}
-                        aria-pressed={selected}
-                        onClick={() =>
-                          tool === 'highlight'
-                            ? setHighlightColor(c)
-                            : setPenColor(c)
-                        }
-                        className={`h-7 w-7 rounded-full border-2 ${
-                          selected ? 'border-gray-900 dark:border-white' : 'border-transparent'
-                        }`}
-                        style={{ background: c }}
-                      />
-                    );
-                  })}
-                </div>
-
-                <p className="mt-3 text-[10px] uppercase tracking-wide text-gray-500">
-                  Stroke width ({Math.round(strokeWidth * 1000)})
-                </p>
-                <input
-                  type="range"
-                  min={1}
-                  max={30}
-                  value={Math.round(strokeWidth * 1000)}
-                  onChange={(e) => setStrokeWidth(Number(e.target.value) / 1000)}
-                  className="mt-1 w-full"
-                  aria-label="Stroke width"
-                />
-              </>
-            )}
-
-            <div className="mt-3 flex gap-1">
-              <button
-                type="button"
-                onClick={() => void annotationLayerRef.current?.undo()}
-                disabled={stackCounts.undo === 0}
-                className="flex-1 min-h-[36px] rounded border border-gray-300 dark:border-gray-700 px-2 py-1 text-xs text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-40"
-              >
-                Undo ({stackCounts.undo})
-              </button>
-              <button
-                type="button"
-                onClick={() => void annotationLayerRef.current?.redo()}
-                disabled={stackCounts.redo === 0}
-                className="flex-1 min-h-[36px] rounded border border-gray-300 dark:border-gray-700 px-2 py-1 text-xs text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-40"
-              >
-                Redo ({stackCounts.redo})
-              </button>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => {
-                setActiveCropId(null);
-                setTool(null);
-              }}
-              className="mt-3 w-full text-xs text-gray-500 hover:text-gray-700"
-            >
-              Done
-            </button>
-          </div>
-        ) : null}
-
+      {/* Side panel — full-width on narrow viewports (stacks below PDF),
+          fixed-width column on lg+. Holds the new-crop label form and
+          the saved-crops list. Annotation tooling lives in the floating
+          toolbar so the user has one focused place to look during a
+          stroke. */}
+      <aside className="lg:w-72 lg:flex-shrink-0 flex flex-col gap-3">
         {pendingRect ? (
           <div className="rounded-lg border border-orange-300 bg-orange-50 dark:bg-orange-900/20 p-3">
             <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
@@ -544,21 +504,21 @@ export default function SourceFilePdfViewer({
               placeholder="Label (optional)"
               value={savingLabel}
               onChange={(e) => setSavingLabel(e.target.value)}
-              className="mt-2 w-full rounded border border-gray-300 px-2 py-1 text-sm"
+              className="mt-2 w-full rounded border border-gray-300 px-3 py-2 text-sm min-h-[44px]"
               maxLength={120}
             />
             <div className="mt-2 flex gap-2">
               <button
                 type="button"
                 onClick={saveCrop}
-                className="flex-1 rounded bg-purple-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-purple-700"
+                className="flex-1 rounded bg-purple-600 px-3 py-2 text-sm font-medium text-white hover:bg-purple-700 min-h-[44px]"
               >
                 Save
               </button>
               <button
                 type="button"
                 onClick={cancelDraft}
-                className="rounded border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-50"
+                className="rounded border border-gray-300 px-3 py-2 text-sm hover:bg-gray-50 min-h-[44px]"
               >
                 Cancel
               </button>
@@ -566,13 +526,14 @@ export default function SourceFilePdfViewer({
           </div>
         ) : null}
 
-        <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-3">
+        <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-3 lg:max-h-[calc(100vh-12rem)] lg:overflow-auto">
           <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
             Crops ({crops.length})
           </h3>
           {crops.length === 0 ? (
             <p className="mt-2 text-xs text-gray-500">
-              Click and drag on a page to mark a region.
+              Drag a rectangle on a page to mark a region. Or use the
+              "Annotate page" button to draw across the whole page.
             </p>
           ) : (
             <ul className="mt-2 space-y-1">
@@ -593,7 +554,7 @@ export default function SourceFilePdfViewer({
                         jumpToPage(c.pageNumber);
                         setActiveCropId(c.id);
                       }}
-                      className="flex-1 text-left truncate"
+                      className="flex-1 text-left truncate min-h-[36px]"
                     >
                       <span className="text-gray-700 dark:text-gray-300">
                         p{c.pageNumber}
@@ -605,30 +566,30 @@ export default function SourceFilePdfViewer({
                     <button
                       type="button"
                       onClick={() => handleToggleQuickKey(c)}
-                      className={`text-sm leading-none ${
+                      className={`min-h-[36px] min-w-[36px] flex items-center justify-center ${
                         isQK ? 'text-yellow-500' : 'text-gray-300 hover:text-yellow-500'
                       }`}
                       aria-label={isQK ? 'Remove from QuickKeys' : 'Save as QuickKey'}
                       title={isQK ? 'Remove from QuickKeys' : 'Save as QuickKey'}
                     >
-                      ★
+                      <FiBookmark className={`h-4 w-4 ${isQK ? 'fill-current' : ''}`} />
                     </button>
                     <button
                       type="button"
                       onClick={() => setChartAssistCrop(c)}
-                      className="text-xs text-blue-600 hover:text-blue-800"
+                      className="min-h-[36px] min-w-[36px] flex items-center justify-center text-blue-600 hover:text-blue-800"
                       aria-label="Open chart assistance"
                       title="Align grid + Magic Marker"
                     >
-                      ⬚
+                      <FiGrid className="h-4 w-4" />
                     </button>
                     <button
                       type="button"
                       onClick={() => handleDeleteCrop(c)}
-                      className="text-xs text-red-600 hover:text-red-800"
+                      className="min-h-[36px] min-w-[36px] flex items-center justify-center text-red-600 hover:text-red-800"
                       aria-label="Delete crop"
                     >
-                      ×
+                      <FiTrash2 className="h-4 w-4" />
                     </button>
                   </li>
                 );
@@ -637,6 +598,34 @@ export default function SourceFilePdfViewer({
           )}
         </div>
       </aside>
+
+      {/* Floating annotation toolbar — appears only when an annotation
+          crop is active. Sits above the global mobile bottom nav (which
+          is `h-20` on `md:hidden`) so it stays reachable. Big touch
+          targets, separate per-tool settings, clear active states. */}
+      {annotationActive && (
+        <FloatingAnnotationToolbar
+          tool={tool}
+          onToolChange={setTool}
+          penColor={penColor}
+          highlightColor={highlightColor}
+          onPenColor={setPenColor}
+          onHighlightColor={setHighlightColor}
+          penWidth={penWidth}
+          highlightWidth={highlightWidth}
+          eraserRadius={eraserRadius}
+          onPenWidth={setPenWidth}
+          onHighlightWidth={setHighlightWidth}
+          onEraserRadius={setEraserRadius}
+          stackCounts={stackCounts}
+          onUndo={() => void annotationLayerRef.current?.undo()}
+          onRedo={() => void annotationLayerRef.current?.redo()}
+          onDone={() => {
+            setActiveCropId(null);
+            setTool(null);
+          }}
+        />
+      )}
 
       {chartAssistCrop && (
         <ChartAssistanceModal
@@ -649,3 +638,258 @@ export default function SourceFilePdfViewer({
   );
 }
 
+interface FloatingToolbarProps {
+  tool: AnnotationTool;
+  onToolChange: (t: AnnotationTool) => void;
+  penColor: string;
+  highlightColor: string;
+  onPenColor: (c: string) => void;
+  onHighlightColor: (c: string) => void;
+  penWidth: number;
+  highlightWidth: number;
+  eraserRadius: number;
+  onPenWidth: (w: number) => void;
+  onHighlightWidth: (w: number) => void;
+  onEraserRadius: (r: number) => void;
+  stackCounts: { undo: number; redo: number };
+  onUndo: () => void;
+  onRedo: () => void;
+  onDone: () => void;
+}
+
+/**
+ * Floating bottom toolbar for annotation. Single focused control
+ * surface that hovers near the PDF instead of being tucked into a
+ * small sidebar. Big 44x44+ touch targets, segmented tool selector,
+ * per-tool settings inline.
+ */
+function FloatingAnnotationToolbar(props: FloatingToolbarProps) {
+  const {
+    tool,
+    onToolChange,
+    penColor,
+    highlightColor,
+    onPenColor,
+    onHighlightColor,
+    penWidth,
+    highlightWidth,
+    eraserRadius,
+    onPenWidth,
+    onHighlightWidth,
+    onEraserRadius,
+    stackCounts,
+    onUndo,
+    onRedo,
+    onDone,
+  } = props;
+  const drawing = tool === 'pen' || tool === 'highlight';
+  return (
+    <div
+      role="toolbar"
+      aria-label="Annotation tools"
+      className="fixed left-1/2 -translate-x-1/2 z-40 bottom-24 md:bottom-6 max-w-[calc(100vw-1.5rem)] w-auto rounded-2xl bg-white dark:bg-gray-900 shadow-2xl border border-gray-200 dark:border-gray-700 px-3 py-2 sm:px-4 sm:py-3 flex flex-col gap-2 sm:gap-3"
+      data-testid="annotation-toolbar"
+    >
+      {/* Tool selector — segmented control with large hit targets. */}
+      <div
+        role="group"
+        aria-label="Tool"
+        className="flex items-center gap-1 sm:gap-2"
+      >
+        <ToolButton
+          label="Pen"
+          icon={<FiEdit3 className="h-5 w-5" />}
+          active={tool === 'pen'}
+          activeClass="bg-purple-600 text-white border-purple-600"
+          onClick={() => onToolChange(tool === 'pen' ? null : 'pen')}
+        />
+        <ToolButton
+          label="Highlight"
+          icon={<HighlighterIcon />}
+          active={tool === 'highlight'}
+          activeClass="bg-yellow-500 text-white border-yellow-500"
+          onClick={() => onToolChange(tool === 'highlight' ? null : 'highlight')}
+        />
+        <ToolButton
+          label="Eraser"
+          icon={<EraserIcon />}
+          active={tool === 'eraser'}
+          activeClass="bg-red-600 text-white border-red-600"
+          onClick={() => onToolChange(tool === 'eraser' ? null : 'eraser')}
+        />
+        <span className="hidden sm:inline-block w-px h-8 bg-gray-200 dark:bg-gray-700 mx-1" />
+        <button
+          type="button"
+          onClick={onUndo}
+          disabled={stackCounts.undo === 0}
+          aria-label={`Undo (${stackCounts.undo})`}
+          title="Undo"
+          className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-lg border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-40 disabled:hover:bg-transparent"
+        >
+          <FiRotateCcw className="h-5 w-5" />
+        </button>
+        <button
+          type="button"
+          onClick={onRedo}
+          disabled={stackCounts.redo === 0}
+          aria-label={`Redo (${stackCounts.redo})`}
+          title="Redo"
+          className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-lg border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-40 disabled:hover:bg-transparent"
+        >
+          <FiRotateCw className="h-5 w-5" />
+        </button>
+        <span className="hidden sm:inline-block w-px h-8 bg-gray-200 dark:bg-gray-700 mx-1" />
+        <button
+          type="button"
+          onClick={onDone}
+          className="min-h-[44px] inline-flex items-center justify-center rounded-lg bg-gray-900 text-white px-3 sm:px-4 hover:bg-gray-700 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-gray-300"
+          aria-label="Done annotating"
+        >
+          <FiCheck className="h-5 w-5 sm:mr-1.5" />
+          <span className="hidden sm:inline text-sm font-medium">Done</span>
+        </button>
+      </div>
+
+      {/* Per-tool settings: color + size for pen / highlight; size only
+          for eraser. Hidden when no drawing tool is active so the row
+          collapses to just the tool selector + undo/redo/done. */}
+      {(drawing || tool === 'eraser') && (
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3 border-t border-gray-100 dark:border-gray-800 pt-2">
+          {drawing && (
+            <div
+              role="group"
+              aria-label="Color"
+              className="flex items-center gap-1"
+            >
+              {(tool === 'highlight' ? HIGHLIGHT_COLORS : PEN_COLORS).map((c) => {
+                const selected = (tool === 'highlight' ? highlightColor : penColor) === c;
+                return (
+                  <button
+                    key={c}
+                    type="button"
+                    aria-label={`Use color ${c}`}
+                    aria-pressed={selected}
+                    onClick={() =>
+                      tool === 'highlight' ? onHighlightColor(c) : onPenColor(c)
+                    }
+                    className={`h-9 w-9 sm:h-10 sm:w-10 rounded-full border-2 transition ${
+                      selected
+                        ? 'border-gray-900 dark:border-white scale-110 shadow-sm'
+                        : 'border-transparent'
+                    }`}
+                    style={{ background: c }}
+                  />
+                );
+              })}
+            </div>
+          )}
+          <div className="flex items-center gap-2 flex-1 min-w-[160px]">
+            <label
+              htmlFor="annotation-stroke-size"
+              className="text-[11px] uppercase tracking-wide text-gray-500 whitespace-nowrap"
+            >
+              {tool === 'eraser' ? 'Eraser size' : tool === 'highlight' ? 'Marker' : 'Pen'}
+            </label>
+            <input
+              id="annotation-stroke-size"
+              type="range"
+              min={tool === 'highlight' ? 5 : tool === 'eraser' ? 5 : 1}
+              max={tool === 'highlight' ? 60 : tool === 'eraser' ? 80 : 30}
+              value={Math.round(
+                (tool === 'highlight'
+                  ? highlightWidth
+                  : tool === 'eraser'
+                    ? eraserRadius
+                    : penWidth) * 1000,
+              )}
+              onChange={(e) => {
+                const v = Number(e.target.value) / 1000;
+                if (tool === 'highlight') onHighlightWidth(v);
+                else if (tool === 'eraser') onEraserRadius(v);
+                else onPenWidth(v);
+              }}
+              className="flex-1 h-2 accent-purple-600"
+              aria-label={
+                tool === 'eraser'
+                  ? 'Eraser radius'
+                  : tool === 'highlight'
+                    ? 'Highlighter width'
+                    : 'Pen width'
+              }
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ToolButton(props: {
+  label: string;
+  icon: React.ReactNode;
+  active: boolean;
+  activeClass: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={props.onClick}
+      aria-pressed={props.active}
+      aria-label={props.label}
+      title={props.label}
+      className={`min-h-[44px] min-w-[44px] inline-flex items-center justify-center gap-1 rounded-lg border-2 px-2 sm:px-3 transition ${
+        props.active
+          ? props.activeClass
+          : 'border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800'
+      }`}
+    >
+      {props.icon}
+      <span className="hidden md:inline text-sm font-medium">{props.label}</span>
+    </button>
+  );
+}
+
+function HighlighterIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M9 11l-4 4v3h3l4-4" />
+      <path d="M14 6l4 4-7 7-4-4z" />
+      <path d="M3 21h18" />
+    </svg>
+  );
+}
+
+/** No `FiEraser` in the icon set we have, so paint our own. */
+function EraserIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M20 20H7L3 16C2 15 2 13 3 12L13 2L22 11L13 20" />
+      <path d="M11 4L19 12" />
+    </svg>
+  );
+}
+
+export { clampPageWidth };

@@ -67,8 +67,9 @@ interface DragState {
  * desktop look right when the user later prints / shares.
  *
  * Mobile/tablet: pointer events with `touchAction: 'none'` so finger
- * drags don't trigger page scroll. Resize handles are 24px so they're
- * tappable.
+ * drags don't trigger page scroll. Resize handles are 24×24px (the
+ * minimum tap target the iOS HIG calls comfortable) and grow further
+ * with a 28×28 hit-area ring so they're easy to land on a tablet.
  */
 export default function JoinLayoutEditor({
   projectId,
@@ -288,20 +289,20 @@ export default function JoinLayoutEditor({
       aria-modal="true"
     >
       <div className="bg-white dark:bg-gray-900 rounded-lg shadow-2xl max-w-6xl w-full max-h-[95vh] overflow-auto">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-3 sm:px-4 py-3 border-b border-gray-200 dark:border-gray-700">
           <input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="font-semibold text-lg bg-transparent border-b border-gray-300 dark:border-gray-600 focus:outline-none focus:border-blue-500 px-1 py-0.5"
+            className="font-semibold text-lg bg-transparent border-b border-gray-300 dark:border-gray-600 focus:outline-none focus:border-blue-500 px-2 py-2 min-h-[44px] flex-1 min-w-0"
             aria-label="Layout name"
           />
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-shrink-0">
             <button
               type="button"
               onClick={handleSave}
               disabled={saving}
-              className="rounded bg-blue-600 px-3 py-1.5 text-sm text-white font-medium hover:bg-blue-700 disabled:opacity-50 flex items-center gap-1"
+              className="rounded-lg bg-blue-600 px-4 py-2 text-sm text-white font-medium hover:bg-blue-700 disabled:opacity-50 flex items-center gap-1.5 min-h-[44px]"
             >
               <FiSave className="h-4 w-4" />
               {saving ? 'Saving…' : 'Save'}
@@ -310,16 +311,16 @@ export default function JoinLayoutEditor({
               type="button"
               onClick={onClose}
               aria-label="Close editor"
-              className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500"
+              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 min-h-[44px] min-w-[44px] flex items-center justify-center"
             >
               <FiX className="h-5 w-5" />
             </button>
           </div>
         </div>
 
-        <div className="grid md:grid-cols-[280px_1fr] gap-4 p-4">
+        <div className="grid grid-cols-1 md:grid-cols-[300px_1fr] gap-4 p-3 sm:p-4">
           {/* Available crops */}
-          <div className="space-y-2 max-h-[75vh] overflow-y-auto">
+          <div className="space-y-2 md:max-h-[75vh] md:overflow-y-auto">
             <h5 className="text-xs font-semibold uppercase tracking-wide text-gray-500">
               Available crops
             </h5>
@@ -339,7 +340,7 @@ export default function JoinLayoutEditor({
                 {available.map((c) => (
                   <li
                     key={c.id}
-                    className="flex items-center justify-between gap-2 rounded border border-gray-200 dark:border-gray-700 px-2 py-1.5 text-sm"
+                    className="flex items-center justify-between gap-2 rounded border border-gray-200 dark:border-gray-700 px-3 py-2 text-sm"
                   >
                     <span className="truncate min-w-0">
                       {c.label ?? <em className="text-gray-400">unlabeled</em>}
@@ -348,10 +349,10 @@ export default function JoinLayoutEditor({
                     <button
                       type="button"
                       onClick={() => handleAdd(c)}
-                      className="rounded bg-purple-600 text-white text-xs px-2 py-1 hover:bg-purple-700 flex items-center gap-1 flex-shrink-0"
+                      className="rounded-lg bg-purple-600 text-white text-sm px-3 py-2 hover:bg-purple-700 flex items-center gap-1.5 flex-shrink-0 min-h-[36px]"
                       aria-label={`Add ${c.label ?? 'crop'} to layout`}
                     >
-                      <FiPlus className="h-3 w-3" /> Add
+                      <FiPlus className="h-4 w-4" /> Add
                     </button>
                   </li>
                 ))}
@@ -396,26 +397,26 @@ export default function JoinLayoutEditor({
                               onClick={() => handleReorder(idx, -1)}
                               disabled={idx === 0}
                               aria-label="Send back"
-                              className="p-1 text-gray-500 hover:text-gray-800 disabled:opacity-30"
+                              className="min-h-[36px] min-w-[36px] flex items-center justify-center rounded text-gray-500 hover:text-gray-800 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-30 disabled:hover:bg-transparent"
                             >
-                              <FiArrowUp className="h-3 w-3" />
+                              <FiArrowUp className="h-4 w-4" />
                             </button>
                             <button
                               type="button"
                               onClick={() => handleReorder(idx, 1)}
                               disabled={idx === regions.length - 1}
                               aria-label="Bring forward"
-                              className="p-1 text-gray-500 hover:text-gray-800 disabled:opacity-30"
+                              className="min-h-[36px] min-w-[36px] flex items-center justify-center rounded text-gray-500 hover:text-gray-800 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-30 disabled:hover:bg-transparent"
                             >
-                              <FiArrowDown className="h-3 w-3" />
+                              <FiArrowDown className="h-4 w-4" />
                             </button>
                             <button
                               type="button"
                               onClick={() => handleRemove(idx)}
                               aria-label="Remove region"
-                              className="p-1 text-red-500 hover:text-red-700"
+                              className="min-h-[36px] min-w-[36px] flex items-center justify-center rounded text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
                             >
-                              <FiTrash2 className="h-3 w-3" />
+                              <FiTrash2 className="h-4 w-4" />
                             </button>
                           </div>
                         </div>
@@ -553,29 +554,49 @@ function ResizeHandle(props: {
   position: 'nw' | 'ne' | 'sw' | 'se';
   onPointerDown: (e: React.PointerEvent<HTMLDivElement>) => void;
 }) {
+  // Visible nub is 14×14 (looks calm) but the surrounding hit area is
+  // 28×28 — well past the 24px iOS HIG comfort minimum — so a finger
+  // on a tablet doesn't have to chase the corner. The nub sits inside
+  // a transparent 28×28 wrapper that absorbs the pointer event.
+  const HIT = 28;
+  const NUB = 14;
+  const halfHit = HIT / 2;
   const positions: Record<typeof props.position, React.CSSProperties> = {
-    nw: { top: -6, left: -6, cursor: 'nwse-resize' },
-    ne: { top: -6, right: -6, cursor: 'nesw-resize' },
-    sw: { bottom: -6, left: -6, cursor: 'nesw-resize' },
-    se: { bottom: -6, right: -6, cursor: 'nwse-resize' },
+    nw: { top: -halfHit, left: -halfHit, cursor: 'nwse-resize' },
+    ne: { top: -halfHit, right: -halfHit, cursor: 'nesw-resize' },
+    sw: { bottom: -halfHit, left: -halfHit, cursor: 'nesw-resize' },
+    se: { bottom: -halfHit, right: -halfHit, cursor: 'nwse-resize' },
   };
   return (
     <div
       role="button"
       aria-label={`Resize ${props.position}`}
       onPointerDown={props.onPointerDown}
+      data-handle-size={HIT}
       style={{
         position: 'absolute',
-        width: 14,
-        height: 14,
-        background: '#2563eb',
-        borderRadius: 2,
-        border: '2px solid white',
-        boxShadow: '0 0 0 1px #2563eb',
+        width: HIT,
+        height: HIT,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'transparent',
         touchAction: 'none',
         ...positions[props.position],
       }}
-    />
+    >
+      <span
+        style={{
+          width: NUB,
+          height: NUB,
+          background: '#2563eb',
+          borderRadius: 3,
+          border: '2px solid white',
+          boxShadow: '0 0 0 1px #2563eb',
+          pointerEvents: 'none',
+        }}
+      />
+    </div>
   );
 }
 

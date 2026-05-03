@@ -4,7 +4,7 @@ import { NotFoundError, ValidationError } from '../utils/errorHandler';
 import { createAuditLog } from '../middleware/auditLog';
 import logger from '../config/logger';
 import { PDFDocument, rgb } from 'pdf-lib';
-import axios from 'axios';
+import { safeAxios } from '../utils/safeFetch';
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
@@ -546,9 +546,12 @@ export async function collatePatterns(req: Request, res: Response) {
       // Load the PDF file
       let pdfBytes: Uint8Array;
       if (pdfFile.file_path.startsWith('http')) {
-        // Remote file — guard against SSRF (private IPs, cloud metadata, etc.)
+        // Pre-flight URL validation gives the user a clean 4xx if the
+        // URL is obviously bad. The actual fetch then runs through
+        // safeAxios, whose http(s) Agents re-validate the resolved IP
+        // at connect time — closing the DNS-rebinding race.
         await assertPublicUrl(pdfFile.file_path);
-        const response = await axios.get(pdfFile.file_path, {
+        const response = await safeAxios.get(pdfFile.file_path, {
           responseType: 'arraybuffer',
           timeout: 15000,
           maxRedirects: 3,

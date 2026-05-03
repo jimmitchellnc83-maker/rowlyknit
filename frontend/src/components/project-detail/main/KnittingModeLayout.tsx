@@ -147,11 +147,19 @@ export default function KnittingModeLayout({
             the project has no pieces or panel groups. */}
         <PiecesQuickPanel projectId={projectId} />
 
-        {/* QuickKeys for the project's primary pattern. Renders an
-            empty-state hint when the pattern has no starred crops yet
-            so the feature is discoverable instead of invisible. */}
-        {patterns.length > 0 && patterns[0]?.id && (
-          <QuickKeysPanel patternId={patterns[0].id} />
+        {/* QuickKeys aggregated across every pattern attached to this
+            project — a key starred on any of them is reachable here so
+            multi-pattern projects (sweater + a separate cable chart,
+            stranded yoke + sleeves with their own pattern, …) don't
+            hide half the user's saved snippets. Renders an empty-state
+            hint when no pattern has any QuickKeys yet so the feature
+            stays discoverable. */}
+        {patterns.length > 0 && (
+          <QuickKeysPanel
+            patterns={patterns
+              .filter((p: any) => p?.id)
+              .map((p: any) => ({ id: p.id, name: p.name ?? null }))}
+          />
         )}
 
         {/* Marker history — most-recent counter / panel / chart marker

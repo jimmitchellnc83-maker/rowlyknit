@@ -1,12 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
-import { FiArrowLeft, FiBookmark, FiEdit2, FiTrash2, FiFileText, FiGrid, FiTool, FiBook, FiCheckCircle } from 'react-icons/fi';
+import { FiArrowLeft, FiEdit2, FiTrash2, FiFileText, FiGrid, FiTool, FiBook, FiCheckCircle, FiLayout } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { PDFCollation } from '../components/patterns';
 import PatternFileUpload from '../components/PatternFileUpload';
 import BookmarkManager from '../components/patterns/BookmarkManager';
-import PatternViewer from '../components/patterns/PatternViewer';
 import FeasibilityPanel from '../components/patterns/FeasibilityPanel';
 import ComplexityBadge, { type ComplexityResult } from '../components/patterns/ComplexityBadge';
 import MadeByChip from '../components/patterns/MadeByChip';
@@ -122,7 +121,6 @@ export default function PatternDetail() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
-  const [selectedPdfFile, setSelectedPdfFile] = useState<PatternFile | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -144,15 +142,9 @@ export default function PatternDetail() {
     }
   }, [id]);
 
-  useEffect(() => {
-    // Auto-select first PDF file for viewer
-    if (files.length > 0 && !selectedPdfFile) {
-      const pdfFile = files.find(f => f.file_type === 'pdf');
-      if (pdfFile) {
-        setSelectedPdfFile(pdfFile);
-      }
-    }
-  }, [files, selectedPdfFile]);
+  // Note: the legacy auto-select-first-PDF-for-viewer effect was
+  // removed when the dedicated PDF Viewer tab retired. The unified
+  // PDF & Sources workspace handles selection itself.
 
   const fetchPattern = async () => {
     try {
@@ -394,20 +386,6 @@ export default function PatternDetail() {
               </div>
             </button>
             <button
-              onClick={() => setActiveTab('viewer')}
-              className={`px-4 md:px-6 py-4 md:py-3 text-sm md:text-base font-medium border-b-2 whitespace-nowrap flex-shrink-0 ${
-                activeTab === 'viewer'
-                  ? 'border-purple-600 text-purple-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              } ${!selectedPdfFile ? 'opacity-50 cursor-not-allowed' : ''}`}
-              disabled={!selectedPdfFile}
-            >
-              <div className="flex items-center gap-2">
-                <FiFileText className="h-5 w-5 md:h-4 md:w-4" />
-                <span className="hidden sm:inline">PDF Viewer</span>
-              </div>
-            </button>
-            <button
               onClick={() => setActiveTab('charts')}
               className={`px-4 md:px-6 py-4 md:py-3 text-sm md:text-base font-medium border-b-2 whitespace-nowrap flex-shrink-0 ${
                 activeTab === 'charts'
@@ -427,10 +405,11 @@ export default function PatternDetail() {
                   ? 'border-purple-600 text-purple-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
+              title="View PDFs, draw crops, annotate, save QuickKeys, align charts"
             >
               <div className="flex items-center gap-2">
-                <FiBookmark className="h-5 w-5 md:h-4 md:w-4" />
-                <span className="hidden sm:inline">Sources</span>
+                <FiLayout className="h-5 w-5 md:h-4 md:w-4" />
+                <span className="hidden sm:inline">PDF Workspace</span>
               </div>
             </button>
             <button
@@ -591,25 +570,12 @@ export default function PatternDetail() {
             <BookmarkManager
               patternId={id!}
               onJumpToBookmark={(bookmark) => {
-                toast.info(`Jumping to page ${bookmark.page_number}`);
-                setActiveTab('viewer');
+                toast.info(`Opening PDF Workspace at page ${bookmark.page_number}`);
+                setActiveTab('sources');
               }}
             />
           </div>
         </>
-      )}
-
-      {/* PDF Viewer Tab */}
-      {activeTab === 'viewer' && selectedPdfFile && (
-        <div className="bg-white rounded-lg shadow overflow-hidden" style={{ height: '800px' }}>
-          <PatternViewer
-            fileUrl={`/api/uploads/patterns/${id}/files/${selectedPdfFile.id}/download`}
-            filename={selectedPdfFile.original_filename}
-            patternId={id}
-            projectId={searchParams.get('projectId') ?? undefined}
-            fullscreen={false}
-          />
-        </div>
       )}
 
       {/* Charts Tab */}

@@ -8,8 +8,25 @@ import {
 } from '../../lib/sourceFiles';
 import '../../lib/pdfjsWorker';
 
+interface PatternRef {
+  id: string;
+  name?: string | null;
+}
+
 interface Props {
-  patternId: string;
+  /**
+   * One or more patterns to pull QuickKeys from. When more than one is
+   * passed (the project-make case where a project has multiple
+   * attached patterns) the panel aggregates QuickKeys across all
+   * patterns and surfaces a per-row attribution pill so the knitter
+   * can tell which pattern a key came from.
+   *
+   * Accepts a single `string` for the legacy single-pattern call site
+   * (Make Mode's per-pattern panel).
+   */
+  patterns?: PatternRef[] | string;
+  /** Legacy alias for the single-pattern call site. */
+  patternId?: string;
   /** Optional active row to highlight inside the QuickKey viewer.
    *  When the QuickKey crop has a chart alignment, the viewer paints a
    *  horizontal line at the active row so the knitter sees their place
@@ -17,28 +34,63 @@ interface Props {
   activeRow?: number;
 }
 
+interface AggregatedQuickKey extends QuickKeyEntry {
+  /** Pattern this QuickKey belongs to. Used for the per-row pill when
+   *  the panel is rendering across more than one pattern. */
+  patternId: string;
+  patternName: string | null;
+}
+
 /**
- * Active-knitting QuickKey consumer. Fetches the pattern's saved
- * QuickKey crops and renders them as a tap-to-view list with a
- * lightweight in-place modal so the knitter can reference a saved
- * snippet without losing row state (no navigation, modal close
- * returns to the same Make Mode view).
+ * Active-knitting QuickKey consumer. Fetches every passed pattern's
+ * saved QuickKey crops and renders them as one flat tap-to-view list.
+ *
+ * Project mode: pass `patterns={projectPatterns}` and the panel pulls
+ * QuickKeys from each. Pattern mode: pass `patternId="..."` (or a
+ * single-element `patterns` array) and the panel behaves as it did
+ * before — one source, no attribution pill.
+ *
+ * The viewer modal is unchanged from the single-pattern flow; closing
+ * it returns to the same Make Mode view without losing row state.
  */
-export default function QuickKeysPanel({ patternId, activeRow }: Props) {
-  const [qks, setQks] = useState<QuickKeyEntry[]>([]);
+export default function QuickKeysPanel({ patterns, patternId, activeRow }: Props) {
+  const normalized = normalizePatterns(patterns, patternId);
+  const [qks, setQks] = useState<AggregatedQuickKey[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [active, setActive] = useState<QuickKeyEntry | null>(null);
+  const [active, setActive] = useState<AggregatedQuickKey | null>(null);
+
+  // Cache key — change ANY of the input pattern IDs and we refetch.
+  const refetchKey = normalized.map((p) => p.id).sort().join('|');
 
   useEffect(() => {
     let cancelled = false;
+    if (normalized.length === 0) {
+      setQks([]);
+      setLoading(false);
+      return () => {
+        cancelled = true;
+      };
+    }
     setLoading(true);
-    listQuickKeysForPattern(patternId)
-      .then((rows) => {
-        if (!cancelled) {
-          setQks(rows);
-          setError(null);
+    Promise.all(
+      normalized.map(async (p) => {
+        try {
+          const rows = await listQuickKeysForPattern(p.id);
+          return rows.map((row): AggregatedQuickKey => ({
+            ...row,
+            patternId: p.id,
+            patternName: p.name ?? null,
+          }));
+        } catch {
+          return [] as AggregatedQuickKey[];
         }
+      }),
+    )
+      .then((arrays) => {
+        if (cancelled) return;
+        setQks(arrays.flat());
+        setError(null);
       })
       .catch(() => {
         if (!cancelled) setError('Could not load QuickKeys.');
@@ -49,13 +101,22 @@ export default function QuickKeysPanel({ patternId, activeRow }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [patternId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refetchKey]);
 
   if (loading) return null;
 
-  const sorted = [...qks].sort(
-    (a, b) => (a.quickKeyPosition ?? 999) - (b.quickKeyPosition ?? 999),
-  );
+  // Sort by quickKeyPosition (ascending). Ties broken by pattern name
+  // so multi-pattern projects group sensibly even when each pattern
+  // started numbering its QuickKeys at 0.
+  const sorted = [...qks].sort((a, b) => {
+    const ap = a.quickKeyPosition ?? 999;
+    const bp = b.quickKeyPosition ?? 999;
+    if (ap !== bp) return ap - bp;
+    return (a.patternName ?? '').localeCompare(b.patternName ?? '');
+  });
+
+  const showPatternBadges = normalized.length > 1;
 
   if (sorted.length === 0) {
     return (
@@ -65,7 +126,9 @@ export default function QuickKeysPanel({ patternId, activeRow }: Props) {
           QuickKeys
         </h3>
         <p className="text-xs text-gray-500 dark:text-gray-400">
-          No QuickKeys yet. Open the pattern's Sources tab, draw a crop on a PDF, then tap the ★ on the crop to pin it as a QuickKey. It appears here next time you knit.
+          {showPatternBadges
+            ? 'No QuickKeys yet across this project\'s patterns. Open any pattern\'s PDF, draw a crop, then tap the ★ to pin it. It\'ll show up here next time you knit.'
+            : 'No QuickKeys yet. Open the pattern\'s Sources tab, draw a crop on a PDF, then tap the ★ on the crop to pin it as a QuickKey. It appears here next time you knit.'}
         </p>
       </div>
     );
@@ -80,7 +143,9 @@ export default function QuickKeysPanel({ patternId, activeRow }: Props) {
         </h3>
       </div>
       <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-        Saved snippets from your pattern. Tap to view without losing your row.
+        {showPatternBadges
+          ? 'Saved snippets across this project\'s patterns. Tap to view without losing your row.'
+          : 'Saved snippets from your pattern. Tap to view without losing your row.'}
       </p>
 
       {error && (
@@ -89,11 +154,11 @@ export default function QuickKeysPanel({ patternId, activeRow }: Props) {
 
       <ul className="space-y-1.5">
         {sorted.map((qk) => (
-          <li key={qk.cropId}>
+          <li key={`${qk.patternId}-${qk.cropId}`}>
             <button
               type="button"
               onClick={() => setActive(qk)}
-              className="w-full text-left p-2 rounded hover:bg-purple-50 dark:hover:bg-purple-900/20 text-sm flex items-center gap-2 group"
+              className="w-full text-left p-2 rounded hover:bg-purple-50 dark:hover:bg-purple-900/20 text-sm flex items-center gap-2 group min-h-[44px]"
             >
               <CropThumbnail quickKey={qk} />
               <span className="flex-1 min-w-0">
@@ -103,8 +168,16 @@ export default function QuickKeysPanel({ patternId, activeRow }: Props) {
                     {qk.label || `QuickKey #${(qk.quickKeyPosition ?? 0) + 1}`}
                   </span>
                 </span>
-                <span className="text-xs text-gray-500 block">
-                  Page {qk.pageNumber}
+                <span className="text-xs text-gray-500 flex items-center gap-1.5 mt-0.5">
+                  <span>Page {qk.pageNumber}</span>
+                  {showPatternBadges && qk.patternName && (
+                    <span
+                      className="rounded bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 text-[10px] font-medium text-gray-700 dark:text-gray-200 truncate max-w-[8rem]"
+                      title={qk.patternName}
+                    >
+                      {qk.patternName}
+                    </span>
+                  )}
                 </span>
               </span>
             </button>
@@ -121,6 +194,26 @@ export default function QuickKeysPanel({ patternId, activeRow }: Props) {
       )}
     </div>
   );
+}
+
+function normalizePatterns(
+  patterns: Props['patterns'],
+  patternId: Props['patternId'],
+): PatternRef[] {
+  if (Array.isArray(patterns)) {
+    // De-dupe by id while preserving order — projects can technically
+    // attach the same pattern twice via project_patterns; we don't want
+    // duplicate QuickKeys in that case.
+    const seen = new Set<string>();
+    return patterns.filter((p) => {
+      if (seen.has(p.id)) return false;
+      seen.add(p.id);
+      return true;
+    });
+  }
+  if (typeof patterns === 'string' && patterns) return [{ id: patterns }];
+  if (patternId) return [{ id: patternId }];
+  return [];
 }
 
 /**
