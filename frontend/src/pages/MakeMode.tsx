@@ -2,21 +2,23 @@
  * Make Mode — canonical pattern execution surface.
  *
  * Reads a canonical Pattern + its `progress_state` and renders a
- * mobile-first row tracker with linked counters, per-section progress,
+ * tablet-first row tracker with linked counters, per-section progress,
  * and the PDF source files / QuickKeys the knitter pinned during setup.
  *
- *   - Big tap targets for +1 / -1 row (44px+ for thumb access)
+ *   - 44px+ tap targets on every frequent control (Make Mode runs on
+ *     tablets/PWA while the user has needles in hand)
  *   - Multiple linked counters with named labels
  *   - Per-section progress visible at a glance ("at the same time")
  *   - Active-section selector
  *   - Source files + QuickKeys embedded so the user can reference any
  *     pinned chart snippet without losing row state
- *   - Persistence via PUT /api/pattern-models/:id
+ *   - Persistence via PUT /api/pattern-models/:id (both progress_state
+ *     and per-section parameters._totalRows)
  */
 
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { FiHelpCircle, FiBookOpen, FiFileText } from 'react-icons/fi';
+import { FiHelpCircle, FiBookOpen, FiFileText, FiX, FiTrash2 } from 'react-icons/fi';
 import { useSeo } from '../hooks/useSeo';
 import { usePatternModel, useUpdatePatternModel } from '../hooks/usePatternModel';
 import {
@@ -39,13 +41,27 @@ import SourceFilesPanel from '../components/source-files/SourceFilesPanel';
 
 // 2026-04-28 product call: take the legacy compute totals out of band
 // for now so Make Mode doesn't depend on the canonical chart layer.
-// `parameters._totalRows` is populated when the Author UI saves a row
-// estimate; otherwise we ask the user (set-row dialog).
+// `parameters._totalRows` is set by Make Mode's "Set total rows" editor
+// or by Author Mode when that surface is enabled.
 const totalRowsFor = (section: PatternSection): number | undefined => {
   const v = section.parameters['_totalRows'];
   if (typeof v === 'number' && Number.isFinite(v) && v > 0) return v;
   return undefined;
 };
+
+/** Pure helper — return a new sections array with `_totalRows` patched
+ *  on the matching section. Other parameters are preserved. */
+export function patchSectionTotalRows(
+  sections: PatternSection[],
+  sectionId: string,
+  totalRows: number,
+): PatternSection[] {
+  return sections.map((s) =>
+    s.id === sectionId
+      ? { ...s, parameters: { ...s.parameters, _totalRows: totalRows } }
+      : s,
+  );
+}
 
 export default function MakeMode() {
   const { id } = useParams<{ id: string }>();
@@ -97,6 +113,23 @@ export default function MakeMode() {
     }
   };
 
+  const persistTotalRows = async (sectionId: string, totalRows: number) => {
+    if (!pattern) return;
+    setSaveError(null);
+    const nextSections = patchSectionTotalRows(pattern.sections, sectionId, totalRows);
+    try {
+      await update.mutateAsync({ id: id!, patch: { sections: nextSections } });
+      trackDesignerEvent(DESIGNER_EVENTS.PATTERN_SAVED, {
+        craft: pattern.craft,
+        technique: pattern.technique,
+        sectionCount: nextSections.length,
+      });
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Failed to save total rows';
+      setSaveError(message);
+    }
+  };
+
   const sortedSections = [...pattern.sections].sort((a, b) => a.sortOrder - b.sortOrder);
   const activeSection =
     sortedSections.find((s) => s.id === progress.activeSectionId) ?? sortedSections[0];
@@ -144,6 +177,7 @@ export default function MakeMode() {
               section={activeSection}
               progress={progress}
               onMutate={persist}
+              onSetTotalRows={persistTotalRows}
               isPending={update.isPending}
               analyticsContext={{ craft: pattern.craft, technique: pattern.technique }}
             />
@@ -301,10 +335,11 @@ function ActiveSectionPanel(props: {
   section: PatternSection;
   progress: ProgressState;
   onMutate: (next: ProgressState) => void;
+  onSetTotalRows: (sectionId: string, totalRows: number) => Promise<void> | void;
   isPending: boolean;
   analyticsContext: { craft: 'knit' | 'crochet'; technique: string };
 }) {
-  const { section, progress, onMutate, isPending, analyticsContext } = props;
+  const { section, progress, onMutate, onSetTotalRows, isPending, analyticsContext } = props;
   const total = totalRowsFor(section);
   const row = rowForSection(progress, section.id);
   const fraction = sectionFraction(progress, section.id, total);
@@ -313,6 +348,7 @@ function ActiveSectionPanel(props: {
   const [showSetter, setShowSetter] = useState(false);
   const [setterValue, setSetterValue] = useState(String(row));
   const [totalEditor, setTotalEditor] = useState<string | null>(null);
+  const [totalEditorError, setTotalEditorError] = useState<string | null>(null);
 
   useEffect(() => {
     setSetterValue(String(row));
@@ -328,7 +364,8 @@ function ActiveSectionPanel(props: {
           type="button"
           onClick={() => onMutate(resetSection(progress, section.id))}
           disabled={isPending}
-          className="text-xs text-gray-500 underline disabled:opacity-50 hover:text-gray-700 dark:hover:text-gray-300"
+          aria-label="Reset section to row 0"
+          className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-md border border-gray-200 px-3 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
         >
           Reset
         </button>
@@ -387,23 +424,24 @@ function ActiveSectionPanel(props: {
         </button>
       </div>
 
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs">
+      <div className="mt-3 flex flex-wrap items-stretch justify-between gap-2">
         <button
           type="button"
           onClick={() => {
             setSetterValue(String(row));
             setShowSetter(true);
           }}
-          className="text-blue-600 underline hover:text-blue-800"
+          className="inline-flex min-h-[44px] flex-1 items-center justify-center rounded-md border border-blue-200 bg-blue-50 px-3 text-sm font-medium text-blue-700 hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-900/30 dark:text-blue-200 dark:hover:bg-blue-900/50"
         >
           Jump to row…
         </button>
         <button
           type="button"
-          onClick={() =>
-            setTotalEditor(total !== undefined ? String(total) : '')
-          }
-          className="text-gray-500 underline hover:text-gray-700 dark:hover:text-gray-300"
+          onClick={() => {
+            setTotalEditorError(null);
+            setTotalEditor(total !== undefined ? String(total) : '');
+          }}
+          className="inline-flex min-h-[44px] flex-1 items-center justify-center rounded-md border border-gray-200 bg-white px-3 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
         >
           {total !== undefined ? `Edit total (${total})` : 'Set total rows'}
         </button>
@@ -427,23 +465,24 @@ function ActiveSectionPanel(props: {
       {totalEditor !== null && (
         <TotalRowsEditor
           value={totalEditor}
-          onChange={setTotalEditor}
-          onCancel={() => setTotalEditor(null)}
-          onSubmit={() => {
+          error={totalEditorError}
+          isPending={isPending}
+          onChange={(v) => {
+            setTotalEditorError(null);
+            setTotalEditor(v);
+          }}
+          onCancel={() => {
+            setTotalEditorError(null);
+            setTotalEditor(null);
+          }}
+          onSubmit={async () => {
             const n = Number(totalEditor);
             if (!Number.isFinite(n) || n <= 0) {
-              setTotalEditor(null);
+              setTotalEditorError('Enter a row count greater than 0.');
               return;
             }
-            // Patch the section's _totalRows parameter via the state
-            // mutator. We don't have a direct setter, so this would
-            // need to be lifted up to a section-PATCH call. For PR 6,
-            // emit a console warning; full wiring lands when Author
-            // mode gets section parameter editing.
-            // eslint-disable-next-line no-console
-            console.warn(
-              `[MakeMode] _totalRows editing requires Author mode for now (set parameters._totalRows on the section).`,
-            );
+            await onSetTotalRows(section.id, Math.floor(n));
+            setTotalEditorError(null);
             setTotalEditor(null);
           }}
         />
@@ -508,18 +547,23 @@ function CountersPanel(props: {
       )}
       <ul className="mb-3 space-y-2">
         {counterIds.map((id) => (
-          <li key={id} className="flex items-center justify-between gap-2">
-            <span className="text-sm text-gray-700 dark:text-gray-200">{id}</span>
+          <li
+            key={id}
+            className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 dark:border-gray-700 dark:bg-gray-900/30"
+          >
+            <span className="min-w-0 flex-1 truncate text-sm font-medium text-gray-700 dark:text-gray-200">
+              {id}
+            </span>
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => onMutate(decrementCounter(progress, id))}
                 aria-label={`Decrement ${id}`}
-                className="min-h-[36px] min-w-[36px] rounded bg-gray-100 px-2 text-sm hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600"
+                className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-md bg-gray-200 text-lg font-bold text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-100 dark:hover:bg-gray-600"
               >
                 −
               </button>
-              <span className="min-w-[2rem] text-center font-semibold tabular-nums">
+              <span className="min-w-[2.5rem] text-center text-lg font-semibold tabular-nums">
                 {counters[id]}
               </span>
               <button
@@ -529,7 +573,7 @@ function CountersPanel(props: {
                   trackDesignerEvent(DESIGNER_EVENTS.COUNTER_INCREMENTED, analyticsContext);
                 }}
                 aria-label={`Increment ${id}`}
-                className="min-h-[36px] min-w-[36px] rounded bg-blue-600 px-2 text-sm text-white hover:bg-blue-700"
+                className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-md bg-blue-600 text-lg font-bold text-white hover:bg-blue-700"
               >
                 +
               </button>
@@ -541,10 +585,11 @@ function CountersPanel(props: {
                   onMutate({ ...progress, counters: next });
                   trackDesignerEvent(DESIGNER_EVENTS.COUNTER_REMOVED, analyticsContext);
                 }}
-                aria-label={`Delete ${id}`}
-                className="text-xs text-red-600 underline hover:text-red-800"
+                aria-label={`Remove counter ${id}`}
+                className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-md border border-red-200 bg-white text-red-600 hover:bg-red-50 dark:border-red-800 dark:bg-gray-800 dark:hover:bg-red-900/20"
               >
-                Remove
+                <FiTrash2 className="h-4 w-4" />
+                <span className="sr-only">Remove counter {id}</span>
               </button>
             </div>
           </li>
@@ -556,7 +601,8 @@ function CountersPanel(props: {
           value={newName}
           onChange={(e) => setNewName(e.target.value)}
           placeholder="New counter name"
-          className="flex-1 rounded-md border border-gray-300 px-2 py-1 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
+          aria-label="New counter name"
+          className="min-h-[44px] flex-1 rounded-md border border-gray-300 px-3 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
         />
         <button
           type="button"
@@ -567,7 +613,7 @@ function CountersPanel(props: {
             setNewName('');
             trackDesignerEvent(DESIGNER_EVENTS.COUNTER_ADDED, analyticsContext);
           }}
-          className="rounded-md bg-blue-600 px-3 py-1 text-sm text-white hover:bg-blue-700"
+          className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700"
         >
           Add
         </button>
@@ -583,29 +629,36 @@ function RowSetterDialog(props: {
   onSubmit: () => void;
 }) {
   return (
-    <div className="mt-3 rounded-md border border-blue-300 bg-blue-50 p-3 dark:border-blue-700 dark:bg-blue-900/20">
-      <label className="block text-sm font-medium text-blue-900 dark:text-blue-200">
+    <div
+      role="dialog"
+      aria-label="Jump to row"
+      className="mt-3 rounded-md border border-blue-300 bg-blue-50 p-3 dark:border-blue-700 dark:bg-blue-900/20"
+    >
+      <label className="block text-sm font-medium text-blue-900 dark:text-blue-200" htmlFor="make-jump-row">
         Jump to row
       </label>
-      <div className="mt-2 flex gap-2">
+      <div className="mt-2 flex flex-wrap gap-2">
         <input
+          id="make-jump-row"
           type="number"
           min={0}
+          inputMode="numeric"
           value={props.value}
           onChange={(e) => props.onChange(e.target.value)}
-          className="flex-1 rounded-md border border-blue-300 px-2 py-1 text-sm dark:border-blue-700 dark:bg-gray-900"
+          className="min-h-[44px] flex-1 rounded-md border border-blue-300 px-3 text-base dark:border-blue-700 dark:bg-gray-900"
         />
         <button
           type="button"
           onClick={props.onSubmit}
-          className="rounded-md bg-blue-600 px-3 py-1 text-sm text-white hover:bg-blue-700"
+          className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700"
         >
           Go
         </button>
         <button
           type="button"
           onClick={props.onCancel}
-          className="rounded-md border border-blue-300 px-3 py-1 text-sm dark:border-blue-700"
+          aria-label="Cancel jump to row"
+          className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-md border border-blue-300 px-4 text-sm font-medium text-blue-900 dark:border-blue-700 dark:text-blue-200"
         >
           Cancel
         </button>
@@ -616,39 +669,58 @@ function RowSetterDialog(props: {
 
 function TotalRowsEditor(props: {
   value: string;
+  error: string | null;
+  isPending: boolean;
   onChange: (v: string) => void;
   onCancel: () => void;
-  onSubmit: () => void;
+  onSubmit: () => void | Promise<void>;
 }) {
   return (
-    <div className="mt-3 rounded-md border border-gray-300 bg-gray-50 p-3 dark:border-gray-600 dark:bg-gray-900/30">
-      <p className="text-xs text-gray-700 dark:text-gray-200">
-        Set the total row count for this section. Use Author mode for now to
-        persist this value into the section's parameters.
+    <div
+      role="dialog"
+      aria-label="Set total rows"
+      className="mt-3 rounded-md border border-gray-300 bg-gray-50 p-3 dark:border-gray-600 dark:bg-gray-900/30"
+    >
+      <label className="block text-sm font-medium text-gray-800 dark:text-gray-100" htmlFor="make-total-rows">
+        Total rows for this section
+      </label>
+      <p className="mt-1 text-xs text-gray-600 dark:text-gray-400">
+        Saved to this section so the row counter can show progress and the
+        completion banner.
       </p>
-      <div className="mt-2 flex gap-2">
+      <div className="mt-2 flex flex-wrap gap-2">
         <input
+          id="make-total-rows"
           type="number"
-          min={0}
+          min={1}
+          inputMode="numeric"
           value={props.value}
           onChange={(e) => props.onChange(e.target.value)}
-          className="flex-1 rounded-md border border-gray-300 px-2 py-1 text-sm dark:border-gray-600 dark:bg-gray-900"
+          className="min-h-[44px] flex-1 rounded-md border border-gray-300 px-3 text-base dark:border-gray-600 dark:bg-gray-900"
         />
         <button
           type="button"
-          onClick={props.onSubmit}
-          className="rounded-md bg-blue-600 px-3 py-1 text-sm text-white hover:bg-blue-700"
+          onClick={() => void props.onSubmit()}
+          disabled={props.isPending}
+          className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
         >
-          OK
+          {props.isPending ? 'Saving…' : 'Save'}
         </button>
         <button
           type="button"
           onClick={props.onCancel}
-          className="rounded-md border border-gray-300 px-3 py-1 text-sm dark:border-gray-600"
+          aria-label="Cancel total rows edit"
+          className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-md border border-gray-300 px-4 text-sm font-medium text-gray-700 dark:border-gray-600 dark:text-gray-200"
         >
-          Cancel
+          <FiX className="h-4 w-4" />
+          <span className="sr-only">Cancel</span>
         </button>
       </div>
+      {props.error && (
+        <p className="mt-2 text-xs text-red-600 dark:text-red-400" role="alert">
+          {props.error}
+        </p>
+      )}
     </div>
   );
 }

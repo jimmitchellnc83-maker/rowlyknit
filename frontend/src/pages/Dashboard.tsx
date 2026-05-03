@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { useQuery } from '@tanstack/react-query';
 import {
   FiFolder,
   FiBook,
@@ -9,6 +10,8 @@ import {
   FiPlus,
   FiAlertCircle,
   FiHelpCircle,
+  FiPlay,
+  FiArrowRight,
 } from 'react-icons/fi';
 import { useAuthStore } from '../stores/authStore';
 import { useDashboardStats } from '../hooks/useApi';
@@ -36,6 +39,11 @@ const iconMap: { [key: string]: React.ComponentType<{ className?: string }> } = 
   FiPackage,
   FiUsers,
 };
+
+interface FeasibilitySummary {
+  projectId: string;
+  patternId: string;
+}
 
 export default function Dashboard() {
   const { user } = useAuthStore();
@@ -95,27 +103,79 @@ export default function Dashboard() {
   const recentProjects = dashboardData?.recentProjects ?? [];
   const lowStockYarn = dashboardData?.lowStockYarn ?? [];
 
+  // Lightweight per-project pattern map — used to flag "this project doesn't
+  // have a pattern attached yet" on the Continue cards. We only treat a
+  // project as missing a pattern once the query has SUCCEEDED — while the
+  // request is in flight or has errored, an empty `data` would otherwise
+  // make every active project look unconfigured. The Dashboard still
+  // renders in all states; the warning chrome just stays hidden.
+  const { data: feasibilitySummaries, isSuccess: feasibilityLoaded } = useQuery<
+    FeasibilitySummary[]
+  >({
+    queryKey: ['dashboard-feasibility-summary'],
+    queryFn: async () => {
+      const { data } = await axios.get('/api/projects/feasibility-summary');
+      return (data?.data?.summaries as FeasibilitySummary[]) ?? [];
+    },
+    staleTime: 30_000,
+  });
+
+  // Tri-state: `true` (has pattern) / `false` (confirmed missing) / `null`
+  // (unknown — feasibility query loading or errored). Callers should only
+  // treat `false` as a missing-pattern signal; `null` keeps the UI neutral.
+  const patternStatusFor = useMemo(() => {
+    if (!feasibilityLoaded) return (_id: string): boolean | null => null;
+    const set = new Set<string>();
+    for (const s of feasibilitySummaries ?? []) {
+      if (s.patternId) set.add(s.projectId);
+    }
+    return (id: string): boolean | null => set.has(id);
+  }, [feasibilitySummaries, feasibilityLoaded]);
+
+  // The Continue queue: most recent ACTIVE projects, capped to 3 cards. We
+  // surface only active projects so this section reads as "things you're
+  // working on now," not a duplicate of the Recent Projects list below.
+  const continueQueue = useMemo(
+    () => recentProjects.filter((p: any) => p.status === 'active').slice(0, 3),
+    [recentProjects],
+  );
+
+  // Setup-gap rollups across the recent slice — each card has its own hint
+  // already; this banner gives an at-a-glance count when several projects
+  // are missing the same thing so the user can act in bulk. Stays at 0
+  // until the feasibility query has succeeded so we never falsely accuse
+  // configured projects while the request is in flight or has errored.
+  const setupGapCount = useMemo(() => {
+    if (!feasibilityLoaded) return 0;
+    return recentProjects.filter(
+      (p: any) => p.status === 'active' && patternStatusFor(p.id) === false,
+    ).length;
+  }, [recentProjects, patternStatusFor, feasibilityLoaded]);
+
   const quickActions = [
     {
       name: 'New Project',
-      description: 'Start tracking a new knitting project',
-      href: '/projects',
+      description: 'Start tracking a new knit or crochet project',
+      href: '/projects?new=1',
       icon: FiFolder,
       color: 'text-purple-600 bg-purple-50 hover:bg-purple-100',
+      testId: 'quick-action-new-project',
     },
     {
       name: 'Add Pattern',
-      description: 'Save a new knitting pattern',
-      href: '/patterns',
+      description: 'Save a pattern to your library',
+      href: '/patterns?new=1',
       icon: FiBook,
       color: 'text-blue-600 bg-blue-50 hover:bg-blue-100',
+      testId: 'quick-action-add-pattern',
     },
     {
       name: 'Add Yarn',
       description: 'Add yarn to your stash',
-      href: '/yarn',
+      href: '/yarn?new=1',
       icon: FiPackage,
       color: 'text-green-600 bg-green-50 hover:bg-green-100',
+      testId: 'quick-action-add-yarn',
     },
   ];
 
@@ -128,12 +188,12 @@ export default function Dashboard() {
             Welcome back, {user?.firstName}!
           </h1>
           <p className="text-gray-600 dark:text-gray-400">
-            Here's what's happening with your knitting projects today.
+            Pick up where you left off, or start something new — knit, crochet, all of it lives here.
           </p>
         </div>
         <Link
           to="/help"
-          className="flex-shrink-0 inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-purple-700 bg-purple-50 rounded-lg hover:bg-purple-100 transition"
+          className="flex-shrink-0 inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-purple-700 bg-purple-50 rounded-lg hover:bg-purple-100 transition min-h-[44px]"
         >
           <FiHelpCircle className="h-4 w-4" />
           Help
@@ -170,6 +230,90 @@ export default function Dashboard() {
       )}
 
       <CmdKTooltip />
+
+      {/* Continue area — only shown when the user has at least one active
+          project. Direct-resume CTA goes to ProjectDetail where the
+          "Resume Knitting" toggle lives. */}
+      {!loading && continueQueue.length > 0 && (
+        <section className="mb-8" aria-label="Continue your work">
+          <div className="flex items-end justify-between mb-3">
+            <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
+              Continue
+            </h2>
+            <Link
+              to="/projects?status=active"
+              className="text-sm font-medium text-purple-600 hover:text-purple-700"
+            >
+              All active projects →
+            </Link>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {continueQueue.map((project: any) => {
+              const missingPattern = patternStatusFor(project.id) === false;
+              return (
+                <Link
+                  key={project.id}
+                  to={`/projects/${project.id}`}
+                  data-testid="continue-project-card"
+                  className="group bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-lg transition p-5 flex flex-col"
+                >
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    <div className="min-w-0">
+                      <h3 className="font-semibold text-gray-900 dark:text-gray-100 truncate">
+                        {project.name}
+                      </h3>
+                      {project.project_type && (
+                        <p className="text-xs text-gray-500 capitalize">
+                          {project.project_type}
+                        </p>
+                      )}
+                    </div>
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide bg-green-100 text-green-800">
+                      Active
+                    </span>
+                  </div>
+
+                  {missingPattern ? (
+                    <p className="text-xs text-amber-700 dark:text-amber-300 mb-3">
+                      No pattern attached yet — add one to unlock feasibility + Make Mode.
+                    </p>
+                  ) : (
+                    <p className="text-xs text-gray-500 mb-3">
+                      Started {formatDate(project.created_at)}
+                    </p>
+                  )}
+
+                  <span className="mt-auto inline-flex items-center justify-center min-h-[44px] gap-2 rounded-md bg-purple-600 px-3 py-2 text-sm font-medium text-white group-hover:bg-purple-700">
+                    <FiPlay className="h-4 w-4" />
+                    Resume
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
+
+          {setupGapCount > 0 && (
+            <div
+              className="mt-4 flex items-start gap-2 text-sm text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-md p-3"
+              role="status"
+            >
+              <FiAlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+              <p>
+                {setupGapCount === 1
+                  ? '1 active project is missing a pattern.'
+                  : `${setupGapCount} active projects are missing a pattern.`}{' '}
+                <Link
+                  to="/patterns?new=1"
+                  className="underline font-medium hover:text-amber-900 dark:hover:text-amber-100"
+                >
+                  Add one now
+                </Link>
+                .
+              </p>
+            </div>
+          )}
+        </section>
+      )}
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -209,7 +353,9 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* Quick Actions */}
+      {/* Quick Actions — every link carries `?new=1` so the destination
+          page opens its create modal immediately instead of dropping the
+          user on a list page they have to scan. */}
       <div className="mb-8">
         <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Quick Actions</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -219,14 +365,18 @@ export default function Dashboard() {
               <Link
                 key={action.name}
                 to={action.href}
-                className={`${action.color} rounded-lg p-6 transition`}
+                data-testid={action.testId}
+                className={`${action.color} rounded-lg p-6 transition min-h-[88px]`}
               >
                 <div className="flex items-start">
                   <div className="flex-shrink-0">
                     <Icon className="h-6 w-6" />
                   </div>
                   <div className="ml-4">
-                    <h3 className="text-sm font-semibold">{action.name}</h3>
+                    <h3 className="text-sm font-semibold flex items-center gap-1">
+                      {action.name}
+                      <FiArrowRight className="h-3 w-3 opacity-70" />
+                    </h3>
                     <p className="text-xs mt-1 opacity-75">{action.description}</p>
                   </div>
                 </div>
@@ -318,8 +468,8 @@ export default function Dashboard() {
             <FiFolder className="mx-auto h-12 w-12 text-gray-400 mb-4" />
             <p className="text-gray-500 dark:text-gray-400 mb-4">No projects yet</p>
             <Link
-              to="/projects"
-              className="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
+              to="/projects?new=1"
+              className="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition min-h-[44px]"
             >
               <FiPlus className="mr-2 h-4 w-4" />
               Create Your First Project
@@ -360,4 +510,3 @@ export default function Dashboard() {
     </div>
   );
 }
-

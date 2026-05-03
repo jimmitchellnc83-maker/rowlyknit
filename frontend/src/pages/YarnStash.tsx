@@ -204,6 +204,17 @@ export default function YarnStash() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, yarn]);
 
+  // Open the create modal when arriving with `?new=1` (Dashboard quick action).
+  useEffect(() => {
+    if (searchParams.get('new') === '1') {
+      setShowCreateModal(true);
+      const next = new URLSearchParams(searchParams);
+      next.delete('new');
+      setSearchParams(next, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
   const emptyFormData = {
     brand: '',
     name: '',

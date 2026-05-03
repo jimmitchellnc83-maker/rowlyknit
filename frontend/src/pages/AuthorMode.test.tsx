@@ -8,7 +8,7 @@
  * backend with a real canonical pattern row.
  */
 
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -22,8 +22,13 @@ vi.mock('../hooks/useSeo', () => ({
   useSeo: vi.fn(),
 }));
 
+vi.mock('../lib/featureFlags', () => ({
+  isDesignerAuthorModeEnabled: vi.fn(() => true),
+}));
+
 import AuthorMode from './AuthorMode';
 import { usePatternModel } from '../hooks/usePatternModel';
+import { isDesignerAuthorModeEnabled } from '../lib/featureFlags';
 
 const renderRoute = () => {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -32,14 +37,34 @@ const renderRoute = () => {
       <MemoryRouter initialEntries={['/patterns/abc/author']}>
         <Routes>
           <Route path="/patterns/:id/author" element={<AuthorMode />} />
+          <Route path="/patterns/:id/make" element={<div>make-mode</div>} />
+          <Route path="/patterns/:id" element={<div>pattern-detail</div>} />
+          <Route path="/patterns" element={<div>patterns-list</div>} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
   );
 };
 
+beforeEach(() => {
+  vi.mocked(isDesignerAuthorModeEnabled).mockReturnValue(true);
+});
+
 afterEach(() => {
   vi.clearAllMocks();
+});
+
+describe('AuthorMode — flag gate', () => {
+  it('redirects to /patterns/:id/make (the canonical-pattern surface) when the flag is off', () => {
+    vi.mocked(isDesignerAuthorModeEnabled).mockReturnValue(false);
+    vi.mocked(usePatternModel).mockReturnValue({ data: undefined, isLoading: false } as any);
+
+    renderRoute();
+
+    expect(screen.getByText('make-mode')).toBeInTheDocument();
+    // Hooks for the inner impl should not have run when the gate redirects.
+    expect(usePatternModel).not.toHaveBeenCalled();
+  });
 });
 
 describe('AuthorMode — loading + error', () => {

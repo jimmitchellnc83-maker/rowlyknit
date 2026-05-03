@@ -8,7 +8,7 @@
  */
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
@@ -24,7 +24,7 @@ vi.mock('../hooks/useSeo', () => ({
   useSeo: vi.fn(),
 }));
 
-import MakeMode from './MakeMode';
+import MakeMode, { patchSectionTotalRows } from './MakeMode';
 import { usePatternModel, useUpdatePatternModel } from '../hooks/usePatternModel';
 
 const renderRoute = () => {
@@ -200,5 +200,169 @@ vi.mocked(usePatternModel).mockReturnValue({
         }),
       }),
     );
+  });
+});
+
+describe('MakeMode — total rows editing', () => {
+  it('persists _totalRows via the sections patch when the user saves a new total', async () => {
+    const mutateAsync = vi.fn().mockResolvedValue(undefined);
+    vi.mocked(useUpdatePatternModel).mockReturnValue({
+      mutateAsync,
+      isPending: false,
+    } as any);
+    vi.mocked(usePatternModel).mockReturnValue({
+      data: samplePattern,
+      isLoading: false,
+    } as any);
+    renderRoute();
+
+    fireEvent.click(screen.getByRole('button', { name: /edit total \(120\)/i }));
+    const input = screen.getByLabelText(/total rows for this section/i);
+    fireEvent.change(input, { target: { value: '144' } });
+    fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
+
+    await waitFor(() => expect(mutateAsync).toHaveBeenCalled());
+
+    const sectionsCall = mutateAsync.mock.calls.find(
+      ([arg]) => arg?.patch?.sections !== undefined,
+    );
+    expect(sectionsCall).toBeDefined();
+    const sentSections = sectionsCall![0].patch.sections;
+    const body = sentSections.find((s: any) => s.id === 'sec-body');
+    expect(body.parameters._totalRows).toBe(144);
+    // Existing parameters on other sections must be preserved.
+    const sleeve = sentSections.find((s: any) => s.id === 'sec-sleeve');
+    expect(sleeve.parameters._totalRows).toBe(80);
+  });
+
+  it('rejects an empty / non-positive total rows value with an inline error', async () => {
+    const mutateAsync = vi.fn().mockResolvedValue(undefined);
+    vi.mocked(useUpdatePatternModel).mockReturnValue({
+      mutateAsync,
+      isPending: false,
+    } as any);
+    const noTotal = {
+      ...samplePattern,
+      sections: samplePattern.sections.map((s) =>
+        s.id === 'sec-body' ? { ...s, parameters: {} } : s,
+      ),
+    };
+    vi.mocked(usePatternModel).mockReturnValue({ data: noTotal, isLoading: false } as any);
+    renderRoute();
+
+    fireEvent.click(screen.getByRole('button', { name: /set total rows/i }));
+    const input = screen.getByLabelText(/total rows for this section/i);
+    fireEvent.change(input, { target: { value: '0' } });
+    fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/greater than 0/i);
+    expect(
+      mutateAsync.mock.calls.find(([arg]) => arg?.patch?.sections !== undefined),
+    ).toBeUndefined();
+  });
+
+  it('drops the legacy "Use Author mode" copy from the editor body', () => {
+    vi.mocked(usePatternModel).mockReturnValue({
+      data: samplePattern,
+      isLoading: false,
+    } as any);
+    renderRoute();
+    fireEvent.click(screen.getByRole('button', { name: /edit total \(120\)/i }));
+    expect(screen.queryByText(/use author mode/i)).toBeNull();
+  });
+});
+
+describe('MakeMode — touch targets', () => {
+  it('applies min-h-[44px] to the frequent active-section controls', () => {
+    vi.mocked(usePatternModel).mockReturnValue({
+      data: samplePattern,
+      isLoading: false,
+    } as any);
+    renderRoute();
+
+    const ariaLabels = [
+      /increment row/i,
+      /decrement row/i,
+      /reset section/i,
+      /jump to row/i,
+      /edit total \(120\)/i,
+    ];
+    for (const label of ariaLabels) {
+      const btn = screen.getByRole('button', { name: label });
+      expect(btn.className).toMatch(/min-h-\[(44|48|64)px\]/);
+    }
+  });
+
+  it('applies min-h/min-w 44px to counter +/-/remove and the add controls', () => {
+    const withCounters = {
+      ...samplePattern,
+      progressState: {
+        ...samplePattern.progressState,
+        counters: { Decreases: 4 },
+      },
+    };
+    vi.mocked(usePatternModel).mockReturnValue({ data: withCounters, isLoading: false } as any);
+    renderRoute();
+
+    for (const label of [
+      /increment decreases/i,
+      /decrement decreases/i,
+      /remove counter decreases/i,
+    ]) {
+      const btn = screen.getByRole('button', { name: label });
+      expect(btn.className).toMatch(/min-h-\[44px\]/);
+      expect(btn.className).toMatch(/min-w-\[44px\]/);
+    }
+    const addBtn = screen.getByRole('button', { name: /^add$/i });
+    expect(addBtn.className).toMatch(/min-h-\[44px\]/);
+    const newCounterInput = screen.getByPlaceholderText(/new counter name/i);
+    expect(newCounterInput.className).toMatch(/min-h-\[44px\]/);
+  });
+});
+
+describe('patchSectionTotalRows', () => {
+  it('updates the matching section without losing other parameters', () => {
+    const sections = [
+      {
+        id: 'a',
+        name: 'A',
+        kind: 'sweater-body' as const,
+        sortOrder: 0,
+        parameters: { _totalRows: 10, foo: 'bar' },
+        chartPlacement: null,
+        notes: null,
+      },
+      {
+        id: 'b',
+        name: 'B',
+        kind: 'sweater-sleeve' as const,
+        sortOrder: 1,
+        parameters: { _totalRows: 5 },
+        chartPlacement: null,
+        notes: null,
+      },
+    ];
+    const next = patchSectionTotalRows(sections, 'a', 22);
+    expect(next[0].parameters._totalRows).toBe(22);
+    expect(next[0].parameters.foo).toBe('bar');
+    expect(next[1].parameters._totalRows).toBe(5);
+    // input not mutated
+    expect(sections[0].parameters._totalRows).toBe(10);
+  });
+
+  it('is a no-op when sectionId does not match', () => {
+    const sections = [
+      {
+        id: 'a',
+        name: 'A',
+        kind: 'sweater-body' as const,
+        sortOrder: 0,
+        parameters: { _totalRows: 10 },
+        chartPlacement: null,
+        notes: null,
+      },
+    ];
+    const next = patchSectionTotalRows(sections, 'missing', 99);
+    expect(next).toEqual(sections);
   });
 });

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { FiPlus, FiTrash2, FiBook, FiEdit2, FiSearch, FiMoreVertical, FiRefreshCw, FiHeart, FiCheckCircle, FiFeather, FiTool } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
@@ -46,6 +46,7 @@ const PATTERN_SORT_OPTIONS: SortOption<Pattern>[] = [
 
 export default function Patterns() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const {
     data: patterns = [],
@@ -130,6 +131,17 @@ export default function Patterns() {
   useFocusTrap(createModalRef, showCreateModal);
   useFocusTrap(editModalRef, showEditModal && !!editingPattern);
   useFocusTrap(collationModalRef, showCollationModal);
+
+  // Open the create modal when arriving with `?new=1` (Dashboard quick action).
+  useEffect(() => {
+    if (searchParams.get('new') === '1') {
+      setShowCreateModal(true);
+      const next = new URLSearchParams(searchParams);
+      next.delete('new');
+      setSearchParams(next, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   const handleRavelryImport = (patternData: RavelryPatternImportData) => {
     setFormData({
