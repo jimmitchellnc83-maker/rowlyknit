@@ -59,6 +59,7 @@ export default function PanelGroupSetup() {
   const [otherGroups, setOtherGroups] = useState<PanelGroup[]>([]);
   const [copyingFromId, setCopyingFromId] = useState<string | null>(null);
   const [copyInProgress, setCopyInProgress] = useState(false);
+  const [pendingPanelDelete, setPendingPanelDelete] = useState<string | null>(null);
 
   const fetchGroup = useCallback(async () => {
     if (!projectId || !groupId) return;
@@ -246,9 +247,9 @@ export default function PanelGroupSetup() {
     }
   };
 
-  const deletePanel = async (panelId: string) => {
+  const performDeletePanel = async (panelId: string) => {
     if (!projectId) return;
-    if (!window.confirm('Delete this panel? Its rows will be removed.')) return;
+    setPendingPanelDelete(null);
     try {
       await axios.delete(`/api/projects/${projectId}/panels/${panelId}`);
       toast.success('Panel deleted');
@@ -427,14 +428,33 @@ export default function PanelGroupSetup() {
                       >
                         Edit
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => deletePanel(panel.id)}
-                        aria-label="Delete panel"
-                        className="p-1 text-gray-400 hover:text-red-600 dark:hover:text-red-400"
-                      >
-                        <FiTrash2 className="w-4 h-4" />
-                      </button>
+                      {pendingPanelDelete === panel.id ? (
+                        <span className="flex items-center gap-1 text-xs">
+                          <button
+                            type="button"
+                            onClick={() => void performDeletePanel(panel.id)}
+                            className="px-2 py-1 font-medium text-white bg-red-600 hover:bg-red-700 rounded"
+                          >
+                            Confirm
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setPendingPanelDelete(null)}
+                            className="px-1 py-1 text-gray-500 hover:text-gray-700"
+                          >
+                            Cancel
+                          </button>
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setPendingPanelDelete(panel.id)}
+                          aria-label="Delete panel"
+                          className="p-1 text-gray-400 hover:text-red-600 dark:hover:text-red-400"
+                        >
+                          <FiTrash2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   </li>
                 ))}

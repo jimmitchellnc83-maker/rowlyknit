@@ -15,7 +15,7 @@ import {
 } from '../../lib/sourceFiles';
 import { trackEvent } from '../../lib/analytics';
 import { dragToRect, isMeaningfulRect, pointInPage } from './cropMath';
-import AnnotationLayer from './AnnotationLayer';
+import AnnotationLayer, { type AnnotationLayerHandle } from './AnnotationLayer';
 import ChartAssistanceModal from '../wave5/ChartAssistanceModal';
 
 /**
@@ -67,6 +67,32 @@ export default function SourceFilePdfViewer({
   // open in the assistance UI (null = closed).
   const [chartAssistCrop, setChartAssistCrop] = useState<PatternCrop | null>(null);
   const [tool, setTool] = useState<AnnotationTool>(null);
+  // Annotation toolbar state. Pen and highlight share the same color
+  // wheel so the user can pin a marker color to a project (e.g. red
+  // for "rip back here") without re-picking on every stroke.
+  const PEN_COLORS = [
+    '#7c3aed', // purple (default pen)
+    '#1d4ed8', // blue
+    '#dc2626', // red
+    '#16a34a', // green
+    '#0f172a', // ink black
+  ];
+  const HIGHLIGHT_COLORS = [
+    '#facc15', // yellow (default highlight)
+    '#fb923c', // orange
+    '#34d399', // mint
+    '#60a5fa', // sky
+    '#f472b6', // pink
+  ];
+  const [penColor, setPenColor] = useState<string>(PEN_COLORS[0]);
+  const [highlightColor, setHighlightColor] = useState<string>(HIGHLIGHT_COLORS[0]);
+  /** Stroke width in normalized crop units. 0.005 = hairline; 0.025 = chunky. */
+  const [strokeWidth, setStrokeWidth] = useState<number>(0.005);
+  const annotationLayerRef = useRef<AnnotationLayerHandle | null>(null);
+  const [stackCounts, setStackCounts] = useState<{ undo: number; redo: number }>({
+    undo: 0,
+    redo: 0,
+  });
   const pageRefs = useRef<Map<number, HTMLDivElement>>(new Map());
 
   const fileUrl = useMemo(() => sourceFileBytesUrl(sourceFile.id), [sourceFile.id]);
@@ -330,9 +356,13 @@ export default function SourceFilePdfViewer({
                       ) : null}
                       {isActive ? (
                         <AnnotationLayer
+                          ref={annotationLayerRef}
                           sourceFileId={sourceFile.id}
                           cropId={c.id}
                           tool={tool}
+                          color={tool === 'highlight' ? highlightColor : penColor}
+                          strokeWidth={strokeWidth}
+                          onStackChange={setStackCounts}
                         />
                       ) : null}
                     </div>
@@ -377,7 +407,8 @@ export default function SourceFilePdfViewer({
               <button
                 type="button"
                 onClick={() => setTool(tool === 'pen' ? null : 'pen')}
-                className={`flex-1 rounded px-2 py-1 text-xs ${
+                aria-pressed={tool === 'pen'}
+                className={`flex-1 min-h-[36px] rounded px-2 py-1 text-xs ${
                   tool === 'pen'
                     ? 'bg-purple-600 text-white'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -388,7 +419,8 @@ export default function SourceFilePdfViewer({
               <button
                 type="button"
                 onClick={() => setTool(tool === 'highlight' ? null : 'highlight')}
-                className={`flex-1 rounded px-2 py-1 text-xs ${
+                aria-pressed={tool === 'highlight'}
+                className={`flex-1 min-h-[36px] rounded px-2 py-1 text-xs ${
                   tool === 'highlight'
                     ? 'bg-yellow-500 text-white'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -399,7 +431,8 @@ export default function SourceFilePdfViewer({
               <button
                 type="button"
                 onClick={() => setTool(tool === 'eraser' ? null : 'eraser')}
-                className={`flex-1 rounded px-2 py-1 text-xs ${
+                aria-pressed={tool === 'eraser'}
+                className={`flex-1 min-h-[36px] rounded px-2 py-1 text-xs ${
                   tool === 'eraser'
                     ? 'bg-red-600 text-white'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -408,13 +441,76 @@ export default function SourceFilePdfViewer({
                 Erase
               </button>
             </div>
+
+            {(tool === 'pen' || tool === 'highlight') && (
+              <>
+                <p className="mt-3 text-[10px] uppercase tracking-wide text-gray-500">
+                  Color
+                </p>
+                <div className="mt-1 flex flex-wrap gap-1">
+                  {(tool === 'highlight' ? HIGHLIGHT_COLORS : PEN_COLORS).map((c) => {
+                    const selected = (tool === 'highlight' ? highlightColor : penColor) === c;
+                    return (
+                      <button
+                        key={c}
+                        type="button"
+                        aria-label={`Use color ${c}`}
+                        aria-pressed={selected}
+                        onClick={() =>
+                          tool === 'highlight'
+                            ? setHighlightColor(c)
+                            : setPenColor(c)
+                        }
+                        className={`h-7 w-7 rounded-full border-2 ${
+                          selected ? 'border-gray-900 dark:border-white' : 'border-transparent'
+                        }`}
+                        style={{ background: c }}
+                      />
+                    );
+                  })}
+                </div>
+
+                <p className="mt-3 text-[10px] uppercase tracking-wide text-gray-500">
+                  Stroke width ({Math.round(strokeWidth * 1000)})
+                </p>
+                <input
+                  type="range"
+                  min={1}
+                  max={30}
+                  value={Math.round(strokeWidth * 1000)}
+                  onChange={(e) => setStrokeWidth(Number(e.target.value) / 1000)}
+                  className="mt-1 w-full"
+                  aria-label="Stroke width"
+                />
+              </>
+            )}
+
+            <div className="mt-3 flex gap-1">
+              <button
+                type="button"
+                onClick={() => void annotationLayerRef.current?.undo()}
+                disabled={stackCounts.undo === 0}
+                className="flex-1 min-h-[36px] rounded border border-gray-300 dark:border-gray-700 px-2 py-1 text-xs text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-40"
+              >
+                Undo ({stackCounts.undo})
+              </button>
+              <button
+                type="button"
+                onClick={() => void annotationLayerRef.current?.redo()}
+                disabled={stackCounts.redo === 0}
+                className="flex-1 min-h-[36px] rounded border border-gray-300 dark:border-gray-700 px-2 py-1 text-xs text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-40"
+              >
+                Redo ({stackCounts.redo})
+              </button>
+            </div>
+
             <button
               type="button"
               onClick={() => {
                 setActiveCropId(null);
                 setTool(null);
               }}
-              className="mt-2 w-full text-xs text-gray-500 hover:text-gray-700"
+              className="mt-3 w-full text-xs text-gray-500 hover:text-gray-700"
             >
               Done
             </button>

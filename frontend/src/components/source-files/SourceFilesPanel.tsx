@@ -33,6 +33,9 @@ export default function SourceFilesPanel({
   const [sourceFiles, setSourceFiles] = useState<SourceFile[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  /** Inline confirm for delete — avoids the blocking window.confirm()
+   *  which freezes the renderer on iOS. */
+  const [pendingDelete, setPendingDelete] = useState<SourceFile | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -81,8 +84,8 @@ export default function SourceFilesPanel({
     }
   }
 
-  async function handleDelete(sf: SourceFile) {
-    if (!window.confirm(`Delete ${sf.originalFilename ?? 'this file'}?`)) return;
+  async function performDelete(sf: SourceFile) {
+    setPendingDelete(null);
     try {
       await deleteSourceFile(sf.id);
       setSourceFiles((prev) => prev.filter((s) => s.id !== sf.id));
@@ -167,14 +170,34 @@ export default function SourceFilesPanel({
                     {sf.pageCount ? ` · ${sf.pageCount}p` : ''}
                   </span>
                 </button>
-                <button
-                  type="button"
-                  onClick={() => handleDelete(sf)}
-                  className="text-xs text-red-600 hover:text-red-800"
-                  aria-label="Delete file"
-                >
-                  ×
-                </button>
+                {pendingDelete?.id === sf.id ? (
+                  <span className="flex items-center gap-1 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => void performDelete(sf)}
+                      className="font-medium text-red-600 hover:text-red-800"
+                    >
+                      Confirm
+                    </button>
+                    <span className="text-gray-400">·</span>
+                    <button
+                      type="button"
+                      onClick={() => setPendingDelete(null)}
+                      className="text-gray-500 hover:text-gray-700"
+                    >
+                      Cancel
+                    </button>
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setPendingDelete(sf)}
+                    className="text-xs text-red-600 hover:text-red-800"
+                    aria-label="Delete file"
+                  >
+                    ×
+                  </button>
+                )}
               </li>
             ))}
           </ul>

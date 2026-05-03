@@ -39,6 +39,7 @@ export default function BlankPageDrawingModal({
   });
   const [drawing, setDrawing] = useState<Stroke | null>(null);
   const [saving, setSaving] = useState(false);
+  const [pendingClear, setPendingClear] = useState(false);
 
   // Render canvas on size change + every stroke update.
   useEffect(() => {
@@ -106,8 +107,12 @@ export default function BlankPageDrawingModal({
   }
 
   function handleClear() {
-    if (!window.confirm('Clear all strokes?')) return;
+    if (!pendingClear) {
+      setPendingClear(true);
+      return;
+    }
     setStrokes([]);
+    setPendingClear(false);
   }
 
   async function handleSave() {
@@ -135,14 +140,36 @@ export default function BlankPageDrawingModal({
             {page.name ?? 'Untitled blank page'}
           </h4>
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleClear}
-              className="text-sm text-red-600 hover:text-red-800 flex items-center gap-1"
-              title="Clear all strokes"
-            >
-              <FiTrash2 className="h-4 w-4" /> Clear
-            </button>
+            {pendingClear ? (
+              <>
+                <span className="text-xs text-amber-700 dark:text-amber-300">
+                  Clear all strokes?
+                </span>
+                <button
+                  type="button"
+                  onClick={handleClear}
+                  className="text-sm font-medium text-red-700 hover:text-red-900 px-2"
+                >
+                  Confirm
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPendingClear(false)}
+                  className="text-sm text-gray-500 hover:text-gray-700 px-2"
+                >
+                  Cancel
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={handleClear}
+                className="text-sm text-red-600 hover:text-red-800 flex items-center gap-1"
+                title="Clear all strokes"
+              >
+                <FiTrash2 className="h-4 w-4" /> Clear
+              </button>
+            )}
             <button
               type="button"
               onClick={handleSave}

@@ -96,6 +96,7 @@ export default function StitchPalette({ tool, onChange, paletteColors, craft, ch
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<ChartSymbolTemplate | null>(null);
   const [recent, setRecent] = useState<string[]>(() => readRecent(craft));
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
   // Reload recents when craft toggles.
   useEffect(() => {
@@ -282,18 +283,46 @@ export default function StitchPalette({ tool, onChange, paletteColors, craft, ch
                   setEditing(row);
                   setModalOpen(true);
                 },
-                onDelete: async () => {
-                  if (!window.confirm(`Delete custom stitch "${row.name}"?`)) return;
-                  try {
-                    await deleteMutation.mutateAsync(row.id);
-                    toast.success('Custom stitch deleted');
-                  } catch (err: any) {
-                    toast.error(err?.response?.data?.message || 'Could not delete stitch');
-                  }
-                },
+                onDelete: () => setPendingDeleteId(row.id),
               }),
             )}
           </div>
+          {pendingDeleteId && (() => {
+            const target = customRows.find((r) => r.id === pendingDeleteId);
+            if (!target) return null;
+            return (
+              <div className="mt-2 rounded border border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-900/30 p-2 text-xs flex items-center justify-between gap-2">
+                <span className="text-amber-900 dark:text-amber-200">
+                  Delete custom stitch "{target.name}"?
+                </span>
+                <span className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const id = pendingDeleteId;
+                      setPendingDeleteId(null);
+                      try {
+                        await deleteMutation.mutateAsync(id);
+                        toast.success('Custom stitch deleted');
+                      } catch (err: any) {
+                        toast.error(err?.response?.data?.message || 'Could not delete stitch');
+                      }
+                    }}
+                    className="px-2 py-1 rounded bg-red-600 text-white font-medium hover:bg-red-700"
+                  >
+                    Confirm
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPendingDeleteId(null)}
+                    className="px-2 py-1 text-gray-600 hover:text-gray-800 dark:text-gray-300"
+                  >
+                    Cancel
+                  </button>
+                </span>
+              </div>
+            );
+          })()}
         </div>
       )}
 

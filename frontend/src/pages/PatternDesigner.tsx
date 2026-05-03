@@ -2041,6 +2041,13 @@ export default function PatternDesigner() {
   // values let the silhouette grow so colorwork and stitch symbols are
   // legible. Container handles horizontal scroll past the viewport.
   const [schematicZoom, setSchematicZoom] = useState<number>(1);
+  /** Inline-confirm state for destructive Designer actions; replaces
+   *  blocking window.confirm() calls so iOS doesn't freeze the tab. */
+  const [confirmAction, setConfirmAction] = useState<
+    | { kind: 'cancel-edit' }
+    | { kind: 'new-design' }
+    | null
+  >(null);
   const mainColor = form.colors[0]?.hex ?? null;
 
   // Re-convert the form whenever the user's profile preference changes so
@@ -2236,6 +2243,38 @@ export default function PatternDesigner() {
 
   return (
     <div className="space-y-4 md:space-y-6">
+      {confirmAction?.kind === 'cancel-edit' && editingPatternId && (
+        <ConfirmModal
+          title="Discard changes?"
+          message="Cancel editing and discard any unsaved changes? Your saved pattern is untouched."
+          confirmLabel="Discard"
+          onConfirm={() => {
+            setConfirmAction(null);
+            navigate(`/patterns/${editingPatternId}`);
+          }}
+          onCancel={() => setConfirmAction(null)}
+        />
+      )}
+      {confirmAction?.kind === 'new-design' && (
+        <ConfirmModal
+          title="Start a new design?"
+          message={
+            editingPatternId
+              ? 'Discard changes and start a brand-new design? Your saved pattern is untouched — this just clears the form.'
+              : 'Clear the form and start a new design? Your local draft will be wiped.'
+          }
+          confirmLabel="New design"
+          onConfirm={() => {
+            setConfirmAction(null);
+            setForm(DEFAULT_FORM);
+            if (editingPatternId) {
+              navigate('/designer');
+            }
+            toast.success('Started a new design.');
+          }}
+          onCancel={() => setConfirmAction(null)}
+        />
+      )}
       <div>
         <div className="flex items-center gap-2">
           <FiTool className="h-6 w-6 text-purple-600" />
@@ -2283,13 +2322,7 @@ export default function PatternDesigner() {
             {editingPatternId && (
               <button
                 type="button"
-                onClick={() => {
-                  const ok = window.confirm(
-                    'Cancel editing and discard any unsaved changes? Your saved pattern is untouched.',
-                  );
-                  if (!ok) return;
-                  navigate(`/patterns/${editingPatternId}`);
-                }}
+                onClick={() => setConfirmAction({ kind: 'cancel-edit' })}
                 className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
                 title="Discard unsaved changes and go back to the pattern"
               >
@@ -2298,21 +2331,7 @@ export default function PatternDesigner() {
             )}
             <button
               type="button"
-              onClick={() => {
-                const ok = window.confirm(
-                  editingPatternId
-                    ? 'Discard changes and start a brand-new design? Your saved pattern is untouched — this just clears the form.'
-                    : 'Clear the form and start a new design? Your local draft will be wiped.',
-                );
-                if (!ok) return;
-                setForm(DEFAULT_FORM);
-                if (editingPatternId) {
-                  // Drop the ?patternId param so the form is no longer in
-                  // edit mode — fresh new-design flow from here.
-                  navigate('/designer');
-                }
-                toast.success('Started a new design.');
-              }}
+              onClick={() => setConfirmAction({ kind: 'new-design' })}
               className="inline-flex items-center gap-2 rounded-lg border border-purple-300 bg-white px-3 py-1.5 text-sm font-medium text-purple-700 hover:bg-purple-50 dark:border-purple-800 dark:bg-gray-800 dark:text-purple-300 dark:hover:bg-purple-900/30"
               title="Clear the form and start a fresh design"
             >

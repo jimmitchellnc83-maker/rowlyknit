@@ -55,6 +55,9 @@ export default function HistoryScrubber({
   const [entries, setEntries] = useState<HistoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [reverting, setReverting] = useState<string | null>(null);
+  /** Inline confirm for the destructive revert action — no blocking
+   *  browser dialog. */
+  const [pendingRevert, setPendingRevert] = useState<HistoryEntry | null>(null);
 
   const fetchHistory = useCallback(async () => {
     setLoading(true);
@@ -74,15 +77,9 @@ export default function HistoryScrubber({
     fetchHistory();
   }, [fetchHistory]);
 
-  const revertTo = async (entry: HistoryEntry) => {
-    if (
-      !window.confirm(
-        `Revert master counter back to row ${entry.old_value}? This will snap every panel to its derived row at that point.`,
-      )
-    ) {
-      return;
-    }
+  const performRevert = async (entry: HistoryEntry) => {
     setReverting(entry.id);
+    setPendingRevert(null);
     try {
       await axios.post(
         `/api/projects/${projectId}/counters/${counterId}/undo/${entry.id}`,
@@ -175,22 +172,53 @@ export default function HistoryScrubber({
                         {entry.user_note && ` · ${entry.user_note}`}
                       </p>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => revertTo(entry)}
-                      disabled={reverting !== null || isCurrent}
-                      className="flex items-center gap-1 px-2 py-1 text-xs text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30 rounded disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
-                      aria-label={`Revert to row ${entry.old_value}`}
-                    >
-                      <FiRotateCcw className="w-3 h-3" />
-                      {isCurrent ? 'Here' : 'Revert'}
-                    </button>
+                    {pendingRevert?.id === entry.id ? (
+                      <span className="flex items-center gap-1 flex-shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => performRevert(entry)}
+                          disabled={reverting !== null}
+                          className="px-2 py-1 text-xs font-medium text-white bg-red-600 hover:bg-red-700 rounded disabled:opacity-40"
+                        >
+                          Revert
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPendingRevert(null)}
+                          className="px-2 py-1 text-xs text-gray-500 hover:text-gray-700"
+                        >
+                          Cancel
+                        </button>
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setPendingRevert(entry)}
+                        disabled={reverting !== null || isCurrent}
+                        className="flex items-center gap-1 px-2 py-1 text-xs text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30 rounded disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
+                        aria-label={`Revert to row ${entry.old_value}`}
+                      >
+                        <FiRotateCcw className="w-3 h-3" />
+                        {isCurrent ? 'Here' : 'Revert'}
+                      </button>
+                    )}
                   </li>
                 );
               })}
             </ul>
           )}
         </div>
+        {pendingRevert && (
+          <div
+            className="px-4 py-3 border-t border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 text-xs text-amber-900 dark:text-amber-200"
+            role="alertdialog"
+            aria-label="Revert confirmation"
+          >
+            Revert master counter back to row{' '}
+            <span className="font-semibold tabular-nums">{pendingRevert.old_value}</span>?{' '}
+            Every panel snaps to its derived row at that point.
+          </div>
+        )}
       </div>
     </div>
   );
