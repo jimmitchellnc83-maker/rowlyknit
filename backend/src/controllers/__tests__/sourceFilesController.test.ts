@@ -226,9 +226,13 @@ describe('uploadSourceFile', () => {
     expect(res.status).toHaveBeenCalledWith(201);
   });
 
-  it('rejects when patternId in upload body belongs to another user', async () => {
+  it('rejects when patternId in upload body belongs to another user — and never writes to disk', async () => {
     // Pattern lookup returns null → ownership fails → ValidationError
-    // before any DB insert / disk write happens.
+    // BEFORE any DB insert or disk write. This is the Codex finding on
+    // PR #368: previously the buffer was committed to storage before
+    // the ownership check ran, leaving an orphan file under the user's
+    // upload tree on every invalid request. Validate-before-write is
+    // the contract this test locks in.
     dbBuilders.patterns.first.mockResolvedValueOnce(null);
     await expect(
       uploadSourceFile(
@@ -245,6 +249,9 @@ describe('uploadSourceFile', () => {
       )
     ).rejects.toThrow(ValidationError);
     expect(dbBuilders.source_files.insert).not.toHaveBeenCalled();
+    // No mkdir, no writeFile — the disk stays clean on rejection.
+    expect(mkdirMock).not.toHaveBeenCalled();
+    expect(writeFileMock).not.toHaveBeenCalled();
   });
 
   it('accepts when patternId in upload body is owned by the user', async () => {
