@@ -194,30 +194,29 @@ describe('assertRedirectAllowed', () => {
   it('safeAxios wires assertRedirectAllowed into beforeRedirect', () => {
     // Regression: any future drop of `beforeRedirect` from safeAxios's
     // defaults would silently re-open the redirect SSRF gap.
-    const before = safeAxios.defaults.beforeRedirect;
+    //
+    // axios's `beforeRedirect` signature has shifted across releases —
+    // older versions had `(options, responseDetails)`, newer ones add
+    // `requestDetails` as a third arg. Our runtime hook only consumes
+    // `options`; the rest are ignored. Cast through a permissive shape
+    // so the test compiles against either typing without weakening the
+    // redirect-SSRF coverage below.
+    type RedirectHookForTest = (
+      options: Record<string, unknown>,
+      ...rest: unknown[]
+    ) => void;
+    const before = safeAxios.defaults.beforeRedirect as RedirectHookForTest | undefined;
     expect(typeof before).toBe('function');
-    // axios's beforeRedirect signature is (options, responseDetails,
-    // requestDetails). Our hook only consumes `options`; the rest are
-    // stubbed for the test invocation.
-    const detail = {} as never;
-    // And the wired callback must reject the canonical bad targets.
+    // The wired callback must reject the canonical bad targets.
     expect(() =>
-      before!({ hostname: '127.0.0.1', protocol: 'http:' } as never, detail, detail),
+      before!({ hostname: '127.0.0.1', protocol: 'http:' }),
     ).toThrow();
     expect(() =>
-      before!(
-        { hostname: '169.254.169.254', protocol: 'http:' } as never,
-        detail,
-        detail,
-      ),
+      before!({ hostname: '169.254.169.254', protocol: 'http:' }),
     ).toThrow();
     // …and let a clean public target through.
     expect(() =>
-      before!(
-        { hostname: '93.184.216.34', protocol: 'https:' } as never,
-        detail,
-        detail,
-      ),
+      before!({ hostname: '93.184.216.34', protocol: 'https:' }),
     ).not.toThrow();
   });
 
