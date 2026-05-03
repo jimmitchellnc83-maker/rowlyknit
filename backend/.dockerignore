@@ -1,0 +1,29 @@
+# Same rationale as frontend/.dockerignore: keep the host's node_modules
+# (and other build artifacts) out of the image so `npm ci` in the Dockerfile
+# is the only thing populating /app/node_modules.
+node_modules
+.npm
+
+dist
+build
+coverage
+
+.env
+.env.local
+.env.*.local
+
+uploads
+.cache
+.eslintcache
+.DS_Store
+npm-debug.log*
+
+# VCS + IDE.
+.git
+.gitignore
+.idea
+.vscode
+
+*.test.ts
+__tests__
+jest.config.*
