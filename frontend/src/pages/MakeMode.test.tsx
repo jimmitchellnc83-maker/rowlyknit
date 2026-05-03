@@ -365,4 +365,48 @@ describe('patchSectionTotalRows', () => {
     const next = patchSectionTotalRows(sections, 'missing', 99);
     expect(next).toEqual(sections);
   });
+
+  it('seeds parameters when the existing section has no parameters object', () => {
+    const sections = [
+      {
+        id: 'a',
+        name: 'A',
+        kind: 'sweater-body' as const,
+        sortOrder: 0,
+        parameters: undefined as unknown as Record<string, unknown>,
+        chartPlacement: null,
+        notes: null,
+      },
+    ];
+    const next = patchSectionTotalRows(sections, 'a', 50);
+    expect(next[0].parameters._totalRows).toBe(50);
+  });
+});
+
+describe('MakeMode — section without parameters object', () => {
+  it('does not crash when section.parameters is undefined (regression: PR #370 prod smoke)', () => {
+    const pattern = {
+      ...samplePattern,
+      sections: [
+        {
+          id: 'sec-body',
+          name: 'Body',
+          kind: 'sweater-body' as const,
+          sortOrder: 0,
+          // canonical patterns created via the bare API (no parameters seeded)
+          // used to crash totalRowsFor with `Cannot read properties of undefined`
+          parameters: undefined as unknown as Record<string, unknown>,
+          chartPlacement: null,
+          notes: null,
+        },
+      ],
+    };
+    vi.mocked(usePatternModel).mockReturnValue({
+      data: pattern,
+      isLoading: false,
+    } as any);
+    expect(() => renderRoute()).not.toThrow();
+    expect(screen.getAllByText('Body').length).toBeGreaterThan(0);
+    expect(screen.getByRole('button', { name: /Set total rows/i })).toBeInTheDocument();
+  });
 });

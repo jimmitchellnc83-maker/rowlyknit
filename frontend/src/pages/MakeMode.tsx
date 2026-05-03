@@ -44,7 +44,7 @@ import SourceFilesPanel from '../components/source-files/SourceFilesPanel';
 // `parameters._totalRows` is set by Make Mode's "Set total rows" editor
 // or by Author Mode when that surface is enabled.
 const totalRowsFor = (section: PatternSection): number | undefined => {
-  const v = section.parameters['_totalRows'];
+  const v = section.parameters?.['_totalRows'];
   if (typeof v === 'number' && Number.isFinite(v) && v > 0) return v;
   return undefined;
 };
