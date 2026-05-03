@@ -1,9 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
-import { FiArrowLeft, FiEdit2, FiTrash2, FiFileText, FiGrid, FiTool, FiBook, FiCheckCircle, FiLayout } from 'react-icons/fi';
+import { FiArrowLeft, FiEdit2, FiTrash2, FiFileText, FiGrid, FiTool, FiBook, FiCheckCircle, FiLayout, FiList } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
-import { PDFCollation } from '../components/patterns';
 import PatternFileUpload from '../components/PatternFileUpload';
 import BookmarkManager from '../components/patterns/BookmarkManager';
 import FeasibilityPanel from '../components/patterns/FeasibilityPanel';
@@ -86,20 +85,12 @@ export default function PatternDetail() {
   const [chartsLoading, setChartsLoading] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showSectionsModal, setShowSectionsModal] = useState(false);
-  const [showAnnotationsModal, setShowAnnotationsModal] = useState(false);
-  const [showCollationModal, setShowCollationModal] = useState(false);
   const editModalRef = useRef<HTMLDivElement>(null);
   const sectionsModalRef = useRef<HTMLDivElement>(null);
-  const annotationsModalRef = useRef<HTMLDivElement>(null);
-  const collationModalRef = useRef<HTMLDivElement>(null);
   useFocusTrap(editModalRef, showEditModal);
   useFocusTrap(sectionsModalRef, showSectionsModal);
-  useFocusTrap(annotationsModalRef, showAnnotationsModal);
-  useFocusTrap(collationModalRef, showCollationModal);
   const [sections, setSections] = useState<any[]>([]);
-  const [annotations, setAnnotations] = useState<any[]>([]);
   const [newSectionName, setNewSectionName] = useState('');
-  const [newAnnotationText, setNewAnnotationText] = useState('');
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<PatternDetailTab>(
     parsePatternDetailTab(searchParams.get('tab')),
@@ -655,59 +646,45 @@ export default function PatternDetail() {
         </div>
       )}
 
-      {/* Tools Tab */}
+      {/* Tools Tab — annotations + multi-PDF collation moved to the
+          PDF Workspace and the Patterns list respectively. The single
+          remaining tool here is the page-section navigation aid. */}
       {activeTab === 'tools' && (
         <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Pattern Tools</h2>
-          <div className="space-y-4">
-            <div className="border border-gray-200 rounded-lg p-4">
-              <h3 className="font-medium text-gray-900 mb-2">Pattern Sections</h3>
-              <p className="text-sm text-gray-600 mb-3">
-                Organize your pattern into sections for easier navigation
-              </p>
-              <button
-                onClick={async () => {
-                  try {
-                    const res = await axios.get(`/api/patterns/${id}/sections`);
-                    setSections(res.data.data.sections || []);
-                    setShowSectionsModal(true);
-                  } catch { toast.error('Failed to load sections'); }
-                }}
-                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
-              >
-                Manage Sections
-              </button>
+          <h2 className="text-xl font-semibold text-gray-900 mb-1">Pattern Tools</h2>
+          <p className="text-sm text-gray-500 mb-4">
+            For PDF annotation, crops and QuickKeys, use the{' '}
+            <button
+              type="button"
+              onClick={() => setActiveTab('sources')}
+              className="text-purple-600 underline hover:text-purple-700"
+            >
+              PDF Workspace
+            </button>{' '}
+            tab.
+          </p>
+          <div className="border border-gray-200 rounded-lg p-4">
+            <div className="flex items-start gap-2 mb-2">
+              <FiList className="h-5 w-5 text-purple-600 mt-0.5" />
+              <h3 className="font-medium text-gray-900">Pattern page sections</h3>
             </div>
-            <div className="border border-gray-200 rounded-lg p-4">
-              <h3 className="font-medium text-gray-900 mb-2">Pattern Annotations</h3>
-              <p className="text-sm text-gray-600 mb-3">
-                Add notes and annotations directly to your pattern
-              </p>
-              <button
-                onClick={async () => {
-                  try {
-                    const res = await axios.get(`/api/patterns/${id}/annotations`);
-                    setAnnotations(res.data.data.annotations || []);
-                    setShowAnnotationsModal(true);
-                  } catch { toast.error('Failed to load annotations'); }
-                }}
-                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
-              >
-                Add Annotations
-              </button>
-            </div>
-            <div className="border border-gray-200 rounded-lg p-4">
-              <h3 className="font-medium text-gray-900 mb-2">Pattern Collation</h3>
-              <p className="text-sm text-gray-600 mb-3">
-                Combine multiple PDFs into a single pattern document
-              </p>
-              <button
-                onClick={() => setShowCollationModal(true)}
-                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
-              >
-                Collate PDFs
-              </button>
-            </div>
+            <p className="text-sm text-gray-600 mb-3">
+              Label key spots in the pattern (Body, Sleeves, Border…) so you can
+              jump between them quickly. This is a navigation aid — for editing
+              the pattern itself, use the PDF Workspace.
+            </p>
+            <button
+              onClick={async () => {
+                try {
+                  const res = await axios.get(`/api/patterns/${id}/sections`);
+                  setSections(res.data.data.sections || []);
+                  setShowSectionsModal(true);
+                } catch { toast.error('Failed to load sections'); }
+              }}
+              className="inline-flex min-h-[44px] items-center justify-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+            >
+              Manage page sections
+            </button>
           </div>
         </div>
       )}
@@ -875,7 +852,9 @@ export default function PatternDetail() {
           </div>
         </div>
       )}
-      {/* Sections Modal */}
+      {/* Page-section navigation modal — labels for jumping between
+          named spots in the pattern PDF. Annotations + multi-PDF
+          collation moved out of this view (PDF Workspace + Patterns list). */}
       {showSectionsModal && (
         <div
           className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
@@ -885,17 +864,20 @@ export default function PatternDetail() {
         >
           <div ref={sectionsModalRef} className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[80vh] overflow-y-auto">
             <div className="p-6 border-b border-gray-200 flex justify-between items-center">
-              <h2 id="sections-title" className="text-xl font-bold">Pattern Sections</h2>
-              <button onClick={() => setShowSectionsModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl" aria-label="Close">&times;</button>
+              <h2 id="sections-title" className="text-xl font-bold">Pattern page sections</h2>
+              <button onClick={() => setShowSectionsModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl min-h-[44px] min-w-[44px]" aria-label="Close">&times;</button>
             </div>
             <div className="p-6">
+              <p className="text-sm text-gray-500 mb-3">
+                Quick navigation labels — these don't edit the pattern itself.
+              </p>
               <div className="flex gap-2 mb-4">
                 <input
                   type="text"
                   value={newSectionName}
                   onChange={(e) => setNewSectionName(e.target.value)}
                   placeholder="Section name (e.g., Body, Sleeves)"
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 min-h-[44px]"
                 />
                 <button
                   onClick={async () => {
@@ -908,7 +890,7 @@ export default function PatternDetail() {
                       toast.success('Section added');
                     } catch { toast.error('Failed to add section'); }
                   }}
-                  className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+                  className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
                 >Add</button>
               </div>
               {sections.length === 0 ? (
@@ -926,94 +908,13 @@ export default function PatternDetail() {
                             toast.success('Section deleted');
                           } catch { toast.error('Failed to delete'); }
                         }}
-                        className="text-red-500 hover:text-red-700 text-sm"
+                        aria-label={`Delete ${s.name}`}
+                        className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center text-red-500 hover:text-red-700 hover:bg-red-50 rounded text-sm px-3"
                       >Delete</button>
                     </li>
                   ))}
                 </ul>
               )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Annotations Modal */}
-      {showAnnotationsModal && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="annotations-title"
-        >
-          <div ref={annotationsModalRef} className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[80vh] overflow-y-auto">
-            <div className="p-6 border-b border-gray-200 flex justify-between items-center">
-              <h2 id="annotations-title" className="text-xl font-bold">Pattern Annotations</h2>
-              <button onClick={() => setShowAnnotationsModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl" aria-label="Close">&times;</button>
-            </div>
-            <div className="p-6">
-              <div className="flex gap-2 mb-4">
-                <textarea
-                  value={newAnnotationText}
-                  onChange={(e) => setNewAnnotationText(e.target.value)}
-                  placeholder="Add a note about this pattern..."
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
-                  rows={2}
-                />
-                <button
-                  onClick={async () => {
-                    if (!newAnnotationText.trim()) return;
-                    try {
-                      await axios.post(`/api/patterns/${id}/annotations`, { data: { content: newAnnotationText }, annotationType: 'note' });
-                      const res = await axios.get(`/api/patterns/${id}/annotations`);
-                      setAnnotations(res.data.data.annotations || []);
-                      setNewAnnotationText('');
-                      toast.success('Annotation added');
-                    } catch { toast.error('Failed to add annotation'); }
-                  }}
-                  className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 self-end"
-                >Add</button>
-              </div>
-              {annotations.length === 0 ? (
-                <p className="text-gray-500 text-center py-4">No annotations yet</p>
-              ) : (
-                <ul className="space-y-2">
-                  {annotations.map((a: any) => (
-                    <li key={a.id} className="flex items-start justify-between p-3 bg-gray-50 rounded-lg">
-                      <p className="text-sm text-gray-700 flex-1">{a.data?.content || a.content || JSON.stringify(a.data)}</p>
-                      <button
-                        onClick={async () => {
-                          try {
-                            await axios.delete(`/api/patterns/${id}/annotations/${a.id}`);
-                            setAnnotations(annotations.filter((x: any) => x.id !== a.id));
-                            toast.success('Annotation deleted');
-                          } catch { toast.error('Failed to delete'); }
-                        }}
-                        className="text-red-500 hover:text-red-700 text-sm ml-2"
-                      >Delete</button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Collation Modal */}
-      {showCollationModal && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="collate-pattern-title"
-        >
-          <div ref={collationModalRef} className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-gray-200 flex justify-between items-center">
-              <h2 id="collate-pattern-title" className="text-xl font-bold">Collate Pattern PDFs</h2>
-              <button onClick={() => setShowCollationModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl" aria-label="Close">&times;</button>
-            </div>
-            <div className="p-6">
-              <PDFCollation />
             </div>
           </div>
         </div>

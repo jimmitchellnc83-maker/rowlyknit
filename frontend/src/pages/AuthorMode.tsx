@@ -6,6 +6,10 @@
  * the `VITE_DESIGNER_AUTHOR_MODE` flag — disabled by default in prod
  * until the canonical chart layer + side-by-side editor mature.
  *
+ * When the flag is off, the route redirects to the standard pattern
+ * detail page so a curious knitter who lands on `/patterns/:id/author`
+ * doesn't see the unfinished surface.
+ *
  * What this page does today:
  *  - Loads the canonical pattern via `usePatternModel(id)`
  *  - Renders pattern metadata (name, craft, technique, gauge)
@@ -22,11 +26,12 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { useSeo } from '../hooks/useSeo';
 import { usePatternModel, useUpdatePatternModel } from '../hooks/usePatternModel';
 import { resolveDialectAbbreviation, type TerminologyDialect } from '../utils/techniqueRules';
 import { DESIGNER_EVENTS, trackDesignerEvent } from '../lib/designerAnalytics';
+import { isDesignerAuthorModeEnabled } from '../lib/featureFlags';
 import type { CanonicalPattern, PatternSection, Technique } from '../types/pattern';
 
 const TECHNIQUE_LABELS: Record<Technique, string> = {
@@ -42,6 +47,27 @@ const TECHNIQUE_LABELS: Record<Technique, string> = {
 export default function AuthorMode() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+
+  // Flag-gated: when off, redirect to the canonical pattern's Make Mode.
+  // The Author Mode preview is only safe to expose internally until the
+  // chart editor / repeat-block editor / grading editor land. Make Mode
+  // is the natural fallback because it operates on the same canonical
+  // `pattern_models` row, while `/patterns/:id` would 404 for canonical-
+  // only ids that don't exist in the legacy `patterns` table.
+  if (!isDesignerAuthorModeEnabled()) {
+    return <Navigate to={id ? `/patterns/${id}/make` : '/patterns'} replace />;
+  }
+
+  return <AuthorModeImpl id={id} navigate={navigate} />;
+}
+
+function AuthorModeImpl({
+  id,
+  navigate,
+}: {
+  id: string | undefined;
+  navigate: ReturnType<typeof useNavigate>;
+}) {
   const { data: pattern, isLoading, error } = usePatternModel(id);
   const update = useUpdatePatternModel();
 
