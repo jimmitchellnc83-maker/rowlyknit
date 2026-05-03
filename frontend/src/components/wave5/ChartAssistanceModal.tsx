@@ -86,6 +86,11 @@ export default function ChartAssistanceModal({ sourceFileId, crop, onClose }: Pr
   const [symbolDraft, setSymbolDraft] = useState<string>('');
 
   const pageContainerRef = useRef<HTMLDivElement | null>(null);
+  /** The PDF column inside the modal — measured live so the rendered
+   *  page reflows on resize / orientation change instead of being
+   *  frozen at the window-innerWidth value at modal-open time. */
+  const pdfColumnRef = useRef<HTMLDivElement | null>(null);
+  const [pdfColumnWidth, setPdfColumnWidth] = useState<number>(720);
 
   useEffect(() => {
     let cancelled = false;
@@ -102,14 +107,29 @@ export default function ChartAssistanceModal({ sourceFileId, crop, onClose }: Pr
     };
   }, []);
 
-  const targetWidth = useMemo(
-    () =>
-      Math.min(
-        720,
-        typeof window !== 'undefined' ? window.innerWidth - 80 : 720,
-      ),
-    [],
-  );
+  useEffect(() => {
+    const el = pdfColumnRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    setPdfColumnWidth(el.getBoundingClientRect().width);
+    const ro = new ResizeObserver((entries) => {
+      const w = entries[0]?.contentRect.width ?? 0;
+      if (w > 0) setPdfColumnWidth(w);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  /**
+   * Rendered PDF page width derived from the live PDF column. Subtract
+   * the column's px-3 padding (24px each side) and clamp so the chart
+   * stays legible: never below 320 (small phone), never above 720
+   * (chart symbols start to look fuzzy past that on a desktop).
+   */
+  const targetWidth = useMemo(() => {
+    const usable = pdfColumnWidth - 24;
+    if (!Number.isFinite(usable) || usable <= 0) return 720;
+    return Math.max(320, Math.min(usable, 720));
+  }, [pdfColumnWidth]);
 
   useEffect(() => {
     let cancelled = false;
@@ -424,9 +444,14 @@ export default function ChartAssistanceModal({ sourceFileId, crop, onClose }: Pr
           </button>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-4 p-4">
-          {/* PDF page + overlays */}
-          <div className="md:col-span-2 bg-gray-50 dark:bg-gray-800 rounded p-3 overflow-auto">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-3 sm:p-4">
+          {/* PDF page + overlays. ResizeObserver on this column drives
+              the PDF render width so a phone, a 50/50 split tablet, and
+              a 27" monitor all see appropriately sized chart cells. */}
+          <div
+            ref={pdfColumnRef}
+            className="md:col-span-2 bg-gray-50 dark:bg-gray-800 rounded p-3 overflow-auto"
+          >
             <Document
               file={sourceFileBytesUrl(sourceFileId)}
               loading={<p className="text-sm text-gray-500 p-4">Loading…</p>}

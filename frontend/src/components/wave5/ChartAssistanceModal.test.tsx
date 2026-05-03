@@ -1,22 +1,23 @@
 /**
- * Tests for Magic Marker apply-only-selected and sensitivity controls.
- *
- * The chart-wide scan + dHash math itself is exercised by integration
- * paths; these tests focus on the user-facing selection contract:
- *   - sensitivity slider is rendered and editable
- *   - selecting/deselecting matches updates the count
- *   - Apply only sends selected cells to confirmMagicMarkerMatches
+ * Tests for Magic Marker apply-only-selected, sensitivity, and the
+ * responsive page-render hookup. The chart-wide scan + dHash math is
+ * exercised by integration paths.
  */
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
+
+const PageMock = vi.fn();
 
 vi.mock('react-pdf', () => ({
   pdfjs: { GlobalWorkerOptions: { workerSrc: '' } },
   Document: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="pdf-doc">{children}</div>
   ),
-  Page: () => <canvas data-testid="pdf-canvas" />,
+  Page: (props: { width?: number }) => {
+    PageMock(props);
+    return <canvas data-testid="pdf-canvas" data-width={props.width} />;
+  },
 }));
 
 vi.mock('../../lib/pdfjsWorker', () => ({}));
@@ -86,6 +87,7 @@ const CROP: PatternCrop = {
 
 afterEach(() => {
   vi.clearAllMocks();
+  PageMock.mockClear();
 });
 
 describe('Magic Marker sensitivity + per-match selection', () => {
@@ -174,6 +176,26 @@ describe('Magic Marker sensitivity + per-match selection', () => {
  * the filter logic from React state so the contract is locked even
  * though the chart-wide scan depends on a live canvas.
  */
+describe('responsive page-width plumbing', () => {
+  it('renders the Page with a numeric width derived from the column container', async () => {
+    getChartAlignmentMock.mockResolvedValue(ALIGNMENT);
+    listChartSymbolPaletteMock.mockResolvedValue({ system: [], custom: [] });
+    render(
+      <ChartAssistanceModal sourceFileId="sf-1" crop={CROP} onClose={() => {}} />,
+    );
+    await screen.findByLabelText(/Magic Marker sensitivity/i);
+    // The mock captures the width prop on every render. The component
+    // seeds with 720, then ResizeObserver fires (jsdom polyfill is
+    // unavailable, so the seed is what we get); width must be a clamped
+    // number, never the raw window.innerWidth-80.
+    const lastCall = PageMock.mock.calls[PageMock.mock.calls.length - 1]?.[0];
+    expect(lastCall).toBeDefined();
+    expect(typeof lastCall.width).toBe('number');
+    expect(lastCall.width).toBeGreaterThanOrEqual(320);
+    expect(lastCall.width).toBeLessThanOrEqual(720);
+  });
+});
+
 describe('apply-only-selected filter (pure)', () => {
   it('forwards only cells whose key is in selectedMatchKeys', async () => {
     const allMatches = [

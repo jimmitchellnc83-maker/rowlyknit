@@ -1,10 +1,10 @@
-import axios from 'axios';
 import { JSDOM } from 'jsdom';
 import { Readability } from '@mozilla/readability';
 import db from '../config/database';
 import logger from '../config/logger';
 import { normalizeSkillLevel } from '../types/skillLevel';
 import { assertPublicUrl } from '../utils/ssrfGuard';
+import { safeAxios } from '../utils/safeFetch';
 
 export interface ExtractedContent {
   title: string;
@@ -70,8 +70,10 @@ class BlogExtractorService {
         .returning('*');
       importRecord = record;
 
-      // Fetch the page
-      const response = await axios.get(url, {
+      // Fetch the page through the SSRF-safe agent. Connect-time DNS
+      // re-validation closes the rebinding race that otherwise sits
+      // between assertPublicUrl and the actual HTTP connection.
+      const response = await safeAxios.get(url, {
         timeout: this.timeout,
         maxContentLength: this.maxContentLength,
         headers: {

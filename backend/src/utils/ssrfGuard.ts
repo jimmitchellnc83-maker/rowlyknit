@@ -1,30 +1,7 @@
 import { lookup } from 'dns/promises';
 import { URL } from 'url';
 import { ForbiddenError, ValidationError } from './errorHandler';
-
-function ipv4ToInt(ip: string): number {
-  return ip.split('.').reduce((acc, oct) => (acc << 8) + parseInt(oct, 10), 0) >>> 0;
-}
-
-const PRIVATE_V4_RANGES = (
-  [
-    ['0.0.0.0', 8],
-    ['10.0.0.0', 8],
-    ['127.0.0.0', 8],
-    ['169.254.0.0', 16], // link-local; includes 169.254.169.254 (cloud metadata)
-    ['172.16.0.0', 12],
-    ['192.168.0.0', 16],
-    ['224.0.0.0', 4],    // multicast
-  ] as Array<[string, number]>
-).map(([ip, bits]) => ({ base: ipv4ToInt(ip), bits }));
-
-function isPrivateIpv4(ip: string): boolean {
-  const ipInt = ipv4ToInt(ip);
-  return PRIVATE_V4_RANGES.some(({ base, bits }) => {
-    const mask = (0xFFFFFFFF << (32 - bits)) >>> 0;
-    return (ipInt & mask) === (base & mask);
-  });
-}
+import { isPrivateIpv4 } from './safeFetch';
 
 /**
  * SSRF guard for outbound HTTP fetches against URLs derived from user-controlled
@@ -37,10 +14,11 @@ function isPrivateIpv4(ip: string): boolean {
  *   - hostnames that resolve to RFC-1918 / loopback / link-local / multicast,
  *     including the 169.254.169.254 cloud-metadata sink.
  *
- * Known limitation: there's a tiny race between this lookup and axios's own
- * connect-time lookup, so DNS rebinding can still slip past. To fully close
- * that, pass a custom `lookup` to a shared http(s) Agent and re-validate at
- * connection time. Out of scope for the MVP fix.
+ * The DNS-rebinding race that used to live between this pre-flight and axios's
+ * connect-time lookup is closed by `safeFetch.safeAxios` — its underlying
+ * http(s) Agents do the same private-IP check at connect time. Use this guard
+ * to give the user an early 4xx, then pass the URL through `safeAxios` for the
+ * actual fetch. Both layers stay in place; they're complementary.
  */
 export async function assertPublicUrl(urlString: string): Promise<URL> {
   let url: URL;

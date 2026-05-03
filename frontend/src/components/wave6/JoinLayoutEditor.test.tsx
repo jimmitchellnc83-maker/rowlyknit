@@ -195,6 +195,63 @@ describe('JoinLayoutEditor — visual canvas', () => {
     expect(numericSummary).toBeInTheDocument();
   });
 
+  it('renders resize handles whose hit area meets the 24px touch minimum', async () => {
+    listCropsForPatternMock.mockResolvedValue([CROP_A]);
+    render(
+      <JoinLayoutEditor
+        projectId="p1"
+        layout={makeLayout([])}
+        patternIds={['pat-1']}
+        onClose={() => {}}
+        onSaved={() => {}}
+      />,
+    );
+    // Add a region; it auto-becomes the active region, so the corner
+    // handles mount on its card.
+    fireEvent.click(await screen.findByRole('button', { name: /Add Body chart/i }));
+    expect(await screen.findByText(/Regions \(1\)/)).toBeInTheDocument();
+    const handles = await screen.findAllByRole('button', { name: /Resize (nw|ne|sw|se)/i });
+    expect(handles.length).toBe(4);
+    for (const h of handles) {
+      const size = Number(h.getAttribute('data-handle-size'));
+      expect(size).toBeGreaterThanOrEqual(24);
+    }
+  });
+
+  it('Add, layer arrows, and Remove are 44px-min touch targets (Apple HIG)', async () => {
+    // Codex review on PR #369 flagged that the core touch controls in
+    // this editor were still 36px — too small for tablet/PWA craft
+    // use. Lock 44px minimums on the Add button and the per-region
+    // layer / remove controls so a future style change can't regress.
+    listCropsForPatternMock.mockResolvedValue([CROP_A]);
+    render(
+      <JoinLayoutEditor
+        projectId="p1"
+        layout={makeLayout([
+          { patternCropId: 'crop-a', x: 0, y: 0, width: 0.5, height: 0.5, zIndex: 0 },
+        ])}
+        patternIds={['pat-1']}
+        onClose={() => {}}
+        onSaved={() => {}}
+      />,
+    );
+
+    const addBtn = await screen.findByRole('button', { name: /Add Body chart/i });
+    const sendBack = await screen.findByRole('button', { name: /Send back/i });
+    const bringFwd = await screen.findByRole('button', { name: /Bring forward/i });
+    const remove = await screen.findByRole('button', { name: /Remove region/i });
+    const saveBtn = screen.getByRole('button', { name: /^Save$/ });
+    const closeBtn = screen.getByRole('button', { name: /Close editor/i });
+
+    for (const btn of [addBtn, sendBack, bringFwd, remove, saveBtn, closeBtn]) {
+      expect(btn.className).toMatch(/min-h-\[44px\]/);
+    }
+    // The icon-only controls also need a 44px width minimum.
+    for (const btn of [sendBack, bringFwd, remove, addBtn, closeBtn]) {
+      expect(btn.className).toMatch(/min-w-\[44px\]/);
+    }
+  });
+
   it('removes a region when its trash button is clicked', async () => {
     listCropsForPatternMock.mockResolvedValue([CROP_A]);
     render(

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { KnittingModeProvider, useKnittingMode } from '../../contexts/KnittingModeContext';
@@ -20,7 +20,8 @@ import {
   FiLogOut,
   FiBarChart2,
   FiGrid,
-  FiPenTool
+  FiPenTool,
+  FiMoreHorizontal,
 } from 'react-icons/fi';
 
 export default function MainLayout() {
@@ -37,6 +38,29 @@ function MainLayoutInner() {
   const location = useLocation();
   const [conflicts, setConflicts] = useState<DataConflict[]>([]);
   const { knittingMode } = useKnittingMode();
+  const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
+  const moreMenuRef = useRef<HTMLDivElement | null>(null);
+
+  // Close the mobile More popover whenever the route changes — the
+  // user just navigated, no reason to keep it open. Also close on a
+  // tap outside the popover so it doesn't stick around when the user
+  // taps a non-nav target.
+  useEffect(() => {
+    if (mobileMoreOpen) setMobileMoreOpen(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname]);
+
+  useEffect(() => {
+    if (!mobileMoreOpen) return;
+    function onPointerDown(e: PointerEvent) {
+      const el = moreMenuRef.current;
+      if (el && e.target instanceof Node && !el.contains(e.target)) {
+        setMobileMoreOpen(false);
+      }
+    }
+    document.addEventListener('pointerdown', onPointerDown);
+    return () => document.removeEventListener('pointerdown', onPointerDown);
+  }, [mobileMoreOpen]);
 
   const handleLogout = async () => {
     await logout();
@@ -66,7 +90,20 @@ function MainLayoutInner() {
     { name: 'Recipients', href: '/recipients', icon: FiUsers, shortName: 'Recipients' },
   ];
 
-  const mainNavigation = navigation; // Show all nav items on mobile
+  // Mobile bottom nav surfaces the four destinations a knitter actually
+  // taps mid-session — Home / Projects / Patterns / Yarn — plus a More
+  // bucket for everything else. Trying to fit all ten routes across a
+  // phone-width strip squashed every label illegibly and no tap target
+  // was comfortable. The "primary" set is the most-trafficked routes
+  // per Plausible; if traffic shifts, swap entries here.
+  const PRIMARY_ROUTES = ['/dashboard', '/projects', '/patterns', '/yarn'];
+  const primaryNavigation = PRIMARY_ROUTES.map(
+    (href) => navigation.find((n) => n.href === href)!,
+  ).filter(Boolean);
+  const moreNavigation = navigation.filter(
+    (n) => !PRIMARY_ROUTES.includes(n.href),
+  );
+  const moreActive = moreNavigation.some((n) => location.pathname === n.href);
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200 pb-20 md:pb-0">
@@ -150,7 +187,9 @@ function MainLayoutInner() {
         </div>
       </aside>
 
-      {/* Mobile Bottom Navigation */}
+      {/* Mobile Bottom Navigation — 4 primary destinations + a More
+          surface that pops a sheet of the rest. Stops the strip from
+          turning into a 10-icon mush at phone widths. */}
       <nav
         aria-hidden={knittingMode}
         className={`fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 md:hidden z-40 transition-opacity duration-200 ${
@@ -158,15 +197,15 @@ function MainLayoutInner() {
         }`}
         aria-label="Main navigation"
       >
-        <div className="flex justify-around items-center h-20">
-          {mainNavigation.map((item) => {
+        <div className="flex justify-around items-stretch h-20">
+          {primaryNavigation.map((item) => {
             const Icon = item.icon;
             const isActive = location.pathname === item.href;
             return (
               <Link
                 key={item.name}
                 to={item.href}
-                className={`flex flex-col items-center justify-center flex-1 h-full min-w-0 ${
+                className={`flex flex-col items-center justify-center flex-1 min-w-0 px-1 ${
                   isActive
                     ? 'text-purple-600 dark:text-purple-400'
                     : 'text-gray-600 dark:text-gray-400'
@@ -174,13 +213,71 @@ function MainLayoutInner() {
                 aria-label={item.name}
                 aria-current={isActive ? 'page' : undefined}
               >
-                <Icon className="h-7 w-7 mb-1" aria-hidden="true" />
-                <span className="text-xs font-medium truncate">{item.shortName}</span>
+                <Icon className="h-6 w-6 mb-1" aria-hidden="true" />
+                <span className="text-xs font-medium truncate w-full text-center">
+                  {item.shortName}
+                </span>
               </Link>
             );
           })}
+
+          {/* More: a 5th tab that opens a sheet of the rest of the nav. */}
+          <button
+            type="button"
+            onClick={() => setMobileMoreOpen((v) => !v)}
+            aria-expanded={mobileMoreOpen}
+            aria-haspopup="menu"
+            aria-label="More navigation"
+            className={`flex flex-col items-center justify-center flex-1 min-w-0 px-1 ${
+              mobileMoreOpen || moreActive
+                ? 'text-purple-600 dark:text-purple-400'
+                : 'text-gray-600 dark:text-gray-400'
+            }`}
+            data-testid="mobile-nav-more"
+          >
+            <FiMoreHorizontal className="h-6 w-6 mb-1" aria-hidden="true" />
+            <span className="text-xs font-medium truncate w-full text-center">More</span>
+          </button>
         </div>
       </nav>
+
+      {/* Mobile "More" sheet — sits just above the bottom nav, opens on
+          tap. The popover uses the same bg + border tokens so it feels
+          continuous with the strip and not like a floating modal. */}
+      {mobileMoreOpen && (
+        <div
+          ref={moreMenuRef}
+          role="menu"
+          aria-label="More navigation"
+          className="md:hidden fixed bottom-20 left-2 right-2 z-50 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-2xl p-2"
+        >
+          <div className="grid grid-cols-3 gap-1">
+            {moreNavigation.map((item) => {
+              const Icon = item.icon;
+              const isActive = location.pathname === item.href;
+              return (
+                <Link
+                  key={item.name}
+                  to={item.href}
+                  role="menuitem"
+                  onClick={() => setMobileMoreOpen(false)}
+                  className={`flex flex-col items-center justify-center min-h-[64px] rounded-lg px-2 py-2 ${
+                    isActive
+                      ? 'bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300'
+                      : 'text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'
+                  }`}
+                  aria-current={isActive ? 'page' : undefined}
+                >
+                  <Icon className="h-6 w-6 mb-1" aria-hidden="true" />
+                  <span className="text-xs font-medium truncate w-full text-center">
+                    {item.shortName}
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Main content */}
       <div className="md:ml-64">

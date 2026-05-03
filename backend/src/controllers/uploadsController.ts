@@ -3,7 +3,7 @@ import multer from 'multer';
 import sharp from 'sharp';
 import path from 'path';
 import fs from 'fs';
-import axios from 'axios';
+import { safeAxios } from '../utils/safeFetch';
 import { promisify } from 'util';
 import db from '../config/database';
 import logger from '../config/logger';
@@ -794,7 +794,9 @@ export const uploadYarnPhotoFromUrl = async (req: Request, res: Response) => {
       return res.status(404).json({ success: false, message: 'Yarn not found' });
     }
 
-    const imageResponse = await axios.get(photoUrl, {
+    // Connect-time SSRF re-validation lives in safeAxios's agents. The
+    // pre-flight assertPublicUrl above gives a clean 4xx for obvious cases.
+    const imageResponse = await safeAxios.get(photoUrl, {
       responseType: 'arraybuffer',
       timeout: 15000,
       maxContentLength: 10 * 1024 * 1024,
@@ -893,7 +895,8 @@ export const uploadPatternThumbnailFromUrl = async (req: Request, res: Response)
       return res.status(404).json({ success: false, message: 'Pattern not found' });
     }
 
-    const imageResponse = await axios.get(photoUrl, {
+    // Same dual-layer SSRF defense as the yarn import above.
+    const imageResponse = await safeAxios.get(photoUrl, {
       responseType: 'arraybuffer',
       timeout: 15000,
       maxContentLength: 10 * 1024 * 1024,

@@ -1,5 +1,5 @@
 /**
- * Coordinate-surface tests for SourceFilePdfViewer.
+ * Coordinate-surface + responsive-layout tests for SourceFilePdfViewer.
  *
  * The viewer renders, per page, a header (page label + "Annotate page"
  * button) AND a PDF coordinate surface. The header MUST sit outside the
@@ -8,8 +8,9 @@
  * at the visible top of the PDF starts below the header and chart grid
  * overlays sit at the wrong offset.
  *
- * These tests exercise the structural contract; the cropMath helpers
- * already cover the pure math.
+ * The viewer is also responsive: it measures the scroll container with
+ * ResizeObserver and feeds the result through `clampPageWidth` to set
+ * the rendered page width. We exercise both branches.
  */
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -29,6 +30,8 @@ vi.mock('../../lib/sourceFiles', async () => {
   };
 });
 
+const PageMock = vi.fn();
+
 vi.mock('react-pdf', async () => {
   const React = await vi.importActual<typeof import('react')>('react');
   return {
@@ -45,15 +48,16 @@ vi.mock('react-pdf', async () => {
       }, [onLoadSuccess]);
       return <div data-testid="pdf-doc">{children}</div>;
     },
-    Page: ({ pageNumber }: { pageNumber: number }) => (
-      <canvas data-testid={`pdf-canvas-${pageNumber}`} />
-    ),
+    Page: (props: { pageNumber: number; width?: number }) => {
+      PageMock(props);
+      return <canvas data-testid={`pdf-canvas-${props.pageNumber}`} data-width={props.width} />;
+    },
   };
 });
 
 vi.mock('../../lib/pdfjsWorker', () => ({}));
 
-import SourceFilePdfViewer from './SourceFilePdfViewer';
+import SourceFilePdfViewer, { clampPageWidth } from './SourceFilePdfViewer';
 import type { SourceFile } from '../../lib/sourceFiles';
 
 const SF: SourceFile = {
@@ -77,6 +81,7 @@ const SF: SourceFile = {
 
 afterEach(() => {
   vi.clearAllMocks();
+  PageMock.mockClear();
 });
 
 describe('SourceFilePdfViewer coordinate surface', () => {
@@ -146,12 +151,6 @@ describe('SourceFilePdfViewer coordinate surface', () => {
       pointerId: 1,
     });
 
-    // Capture the bounds the handler actually used. We do this by
-    // intercepting setPointerCapture (called on the element the handler
-    // attached to) and by reading the element via the event's
-    // currentTarget. The handler uses currentTarget.getBoundingClientRect();
-    // dispatching the event ON the surface ensures currentTarget = surface
-    // when the React handler fires.
     let captured: DOMRect | null = null;
     const origGetBR = surface1.getBoundingClientRect;
     surface1.getBoundingClientRect = function () {
@@ -189,5 +188,23 @@ describe('SourceFilePdfViewer coordinate surface', () => {
     render(<SourceFilePdfViewer sourceFile={SF} />);
     expect(await screen.findByTestId('pdf-surface-1')).toBeInTheDocument();
     expect(screen.getByTestId('pdf-surface-2')).toBeInTheDocument();
+  });
+});
+
+describe('clampPageWidth (responsive bounds)', () => {
+  it('floors at 320 so the page stays legible on a small phone', () => {
+    expect(clampPageWidth(0)).toBe(600); // fallback when ResizeObserver hasn't fired yet
+    expect(clampPageWidth(120)).toBe(320);
+    expect(clampPageWidth(340)).toBe(320); // 340-32 = 308, still floored
+  });
+
+  it('scales with the container width once it is past the floor', () => {
+    expect(clampPageWidth(500)).toBe(468); // 500-32
+    expect(clampPageWidth(800)).toBe(768); // 800-32
+  });
+
+  it('caps at 900 so the rendered raster never blows up beyond legible width', () => {
+    expect(clampPageWidth(1400)).toBe(900);
+    expect(clampPageWidth(2400)).toBe(900);
   });
 });

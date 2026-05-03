@@ -29,4 +29,12 @@ describe('parsePatternDetailTab', () => {
     // likely a typo than intentional.
     expect(parsePatternDetailTab('Feasibility')).toBe('overview');
   });
+
+  it('redirects the retired viewer tab to sources so old bookmarks land somewhere useful', () => {
+    expect(parsePatternDetailTab('viewer')).toBe('sources');
+    // The redirected value is not in PATTERN_DETAIL_TABS, but parse
+    // resolves it. PATTERN_DETAIL_TABS itself no longer contains
+    // 'viewer' — it's purely a legacy URL hop.
+    expect((PATTERN_DETAIL_TABS as readonly string[]).includes('viewer')).toBe(false);
+  });
 });
