@@ -16,18 +16,30 @@
  * call between validation and connection — the validation IS the
  * connection-time lookup.
  *
+ * One more wrinkle: when the URL the agent ends up dialing is a *literal
+ * IP* (e.g. `http://127.0.0.1/`), Node skips the DNS lookup entirely —
+ * there's nothing to resolve. So the agent's `validatingLookup` never
+ * fires. That doesn't matter for the initial URL (assertPublicUrl
+ * catches it), but it does matter for *redirects*: a public host can
+ * 302 the client to `http://127.0.0.1/` and follow-redirects will dial
+ * the literal IP without consulting our lookup hook. We close that gap
+ * with `assertRedirectAllowed`, wired through axios's `beforeRedirect`
+ * config — see PR #369 (Codex follow-up).
+ *
  * Public surface:
  *   - `safeAxios` — pre-configured axios instance. Drop-in for `axios`.
  *   - `validatingLookup` — exported for tests.
+ *   - `assertRedirectAllowed` — exported for tests.
  *
  * `assertPublicUrl()` is still useful for early rejection (so the user
- * gets a clear 403/400 before we open a connection at all). Both layers
- * stay in place; they're complementary, not redundant.
+ * gets a clear 403/400 before we open a connection at all). All three
+ * layers stay in place; they're complementary, not redundant.
  */
 
 import { lookup as dnsLookup } from 'dns';
 import http from 'http';
 import https from 'https';
+import net from 'net';
 import axios from 'axios';
 import { ForbiddenError } from './errorHandler';
 
@@ -145,11 +157,68 @@ export const safeHttpAgent = new http.Agent({ lookup: validatingLookup as never 
 export const safeHttpsAgent = new https.Agent({ lookup: validatingLookup as never });
 
 /**
+ * Validate the next hop in a redirect chain. axios passes this through
+ * to follow-redirects via the `beforeRedirect` config; the callback
+ * runs synchronously *before* the redirected request is dispatched, so
+ * throwing here cancels the chain.
+ *
+ * What we check:
+ *   - The next protocol must be http/https. A redirect to `file:` or
+ *     `gopher:` would otherwise let an attacker pivot through axios's
+ *     adapter into the local filesystem.
+ *   - If the redirect target is a *literal IP*, validate it against our
+ *     private/internal block list directly. Node bypasses DNS lookup
+ *     for IP literals, so the agent's `validatingLookup` would never
+ *     fire — this is the gap the Codex review on PR #369 flagged.
+ *   - If the redirect target is a *DNS hostname*, defer to the agent's
+ *     connect-time `validatingLookup`. follow-redirects opens a fresh
+ *     connection through the same http(s) Agent on every hop, so the
+ *     lookup runs and rejects private resolutions for us.
+ *
+ * Errors here propagate as the rejection of the original axios call.
+ * We use `ForbiddenError` so the existing 403 mapping at upload/import
+ * call sites stays intact.
+ */
+export function assertRedirectAllowed(options: {
+  hostname?: string | null;
+  protocol?: string | null;
+}): void {
+  const protocol = options.protocol;
+  if (protocol && protocol !== 'http:' && protocol !== 'https:') {
+    throw new ForbiddenError(`Unsupported redirect protocol: ${protocol}`);
+  }
+  const host = options.hostname;
+  if (typeof host !== 'string' || host.length === 0) return;
+  // Strip IPv6 brackets — follow-redirects sometimes hands us
+  // `[::1]` and sometimes `::1`. Either should be rejected.
+  const stripped = host.startsWith('[') && host.endsWith(']')
+    ? host.slice(1, -1)
+    : host;
+  const family = net.isIP(stripped);
+  if (family === 6) {
+    throw new ForbiddenError(
+      `Redirect to IPv6 destination blocked: ${stripped}`,
+    );
+  }
+  if (family === 4 && isPrivateIpv4(stripped)) {
+    throw new ForbiddenError(
+      `Redirect to private/internal address blocked: ${stripped}`,
+    );
+  }
+  // For DNS hostnames the agent's `validatingLookup` runs at connect
+  // time and rejects there if the resolution is private. No further
+  // synchronous work needed here.
+}
+
+/**
  * Pre-configured axios instance. Drop-in replacement for `axios` at any
  * call site that takes a user-supplied URL. Behaves like axios in every
- * other way; the agents handle the safety.
+ * other way; the agents + beforeRedirect hook handle the safety.
  */
 export const safeAxios = axios.create({
   httpAgent: safeHttpAgent,
   httpsAgent: safeHttpsAgent,
+  beforeRedirect: (options) => {
+    assertRedirectAllowed(options as { hostname?: string | null; protocol?: string | null });
+  },
 });

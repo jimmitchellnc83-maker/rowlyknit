@@ -30,10 +30,26 @@ import { trackEvent } from '../../lib/analytics';
 
 type Tool = 'pen' | 'highlight' | 'eraser' | null;
 
+/**
+ * One unit of undoable history. The kind records the *forward* action
+ * the user took:
+ *   - `create` — they drew a stroke. Undo deletes it; redo recreates.
+ *   - `erase`  — they erased a stroke. Undo restores it; redo erases.
+ *
+ * Tracking the kind is what makes erase symmetrical with draw. Before
+ * PR #369's Codex follow-up, an erase pushed onto the redo stack so
+ * "undo an accidental erase" silently did nothing — the wrong shape
+ * for any drawing tool.
+ */
+type HistoryAction =
+  | { kind: 'create'; annotation: PatternAnnotation }
+  | { kind: 'erase'; annotation: PatternAnnotation };
+
 export interface AnnotationLayerHandle {
-  /** Soft-delete the most recent stroke, if any. */
+  /** Reverse the most recent forward action — delete a drawn stroke,
+   *  or restore an erased one. */
   undo: () => Promise<void>;
-  /** Restore the most recently undone stroke. */
+  /** Replay the most recently undone forward action. */
   redo: () => Promise<void>;
   /** Whether undo/redo are available. */
   canUndo: () => boolean;
@@ -78,11 +94,14 @@ const AnnotationLayer = forwardRef<AnnotationLayerHandle, AnnotationLayerProps>(
     const [eraserCursor, setEraserCursor] = useState<{ x: number; y: number } | null>(
       null,
     );
-    /** Undo stack of the user's own strokes in creation order, capped
-     *  at 50 entries to keep the in-memory list bounded. */
-    const undoStackRef = useRef<PatternAnnotation[]>([]);
-    /** Redo stack — pops here when user undoes; pushes back on redo. */
-    const redoStackRef = useRef<PatternAnnotation[]>([]);
+    /** Undo stack of forward actions in chronological order, capped at
+     *  50 entries to keep the in-memory list bounded. Most recent at
+     *  the tail. */
+    const undoStackRef = useRef<HistoryAction[]>([]);
+    /** Redo stack of undone forward actions; pops here on undo, pushes
+     *  back on redo. Always cleared when the user takes a new forward
+     *  action (drawing or erasing). */
+    const redoStackRef = useRef<HistoryAction[]>([]);
     /** Eraser scrub state — IDs already scheduled for deletion this
      *  drag, so a second pass over the same stroke doesn't double-fire. */
     const erasedThisDragRef = useRef<Set<string>>(new Set());
@@ -102,8 +121,12 @@ const AnnotationLayer = forwardRef<AnnotationLayerHandle, AnnotationLayerProps>(
           if (!cancelled) {
             setAnnotations(rows);
             // Stack starts at the end of the loaded list so the user
-            // can undo back to the most recent saved stroke.
-            undoStackRef.current = rows.slice(-50);
+            // can undo back to the most recent saved stroke. Each row
+            // is treated as a forward "create" action since it was
+            // drawn at some point in the past.
+            undoStackRef.current = rows
+              .slice(-50)
+              .map((annotation) => ({ kind: 'create', annotation }));
             redoStackRef.current = [];
             emitStack();
           }
@@ -117,6 +140,30 @@ const AnnotationLayer = forwardRef<AnnotationLayerHandle, AnnotationLayerProps>(
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [sourceFileId, cropId]);
 
+    /**
+     * When undo or redo recreates a stroke, the server hands back a
+     * new annotation id (the row was deleted earlier). Any other
+     * history entry that referenced the OLD id needs to be rewritten
+     * to the new id so a later undo/redo doesn't try to delete a row
+     * that no longer exists.
+     *
+     * Without this, the chain
+     *   draw → erase → undo (recreate) → undo (delete original)
+     * would 404 on the second undo because the "original" id was
+     * superseded by the recreate's id.
+     */
+    function rewriteAnnotationId(
+      stack: HistoryAction[],
+      oldId: string,
+      newAnnotation: PatternAnnotation,
+    ): void {
+      for (let i = 0; i < stack.length; i++) {
+        if (stack[i].annotation.id === oldId) {
+          stack[i] = { kind: stack[i].kind, annotation: newAnnotation };
+        }
+      }
+    }
+
     useImperativeHandle(
       ref,
       () => ({
@@ -126,9 +173,25 @@ const AnnotationLayer = forwardRef<AnnotationLayerHandle, AnnotationLayerProps>(
           const last = undoStackRef.current.pop();
           if (!last) return;
           try {
-            await deleteAnnotation(sourceFileId, cropId, last.id);
-            setAnnotations((prev) => prev.filter((a) => a.id !== last.id));
-            redoStackRef.current.push(last);
+            if (last.kind === 'create') {
+              // Inverse of a draw → delete the stroke server-side.
+              await deleteAnnotation(sourceFileId, cropId, last.annotation.id);
+              setAnnotations((prev) => prev.filter((a) => a.id !== last.annotation.id));
+              redoStackRef.current.push(last);
+            } else {
+              // Inverse of an erase → recreate the stroke server-side.
+              // The recreated row gets a fresh id; rewrite any other
+              // history entry that pointed at the erased id so the
+              // chain stays consistent.
+              const recreated = await createAnnotation(sourceFileId, cropId, {
+                annotationType: last.annotation.annotationType,
+                payload: last.annotation.payload,
+              });
+              setAnnotations((prev) => [...prev, recreated]);
+              rewriteAnnotationId(undoStackRef.current, last.annotation.id, recreated);
+              rewriteAnnotationId(redoStackRef.current, last.annotation.id, recreated);
+              redoStackRef.current.push({ kind: 'erase', annotation: recreated });
+            }
             emitStack();
           } catch {
             // Restore the stack so the user can try again.
@@ -141,12 +204,23 @@ const AnnotationLayer = forwardRef<AnnotationLayerHandle, AnnotationLayerProps>(
           const popped = redoStackRef.current.pop();
           if (!popped) return;
           try {
-            const recreated = await createAnnotation(sourceFileId, cropId, {
-              annotationType: popped.annotationType,
-              payload: popped.payload,
-            });
-            setAnnotations((prev) => [...prev, recreated]);
-            undoStackRef.current.push(recreated);
+            if (popped.kind === 'create') {
+              // Replay a draw → recreate it. As above, the new id is
+              // propagated through both stacks.
+              const recreated = await createAnnotation(sourceFileId, cropId, {
+                annotationType: popped.annotation.annotationType,
+                payload: popped.annotation.payload,
+              });
+              setAnnotations((prev) => [...prev, recreated]);
+              rewriteAnnotationId(undoStackRef.current, popped.annotation.id, recreated);
+              rewriteAnnotationId(redoStackRef.current, popped.annotation.id, recreated);
+              undoStackRef.current.push({ kind: 'create', annotation: recreated });
+            } else {
+              // Replay an erase → delete it again.
+              await deleteAnnotation(sourceFileId, cropId, popped.annotation.id);
+              setAnnotations((prev) => prev.filter((a) => a.id !== popped.annotation.id));
+              undoStackRef.current.push(popped);
+            }
             emitStack();
           } catch {
             redoStackRef.current.push(popped);
@@ -230,8 +304,10 @@ const AnnotationLayer = forwardRef<AnnotationLayerHandle, AnnotationLayerProps>(
           payload,
         });
         setAnnotations((prev) => [...prev, annotation]);
-        // New stroke creates a fresh future; clear redo.
-        undoStackRef.current.push(annotation);
+        // New forward action — record it on the undo stack as a
+        // `create`, then drop any redo history (the user took a
+        // different path through history).
+        undoStackRef.current.push({ kind: 'create', annotation });
         if (undoStackRef.current.length > 50) undoStackRef.current.shift();
         redoStackRef.current = [];
         emitStack();
@@ -264,16 +340,19 @@ const AnnotationLayer = forwardRef<AnnotationLayerHandle, AnnotationLayerProps>(
       if (hits.length === 0) return;
       // Optimistic local removal so the user sees instant feedback.
       setAnnotations((prev) => prev.filter((x) => !hits.find((h) => h.id === x.id)));
-      undoStackRef.current = undoStackRef.current.filter(
-        (x) => !hits.find((h) => h.id === x.id),
-      );
-      // Push erased strokes onto redo so undo+redo can walk both ways.
+      // Each erased stroke is a forward action — push it onto undo as
+      // an `erase` so that pressing Undo restores the stroke (the
+      // natural mental model for any drawing tool). Any pending redo
+      // history is invalidated by this new forward action.
       for (const h of hits) {
-        redoStackRef.current.push(h);
-        if (redoStackRef.current.length > 50) redoStackRef.current.shift();
+        undoStackRef.current.push({ kind: 'erase', annotation: h });
+        if (undoStackRef.current.length > 50) undoStackRef.current.shift();
       }
+      redoStackRef.current = [];
       emitStack();
-      // Server reconciliation. If a delete fails, put the stroke back.
+      // Server reconciliation. If a delete fails, put the stroke back
+      // and roll the matching `erase` entry off the undo stack — the
+      // server still has it, so the user's local view should match.
       const failures: PatternAnnotation[] = [];
       await Promise.all(
         hits.map(async (h) => {
@@ -286,9 +365,9 @@ const AnnotationLayer = forwardRef<AnnotationLayerHandle, AnnotationLayerProps>(
       );
       if (failures.length > 0) {
         setAnnotations((prev) => [...prev, ...failures]);
-        // Roll the failed entries off the redo stack.
-        redoStackRef.current = redoStackRef.current.filter(
-          (x) => !failures.find((f) => f.id === x.id),
+        undoStackRef.current = undoStackRef.current.filter(
+          (entry) =>
+            !(entry.kind === 'erase' && failures.find((f) => f.id === entry.annotation.id)),
         );
         emitStack();
         toast.error(

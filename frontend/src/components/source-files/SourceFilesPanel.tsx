@@ -137,12 +137,31 @@ export default function SourceFilesPanel({
           </p>
         </div>
       ) : (
-        <div className="flex gap-4 flex-1 min-h-0">
-          <ul className="w-56 flex-shrink-0 space-y-1 overflow-auto">
+        // Stacked column on mobile/tablet so the PDF viewer gets full width.
+        // Once the viewport reaches `lg` (~1024px) we shift back to a
+        // horizontal layout with a left rail. The rail itself flips from a
+        // horizontal scroll strip (compact) on small screens to a vertical
+        // sidebar on large screens.
+        <div
+          data-testid="source-files-layout"
+          className="flex flex-col lg:flex-row gap-4 flex-1 min-h-0"
+        >
+          <ul
+            data-testid="source-files-rail"
+            className="
+              flex lg:flex-col
+              gap-2 lg:gap-0 lg:space-y-1
+              overflow-x-auto lg:overflow-x-hidden lg:overflow-y-auto
+              flex-shrink-0
+              lg:w-56
+              -mx-1 px-1 lg:mx-0 lg:px-0
+              pb-2 lg:pb-0
+            "
+          >
             {sourceFiles.map((sf) => (
               <li
                 key={sf.id}
-                className={`rounded px-2 py-1.5 text-sm flex items-center justify-between gap-2 ${
+                className={`rounded px-2 py-1.5 text-sm flex items-center justify-between gap-2 flex-shrink-0 lg:flex-shrink lg:w-auto w-[180px] sm:w-[220px] ${
                   activeId === sf.id
                     ? 'bg-purple-100 dark:bg-purple-900/40'
                     : 'hover:bg-gray-50 dark:hover:bg-gray-800'
@@ -151,7 +170,7 @@ export default function SourceFilesPanel({
                 <button
                   type="button"
                   onClick={() => setActiveId(sf.id)}
-                  className="flex-1 text-left truncate"
+                  className="flex-1 text-left truncate min-w-0"
                   title={sf.originalFilename ?? sf.id}
                 >
                   <span className="flex items-center gap-1.5">
@@ -165,13 +184,13 @@ export default function SourceFilesPanel({
                       </span>
                     )}
                   </span>
-                  <span className="block text-xs text-gray-500">
+                  <span className="block text-xs text-gray-500 truncate">
                     {sf.kind} · {sf.craft}
                     {sf.pageCount ? ` · ${sf.pageCount}p` : ''}
                   </span>
                 </button>
                 {pendingDelete?.id === sf.id ? (
-                  <span className="flex items-center gap-1 text-xs">
+                  <span className="flex items-center gap-1 text-xs flex-shrink-0">
                     <button
                       type="button"
                       onClick={() => void performDelete(sf)}
@@ -192,7 +211,7 @@ export default function SourceFilesPanel({
                   <button
                     type="button"
                     onClick={() => setPendingDelete(sf)}
-                    className="text-xs text-red-600 hover:text-red-800"
+                    className="text-xs text-red-600 hover:text-red-800 flex-shrink-0"
                     aria-label="Delete file"
                   >
                     ×
@@ -201,7 +220,7 @@ export default function SourceFilesPanel({
               </li>
             ))}
           </ul>
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-0 min-h-0">
             {active ? (
               <SourceFilePdfViewer
                 key={active.id}

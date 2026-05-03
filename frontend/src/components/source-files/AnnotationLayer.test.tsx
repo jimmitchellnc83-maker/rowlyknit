@@ -175,6 +175,134 @@ describe('AnnotationLayer undo + redo', () => {
   });
 });
 
+/**
+ * Eraser → undo → redo behavior. Codex review on PR #369 flagged that
+ * erasing a stroke pushed onto the *redo* stack, which made Undo a
+ * no-op for an accidental erase. The fix records erase as a forward
+ * action on the undo stack so:
+ *
+ *   draw → erase → Undo restores the erased stroke
+ *                → Redo erases it again
+ *
+ * Because jsdom can't lay out SVG (the existing "eraser hit-test math"
+ * tests cover the geometry directly), we exercise the eraser flow via
+ * a mocked getBoundingClientRect on the wrapper so pointer normalization
+ * lands on the loaded stroke.
+ */
+describe('AnnotationLayer eraser undo/redo cycle', () => {
+  it('erase → undo restores the stroke; redo erases it again', async () => {
+    const stroke = makeStroke('p1', 'pen', [
+      { x: 0.1, y: 0.1 },
+      { x: 0.4, y: 0.4 },
+    ]);
+    listAnnotationsMock.mockResolvedValueOnce([stroke]);
+    deleteAnnotationMock.mockResolvedValue(undefined);
+    // After undo of the erase, the stroke is recreated server-side
+    // with a new id. We fix the new id so we can assert delete called
+    // with it on the redo step.
+    createAnnotationMock.mockResolvedValueOnce({ ...stroke, id: 'p1-restored' });
+
+    // jsdom doesn't lay out SVG, so we pin a known rect for the
+    // wrapper. clientX=20/100 → normalized x=0.2, which falls on the
+    // loaded stroke (which runs from (0.1,0.1) to (0.4,0.4)).
+    const rectSpy = vi
+      .spyOn(Element.prototype, 'getBoundingClientRect')
+      .mockReturnValue({
+        left: 0,
+        top: 0,
+        right: 100,
+        bottom: 100,
+        width: 100,
+        height: 100,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      } as DOMRect);
+
+    const ref = createRef<AnnotationLayerHandle>();
+    const onStackChange = vi.fn();
+    const { container, rerender } = render(
+      <AnnotationLayer
+        ref={ref}
+        sourceFileId="sf-1"
+        cropId="crop-1"
+        tool="pen"
+        onStackChange={onStackChange}
+      />,
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(ref.current!.canUndo()).toBe(true);
+    expect(ref.current!.canRedo()).toBe(false);
+
+    // Switch to eraser mode. State stays — the loaded stroke keeps
+    // sitting on the undo stack.
+    rerender(
+      <AnnotationLayer
+        ref={ref}
+        sourceFileId="sf-1"
+        cropId="crop-1"
+        tool="eraser"
+        onStackChange={onStackChange}
+      />,
+    );
+
+    // Trigger an eraser scrub at a point on the stroke.
+    const svg = container.querySelector('svg')!;
+    // jsdom's pointer-capture is a no-op; stub it so the handler runs.
+    Object.defineProperty(svg, 'setPointerCapture', { value: () => {} });
+    Object.defineProperty(svg, 'releasePointerCapture', { value: () => {} });
+
+    await act(async () => {
+      svg.dispatchEvent(
+        new PointerEvent('pointerdown', {
+          bubbles: true,
+          clientX: 20,
+          clientY: 20,
+          pointerId: 1,
+        }),
+      );
+      // Let scrubAt's microtask + Promise.all settle.
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    // The erase deleted the stroke server-side AND pushed an `erase`
+    // entry onto undo (so undo restores it).
+    expect(deleteAnnotationMock).toHaveBeenCalledWith('sf-1', 'crop-1', 'p1');
+    expect(ref.current!.canUndo()).toBe(true);
+    expect(ref.current!.canRedo()).toBe(false);
+
+    // Undo the erase → the stroke comes back via createAnnotation.
+    await act(async () => {
+      await ref.current!.undo();
+    });
+    expect(createAnnotationMock).toHaveBeenCalledTimes(1);
+    expect(createAnnotationMock).toHaveBeenLastCalledWith(
+      'sf-1',
+      'crop-1',
+      expect.objectContaining({ annotationType: 'pen' }),
+    );
+    expect(ref.current!.canRedo()).toBe(true);
+
+    // Redo → the stroke is erased again. The redo step targets the
+    // recreated stroke's new id, not the original.
+    await act(async () => {
+      await ref.current!.redo();
+    });
+    expect(deleteAnnotationMock).toHaveBeenLastCalledWith(
+      'sf-1',
+      'crop-1',
+      'p1-restored',
+    );
+    expect(ref.current!.canRedo()).toBe(false);
+    expect(ref.current!.canUndo()).toBe(true);
+
+    rectSpy.mockRestore();
+  });
+});
+
 describe('eraser hit-test math', () => {
   it('reports a hit when the cursor lands directly on the path', () => {
     const stroke = [

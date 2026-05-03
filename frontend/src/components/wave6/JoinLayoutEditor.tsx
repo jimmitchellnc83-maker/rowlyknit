@@ -67,9 +67,11 @@ interface DragState {
  * desktop look right when the user later prints / shares.
  *
  * Mobile/tablet: pointer events with `touchAction: 'none'` so finger
- * drags don't trigger page scroll. Resize handles are 24×24px (the
- * minimum tap target the iOS HIG calls comfortable) and grow further
- * with a 28×28 hit-area ring so they're easy to land on a tablet.
+ * drags don't trigger page scroll. Core controls (Add, layer arrows,
+ * Remove, Save, Close) are 44×44px — Apple HIG's comfort minimum and
+ * the bar Codex flagged on the PR #369 review. Resize handles are
+ * 14×14 visible nubs inside a 28×28 transparent hit ring so they look
+ * calm on the canvas without sacrificing thumb-reach.
  */
 export default function JoinLayoutEditor({
   projectId,
@@ -349,7 +351,7 @@ export default function JoinLayoutEditor({
                     <button
                       type="button"
                       onClick={() => handleAdd(c)}
-                      className="rounded-lg bg-purple-600 text-white text-sm px-3 py-2 hover:bg-purple-700 flex items-center gap-1.5 flex-shrink-0 min-h-[36px]"
+                      className="rounded-lg bg-purple-600 text-white text-sm px-3 py-2 hover:bg-purple-700 flex items-center gap-1.5 flex-shrink-0 min-h-[44px] min-w-[44px]"
                       aria-label={`Add ${c.label ?? 'crop'} to layout`}
                     >
                       <FiPlus className="h-4 w-4" /> Add
@@ -397,7 +399,7 @@ export default function JoinLayoutEditor({
                               onClick={() => handleReorder(idx, -1)}
                               disabled={idx === 0}
                               aria-label="Send back"
-                              className="min-h-[36px] min-w-[36px] flex items-center justify-center rounded text-gray-500 hover:text-gray-800 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-30 disabled:hover:bg-transparent"
+                              className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded text-gray-500 hover:text-gray-800 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-30 disabled:hover:bg-transparent"
                             >
                               <FiArrowUp className="h-4 w-4" />
                             </button>
@@ -406,7 +408,7 @@ export default function JoinLayoutEditor({
                               onClick={() => handleReorder(idx, 1)}
                               disabled={idx === regions.length - 1}
                               aria-label="Bring forward"
-                              className="min-h-[36px] min-w-[36px] flex items-center justify-center rounded text-gray-500 hover:text-gray-800 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-30 disabled:hover:bg-transparent"
+                              className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded text-gray-500 hover:text-gray-800 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-30 disabled:hover:bg-transparent"
                             >
                               <FiArrowDown className="h-4 w-4" />
                             </button>
@@ -414,7 +416,7 @@ export default function JoinLayoutEditor({
                               type="button"
                               onClick={() => handleRemove(idx)}
                               aria-label="Remove region"
-                              className="min-h-[36px] min-w-[36px] flex items-center justify-center rounded text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                              className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
                             >
                               <FiTrash2 className="h-4 w-4" />
                             </button>

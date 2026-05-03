@@ -10,7 +10,7 @@ jest.mock('dns', () => ({
   lookup: (...args: any[]) => dnsLookupMock(...args),
 }));
 
-import { isPrivateIpv4, validatingLookup } from '../safeFetch';
+import { assertRedirectAllowed, isPrivateIpv4, safeAxios, validatingLookup } from '../safeFetch';
 
 afterEach(() => {
   jest.clearAllMocks();
@@ -112,5 +112,127 @@ describe('validatingLookup', () => {
       expect(err).toBe(dnsErr);
       done();
     });
+  });
+});
+
+describe('assertRedirectAllowed', () => {
+  /**
+   * The redirect-time guard is what closes the gap that survived the
+   * connect-time `validatingLookup`: when a redirect target is a
+   * literal IP, Node skips DNS, so the lookup hook never fires. The
+   * call sites in patternsController / uploadsController /
+   * blogExtractorService all use `safeAxios`, and `safeAxios` wires
+   * this guard into `beforeRedirect`. Locking it here is what stops a
+   * regression of "public host 302 → http://127.0.0.1/".
+   */
+
+  it('blocks a redirect to http://127.0.0.1', () => {
+    expect(() =>
+      assertRedirectAllowed({ hostname: '127.0.0.1', protocol: 'http:' }),
+    ).toThrow(/private\/internal address/i);
+  });
+
+  it('blocks a redirect to http://169.254.169.254 (cloud metadata)', () => {
+    expect(() =>
+      assertRedirectAllowed({ hostname: '169.254.169.254', protocol: 'http:' }),
+    ).toThrow(/169\.254\.169\.254/);
+  });
+
+  it.each([
+    ['10.0.0.5'],
+    ['172.16.0.1'],
+    ['172.31.255.254'],
+    ['192.168.1.10'],
+    ['224.0.0.1'], // multicast
+    ['0.0.0.0'],
+  ])('blocks a redirect to RFC-1918 / loopback / multicast literal %s', (ip) => {
+    expect(() =>
+      assertRedirectAllowed({ hostname: ip, protocol: 'http:' }),
+    ).toThrow();
+  });
+
+  it('blocks an IPv6 literal redirect (with and without brackets)', () => {
+    expect(() =>
+      assertRedirectAllowed({ hostname: '::1', protocol: 'http:' }),
+    ).toThrow(/IPv6/i);
+    expect(() =>
+      assertRedirectAllowed({ hostname: '[::1]', protocol: 'http:' }),
+    ).toThrow(/IPv6/i);
+    expect(() =>
+      assertRedirectAllowed({ hostname: 'fd00::1', protocol: 'http:' }),
+    ).toThrow(/IPv6/i);
+  });
+
+  it('blocks a redirect that switches to a non-http(s) protocol', () => {
+    expect(() =>
+      assertRedirectAllowed({ hostname: 'cdn.example.com', protocol: 'file:' }),
+    ).toThrow(/Unsupported redirect protocol/i);
+    expect(() =>
+      assertRedirectAllowed({ hostname: 'cdn.example.com', protocol: 'gopher:' }),
+    ).toThrow(/Unsupported redirect protocol/i);
+  });
+
+  it('passes a redirect to a public IPv4 literal through', () => {
+    expect(() =>
+      assertRedirectAllowed({ hostname: '93.184.216.34', protocol: 'https:' }),
+    ).not.toThrow();
+    expect(() =>
+      assertRedirectAllowed({ hostname: '8.8.8.8', protocol: 'http:' }),
+    ).not.toThrow();
+  });
+
+  it('passes a redirect to a public DNS hostname through (defers to connect-time lookup)', () => {
+    // For non-literal hostnames the synchronous guard cannot do DNS;
+    // it returns successfully and lets the agent's validatingLookup
+    // catch a private resolution at connect time. We exercise that
+    // contract above in the validatingLookup describe block.
+    expect(() =>
+      assertRedirectAllowed({ hostname: 'cdn.example.com', protocol: 'https:' }),
+    ).not.toThrow();
+  });
+
+  it('safeAxios wires assertRedirectAllowed into beforeRedirect', () => {
+    // Regression: any future drop of `beforeRedirect` from safeAxios's
+    // defaults would silently re-open the redirect SSRF gap.
+    const before = safeAxios.defaults.beforeRedirect;
+    expect(typeof before).toBe('function');
+    // axios's beforeRedirect signature is (options, responseDetails,
+    // requestDetails). Our hook only consumes `options`; the rest are
+    // stubbed for the test invocation.
+    const detail = {} as never;
+    // And the wired callback must reject the canonical bad targets.
+    expect(() =>
+      before!({ hostname: '127.0.0.1', protocol: 'http:' } as never, detail, detail),
+    ).toThrow();
+    expect(() =>
+      before!(
+        { hostname: '169.254.169.254', protocol: 'http:' } as never,
+        detail,
+        detail,
+      ),
+    ).toThrow();
+    // …and let a clean public target through.
+    expect(() =>
+      before!(
+        { hostname: '93.184.216.34', protocol: 'https:' } as never,
+        detail,
+        detail,
+      ),
+    ).not.toThrow();
+  });
+
+  it('safeAxios still uses the validating http(s) Agents (regression: redirect fix did not unwire connect-time guard)', () => {
+    // The redirect-time guard catches IP literals; the connect-time
+    // agent guard catches DNS-rebinding. We need both. Lock the agent
+    // wiring so a future config refactor cannot drop the connect-time
+    // layer while keeping the redirect layer in place.
+    expect(safeAxios.defaults.httpAgent).toBeDefined();
+    expect(safeAxios.defaults.httpsAgent).toBeDefined();
+    expect(
+      (safeAxios.defaults.httpAgent as { options?: { lookup?: unknown } }).options?.lookup,
+    ).toBe(validatingLookup);
+    expect(
+      (safeAxios.defaults.httpsAgent as { options?: { lookup?: unknown } }).options?.lookup,
+    ).toBe(validatingLookup);
   });
 });
