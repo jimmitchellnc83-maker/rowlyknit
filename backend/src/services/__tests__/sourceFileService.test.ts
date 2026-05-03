@@ -74,6 +74,11 @@ const dbBuilders: any = {
     orderBy: jest.fn().mockResolvedValue([]),
     update: jest.fn().mockResolvedValue(1),
   },
+  patterns: {
+    where: jest.fn().mockReturnThis(),
+    whereNull: jest.fn().mockReturnThis(),
+    first: jest.fn(),
+  },
   projects: {
     where: jest.fn().mockReturnThis(),
     whereNull: jest.fn().mockReturnThis(),
@@ -81,6 +86,7 @@ const dbBuilders: any = {
   },
   project_patterns: {
     where: jest.fn().mockReturnThis(),
+    first: jest.fn(),
     update: jest.fn().mockResolvedValue(1),
   },
 };
@@ -282,6 +288,42 @@ describe('createCrop ownership gate', () => {
     expect(dbBuilders.source_files.first).not.toHaveBeenCalled();
     expect(dbBuilders.pattern_crops.insert).not.toHaveBeenCalled();
   });
+
+  it('refuses to stamp a foreign pattern_id onto a crop', async () => {
+    // Source file IS owned, but the pattern is not.
+    dbBuilders.source_files.first.mockResolvedValueOnce({ id: 'sf-1' });
+    dbBuilders.patterns.first.mockResolvedValueOnce(null);
+    await expect(
+      createCrop({
+        sourceFileId: 'sf-1',
+        userId: 'u-1',
+        patternId: 'pat-foreign',
+        pageNumber: 1,
+        cropX: 0,
+        cropY: 0,
+        cropWidth: 0.5,
+        cropHeight: 0.5,
+      })
+    ).rejects.toThrow(ValidationError);
+    expect(dbBuilders.pattern_crops.insert).not.toHaveBeenCalled();
+  });
+
+  it('inserts when both source file and supplied pattern are owned', async () => {
+    dbBuilders.source_files.first.mockResolvedValueOnce({ id: 'sf-1' });
+    dbBuilders.patterns.first.mockResolvedValueOnce({ id: 'pat-1' });
+    const crop = await createCrop({
+      sourceFileId: 'sf-1',
+      userId: 'u-1',
+      patternId: 'pat-1',
+      pageNumber: 1,
+      cropX: 0,
+      cropY: 0,
+      cropWidth: 0.5,
+      cropHeight: 0.5,
+    });
+    expect(crop.id).toBe('crop-1');
+    expect(dbBuilders.pattern_crops.insert).toHaveBeenCalled();
+  });
 });
 
 describe('pinSourceFileToProjectPattern', () => {
@@ -301,8 +343,22 @@ describe('pinSourceFileToProjectPattern', () => {
     expect(dbBuilders.project_patterns.update).not.toHaveBeenCalled();
   });
 
+  it('refuses when the pattern does not belong to the user', async () => {
+    dbBuilders.projects.first.mockResolvedValueOnce({ id: 'p-1' });
+    dbBuilders.patterns.first.mockResolvedValueOnce(null);
+    const ok = await pinSourceFileToProjectPattern({
+      projectId: 'p-1',
+      patternId: 'pat-foreign',
+      sourceFileId: 'sf-1',
+      userId: 'u-1',
+    });
+    expect(ok).toBe(false);
+    expect(dbBuilders.project_patterns.update).not.toHaveBeenCalled();
+  });
+
   it('refuses when the source file does not belong to the user', async () => {
     dbBuilders.projects.first.mockResolvedValueOnce({ id: 'p-1' });
+    dbBuilders.patterns.first.mockResolvedValueOnce({ id: 'pat-1' });
     dbBuilders.source_files.first.mockResolvedValueOnce(null);
     const ok = await pinSourceFileToProjectPattern({
       projectId: 'p-1',
@@ -314,8 +370,25 @@ describe('pinSourceFileToProjectPattern', () => {
     expect(dbBuilders.project_patterns.update).not.toHaveBeenCalled();
   });
 
+  it('refuses when no project_patterns row exists for (project, pattern)', async () => {
+    dbBuilders.projects.first.mockResolvedValueOnce({ id: 'p-1' });
+    dbBuilders.patterns.first.mockResolvedValueOnce({ id: 'pat-1' });
+    dbBuilders.source_files.first.mockResolvedValueOnce({ id: 'sf-1' });
+    dbBuilders.project_patterns.first.mockResolvedValueOnce(null);
+    const ok = await pinSourceFileToProjectPattern({
+      projectId: 'p-1',
+      patternId: 'pat-1',
+      sourceFileId: 'sf-1',
+      userId: 'u-1',
+    });
+    expect(ok).toBe(false);
+    expect(dbBuilders.project_patterns.update).not.toHaveBeenCalled();
+  });
+
   it('allows clearing the pin (sourceFileId=null) without checking the source file', async () => {
     dbBuilders.projects.first.mockResolvedValueOnce({ id: 'p-1' });
+    dbBuilders.patterns.first.mockResolvedValueOnce({ id: 'pat-1' });
+    dbBuilders.project_patterns.first.mockResolvedValueOnce({ id: 'pp-1' });
     const ok = await pinSourceFileToProjectPattern({
       projectId: 'p-1',
       patternId: 'pat-1',
@@ -329,9 +402,11 @@ describe('pinSourceFileToProjectPattern', () => {
     });
   });
 
-  it('updates when both ownership checks pass', async () => {
+  it('updates when project, pattern, source file, and membership all check out', async () => {
     dbBuilders.projects.first.mockResolvedValueOnce({ id: 'p-1' });
+    dbBuilders.patterns.first.mockResolvedValueOnce({ id: 'pat-1' });
     dbBuilders.source_files.first.mockResolvedValueOnce({ id: 'sf-1' });
+    dbBuilders.project_patterns.first.mockResolvedValueOnce({ id: 'pp-1' });
     const ok = await pinSourceFileToProjectPattern({
       projectId: 'p-1',
       patternId: 'pat-1',

@@ -103,6 +103,24 @@ function mapCropRow(row: PatternCropRow): PatternCrop {
 }
 
 /**
+ * Verify a pattern row belongs to the given user. Returns true if the
+ * pattern exists and is owned by `userId` (and not soft-deleted),
+ * false otherwise. Used as the gate for every controller surface that
+ * accepts a client-supplied `patternId` so a hostile request can't
+ * stamp another user's pattern onto a row in this user's namespace.
+ */
+export async function isPatternOwnedByUser(
+  patternId: string,
+  userId: string,
+): Promise<boolean> {
+  const row = await db('patterns')
+    .where({ id: patternId, user_id: userId })
+    .whereNull('deleted_at')
+    .first('id');
+  return !!row;
+}
+
+/**
  * Validates a crop rectangle stays inside the unit square, with a
  * positive non-zero area and an integer page number. Mirrors the DB
  * CHECK constraints so we fail fast in the service layer instead of
@@ -274,6 +292,16 @@ export async function createCrop(input: CreateCropInput): Promise<PatternCrop> {
     throw new ValidationError('source file not found for user');
   }
 
+  // If the caller passed a pattern_id, it must belong to the same user.
+  // Otherwise a hostile client could stamp a foreign pattern_id onto
+  // a crop row in their own namespace, polluting cross-pattern queries.
+  if (input.patternId) {
+    const owns = await isPatternOwnedByUser(input.patternId, input.userId);
+    if (!owns) {
+      throw new ValidationError('pattern not found for user');
+    }
+  }
+
   const [row] = await db('pattern_crops')
     .insert({
       source_file_id: input.sourceFileId,
@@ -348,6 +376,16 @@ export async function softDeleteCrop(
  * Pin a project's instance of a pattern to a specific source file. The
  * row has to exist already (it's created when the pattern is added to
  * the project); this just updates the pointer.
+ *
+ * Ownership gates, all required:
+ *   - project belongs to the calling user
+ *   - pattern belongs to the calling user
+ *   - source file (when provided) belongs to the calling user
+ *   - a project_patterns row exists for exactly (project, pattern) — no
+ *     manufacturing membership through this endpoint
+ *
+ * Any miss returns false → controller throws NotFoundError, so the
+ * response shape doesn't differentiate "no permission" from "no row."
  */
 export async function pinSourceFileToProjectPattern(args: {
   projectId: string;
@@ -355,13 +393,24 @@ export async function pinSourceFileToProjectPattern(args: {
   sourceFileId: string | null;
   userId: string;
 }): Promise<boolean> {
-  // Membership: confirm both the project and the source file are
-  // owned by the user before we touch project_patterns.
+  // Project ownership.
   const project = await db('projects')
     .where({ id: args.projectId, user_id: args.userId })
     .whereNull('deleted_at')
     .first('id');
   if (!project) return false;
+
+  // Pattern ownership — separate from project membership, since
+  // project_patterns by itself doesn't carry a user_id and a hostile
+  // request could otherwise reference a foreign pattern_id that happens
+  // to share the join-row position.
+  const pattern = await db('patterns')
+    .where({ id: args.patternId, user_id: args.userId })
+    .whereNull('deleted_at')
+    .first('id');
+  if (!pattern) return false;
+
+  // Source file ownership (only when pinning, not when clearing).
   if (args.sourceFileId !== null) {
     const sf = await db('source_files')
       .where({ id: args.sourceFileId, user_id: args.userId })
@@ -369,6 +418,16 @@ export async function pinSourceFileToProjectPattern(args: {
       .first('id');
     if (!sf) return false;
   }
+
+  // Membership: a project_patterns row must already exist for this
+  // (project, pattern) pair. Pinning is an UPDATE on a row that
+  // PatternsController created when the user attached the pattern to
+  // the project; it is NOT an UPSERT.
+  const member = await db('project_patterns')
+    .where({ project_id: args.projectId, pattern_id: args.patternId })
+    .first('id');
+  if (!member) return false;
+
   const updated = await db('project_patterns')
     .where({ project_id: args.projectId, pattern_id: args.patternId })
     .update({ source_file_id: args.sourceFileId });

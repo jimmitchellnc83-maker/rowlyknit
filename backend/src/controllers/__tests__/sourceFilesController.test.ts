@@ -38,6 +38,7 @@ const dbBuilders: any = {
   },
   project_patterns: {
     where: jest.fn().mockReturnThis(),
+    first: jest.fn(),
     update: jest.fn().mockResolvedValue(1),
   },
 };
@@ -224,6 +225,52 @@ describe('uploadSourceFile', () => {
     );
     expect(res.status).toHaveBeenCalledWith(201);
   });
+
+  it('rejects when patternId in upload body belongs to another user', async () => {
+    // Pattern lookup returns null → ownership fails → ValidationError
+    // before any DB insert / disk write happens.
+    dbBuilders.patterns.first.mockResolvedValueOnce(null);
+    await expect(
+      uploadSourceFile(
+        makeReq({
+          body: { craft: 'knit', kind: 'pattern_pdf', patternId: 'pat-foreign' },
+          file: {
+            buffer: Buffer.from('%PDF-1.4\nfake'),
+            originalname: 'x.pdf',
+            mimetype: 'application/pdf',
+            size: 1234,
+          } as Express.Multer.File,
+        }),
+        makeRes()
+      )
+    ).rejects.toThrow(ValidationError);
+    expect(dbBuilders.source_files.insert).not.toHaveBeenCalled();
+  });
+
+  it('accepts when patternId in upload body is owned by the user', async () => {
+    dbBuilders.patterns.first.mockResolvedValueOnce({ id: 'pat-1' });
+    // Re-stub the source file insert (default may have been consumed by
+    // an earlier test that used .toReturnValue once).
+    dbBuilders.source_files.insert.mockReturnValueOnce({
+      returning: jest.fn().mockResolvedValue([{ ...SF_ROW, intended_pattern_id: 'pat-1' }]),
+    });
+    const res = makeRes();
+    await uploadSourceFile(
+      makeReq({
+        body: { craft: 'knit', kind: 'pattern_pdf', patternId: 'pat-1' },
+        file: {
+          buffer: Buffer.from('%PDF-1.4\nfake'),
+          originalname: 'x.pdf',
+          mimetype: 'application/pdf',
+          size: 1234,
+        } as Express.Multer.File,
+      }),
+      res
+    );
+    expect(res.status).toHaveBeenCalledWith(201);
+    const insertCall = dbBuilders.source_files.insert.mock.calls[0][0];
+    expect(insertCall.intended_pattern_id).toBe('pat-1');
+  });
 });
 
 describe('streamSourceFileBytes', () => {
@@ -320,6 +367,29 @@ describe('createSourceFileCrop', () => {
         makeRes()
       )
     ).rejects.toThrow(ValidationError);
+  });
+
+  it('rejects when supplied patternId belongs to another user', async () => {
+    // Source file is owned, but the pattern is not.
+    dbBuilders.source_files.first.mockResolvedValueOnce(SF_ROW);
+    dbBuilders.patterns.first.mockResolvedValueOnce(null);
+    await expect(
+      createSourceFileCrop(
+        makeReq({
+          params: { id: 'sf-1' },
+          body: {
+            pageNumber: 1,
+            cropX: 0,
+            cropY: 0,
+            cropWidth: 0.5,
+            cropHeight: 0.5,
+            patternId: 'pat-foreign',
+          },
+        }),
+        makeRes()
+      )
+    ).rejects.toThrow(ValidationError);
+    expect(dbBuilders.pattern_crops.insert).not.toHaveBeenCalled();
   });
 });
 
@@ -441,6 +511,8 @@ describe('pinSourceFile', () => {
 
   it('forwards null to the service to clear the pin', async () => {
     dbBuilders.projects.first.mockResolvedValueOnce({ id: 'p-1' });
+    dbBuilders.patterns.first.mockResolvedValueOnce({ id: 'pat-1' });
+    dbBuilders.project_patterns.first.mockResolvedValueOnce({ id: 'pp-1' });
     dbBuilders.project_patterns.update.mockResolvedValueOnce(1);
     const res = makeRes();
     await pinSourceFile(
@@ -456,5 +528,37 @@ describe('pinSourceFile', () => {
     expect(res.json).toHaveBeenCalledWith(
       expect.objectContaining({ success: true })
     );
+  });
+
+  it('throws NotFoundError when pattern is foreign', async () => {
+    dbBuilders.projects.first.mockResolvedValueOnce({ id: 'p-1' });
+    dbBuilders.patterns.first.mockResolvedValueOnce(null);
+    await expect(
+      pinSourceFile(
+        makeReq({
+          params: { projectId: 'p-1', patternId: 'pat-foreign' },
+          body: { sourceFileId: 'sf-1' },
+        }),
+        makeRes()
+      )
+    ).rejects.toThrow(NotFoundError);
+    expect(dbBuilders.project_patterns.update).not.toHaveBeenCalled();
+  });
+
+  it('throws NotFoundError when no project_patterns row exists for the pair', async () => {
+    dbBuilders.projects.first.mockResolvedValueOnce({ id: 'p-1' });
+    dbBuilders.patterns.first.mockResolvedValueOnce({ id: 'pat-1' });
+    dbBuilders.source_files.first.mockResolvedValueOnce(SF_ROW);
+    dbBuilders.project_patterns.first.mockResolvedValueOnce(null);
+    await expect(
+      pinSourceFile(
+        makeReq({
+          params: { projectId: 'p-1', patternId: 'pat-1' },
+          body: { sourceFileId: 'sf-1' },
+        }),
+        makeRes()
+      )
+    ).rejects.toThrow(NotFoundError);
+    expect(dbBuilders.project_patterns.update).not.toHaveBeenCalled();
   });
 });

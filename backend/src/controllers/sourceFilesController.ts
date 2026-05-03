@@ -32,6 +32,7 @@ import {
   createSourceFile,
   getCropById,
   getSourceFileById,
+  isPatternOwnedByUser,
   listCropsForPattern,
   listCropsForSourceFile,
   listSourceFilesForUser,
@@ -148,10 +149,21 @@ export async function uploadSourceFile(req: Request, res: Response): Promise<voi
 
   // Capture upload-context patternId so the file appears in that
   // pattern's Sources tab immediately, before any crops are drawn.
-  const uploadPatternId =
+  // Verify ownership before stamping it onto the source_files row —
+  // otherwise a hostile client could attach their upload to another
+  // user's pattern.
+  const rawPatternId =
     typeof req.body.patternId === 'string' && req.body.patternId.length > 0
       ? req.body.patternId
       : null;
+  let uploadPatternId: string | null = null;
+  if (rawPatternId) {
+    const owns = await isPatternOwnedByUser(rawPatternId, userId);
+    if (!owns) {
+      throw new ValidationError('pattern not found for user');
+    }
+    uploadPatternId = rawPatternId;
+  }
 
   const sf = await createSourceFile({
     userId,
@@ -177,12 +189,15 @@ export async function uploadSourceFile(req: Request, res: Response): Promise<voi
   }
 
   // Optional: link to a project_patterns row if the caller passed one.
+  // Reuse uploadPatternId — already ownership-verified above. The
+  // service further checks project ownership + project_patterns row
+  // existence; a missing membership simply skips the pin (no error
+  // path because the file upload itself already succeeded).
   const projectId = typeof req.body.projectId === 'string' ? req.body.projectId : null;
-  const patternId = typeof req.body.patternId === 'string' ? req.body.patternId : null;
-  if (projectId && patternId) {
+  if (projectId && uploadPatternId) {
     await pinSourceFileToProjectPattern({
       projectId,
-      patternId,
+      patternId: uploadPatternId,
       sourceFileId: sf.id,
       userId,
     });
