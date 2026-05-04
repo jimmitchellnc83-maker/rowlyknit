@@ -44,6 +44,8 @@ import {
   buildCanonicalFromSnapshot,
   createPattern,
   importDesignerSnapshot,
+  normalizePatternSection,
+  normalizePatternSections,
   type LegacyDesignerSnapshot,
 } from '../patternService';
 import db from '../../config/database';
@@ -823,5 +825,237 @@ describe('buildCanonicalFromChartUpload', () => {
     const built = buildCanonicalFromChartUpload({ chartId: 'c' });
     expect(built.materials).toEqual([]);
     expect(built.legend.overrides).toEqual({});
+  });
+});
+
+// ---------------------------------------------------------------------------
+// normalizePatternSection — backend boundary safety
+//
+// Regression coverage for the PR #370 prod-smoke crash. The frontend
+// `PatternSection` type required `parameters`, but the API would happily
+// persist sections without one — Make Mode's `totalRowsFor` then crashed
+// on `section.parameters._totalRows`. PR #371 patched the one reader; this
+// closes the loop at the backend boundary so all readers are safe.
+// ---------------------------------------------------------------------------
+
+describe('normalizePatternSection', () => {
+  it('fills parameters with {} when missing', () => {
+    const out = normalizePatternSection({
+      id: 's1',
+      name: 'Body',
+      kind: 'sweater-body',
+      sortOrder: 0,
+    });
+    expect(out.parameters).toEqual({});
+  });
+
+  it('preserves a valid parameters object verbatim', () => {
+    const out = normalizePatternSection({
+      id: 's1',
+      name: 'Body',
+      kind: 'sweater-body',
+      sortOrder: 0,
+      parameters: { _totalRows: 120, foo: 'bar' },
+    });
+    expect(out.parameters).toEqual({ _totalRows: 120, foo: 'bar' });
+  });
+
+  it('rejects an array as parameters and falls back to {}', () => {
+    // Defends against a writer that sent `parameters: []` thinking it was
+    // an array of param entries.
+    const out = normalizePatternSection({
+      id: 's1',
+      name: 'Body',
+      kind: 'sweater-body',
+      sortOrder: 0,
+      parameters: ['oops'],
+    });
+    expect(out.parameters).toEqual({});
+  });
+
+  it('fills chartPlacement with null when missing', () => {
+    const out = normalizePatternSection({
+      id: 's1',
+      name: 'Body',
+      kind: 'sweater-body',
+      sortOrder: 0,
+    });
+    expect(out.chartPlacement).toBeNull();
+  });
+
+  it('preserves a valid chartPlacement', () => {
+    const out = normalizePatternSection({
+      id: 's1',
+      name: 'Body',
+      kind: 'sweater-body',
+      sortOrder: 0,
+      chartPlacement: { chartId: 'c1', repeatMode: 'tile' },
+    });
+    expect(out.chartPlacement).toEqual({ chartId: 'c1', repeatMode: 'tile' });
+  });
+
+  it('fills notes with null when missing', () => {
+    const out = normalizePatternSection({
+      id: 's1',
+      name: 'Body',
+      kind: 'sweater-body',
+      sortOrder: 0,
+    });
+    expect(out.notes).toBeNull();
+  });
+
+  it('mints an id when missing', () => {
+    const out = normalizePatternSection({
+      name: 'Body',
+      kind: 'sweater-body',
+      sortOrder: 0,
+    });
+    expect(typeof out.id).toBe('string');
+    expect(out.id.length).toBeGreaterThan(0);
+  });
+
+  it('falls back to custom-draft-section when kind is missing or unknown', () => {
+    const missing = normalizePatternSection({ id: 's1', name: 'X', sortOrder: 0 });
+    expect(missing.kind).toBe('custom-draft-section');
+    const garbage = normalizePatternSection({
+      id: 's1',
+      name: 'X',
+      kind: 'wibble',
+      sortOrder: 0,
+    });
+    expect(garbage.kind).toBe('custom-draft-section');
+  });
+
+  it('uses the fallback sortOrder when missing', () => {
+    const out = normalizePatternSection({ id: 's1', name: 'X', kind: 'hat' }, 7);
+    expect(out.sortOrder).toBe(7);
+  });
+
+  it('survives null / undefined / non-object input', () => {
+    expect(normalizePatternSection(null).parameters).toEqual({});
+    expect(normalizePatternSection(undefined).parameters).toEqual({});
+    expect(normalizePatternSection('not-a-section').parameters).toEqual({});
+  });
+});
+
+describe('normalizePatternSections', () => {
+  it('returns [] for non-array input', () => {
+    expect(normalizePatternSections(null)).toEqual([]);
+    expect(normalizePatternSections(undefined)).toEqual([]);
+    expect(normalizePatternSections('garbage')).toEqual([]);
+  });
+
+  it('normalizes each section and preserves order', () => {
+    const out = normalizePatternSections([
+      { id: 'a', name: 'A', kind: 'hat', sortOrder: 0 },
+      // missing parameters + chartPlacement + notes
+      { id: 'b', name: 'B', kind: 'scarf', sortOrder: 1 },
+    ]);
+    expect(out).toHaveLength(2);
+    expect(out[0].parameters).toEqual({});
+    expect(out[1].parameters).toEqual({});
+    expect(out[1].chartPlacement).toBeNull();
+    expect(out[1].notes).toBeNull();
+    expect(out.map((s) => s.id)).toEqual(['a', 'b']);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// CRUD normalization — sections with missing parameters survive a roundtrip
+// ---------------------------------------------------------------------------
+
+describe('createPattern — section.parameters normalization', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('writes {} for a section that arrives without parameters', async () => {
+    mockedDb.__builder.returning.mockResolvedValueOnce([
+      {
+        id: 'p1',
+        user_id: 'u1',
+        source_pattern_id: null,
+        source_project_id: null,
+        name: 'Sloppy Caller',
+        craft: 'knit',
+        technique: 'standard',
+        gauge_profile: '{}',
+        size_set: '{"active":"x","sizes":[{"id":"x","label":"Default","measurements":{}}]}',
+        // The DB row reflects whatever insert sent; the test asserts on the
+        // insert payload below instead of round-tripping through parseJsonb.
+        sections:
+          '[{"id":"s1","name":"Body","kind":"sweater-body","sortOrder":0,"parameters":{},"chartPlacement":null,"notes":null}]',
+        legend: '{"overrides":{}}',
+        materials: '[]',
+        progress_state: '{}',
+        notes: null,
+        schema_version: 1,
+        created_at: new Date(),
+        updated_at: new Date(),
+        deleted_at: null,
+      },
+    ]);
+
+    await createPattern('u1', {
+      name: 'Sloppy Caller',
+      craft: 'knit',
+      // Intentionally omit `parameters` to simulate a writer that only set
+      // the four required-by-PR-1 fields. PR #370 prod-smoke crash repro.
+      sections: [
+        {
+          id: 's1',
+          name: 'Body',
+          kind: 'sweater-body',
+          sortOrder: 0,
+        } as any,
+      ],
+    });
+
+    const insertArg = mockedDb.__builder.insert.mock.calls[0][0];
+    const sentSections = JSON.parse(insertArg.sections as string);
+    expect(sentSections).toHaveLength(1);
+    expect(sentSections[0].parameters).toEqual({});
+    expect(sentSections[0].chartPlacement).toBeNull();
+    expect(sentSections[0].notes).toBeNull();
+  });
+});
+
+describe('rowToPattern — read-side normalization for legacy rows', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('normalizes a row that pre-dates the boundary fix and has sloppy sections', async () => {
+    // Simulate a legacy row already on disk: sections JSON with no
+    // parameters / chartPlacement / notes. Re-imports and old API writes
+    // could have produced this shape before normalization landed.
+    mockedDb.__builder.first.mockResolvedValueOnce({
+      id: 'p1',
+      user_id: 'u1',
+      source_pattern_id: null,
+      source_project_id: null,
+      name: 'Legacy',
+      craft: 'knit',
+      technique: 'standard',
+      gauge_profile: '{}',
+      size_set: '{"active":"x","sizes":[]}',
+      sections:
+        '[{"id":"sec","name":"Body","kind":"sweater-body","sortOrder":0}]',
+      legend: '{"overrides":{}}',
+      materials: '[]',
+      progress_state: '{}',
+      notes: null,
+      schema_version: 1,
+      created_at: new Date(),
+      updated_at: new Date(),
+      deleted_at: null,
+    });
+
+    const { getPattern } = await import('../patternService');
+    const result = await getPattern('p1', 'u1');
+    expect(result).not.toBeNull();
+    expect(result!.sections[0].parameters).toEqual({});
+    expect(result!.sections[0].chartPlacement).toBeNull();
+    expect(result!.sections[0].notes).toBeNull();
   });
 });

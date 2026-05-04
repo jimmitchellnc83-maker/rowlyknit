@@ -740,6 +740,72 @@ const makeSection = (input: MakeSectionInput): PatternSection => ({
   notes: input.notes ?? null,
 });
 
+/**
+ * Normalize a section value coming from any boundary — API write payload,
+ * legacy importer, JSONB read, hand-coded test fixture. Guarantees every
+ * required `PatternSection` field is present so downstream readers (frontend
+ * `MakeMode`, `chartOverlayFromSection`, `canonicalPatternExport`, future
+ * canonical surfaces) can do `section.parameters[k]` /
+ * `Object.entries(section.parameters)` without a null-guard.
+ *
+ * The sloppy field that caused the PR #370 prod-smoke crash was
+ * `parameters` — frontend type required it but the API would happily
+ * persist `undefined`. Same hazard applies to `chartPlacement` (some
+ * readers do `section.chartPlacement.chartId` after a truthy check on
+ * `chartPlacement`) and `notes`. Normalizing here means the contract is
+ * enforced once at the backend boundary instead of patched per-reader.
+ *
+ * Preserves any valid values; only fills holes. Existing valid `parameters`
+ * objects are passed through unchanged.
+ */
+export const normalizePatternSection = (
+  raw: unknown,
+  fallbackSortOrder = 0,
+): PatternSection => {
+  const s = (raw ?? {}) as Partial<PatternSection> & Record<string, unknown>;
+  return {
+    id: typeof s.id === 'string' && s.id.length > 0 ? s.id : randomUUID(),
+    name: typeof s.name === 'string' ? s.name : '',
+    // SectionKind is a string enum; if a writer sent something garbage, fall
+    // back to the catch-all `custom-draft-section` rather than throwing.
+    kind:
+      typeof s.kind === 'string' && SECTION_KINDS.has(s.kind as SectionKind)
+        ? (s.kind as SectionKind)
+        : 'custom-draft-section',
+    sortOrder:
+      typeof s.sortOrder === 'number' && Number.isFinite(s.sortOrder)
+        ? s.sortOrder
+        : fallbackSortOrder,
+    parameters:
+      s.parameters && typeof s.parameters === 'object' && !Array.isArray(s.parameters)
+        ? (s.parameters as SectionParameters)
+        : {},
+    chartPlacement:
+      s.chartPlacement && typeof s.chartPlacement === 'object'
+        ? (s.chartPlacement as PatternSection['chartPlacement'])
+        : null,
+    notes: typeof s.notes === 'string' ? s.notes : null,
+  };
+};
+
+const SECTION_KINDS: ReadonlySet<SectionKind> = new Set([
+  'sweater-body',
+  'sweater-sleeve',
+  'hat',
+  'scarf',
+  'blanket',
+  'shawl',
+  'mittens',
+  'socks',
+  'custom-draft-section',
+]);
+
+/** Apply `normalizePatternSection` across an array, preserving order. */
+export const normalizePatternSections = (raw: unknown): PatternSection[] => {
+  if (!Array.isArray(raw)) return [];
+  return raw.map((s, i) => normalizePatternSection(s, i));
+};
+
 const pickKeys = (
   snapshot: LegacyDesignerSnapshot,
   keys: string[],
@@ -889,7 +955,7 @@ export const createPattern = async (
       technique: input.technique ?? 'standard',
       gauge_profile: JSON.stringify(input.gaugeProfile ?? defaultGaugeProfile()),
       size_set: JSON.stringify(input.sizeSet ?? buildSingleSizeSet()),
-      sections: JSON.stringify(input.sections ?? []),
+      sections: JSON.stringify(normalizePatternSections(input.sections ?? [])),
       legend: JSON.stringify(input.legend ?? { overrides: {} }),
       materials: JSON.stringify(input.materials ?? []),
       progress_state: JSON.stringify(input.progressState ?? {}),
@@ -932,7 +998,8 @@ export const updatePattern = async (
   if (patch.gaugeProfile !== undefined)
     update.gauge_profile = JSON.stringify(patch.gaugeProfile);
   if (patch.sizeSet !== undefined) update.size_set = JSON.stringify(patch.sizeSet);
-  if (patch.sections !== undefined) update.sections = JSON.stringify(patch.sections);
+  if (patch.sections !== undefined)
+    update.sections = JSON.stringify(normalizePatternSections(patch.sections));
   if (patch.legend !== undefined) update.legend = JSON.stringify(patch.legend);
   if (patch.materials !== undefined)
     update.materials = JSON.stringify(patch.materials);
@@ -994,7 +1061,7 @@ const rowToPattern = (row: PatternModelRow): CanonicalPattern => ({
   technique: row.technique,
   gaugeProfile: parseJsonb<GaugeProfile>(row.gauge_profile, defaultGaugeProfile()),
   sizeSet: parseJsonb<SizeSet>(row.size_set, { active: '', sizes: [] }),
-  sections: parseJsonb<PatternSection[]>(row.sections, []),
+  sections: normalizePatternSections(parseJsonb<unknown[]>(row.sections, [])),
   legend: parseJsonb<PatternLegend>(row.legend, { overrides: {} }),
   materials: parseJsonb<MaterialEntry[]>(row.materials, []),
   progressState: parseJsonb<ProgressState>(row.progress_state, {}),

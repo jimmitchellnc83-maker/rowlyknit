@@ -6,9 +6,12 @@
  * the `VITE_DESIGNER_AUTHOR_MODE` flag — disabled by default in prod
  * until the canonical chart layer + side-by-side editor mature.
  *
- * When the flag is off, the route redirects to the standard pattern
- * detail page so a curious knitter who lands on `/patterns/:id/author`
- * doesn't see the unfinished surface.
+ * When the flag is off, the route redirects to `/patterns/:id/make`
+ * (a sibling canonical-pattern surface) so a curious knitter who lands
+ * on `/patterns/:id/author` doesn't see the unfinished surface. The
+ * legacy `/patterns/:id` route is NOT a safe fallback because canonical-
+ * only patterns have a `pattern_models` UUID that the legacy detail
+ * page would 404 on. As of 2026-05-03 prod is OFF.
  *
  * What this page does today:
  *  - Loads the canonical pattern via `usePatternModel(id)`
