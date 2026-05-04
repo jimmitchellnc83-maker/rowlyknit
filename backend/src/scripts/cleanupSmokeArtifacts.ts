@@ -5,13 +5,25 @@
  * records that match an explicit allow-list of known smoke artifacts, so
  * real owner/demo data stays intact.
  *
- * What this cleans (matches by id OR name pattern, demo + smoke users only):
+ * Safety contract for `pattern_models` (PR378 — Bugfix Sprint 2A):
+ * the previous version broad-matched names across ALL users, which would
+ * have hard-deleted any real user's model literally named "Smoke Sweater"
+ * or "PR377 Real Pattern". The cleanup now NEVER name-matches alone:
+ *
+ *   - candidate set = (id ∈ SMOKE_PATTERN_MODEL_IDS allow-list)
+ *                       UNION
+ *                     (owner.email LIKE '%@rowly.test' AND name LIKE prefix)
+ *   - hard-delete is allowed ONLY when EVERY matched row is in the explicit
+ *     ID allow-list. Otherwise we soft-delete via `deleted_at` (the column
+ *     exists per migration #062 — the previous "no soft-delete column"
+ *     comment was wrong) so a misclassified row stays recoverable.
+ *
+ * What this cleans:
  *   - source_files: the `smoke-test.pdf` fixture (ab395474-...) on demo user
  *     PLUS every pattern_crops row attached to it
  *   - charts: name = "PR376 smoke chart" or "Smoke Magic Marker chart"
  *   - join_layouts: name LIKE 'Smoke%' on demo user's projects
- *   - pattern_models: name LIKE 'PR3%' OR 'Hardening Smoke%' OR 'Smoke %'
- *     OR 'Miu Top — canonical twin%'
+ *   - pattern_models: id-allowlisted OR (smoke account AND name LIKE prefix)
  *   - patterns: name LIKE 'PR3%' on smoke (`*@rowly.test`) accounts only
  *   - projects: name LIKE 'PR3%' on smoke accounts only
  *
@@ -19,6 +31,7 @@
  *   - The demo user itself
  *   - "Miu Top" pattern (real demo content per memory)
  *   - "Cotton baby blanket" + "Cotton baby blanket (copy)" projects
+ *   - Any pattern_model owned by a non-`@rowly.test` user, regardless of name
  *   - Anything not matching one of the rules above
  *
  * Soft delete (sets `deleted_at`/`archived_at`) over hard delete so the
@@ -31,6 +44,7 @@
  *   docker exec rowly_backend node dist/src/scripts/cleanupSmokeArtifacts.js
  */
 
+import type { Knex } from 'knex';
 import db from '../config/database';
 
 const DRY_RUN = process.argv.includes('--dry-run');
@@ -44,14 +58,82 @@ const SMOKE_CHART_IDS = [
   'dd53b6bf-afb0-48c0-a1b3-fa082a9d4b63', // "Smoke Magic Marker chart"
 ];
 
+/**
+ * Explicit pattern_model IDs known to be smoke-only. Empty by default —
+ * operator pastes IDs here from a previous dry-run when they're confident
+ * the rows are smoke artifacts. Hard delete is ONLY allowed when every
+ * matched row is in this list; otherwise the script falls back to soft
+ * delete via `deleted_at`.
+ */
+const SMOKE_PATTERN_MODEL_IDS: string[] = [];
+
+const SMOKE_PATTERN_MODEL_NAME_PREFIXES = [
+  'PR3',
+  'Hardening Smoke',
+  'Smoke ',
+  'Miu Top — canonical twin',
+];
+
+const SMOKE_USER_EMAIL_GLOB = '%@rowly.test';
+
 interface Counts {
   sourceFiles: number;
   crops: number;
   charts: number;
   joinLayouts: number;
   patternModels: number;
+  patternModelsHardDeleted: number;
   patterns: number;
   projects: number;
+}
+
+export interface PatternModelCandidate {
+  id: string;
+  name: string;
+  user_id: string;
+  email: string;
+}
+
+/**
+ * Pattern_model candidates for cleanup. Joins users so the email gate
+ * actually fires — the previous version didn't join, so a name-only
+ * match was a real-data risk. Two safe sources combined:
+ *
+ *   1. id ∈ SMOKE_PATTERN_MODEL_IDS (operator-curated)
+ *   2. owner.email LIKE '%@rowly.test' AND name LIKE smoke prefix
+ *
+ * NEVER name-match alone. Exported so a unit test can prove the filter
+ * holds on a fixture set that includes a real-user "Smoke Sweater".
+ */
+export async function selectPatternModelCandidates(
+  conn: Knex = db,
+): Promise<PatternModelCandidate[]> {
+  const query = conn('pattern_models as pm')
+    .innerJoin('users as u', 'u.id', 'pm.user_id')
+    .whereNull('pm.deleted_at')
+    .where(function () {
+      // Branch 1: id allow-list (operator-curated, always safe).
+      if (SMOKE_PATTERN_MODEL_IDS.length > 0) {
+        this.whereIn('pm.id', SMOKE_PATTERN_MODEL_IDS);
+      }
+      // Branch 2: smoke-account email AND smoke-prefix name.
+      this.orWhere(function () {
+        this.where('u.email', 'like', SMOKE_USER_EMAIL_GLOB).andWhere(
+          function () {
+            for (const prefix of SMOKE_PATTERN_MODEL_NAME_PREFIXES) {
+              this.orWhere('pm.name', 'ilike', `${prefix}%`);
+            }
+          },
+        );
+      });
+    })
+    .select<PatternModelCandidate[]>(
+      'pm.id',
+      'pm.name',
+      'pm.user_id',
+      'u.email',
+    );
+  return query;
 }
 
 async function listSmokeRows(): Promise<{
@@ -59,7 +141,7 @@ async function listSmokeRows(): Promise<{
   crops: Array<{ id: string; label: string | null; source_file_id: string }>;
   charts: Array<{ id: string; name: string; user_id: string }>;
   joinLayouts: Array<{ id: string; name: string; project_id: string }>;
-  patternModels: Array<{ id: string; name: string; user_id: string }>;
+  patternModels: PatternModelCandidate[];
   patterns: Array<{ id: string; name: string; user_id: string; email: string }>;
   projects: Array<{ id: string; name: string; user_id: string; email: string }>;
 }> {
@@ -86,21 +168,15 @@ async function listSmokeRows(): Promise<{
     .where('name', 'ilike', 'Smoke%')
     .select('id', 'name', 'project_id');
 
-  // Canonical pattern_models with smoke-fixture names. Match prefixes only.
-  const patternModels = await db('pattern_models')
-    .where(function () {
-      this.where('name', 'ilike', 'PR3%')
-        .orWhere('name', 'ilike', 'Hardening Smoke%')
-        .orWhere('name', 'ilike', 'Smoke %')
-        .orWhere('name', 'ilike', 'Miu Top — canonical twin%');
-    })
-    .select('id', 'name', 'user_id');
+  // Pattern_models are only ever cleaned via the safe filter (id allow-list
+  // OR smoke-account-scoped); see `selectPatternModelCandidates`.
+  const patternModels = await selectPatternModelCandidates(db);
 
   // Legacy patterns scoped to smoke accounts (*@rowly.test) only — keeps
   // any real owner pattern that happens to start with "PR3" safe.
   const patterns = await db('patterns as p')
     .innerJoin('users as u', 'u.id', 'p.user_id')
-    .where('u.email', 'like', '%@rowly.test')
+    .where('u.email', 'like', SMOKE_USER_EMAIL_GLOB)
     .whereNull('p.deleted_at')
     .where('p.name', 'ilike', 'PR3%')
     .select('p.id', 'p.name', 'p.user_id', 'u.email');
@@ -108,7 +184,7 @@ async function listSmokeRows(): Promise<{
   // Same scoping for projects: smoke accounts only, name starts with PR3.
   const projects = await db('projects as p')
     .innerJoin('users as u', 'u.id', 'p.user_id')
-    .where('u.email', 'like', '%@rowly.test')
+    .where('u.email', 'like', SMOKE_USER_EMAIL_GLOB)
     .whereNull('p.deleted_at')
     .where('p.name', 'ilike', 'PR3%')
     .select('p.id', 'p.name', 'p.user_id', 'u.email');
@@ -116,13 +192,16 @@ async function listSmokeRows(): Promise<{
   return { sourceFiles, crops, charts, joinLayouts, patternModels, patterns, projects };
 }
 
-async function softDelete(): Promise<Counts> {
+async function softDelete(
+  patternModelCandidates: PatternModelCandidate[],
+): Promise<Counts> {
   const counts: Counts = {
     sourceFiles: 0,
     crops: 0,
     charts: 0,
     joinLayouts: 0,
     patternModels: 0,
+    patternModelsHardDeleted: 0,
     patterns: 0,
     projects: 0,
   };
@@ -151,14 +230,29 @@ async function softDelete(): Promise<Counts> {
     .where('name', 'ilike', 'Smoke%')
     .update({ deleted_at: now });
 
-  counts.patternModels = await db('pattern_models')
-    .where(function () {
-      this.where('name', 'ilike', 'PR3%')
-        .orWhere('name', 'ilike', 'Hardening Smoke%')
-        .orWhere('name', 'ilike', 'Smoke %')
-        .orWhere('name', 'ilike', 'Miu Top — canonical twin%');
-    })
-    .delete(); // pattern_models has no soft-delete column; hard delete
+  // Pattern_models — safe path. Take the candidate set already filtered
+  // by the (id allow-list) ∪ (smoke-email + name-prefix) gate, and:
+  //   - Hard-delete ONLY when every row is in the explicit ID allow-list
+  //     (operator opt-in; default empty).
+  //   - Otherwise soft-delete via `deleted_at`. The column exists per
+  //     migration #062; the previous comment claiming it didn't was wrong.
+  if (patternModelCandidates.length > 0) {
+    const candidateIds = patternModelCandidates.map((r) => r.id);
+    const everyIdAllowlisted = candidateIds.every((id) =>
+      SMOKE_PATTERN_MODEL_IDS.includes(id),
+    );
+    if (everyIdAllowlisted) {
+      counts.patternModelsHardDeleted = await db('pattern_models')
+        .whereIn('id', candidateIds)
+        .delete();
+      counts.patternModels = counts.patternModelsHardDeleted;
+    } else {
+      counts.patternModels = await db('pattern_models')
+        .whereIn('id', candidateIds)
+        .whereNull('deleted_at')
+        .update({ deleted_at: now, updated_at: now });
+    }
+  }
 
   // Legacy patterns / projects: soft-delete via deleted_at, scoped to
   // smoke accounts. We do these in two steps — first read the ids
@@ -167,7 +261,7 @@ async function softDelete(): Promise<Counts> {
   const patternIds = (
     await db('patterns as p')
       .innerJoin('users as u', 'u.id', 'p.user_id')
-      .where('u.email', 'like', '%@rowly.test')
+      .where('u.email', 'like', SMOKE_USER_EMAIL_GLOB)
       .whereNull('p.deleted_at')
       .where('p.name', 'ilike', 'PR3%')
       .select('p.id')
@@ -181,7 +275,7 @@ async function softDelete(): Promise<Counts> {
   const projectIds = (
     await db('projects as p')
       .innerJoin('users as u', 'u.id', 'p.user_id')
-      .where('u.email', 'like', '%@rowly.test')
+      .where('u.email', 'like', SMOKE_USER_EMAIL_GLOB)
       .whereNull('p.deleted_at')
       .where('p.name', 'ilike', 'PR3%')
       .select('p.id')
@@ -217,9 +311,22 @@ async function main(): Promise<void> {
   for (const r of inv.joinLayouts) {
     console.log(`    ${r.id}  ${r.name}  project=${r.project_id}`);
   }
-  console.log(`  pattern_models: ${inv.patternModels.length}`);
+  const idAllowlistedPMs = inv.patternModels.filter((r) =>
+    SMOKE_PATTERN_MODEL_IDS.includes(r.id),
+  );
+  const emailScopedPMs = inv.patternModels.filter(
+    (r) => !SMOKE_PATTERN_MODEL_IDS.includes(r.id),
+  );
+  const willHardDelete =
+    inv.patternModels.length > 0 && emailScopedPMs.length === 0;
+  console.log(
+    `  pattern_models: ${inv.patternModels.length} (id-allowlisted=${idAllowlistedPMs.length}, smoke-email=${emailScopedPMs.length}; ${
+      willHardDelete ? 'will HARD-DELETE' : 'will SOFT-DELETE'
+    })`,
+  );
   for (const r of inv.patternModels) {
-    console.log(`    ${r.id}  ${r.name}  user=${r.user_id}`);
+    const tag = SMOKE_PATTERN_MODEL_IDS.includes(r.id) ? 'id-allowlist' : 'smoke-email';
+    console.log(`    ${r.id}  ${r.name}  user=${r.user_id}  email=${r.email}  via=${tag}`);
   }
   console.log(`  patterns (smoke accounts only): ${inv.patterns.length}`);
   for (const r of inv.patterns) {
@@ -250,20 +357,32 @@ async function main(): Promise<void> {
     return;
   }
 
-  const counts = await softDelete();
+  const counts = await softDelete(inv.patternModels);
   console.log('[cleanup-smoke] cleaned:');
   console.log(`  source_files soft-deleted: ${counts.sourceFiles}`);
   console.log(`  pattern_crops soft-deleted: ${counts.crops}`);
   console.log(`  charts archived: ${counts.charts}`);
   console.log(`  join_layouts soft-deleted: ${counts.joinLayouts}`);
-  console.log(`  pattern_models hard-deleted: ${counts.patternModels}`);
+  console.log(
+    `  pattern_models touched: ${counts.patternModels} ` +
+      `(hard-deleted: ${counts.patternModelsHardDeleted}, soft-deleted: ${
+        counts.patternModels - counts.patternModelsHardDeleted
+      })`,
+  );
   console.log(`  patterns soft-deleted: ${counts.patterns}`);
   console.log(`  projects soft-deleted: ${counts.projects}`);
 
   await db.destroy();
 }
 
-main().catch((err) => {
-  console.error('[cleanup-smoke] fatal:', err);
-  process.exit(1);
-});
+// Only auto-run when invoked directly (`node dist/.../cleanupSmokeArtifacts.js`).
+// When imported as a module by the unit test harness, `main()` must NOT
+// fire — it would try to open a real Postgres connection and abort the
+// suite. The CommonJS `require.main === module` check is the standard
+// guard and works for `node` invocations.
+if (require.main === module) {
+  main().catch((err) => {
+    console.error('[cleanup-smoke] fatal:', err);
+    process.exit(1);
+  });
+}

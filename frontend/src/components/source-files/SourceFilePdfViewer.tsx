@@ -104,6 +104,30 @@ export function isFullPageCrop(c: PatternCrop): boolean {
 }
 
 /**
+ * Pick the next QuickKey position as `max(existing) + 1` (or 0 when no
+ * QuickKeys exist yet). Replaces the original `Date.now()` ordering —
+ * a millisecond timestamp (~1.78e12) overflows the `quickkey_position
+ * integer` column on Postgres (int32 max = 2147483647) and 500s every
+ * toggle. Stable small ints survive the column AND keep the visual
+ * insertion order in Make Mode the same: most recently pinned shows up
+ * last in `ORDER BY quickkey_position ASC`.
+ */
+export function nextQuickKeyPosition(crops: PatternCrop[]): number {
+  let maxPos = -1;
+  for (const c of crops) {
+    if (
+      c.isQuickKey &&
+      typeof c.quickKeyPosition === 'number' &&
+      Number.isFinite(c.quickKeyPosition) &&
+      c.quickKeyPosition > maxPos
+    ) {
+      maxPos = c.quickKeyPosition;
+    }
+  }
+  return maxPos + 1;
+}
+
+/**
  * Sensible bounds for the rendered PDF page width: never tinier than
  * 320px (legibility floor on a small phone) and never wider than 900px
  * (text wraps strangely beyond that on a 27" monitor + the rendered
@@ -295,7 +319,7 @@ export default function SourceFilePdfViewer({
       const next = !current;
       const result = await setCropQuickKey(sourceFile.id, crop.id, {
         isQuickKey: next,
-        position: next ? Date.now() : null,
+        position: next ? nextQuickKeyPosition(crops) : null,
       });
       setCrops((prev) =>
         prev.map((c) =>
@@ -905,7 +929,16 @@ function CropSidebar({
     list.push(c);
     groupedByPage.set(c.pageNumber, list);
   }
-  const pageNumbers = Array.from(groupedByPage.keys()).sort((a, b) => a - b);
+  // Pages worth surfacing: any page with a real crop OR a page-level
+  // annotation backing. Annotation-only pages still get a "Page N +
+  // Annotated" entry so a knitter who only used "Annotate page" can
+  // still find their page from the sidebar.
+  const pageNumbers = Array.from(
+    new Set<number>([
+      ...groupedByPage.keys(),
+      ...Array.from(annotatedPages),
+    ]),
+  ).sort((a, b) => a - b);
   const editing = regionsMode === 'visible';
 
   return (
@@ -944,11 +977,9 @@ function CropSidebar({
         </button>
       </div>
 
-      {realCrops.length === 0 ? (
+      {pageNumbers.length === 0 ? (
         <p className="text-xs text-gray-500">
-          {annotatedPages.size > 0
-            ? 'No regions yet. Drag a rectangle on a page to mark one — page-level annotations live above each page.'
-            : 'Drag a rectangle on a page to mark a region, or use the "Annotate page" button above each page to draw on the whole page.'}
+          Drag a rectangle on a page to mark a region, or use the "Annotate page" button above each page to draw on the whole page.
         </p>
       ) : (
         <div className="space-y-3">
@@ -970,6 +1001,7 @@ function CropSidebar({
                     </span>
                   ) : null}
                 </header>
+                {list.length === 0 ? null : (
                 <ul className="space-y-1">
                   {list.map((c) => {
                     const isQK = c.isQuickKey;
@@ -1051,6 +1083,7 @@ function CropSidebar({
                     );
                   })}
                 </ul>
+                )}
               </section>
             );
           })}
