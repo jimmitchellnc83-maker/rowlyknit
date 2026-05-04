@@ -23,20 +23,23 @@ export const isDesignerAuthorModeEnabled = (): boolean =>
   truthy(import.meta.env.VITE_DESIGNER_AUTHOR_MODE);
 
 /** When true, `/patterns/:id/make` renders the canonical Make Mode and
- *  Pattern Detail surfaces an "Open in Make Mode" entry button for any
- *  legacy pattern that has a canonical `pattern_models` twin. Default
- *  false: the route redirects to `/patterns` and the entry button is
- *  hidden, so users only see surfaces that have a working data path.
- *  Redirect (vs NotFound) keeps a typed-URL bounce gentle and lands the
- *  user on a page that exists for them, mirroring the sibling redirect
- *  Author Mode does to `/patterns/:id/make` when its own flag is off.
+ *  Pattern Detail + Project Detail both surface an "Open in Make Mode"
+ *  entry button for any legacy pattern that has a canonical
+ *  `pattern_models` twin. Default false: the route redirects to
+ *  `/patterns` and entry buttons are hidden, so users only see surfaces
+ *  that have a working data path. Redirect (vs NotFound) keeps a typed-
+ *  URL bounce gentle and lands the user on a page that exists for them,
+ *  mirroring the sibling redirect Author Mode does to `/patterns/:id/make`
+ *  when its own flag is off.
  *
- *  This intentionally does NOT route project-level "Resume Knitting"
- *  through the canonical surface — those persistence layers diverge
- *  (project knitting mode is localStorage + project counters; canonical
- *  Make Mode writes `pattern_models.progress_state`). Unifying them
- *  needs a project_patterns ↔ pattern_models linkage that doesn't exist
- *  yet (see `docs/SEAM_AUDIT_2026_05_04.md` finding #5).
+ *  Project Detail's "Open in Make Mode" CTA is the unified entry for any
+ *  attached pattern with a canonical twin (single-pattern → direct link,
+ *  multi-pattern → picker). The legacy "Resume Knitting" toggle is now
+ *  the project-workspace surface (project-scoped counters / sessions /
+ *  QuickKeys) and stays as a secondary action — and as the only entry
+ *  for projects whose attached patterns are legacy-only. Canonical-only
+ *  patterns reach `project_patterns` via a thin legacy stub materialized
+ *  on attach (see `materializeLegacyStubForCanonical` in patternService).
  */
 export const isDesignerMakeModeEnabled = (): boolean =>
   truthy(import.meta.env.VITE_DESIGNER_MAKE_MODE);

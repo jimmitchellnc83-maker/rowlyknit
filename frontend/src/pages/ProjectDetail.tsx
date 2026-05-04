@@ -605,6 +605,7 @@ export default function ProjectDetail() {
       <ProjectHeader
         projectId={id!}
         project={project}
+        patterns={project.patterns ?? []}
         selectedRecipient={selectedRecipient}
         onEdit={() => setShowEditModal(true)}
         onDelete={() => setShowDeleteProjectConfirm(true)}

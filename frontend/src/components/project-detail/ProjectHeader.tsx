@@ -1,9 +1,12 @@
-import { Link } from 'react-router-dom';
-import { FiArrowLeft, FiEdit2, FiTrash2, FiUser, FiEye, FiEyeOff, FiShare2, FiCopy } from 'react-icons/fi';
+import { useMemo, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { FiArrowLeft, FiEdit2, FiTrash2, FiUser, FiEye, FiEyeOff, FiShare2, FiCopy, FiPlay } from 'react-icons/fi';
 import { toast } from 'react-toastify';
 import HelpTooltip from '../HelpTooltip';
 import { useKnittingMode } from '../../contexts/KnittingModeContext';
 import { writeKnittingMode } from '../../utils/knittingModeStorage';
+import { isDesignerMakeModeEnabled } from '../../lib/featureFlags';
+import MakeModePicker, { type MakeModePickerPattern } from './MakeModePicker';
 
 interface ProjectSummary {
   name: string;
@@ -16,9 +19,17 @@ interface RecipientSummary {
   last_name: string;
 }
 
+export interface ProjectPatternSummary {
+  id: string;
+  name?: string | null;
+  designer?: string | null;
+  canonicalPatternModelId?: string | null;
+}
+
 interface ProjectHeaderProps {
   projectId: string;
   project: ProjectSummary;
+  patterns: ProjectPatternSummary[];
   selectedRecipient: RecipientSummary | undefined;
   onEdit: () => void;
   onDelete: () => void;
@@ -46,6 +57,7 @@ function getStatusColor(status: string) {
 export default function ProjectHeader({
   projectId,
   project,
+  patterns,
   selectedRecipient,
   onEdit,
   onDelete,
@@ -55,15 +67,58 @@ export default function ProjectHeader({
   isPublic,
 }: ProjectHeaderProps) {
   const { knittingMode, setKnittingMode } = useKnittingMode();
+  const navigate = useNavigate();
+  const [showPicker, setShowPicker] = useState(false);
+
+  // Canonical Make Mode entry decision: when at least one attached pattern
+  // has a canonical pattern_models twin AND the flag is on, the primary
+  // CTA routes into row-by-row canonical Make Mode (persists progress to
+  // pattern_models.progress_state). N=1 → direct link; N≥2 → picker.
+  // Patterns without a twin fall through to the legacy "Resume Knitting"
+  // project workspace, which stays available as a secondary action so
+  // project-scoped counters / sessions / QuickKeys aren't orphaned.
+  const makeModeEnabled = isDesignerMakeModeEnabled();
+  const canonicalCandidates = useMemo<MakeModePickerPattern[]>(
+    () =>
+      (patterns ?? [])
+        .filter((p): p is ProjectPatternSummary & { id: string } => Boolean(p?.id))
+        .map((p) => ({
+          id: p.id,
+          name: p.name ?? null,
+          designer: p.designer ?? null,
+          canonicalPatternModelId: p.canonicalPatternModelId ?? null,
+        })),
+    [patterns],
+  );
+  const canonicalCount = useMemo(
+    () =>
+      canonicalCandidates.filter((p) => p.canonicalPatternModelId).length,
+    [canonicalCandidates],
+  );
+  const showCanonicalEntry = makeModeEnabled && canonicalCount > 0;
+  const singleCanonical =
+    canonicalCount === 1
+      ? canonicalCandidates.find((p) => p.canonicalPatternModelId)?.canonicalPatternModelId ??
+        null
+      : null;
+
+  const handleOpenMakeMode = () => {
+    if (!showCanonicalEntry) return;
+    if (singleCanonical) {
+      navigate(`/patterns/${singleCanonical}/make`);
+      return;
+    }
+    setShowPicker(true);
+  };
 
   const handleToggleKnittingMode = () => {
     const next = !knittingMode;
     setKnittingMode(next);
     writeKnittingMode(projectId, next);
     if (next) {
-      toast.success('Make Mode activated! 🧶');
+      toast.success('Project workspace activated! 🧶');
     } else {
-      toast.info('Make Mode deactivated');
+      toast.info('Project workspace deactivated');
     }
   };
 
@@ -99,12 +154,27 @@ export default function ProjectHeader({
         </div>
 
         <div className="flex gap-2 flex-wrap">
+          {showCanonicalEntry && (
+            <button
+              type="button"
+              onClick={handleOpenMakeMode}
+              data-testid="project-open-make-mode"
+              title="Open in Make Mode — row-by-row tracker, persists per pattern"
+              className="px-4 py-3 md:py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center min-h-[48px] md:min-h-0 font-medium shadow-sm"
+            >
+              <FiPlay className="mr-2 h-5 w-5 md:h-4 md:w-4" />
+              <span className="text-base md:text-sm">Open in Make Mode</span>
+            </button>
+          )}
           <button
             onClick={handleToggleKnittingMode}
+            data-testid="project-toggle-workspace"
             className={`px-4 py-3 md:py-2 rounded-lg transition flex items-center min-h-[48px] md:min-h-0 font-medium ${
               knittingMode
                 ? 'bg-green-600 text-white hover:bg-green-700'
-                : 'bg-purple-600 text-white hover:bg-purple-700 shadow-sm'
+                : showCanonicalEntry
+                  ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  : 'bg-purple-600 text-white hover:bg-purple-700 shadow-sm'
             }`}
           >
             {knittingMode ? (
@@ -113,10 +183,20 @@ export default function ProjectHeader({
               <FiEye className="mr-2 h-5 w-5 md:h-4 md:w-4" />
             )}
             <span className="text-base md:text-sm">
-              {knittingMode ? 'Exit Make Mode' : 'Resume Knitting'}
+              {knittingMode
+                ? 'Exit project workspace'
+                : showCanonicalEntry
+                  ? 'Project workspace'
+                  : 'Resume Knitting'}
             </span>
           </button>
-          <HelpTooltip text="Make Mode — focused active-knitting workspace with your pattern, counters, markers, timer, and references." />
+          <HelpTooltip
+            text={
+              showCanonicalEntry
+                ? 'Open in Make Mode — row-by-row tracker for the canonical pattern (persists row counters per pattern). Project workspace — focused project-scoped layout with counters, markers, timer, and references.'
+                : 'Resume Knitting — focused active-knitting workspace with your pattern, counters, markers, timer, and references.'
+            }
+          />
           <button
             onClick={onShare}
             aria-label={isPublic ? 'Share — currently public' : 'Share — currently private'}
@@ -154,6 +234,13 @@ export default function ProjectHeader({
           </button>
         </div>
       </div>
+
+      {showPicker && (
+        <MakeModePicker
+          patterns={canonicalCandidates}
+          onClose={() => setShowPicker(false)}
+        />
+      )}
     </div>
   );
 }

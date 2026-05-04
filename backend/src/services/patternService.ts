@@ -1080,6 +1080,58 @@ export const softDeletePattern = async (
   if (affected === 0) throw new NotFoundError('Pattern not found');
 };
 
+/**
+ * Ensure a legacy `patterns` row exists for the given canonical pattern
+ * model so it can satisfy the `project_patterns.pattern_id` FK. Returns the
+ * legacy id (newly minted or pre-existing).
+ *
+ * Idempotency: if `pattern_models.source_pattern_id` already points at a
+ * live legacy row owned by `userId`, that id is reused. Otherwise a thin
+ * shadow row is inserted (name copied from canonical, metadata carries
+ * `canonicalPatternModelId` for traceability) and the canonical row's
+ * `source_pattern_id` is back-filled in the same flow.
+ *
+ * Throws NotFoundError when the canonical pattern doesn't exist or belongs
+ * to another user.
+ */
+export const materializeLegacyStubForCanonical = async (
+  userId: string,
+  patternModelId: string,
+): Promise<string> => {
+  const canonical = await db('pattern_models')
+    .where({ id: patternModelId, user_id: userId })
+    .whereNull('deleted_at')
+    .first();
+  if (!canonical) {
+    throw new NotFoundError('Pattern not found');
+  }
+
+  if (canonical.source_pattern_id) {
+    const existing = await db('patterns')
+      .where({ id: canonical.source_pattern_id, user_id: userId })
+      .whereNull('deleted_at')
+      .first();
+    if (existing) return existing.id as string;
+  }
+
+  const [legacy] = await db('patterns')
+    .insert({
+      user_id: userId,
+      name: canonical.name ?? 'Pattern',
+      tags: '[]',
+      metadata: JSON.stringify({ canonicalPatternModelId: patternModelId }),
+      created_at: new Date(),
+      updated_at: new Date(),
+    })
+    .returning('id');
+
+  await db('pattern_models')
+    .where({ id: patternModelId })
+    .update({ source_pattern_id: legacy.id, updated_at: new Date() });
+
+  return legacy.id as string;
+};
+
 const defaultGaugeProfile = (): GaugeProfile => ({
   stitches: 0,
   rows: 0,
