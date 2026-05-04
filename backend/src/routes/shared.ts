@@ -3,6 +3,7 @@ import { body, query } from 'express-validator';
 import * as abbreviationController from '../controllers/abbreviationController';
 import * as chartSharingController from '../controllers/chartSharingController';
 import * as projectSharingController from '../controllers/projectSharingController';
+import { sharedChartPasswordAttemptLimiter } from '../middleware/rateLimiter';
 import { validate } from '../middleware/validator';
 import { asyncHandler } from '../utils/errorHandler';
 
@@ -60,10 +61,16 @@ router.get(
  * @desc    Verify a password for a protected shared chart and issue a
  *          short-lived (15-minute) HMAC-signed access token. Replaces
  *          the previous `?password=…` query-string flow.
+ *
+ *          Wears a STRICTER per-(ip, token) limiter than the rest of
+ *          `/shared/*` (10 attempts / 15 min default) because this is a
+ *          password-attempt surface — the general 60/min/IP would allow
+ *          thousands of guesses per hour against a single share.
  * @access  Public
  */
 router.post(
   '/chart/:token/access',
+  sharedChartPasswordAttemptLimiter,
   [body('password').isString().isLength({ min: 1, max: 256 })],
   validate,
   asyncHandler(chartSharingController.verifySharedChartAccess)

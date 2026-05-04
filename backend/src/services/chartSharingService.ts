@@ -124,7 +124,14 @@ export const createChartShareLink = async (
     expires_at: expiresAt,
   });
 
-  const shareUrl = `${APP_URL}/shared/chart/${token}`;
+  // Recipients land on the frontend viewer page at /c/:token, NOT the
+  // raw backend JSON at /shared/chart/:token. Before this change the
+  // share URL pointed at the JSON API, so a recipient browser saw raw
+  // JSON for public shares and a 401 body for password-protected ones
+  // — there was no password UI. The frontend page fetches the JSON
+  // endpoint internally and drives the password flow via POST
+  // /shared/chart/:token/access (cookie-backed access token).
+  const shareUrl = `${APP_URL}/c/${token}`;
 
   // Generate QR code
   const qrCode = await QRCode.toDataURL(shareUrl, {

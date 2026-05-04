@@ -60,6 +60,48 @@ jest.mock('../../config/logger', () => ({
   default: { info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() },
 }));
 
+// The shared route now wires a strict per-(ip,token) rate limiter on
+// POST /access (Final Polish audit follow-up). Replace the redis-backed
+// store with an in-memory implementation that satisfies
+// express-rate-limit's Store interface. The dedicated limit-math tests
+// live in `sharedChartAccessLimiter.test.ts`; here we only need the
+// limiter to not crash module init.
+jest.mock('rate-limit-redis', () => {
+  class InMemoryStore {
+    windowMs = 0;
+    hits: Map<string, { count: number; resetTime: Date }> = new Map();
+    init(options: { windowMs: number }) {
+      this.windowMs = options.windowMs;
+    }
+    async increment(key: string) {
+      const now = Date.now();
+      const existing = this.hits.get(key);
+      if (!existing || existing.resetTime.getTime() < now) {
+        const resetTime = new Date(now + this.windowMs);
+        this.hits.set(key, { count: 1, resetTime });
+        return { totalHits: 1, resetTime };
+      }
+      existing.count += 1;
+      return { totalHits: existing.count, resetTime: existing.resetTime };
+    }
+    async decrement(key: string) {
+      const existing = this.hits.get(key);
+      if (existing && existing.count > 0) existing.count -= 1;
+    }
+    async resetKey(key: string) {
+      this.hits.delete(key);
+    }
+    async resetAll() {
+      this.hits.clear();
+    }
+  }
+  return { __esModule: true, default: InMemoryStore, RedisStore: InMemoryStore };
+});
+jest.mock('../../config/redis', () => ({
+  redisClient: { call: jest.fn().mockResolvedValue(0) },
+  __esModule: true,
+}));
+
 const exportChartMock = jest.fn();
 jest.mock('../../services/chartExportService', () => ({
   exportChart: (...args: unknown[]) => exportChartMock(...args),

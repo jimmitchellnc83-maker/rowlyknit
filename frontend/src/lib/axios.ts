@@ -116,31 +116,48 @@ axios.interceptors.response.use(
     if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
       originalRequest._retry = true;
 
-      // Don't retry refresh/login/register requests
-      const skipRefreshPaths = ['/api/auth/login', '/api/auth/register', '/api/auth/refresh', '/api/auth/profile'];
+      // Don't retry refresh/login/register requests, AND don't retry any
+      // public `/shared/*` request — those are anonymous, capability-based
+      // links (password-protected charts, public FO pages). A 401 from
+      // /shared/chart/:token means "needs the shared-chart password,"
+      // not "your auth session expired" — so we must not call
+      // /api/auth/refresh or push the recipient to /login. Doing so would
+      // break the password-protected recipient experience.
+      const skipRefreshPaths = [
+        '/api/auth/login',
+        '/api/auth/register',
+        '/api/auth/refresh',
+        '/api/auth/profile',
+        '/shared/',
+      ];
       const isSkipPath = skipRefreshPaths.some(p => originalRequest.url?.includes(p));
 
-      if (!isSkipPath) {
-        try {
-          // Attempt to refresh the access token
-          const refreshResponse = await axios.post('/api/auth/refresh', {});
-          const newToken = refreshResponse.data?.data?.accessToken;
+      if (isSkipPath) {
+        // Public/anonymous endpoints: surface the 401 to the caller.
+        // The caller (e.g. PublicSharedChart) decides what to do —
+        // typically render a password form, not a forced redirect.
+        return Promise.reject(error);
+      }
 
-          if (newToken) {
-            // Update stored token
-            const { useAuthStore } = await import('../stores/authStore');
-            useAuthStore.getState().setToken(newToken);
+      try {
+        // Attempt to refresh the access token
+        const refreshResponse = await axios.post('/api/auth/refresh', {});
+        const newToken = refreshResponse.data?.data?.accessToken;
 
-            // Retry the original request with the new token
-            originalRequest.headers = originalRequest.headers || {};
-            originalRequest.headers['Authorization'] = `Bearer ${newToken}`;
-            return axios(originalRequest);
-          }
-        } catch (refreshError) {
-          // Refresh failed - clear auth and redirect
+        if (newToken) {
+          // Update stored token
           const { useAuthStore } = await import('../stores/authStore');
-          useAuthStore.getState().logout();
+          useAuthStore.getState().setToken(newToken);
+
+          // Retry the original request with the new token
+          originalRequest.headers = originalRequest.headers || {};
+          originalRequest.headers['Authorization'] = `Bearer ${newToken}`;
+          return axios(originalRequest);
         }
+      } catch (refreshError) {
+        // Refresh failed - clear auth and redirect
+        const { useAuthStore } = await import('../stores/authStore');
+        useAuthStore.getState().logout();
       }
 
       // Clear CSRF token
