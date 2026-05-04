@@ -22,7 +22,8 @@
  *   - source_files: the `smoke-test.pdf` fixture (ab395474-...) on demo user
  *     PLUS every pattern_crops row attached to it
  *   - charts: name = "PR376 smoke chart" or "Smoke Magic Marker chart"
- *   - join_layouts: name LIKE 'Smoke%' on demo user's projects
+ *   - join_layouts: id-allowlisted OR (smoke `@rowly.test` user AND name LIKE
+ *     prefix). Same safety contract as `pattern_models`: NEVER name-only.
  *   - pattern_models: id-allowlisted OR (smoke account AND name LIKE prefix)
  *   - patterns: name LIKE 'PR3%' on smoke (`*@rowly.test`) accounts only
  *   - projects: name LIKE 'PR3%' on smoke accounts only
@@ -74,6 +75,21 @@ const SMOKE_PATTERN_MODEL_NAME_PREFIXES = [
   'Miu Top — canonical twin',
 ];
 
+/**
+ * Same shape as SMOKE_PATTERN_MODEL_IDS but for join_layouts. Operator
+ * pastes IDs here from a previous dry-run when they're confident the
+ * matched rows are smoke artifacts. Empty by default; the email-gated
+ * smoke-prefix branch is the normal path.
+ */
+const SMOKE_JOIN_LAYOUT_IDS: string[] = [];
+
+const SMOKE_JOIN_LAYOUT_NAME_PREFIXES = [
+  'Smoke ',
+  'Smoke layout PR',
+  'PR3',
+  'Hardening Smoke',
+];
+
 const SMOKE_USER_EMAIL_GLOB = '%@rowly.test';
 
 interface Counts {
@@ -91,6 +107,14 @@ export interface PatternModelCandidate {
   id: string;
   name: string;
   user_id: string;
+  email: string;
+}
+
+export interface JoinLayoutCandidate {
+  id: string;
+  name: string;
+  user_id: string;
+  project_id: string;
   email: string;
 }
 
@@ -136,11 +160,55 @@ export async function selectPatternModelCandidates(
   return query;
 }
 
+/**
+ * Join_layout candidates for cleanup. Same safety contract as
+ * `selectPatternModelCandidates` — NEVER name-only. Two safe sources:
+ *
+ *   1. id ∈ SMOKE_JOIN_LAYOUT_IDS (operator-curated)
+ *   2. owner.email LIKE '%@rowly.test' AND name LIKE smoke prefix
+ *
+ * Previously this script ran a global `where name ilike 'Smoke%'` with
+ * no user-scope filter, which would soft-delete a real user's join
+ * layout literally named "Smoke" or "Smoke fade" — a plausible knitter
+ * name for a colorwork project. Exported so a test can pin the gate.
+ */
+export async function selectJoinLayoutCandidates(
+  conn: Knex = db,
+): Promise<JoinLayoutCandidate[]> {
+  const query = conn('join_layouts as jl')
+    .innerJoin('users as u', 'u.id', 'jl.user_id')
+    .whereNull('jl.deleted_at')
+    .where(function () {
+      // Branch 1: id allow-list (operator-curated, always safe).
+      if (SMOKE_JOIN_LAYOUT_IDS.length > 0) {
+        this.whereIn('jl.id', SMOKE_JOIN_LAYOUT_IDS);
+      }
+      // Branch 2: smoke-account email AND smoke-prefix name.
+      this.orWhere(function () {
+        this.where('u.email', 'like', SMOKE_USER_EMAIL_GLOB).andWhere(
+          function () {
+            for (const prefix of SMOKE_JOIN_LAYOUT_NAME_PREFIXES) {
+              this.orWhere('jl.name', 'ilike', `${prefix}%`);
+            }
+          },
+        );
+      });
+    })
+    .select<JoinLayoutCandidate[]>(
+      'jl.id',
+      'jl.name',
+      'jl.user_id',
+      'jl.project_id',
+      'u.email',
+    );
+  return query;
+}
+
 async function listSmokeRows(): Promise<{
   sourceFiles: Array<{ id: string; original_filename: string | null; user_id: string }>;
   crops: Array<{ id: string; label: string | null; source_file_id: string }>;
   charts: Array<{ id: string; name: string; user_id: string }>;
-  joinLayouts: Array<{ id: string; name: string; project_id: string }>;
+  joinLayouts: JoinLayoutCandidate[];
   patternModels: PatternModelCandidate[];
   patterns: Array<{ id: string; name: string; user_id: string; email: string }>;
   projects: Array<{ id: string; name: string; user_id: string; email: string }>;
@@ -160,13 +228,10 @@ async function listSmokeRows(): Promise<{
     .whereNull('archived_at')
     .select('id', 'name', 'user_id');
 
-  // join_layouts named like "Smoke ..." — scope by name match, not user,
-  // since the layout itself carries the project_id and any layout with that
-  // name pattern is by convention a smoke fixture.
-  const joinLayouts = await db('join_layouts')
-    .whereNull('deleted_at')
-    .where('name', 'ilike', 'Smoke%')
-    .select('id', 'name', 'project_id');
+  // join_layouts — only ever cleaned via the safe filter (id allow-list
+  // OR smoke-account-scoped). Previously a global `name ilike 'Smoke%'`
+  // would have caught a real knitter's "Smoke fade cardigan" layout.
+  const joinLayouts = await selectJoinLayoutCandidates(db);
 
   // Pattern_models are only ever cleaned via the safe filter (id allow-list
   // OR smoke-account-scoped); see `selectPatternModelCandidates`.
@@ -194,6 +259,7 @@ async function listSmokeRows(): Promise<{
 
 async function softDelete(
   patternModelCandidates: PatternModelCandidate[],
+  joinLayoutCandidates: JoinLayoutCandidate[],
 ): Promise<Counts> {
   const counts: Counts = {
     sourceFiles: 0,
@@ -225,10 +291,17 @@ async function softDelete(
     .whereNull('archived_at')
     .update({ archived_at: now });
 
-  counts.joinLayouts = await db('join_layouts')
-    .whereNull('deleted_at')
-    .where('name', 'ilike', 'Smoke%')
-    .update({ deleted_at: now });
+  // join_layouts — soft-delete only the rows already gated by
+  // `selectJoinLayoutCandidates` (id allow-list OR smoke-email + name
+  // prefix). Update by ID list, not by name match, so a real-user row
+  // that shares a "Smoke …" prefix is never touched.
+  if (joinLayoutCandidates.length > 0) {
+    const joinLayoutIds = joinLayoutCandidates.map((r) => r.id);
+    counts.joinLayouts = await db('join_layouts')
+      .whereIn('id', joinLayoutIds)
+      .whereNull('deleted_at')
+      .update({ deleted_at: now });
+  }
 
   // Pattern_models — safe path. Take the candidate set already filtered
   // by the (id allow-list) ∪ (smoke-email + name-prefix) gate, and:
@@ -307,9 +380,20 @@ async function main(): Promise<void> {
   for (const r of inv.charts) {
     console.log(`    ${r.id}  ${r.name}  user=${r.user_id}`);
   }
-  console.log(`  join_layouts: ${inv.joinLayouts.length}`);
+  const idAllowlistedJLs = inv.joinLayouts.filter((r) =>
+    SMOKE_JOIN_LAYOUT_IDS.includes(r.id),
+  );
+  const emailScopedJLs = inv.joinLayouts.filter(
+    (r) => !SMOKE_JOIN_LAYOUT_IDS.includes(r.id),
+  );
+  console.log(
+    `  join_layouts: ${inv.joinLayouts.length} (id-allowlisted=${idAllowlistedJLs.length}, smoke-email=${emailScopedJLs.length})`,
+  );
   for (const r of inv.joinLayouts) {
-    console.log(`    ${r.id}  ${r.name}  project=${r.project_id}`);
+    const tag = SMOKE_JOIN_LAYOUT_IDS.includes(r.id) ? 'id-allowlist' : 'smoke-email';
+    console.log(
+      `    ${r.id}  ${r.name}  project=${r.project_id}  user=${r.user_id}  email=${r.email}  via=${tag}`,
+    );
   }
   const idAllowlistedPMs = inv.patternModels.filter((r) =>
     SMOKE_PATTERN_MODEL_IDS.includes(r.id),
@@ -357,7 +441,7 @@ async function main(): Promise<void> {
     return;
   }
 
-  const counts = await softDelete(inv.patternModels);
+  const counts = await softDelete(inv.patternModels, inv.joinLayouts);
   console.log('[cleanup-smoke] cleaned:');
   console.log(`  source_files soft-deleted: ${counts.sourceFiles}`);
   console.log(`  pattern_crops soft-deleted: ${counts.crops}`);

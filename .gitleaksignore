@@ -11,3 +11,11 @@
 # docs/MVP_LAUNCH_PUNCHLIST.md Phase 1 (c5a8668, 5d15bba). These only surface
 # on full-history audits (workflow_dispatch). Add their fingerprints here if
 # that audit runs before the planned `git filter-repo` cleanup.
+
+# PR #379 — the auth + security hardening sprint's first commit set
+# JWT_SECRET / JWT_REFRESH_SECRET inside a Jest unit-test fixture using
+# random-looking literals. Never a real secret; the next commit replaced
+# them with low-entropy values (`'a'.repeat(40)`). Whitelisted by
+# fingerprint so PR-range gitleaks scans do not re-flag the historical
+# commit.
+f6285891441bc853ce3ba9b3fc75994cab6cc8d8:backend/src/controllers/__tests__/authController.tokenHash.test.ts:generic-api-key:18

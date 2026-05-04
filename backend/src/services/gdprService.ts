@@ -35,8 +35,10 @@ const EXPORTS_DIR = path.resolve(__dirname, '..', '..', 'uploads', 'exports');
 const SENSITIVE_COLUMNS = new Set([
   'password_hash',
   'refresh_token',
+  'refresh_token_hash',
   'verification_token',
   'reset_password_token',
+  'reset_password_token_hash',
   'confirmation_token',
   'access_token',
   'token',

@@ -17,11 +17,14 @@ const REQUIRED_ENV_VARS: EnvVar[] = [
 ];
 
 const PRODUCTION_ENV_VARS: EnvVar[] = [
-  // EMAIL_API_KEY is recommended once a real provider (e.g., sendgrid) is wired
-  // up; until then we don't block boot so the app can serve traffic before
-  // transactional email is configured. The email service itself surfaces the
-  // error on the first send attempt.
-  { name: 'EMAIL_API_KEY', required: false, description: 'Email service API key (optional until a live email provider is configured)' },
+  // EMAIL_API_KEY is enforced by the email-adapter factory at startup
+  // (see services/emailAdapters.ts): in production, missing provider
+  // secrets THROW unless ALLOW_NOOP_EMAIL_IN_PRODUCTION=true is set
+  // explicitly. We mark it `required: false` here only because the
+  // adapter owns the contextual check (provider type, override flag,
+  // SES alt creds). Don't downgrade this without revisiting the
+  // adapter's production guard.
+  { name: 'EMAIL_API_KEY', required: false, description: 'Email service API key (enforced contextually by services/emailAdapters.ts)' },
   { name: 'SENTRY_DSN', required: false, description: 'Sentry error monitoring DSN (optional but recommended)' },
   { name: 'REDIS_PASSWORD', required: true, description: 'Redis password (required for production)' },
 ];

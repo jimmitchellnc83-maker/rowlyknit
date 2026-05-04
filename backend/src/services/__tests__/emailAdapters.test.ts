@@ -1,0 +1,261 @@
+/**
+ * Auth + Security Hardening Sprint — provider-agnostic email plumbing.
+ *
+ * Pins four contracts:
+ *   1. The factory picks the right adapter by EMAIL_PROVIDER.
+ *   2. Missing secrets degrade to no-op only in dev / test.
+ *   3. In production, missing secrets throw at adapter-creation time
+ *      so signup / reset flows can never silently appear successful
+ *      while no email is delivered. The only escape hatch is the
+ *      explicit env override `ALLOW_NOOP_EMAIL_IN_PRODUCTION=true`,
+ *      which is loud-warn-logged and documented as UNSAFE for launch.
+ *   4. The no-op adapter logs ONLY non-secret metadata — never the
+ *      body, never a reset URL.
+ */
+
+const loggerWarn = jest.fn();
+const loggerInfo = jest.fn();
+const loggerError = jest.fn();
+
+jest.mock('../../config/logger', () => ({
+  __esModule: true,
+  default: { warn: loggerWarn, info: loggerInfo, error: loggerError },
+}));
+
+jest.mock('axios', () => {
+  const post = jest.fn();
+  return {
+    __esModule: true,
+    default: { post },
+    post, // some imports use bare `axios.post`
+  };
+});
+
+jest.mock('nodemailer', () => ({
+  __esModule: true,
+  default: {
+    createTransport: jest.fn(() => ({
+      sendMail: jest.fn().mockResolvedValue({ messageId: 'smtp-stub' }),
+    })),
+  },
+  createTransport: jest.fn(() => ({
+    sendMail: jest.fn().mockResolvedValue({ messageId: 'smtp-stub' }),
+  })),
+}));
+
+import { createEmailAdapter, __test__ } from '../emailAdapters';
+
+const ENV_KEYS = [
+  'EMAIL_PROVIDER',
+  'EMAIL_API_KEY',
+  'AWS_SES_ACCESS_KEY',
+  'AWS_SES_SECRET_KEY',
+  'AWS_REGION',
+  'NODE_ENV',
+  'ALLOW_NOOP_EMAIL_IN_PRODUCTION',
+] as const;
+
+const originalEnv: Partial<Record<(typeof ENV_KEYS)[number], string | undefined>> = {};
+
+beforeAll(() => {
+  for (const k of ENV_KEYS) originalEnv[k] = process.env[k];
+});
+
+afterAll(() => {
+  for (const k of ENV_KEYS) {
+    if (originalEnv[k] === undefined) delete process.env[k];
+    else process.env[k] = originalEnv[k] as string;
+  }
+});
+
+beforeEach(() => {
+  for (const k of ENV_KEYS) delete process.env[k];
+  jest.clearAllMocks();
+});
+
+describe('createEmailAdapter', () => {
+  it('returns a Resend adapter when EMAIL_PROVIDER=resend and the key is set', () => {
+    process.env.EMAIL_PROVIDER = 'resend';
+    process.env.EMAIL_API_KEY = 'rk_test_xxx';
+    const adapter = createEmailAdapter();
+    expect(adapter.name).toBe('resend');
+    expect(adapter).toBeInstanceOf(__test__.ResendAdapter);
+  });
+
+  it('falls back to no-op when provider=resend but EMAIL_API_KEY missing (dev)', () => {
+    process.env.EMAIL_PROVIDER = 'resend';
+    process.env.NODE_ENV = 'test';
+    const adapter = createEmailAdapter();
+    expect(adapter.name).toBe('noop');
+  });
+
+  it('returns a Postmark SMTP adapter for provider=postmark', () => {
+    process.env.EMAIL_PROVIDER = 'postmark';
+    process.env.EMAIL_API_KEY = 'postmark-server-token';
+    const adapter = createEmailAdapter();
+    expect(adapter.name).toBe('postmark');
+    expect(adapter).toBeInstanceOf(__test__.NodemailerSmtpAdapter);
+  });
+
+  it('returns a SendGrid SMTP adapter when provider is unset (backwards-compat) and key present', () => {
+    process.env.EMAIL_API_KEY = 'sg-key';
+    const adapter = createEmailAdapter();
+    expect(adapter.name).toBe('sendgrid');
+  });
+
+  it('falls back to no-op when sendgrid is the default and no key is set (dev)', () => {
+    process.env.NODE_ENV = 'test';
+    const adapter = createEmailAdapter();
+    expect(adapter.name).toBe('noop');
+  });
+
+  it('returns the explicit no-op adapter when EMAIL_PROVIDER=noop in dev/test', () => {
+    process.env.EMAIL_PROVIDER = 'noop';
+    process.env.NODE_ENV = 'test';
+    const adapter = createEmailAdapter();
+    expect(adapter.name).toBe('noop');
+  });
+
+  it('falls back to no-op for ses without AWS credentials (dev)', () => {
+    process.env.EMAIL_PROVIDER = 'ses';
+    process.env.NODE_ENV = 'test';
+    const adapter = createEmailAdapter();
+    expect(adapter.name).toBe('noop');
+  });
+});
+
+describe('createEmailAdapter — production refuses silent no-op', () => {
+  it('throws when provider=resend has no EMAIL_API_KEY in production', () => {
+    process.env.EMAIL_PROVIDER = 'resend';
+    process.env.NODE_ENV = 'production';
+    expect(() => createEmailAdapter()).toThrow(/EMAIL_PROVIDER=resend/);
+    expect(() => createEmailAdapter()).toThrow(/ALLOW_NOOP_EMAIL_IN_PRODUCTION/);
+    expect(loggerError).toHaveBeenCalledWith(
+      expect.stringContaining('configuration error'),
+    );
+  });
+
+  it('throws when provider=sendgrid (default) has no EMAIL_API_KEY in production', () => {
+    process.env.NODE_ENV = 'production';
+    expect(() => createEmailAdapter()).toThrow(/EMAIL_PROVIDER=sendgrid/);
+  });
+
+  it('throws when provider=postmark has no EMAIL_API_KEY in production', () => {
+    process.env.EMAIL_PROVIDER = 'postmark';
+    process.env.NODE_ENV = 'production';
+    expect(() => createEmailAdapter()).toThrow(/EMAIL_PROVIDER=postmark/);
+  });
+
+  it('throws when provider=ses has no AWS credentials in production', () => {
+    process.env.EMAIL_PROVIDER = 'ses';
+    process.env.NODE_ENV = 'production';
+    expect(() => createEmailAdapter()).toThrow(/EMAIL_PROVIDER=ses/);
+  });
+
+  it('throws when EMAIL_PROVIDER=noop is set in production without override', () => {
+    process.env.EMAIL_PROVIDER = 'noop';
+    process.env.NODE_ENV = 'production';
+    expect(() => createEmailAdapter()).toThrow(/EMAIL_PROVIDER=noop is rejected/);
+    expect(() => createEmailAdapter()).toThrow(/ALLOW_NOOP_EMAIL_IN_PRODUCTION/);
+  });
+});
+
+describe('createEmailAdapter — explicit production override', () => {
+  it('allows no-op in production when ALLOW_NOOP_EMAIL_IN_PRODUCTION=true (with loud UNSAFE warning)', () => {
+    process.env.EMAIL_PROVIDER = 'resend';
+    process.env.NODE_ENV = 'production';
+    process.env.ALLOW_NOOP_EMAIL_IN_PRODUCTION = 'true';
+    const adapter = createEmailAdapter();
+    expect(adapter.name).toBe('noop');
+    expect(loggerWarn).toHaveBeenCalledWith(
+      expect.stringContaining('UNSAFE for launch'),
+    );
+  });
+
+  it('allows EMAIL_PROVIDER=noop in production when override is set', () => {
+    process.env.EMAIL_PROVIDER = 'noop';
+    process.env.NODE_ENV = 'production';
+    process.env.ALLOW_NOOP_EMAIL_IN_PRODUCTION = 'true';
+    const adapter = createEmailAdapter();
+    expect(adapter.name).toBe('noop');
+    expect(loggerWarn).toHaveBeenCalledWith(expect.stringContaining('UNSAFE'));
+  });
+
+  it('rejects override values other than the literal string "true"', () => {
+    process.env.EMAIL_PROVIDER = 'resend';
+    process.env.NODE_ENV = 'production';
+    process.env.ALLOW_NOOP_EMAIL_IN_PRODUCTION = '1'; // not "true" — must throw
+    expect(() => createEmailAdapter()).toThrow(/EMAIL_PROVIDER=resend/);
+  });
+
+  it('still constructs the real adapter when secrets are present (override is ignored)', () => {
+    process.env.EMAIL_PROVIDER = 'resend';
+    process.env.EMAIL_API_KEY = 'rk_live_xxx';
+    process.env.NODE_ENV = 'production';
+    process.env.ALLOW_NOOP_EMAIL_IN_PRODUCTION = 'true';
+    const adapter = createEmailAdapter();
+    expect(adapter.name).toBe('resend');
+    expect(adapter).toBeInstanceOf(__test__.ResendAdapter);
+  });
+});
+
+describe('NoopAdapter logs only non-secret metadata', () => {
+  it('does not include the email body or any URL in the log line', async () => {
+    process.env.EMAIL_PROVIDER = 'noop';
+    const adapter = createEmailAdapter();
+
+    await adapter.send({
+      from: 'noreply@rowlyknit.com',
+      to: 'a@example.com',
+      subject: 'Reset Your Rowly Password',
+      html: '<a href="https://rowlyknit.com/reset-password?token=SECRET-RAW-TOKEN">click</a>',
+      text: 'reset your password at https://rowlyknit.com/reset-password?token=SECRET-RAW-TOKEN',
+      template: 'password_reset',
+    });
+
+    expect(loggerWarn).toHaveBeenCalledTimes(1);
+    const [, payload] = (loggerWarn as jest.Mock).mock.calls[0];
+    expect(payload).toEqual({
+      to: 'a@example.com',
+      subject: 'Reset Your Rowly Password',
+      template: 'password_reset',
+    });
+    // Bodies and URLs must not show up anywhere in the log payload.
+    const serialized = JSON.stringify(payload);
+    expect(serialized).not.toMatch(/SECRET-RAW-TOKEN/);
+    expect(serialized).not.toMatch(/<a /);
+  });
+});
+
+describe('ResendAdapter sends through the HTTP API', () => {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const axios = require('axios');
+
+  it('POSTs to /emails with Bearer auth and returns the resend id', async () => {
+    process.env.EMAIL_PROVIDER = 'resend';
+    process.env.EMAIL_API_KEY = 'rk_test_xxx';
+    const adapter = createEmailAdapter();
+    axios.default.post.mockResolvedValueOnce({ data: { id: 'msg_123' } });
+
+    const result = await adapter.send({
+      from: 'Rowly <noreply@rowlyknit.com>',
+      to: 'a@example.com',
+      subject: 'hi',
+      html: '<p>hi</p>',
+      replyTo: 'support@rowlyknit.com',
+    });
+
+    expect(result).toEqual({ id: 'msg_123', adapter: 'resend' });
+    expect(axios.default.post).toHaveBeenCalledTimes(1);
+    const [url, body, options] = axios.default.post.mock.calls[0];
+    expect(url).toBe('https://api.resend.com/emails');
+    expect(body).toEqual({
+      from: 'Rowly <noreply@rowlyknit.com>',
+      to: 'a@example.com',
+      subject: 'hi',
+      html: '<p>hi</p>',
+      reply_to: 'support@rowlyknit.com',
+    });
+    expect(options.headers.Authorization).toBe('Bearer rk_test_xxx');
+  });
+});
