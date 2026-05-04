@@ -3,9 +3,13 @@ import db from '../config/database';
 import { NotFoundError, ValidationError } from '../utils/errorHandler';
 import { createAuditLog } from '../middleware/auditLog';
 import { sanitizeSearchQuery } from '../utils/inputSanitizer';
-import { getFeasibilityBatch } from '../services/feasibilityService';
+import {
+  getFeasibilityBatch,
+  type LightLevel,
+} from '../services/feasibilityService';
 import { checkNeedleInventory } from '../services/needleInventoryService';
 import { duplicateProject as duplicateProjectService } from '../services/projectDuplicationService';
+import { materializeLegacyStubForCanonical } from '../services/patternService';
 
 export const ALLOWED_PROJECT_TYPES = [
   'sweater',
@@ -125,6 +129,14 @@ export async function getProject(req: Request, res: Response) {
     db('project_ratings').where({ project_id: id, user_id: userId }).first(),
   ]);
 
+  // Enrich each attached legacy pattern with its canonical pattern_models
+  // twin id (when one exists). The frontend uses this on Project Detail to
+  // route "Resume Knitting" through canonical Make Mode for projects whose
+  // patterns have a canonical implementation. Patterns without a twin keep
+  // `canonicalPatternModelId: null` and fall through to the legacy
+  // project-workspace knitting layout.
+  const patternsWithTwins = await enrichPatternsWithCanonicalTwin(patterns, userId);
+
   const needleCheck = checkNeedleInventory(patterns, allUserTools);
 
   res.json({
@@ -135,7 +147,7 @@ export async function getProject(req: Request, res: Response) {
         photos,
         counters,
         pieces,
-        patterns,
+        patterns: patternsWithTwins,
         yarn,
         tools,
         needleCheck,
@@ -143,6 +155,38 @@ export async function getProject(req: Request, res: Response) {
       },
     },
   });
+}
+
+/**
+ * Look up canonical pattern_models twins for a list of legacy patterns and
+ * attach `canonicalPatternModelId` to each row. One DB roundtrip regardless
+ * of pattern count. Returns the input list unchanged when empty so callers
+ * can use it unconditionally.
+ */
+async function enrichPatternsWithCanonicalTwin(
+  patterns: any[],
+  userId: string,
+): Promise<any[]> {
+  if (!patterns || patterns.length === 0) return patterns;
+
+  const ids = patterns.map((p) => p.id).filter(Boolean);
+  if (ids.length === 0) return patterns;
+
+  const twins = await db('pattern_models')
+    .whereIn('source_pattern_id', ids)
+    .where({ user_id: userId })
+    .whereNull('deleted_at')
+    .select('id', 'source_pattern_id');
+
+  const twinByLegacy = new Map<string, string>();
+  for (const t of twins as Array<{ id: string; source_pattern_id: string }>) {
+    twinByLegacy.set(t.source_pattern_id, t.id);
+  }
+
+  return patterns.map((p) => ({
+    ...p,
+    canonicalPatternModelId: twinByLegacy.get(p.id) ?? null,
+  }));
 }
 
 /**
@@ -358,9 +402,20 @@ export async function deleteProject(req: Request, res: Response) {
 }
 
 /**
- * Return a per-project feasibility verdict for every project with a linked
- * pattern. Used by the Projects list to render a traffic-light chip on each
- * card without fanning out per-pattern feasibility requests.
+ * Return per-project feasibility for every linked pattern, plus a per-project
+ * aggregate verdict (worst-of across attached patterns). Used by the Projects
+ * list to render a single traffic-light chip on each card and by the Dashboard
+ * to spot setup gaps. Multi-pattern projects surface the worst attached
+ * pattern's status — a project can't be greener than any of its dependencies.
+ *
+ * Response shape:
+ *   - `summaries`: one row per (project, attached pattern) pair, lossless.
+ *   - `aggregates`: one row per project with attached pattern(s), keyed for
+ *     UI consumers that need a single status per card. `patternIds` lists
+ *     every pattern that contributed to the verdict.
+ *
+ * `summaries` is preserved (not collapsed) so callers can drill in for
+ * per-pattern detail without re-fetching.
  */
 export async function getProjectsFeasibilitySummary(req: Request, res: Response) {
   const userId = req.user!.userId;
@@ -371,7 +426,7 @@ export async function getProjectsFeasibilitySummary(req: Request, res: Response)
     .pluck('id');
 
   if (projectIds.length === 0) {
-    return res.json({ success: true, data: { summaries: [] } });
+    return res.json({ success: true, data: { summaries: [], aggregates: [] } });
   }
 
   const links = await db('project_patterns')
@@ -379,24 +434,54 @@ export async function getProjectsFeasibilitySummary(req: Request, res: Response)
     .orderBy('created_at', 'asc')
     .select('project_id', 'pattern_id');
 
-  const firstPattern = new Map<string, string>();
-  for (const link of links) {
-    if (!firstPattern.has(link.project_id)) {
-      firstPattern.set(link.project_id, link.pattern_id);
-    }
-  }
-
-  const items = [...firstPattern.entries()].map(([projectId, patternId]) => ({
-    projectId,
-    patternId,
+  const items = links.map((link: { project_id: string; pattern_id: string }) => ({
+    projectId: link.project_id,
+    patternId: link.pattern_id,
   }));
 
   const summaries = await getFeasibilityBatch(userId, items);
+  const aggregates = aggregateFeasibilityByProject(summaries);
 
   return res.json({
     success: true,
-    data: { summaries },
+    data: { summaries, aggregates },
   });
+}
+
+/**
+ * Reduce per-pattern feasibility summaries to one aggregate row per project.
+ * The aggregate status is the worst of all contributing patterns — `red`
+ * dominates `yellow` dominates `green`. A project with no patterns produces
+ * no aggregate row (callers treat absence as "unknown").
+ */
+export function aggregateFeasibilityByProject(
+  summaries: Array<{ projectId: string; patternId: string; overallStatus: LightLevel }>,
+): Array<{ projectId: string; overallStatus: LightLevel; patternIds: string[] }> {
+  const byProject = new Map<
+    string,
+    { statuses: Set<LightLevel>; patternIds: string[] }
+  >();
+
+  for (const s of summaries) {
+    let entry = byProject.get(s.projectId);
+    if (!entry) {
+      entry = { statuses: new Set(), patternIds: [] };
+      byProject.set(s.projectId, entry);
+    }
+    entry.statuses.add(s.overallStatus);
+    if (!entry.patternIds.includes(s.patternId)) {
+      entry.patternIds.push(s.patternId);
+    }
+  }
+
+  const out: Array<{ projectId: string; overallStatus: LightLevel; patternIds: string[] }> = [];
+  for (const [projectId, entry] of byProject.entries()) {
+    let status: LightLevel = 'green';
+    if (entry.statuses.has('red')) status = 'red';
+    else if (entry.statuses.has('yellow')) status = 'yellow';
+    out.push({ projectId, overallStatus: status, patternIds: entry.patternIds });
+  }
+  return out;
 }
 
 /**
@@ -680,12 +765,30 @@ export async function removeYarnFromProject(req: Request, res: Response) {
 }
 
 /**
- * Add pattern to project
+ * Attach a pattern to a project. Accepts either a legacy `patternId` (the
+ * historical path) or a canonical `patternModelId`. When a canonical id is
+ * supplied, a thin legacy `patterns` stub is materialized on demand so the
+ * `project_patterns.pattern_id` FK is always satisfied; the legacy stub is
+ * back-linked to the canonical row via `pattern_models.source_pattern_id`,
+ * so subsequent reads (PatternDetail twin lookup, project.patterns
+ * enrichment) treat the canonical-only pattern like any other twin pair.
+ *
+ * Exactly one of `patternId` / `patternModelId` must be set in the request
+ * body. Both branches dedupe on `project_patterns.(project_id, pattern_id)`.
  */
 export async function addPatternToProject(req: Request, res: Response) {
   const userId = req.user!.userId;
   const { id: projectId } = req.params;
-  const { patternId, modifications } = req.body;
+  const { patternId, patternModelId, modifications } = req.body ?? {};
+
+  if (!patternId && !patternModelId) {
+    throw new ValidationError('Either patternId or patternModelId is required');
+  }
+  if (patternId && patternModelId) {
+    throw new ValidationError(
+      'Provide only one of patternId or patternModelId, not both',
+    );
+  }
 
   // Verify project exists and belongs to user
   const project = await db('projects')
@@ -697,9 +800,16 @@ export async function addPatternToProject(req: Request, res: Response) {
     throw new NotFoundError('Project not found');
   }
 
-  // Verify pattern exists and belongs to user
+  // Resolve canonical → legacy stub when needed. The materializer throws
+  // NotFoundError if the canonical id doesn't belong to this user, so we
+  // don't need to re-verify ownership here.
+  const resolvedPatternId: string = patternModelId
+    ? await materializeLegacyStubForCanonical(userId, patternModelId)
+    : patternId;
+
+  // Verify pattern exists and belongs to user (catches stale legacy ids).
   const pattern = await db('patterns')
-    .where({ id: patternId, user_id: userId })
+    .where({ id: resolvedPatternId, user_id: userId })
     .whereNull('deleted_at')
     .first();
 
@@ -709,7 +819,7 @@ export async function addPatternToProject(req: Request, res: Response) {
 
   // Check if pattern is already added
   const existing = await db('project_patterns')
-    .where({ project_id: projectId, pattern_id: patternId })
+    .where({ project_id: projectId, pattern_id: resolvedPatternId })
     .first();
 
   if (existing) {
@@ -718,7 +828,7 @@ export async function addPatternToProject(req: Request, res: Response) {
 
   await db('project_patterns').insert({
     project_id: projectId,
-    pattern_id: patternId,
+    pattern_id: resolvedPatternId,
     modifications: modifications || null,
   });
 
@@ -727,12 +837,17 @@ export async function addPatternToProject(req: Request, res: Response) {
     action: 'pattern_added_to_project',
     entityType: 'project',
     entityId: projectId,
-    newValues: { patternId, modifications },
+    newValues: {
+      patternId: resolvedPatternId,
+      patternModelId: patternModelId ?? null,
+      modifications,
+    },
   });
 
   res.status(201).json({
     success: true,
     message: 'Pattern added to project successfully',
+    data: { patternId: resolvedPatternId },
   });
 }
 

@@ -313,15 +313,44 @@ router.delete(
 
 /**
  * @route   POST /api/projects/:id/patterns
- * @desc    Add pattern to project
+ * @desc    Add pattern to project. Body must contain exactly one of
+ *          `patternId` (legacy `patterns.id`) or `patternModelId`
+ *          (canonical `pattern_models.id`). The controller resolves
+ *          canonical ids through `materializeLegacyStubForCanonical`.
+ *          Both-set or neither-set is rejected at the validator before
+ *          the controller runs.
  * @access  Private
  */
 router.post(
   '/:id/patterns',
   [
     validateUUID('id'),
-    body('patternId').notEmpty().isUUID(),
+    body('patternId')
+      .optional({ values: 'null' })
+      .isUUID()
+      .withMessage('patternId must be a UUID'),
+    body('patternModelId')
+      .optional({ values: 'null' })
+      .isUUID()
+      .withMessage('patternModelId must be a UUID'),
     body('modifications').optional({ values: 'null' }).isString(),
+    body().custom((value) => {
+      const has = (k: string) =>
+        value &&
+        typeof value === 'object' &&
+        value[k] !== undefined &&
+        value[k] !== null &&
+        value[k] !== '';
+      const hasLegacy = has('patternId');
+      const hasCanonical = has('patternModelId');
+      if (!hasLegacy && !hasCanonical) {
+        throw new Error('Either patternId or patternModelId is required');
+      }
+      if (hasLegacy && hasCanonical) {
+        throw new Error('Provide only one of patternId or patternModelId, not both');
+      }
+      return true;
+    }),
   ],
   validate,
   asyncHandler(projectsController.addPatternToProject)

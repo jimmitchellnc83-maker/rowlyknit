@@ -16,28 +16,31 @@ import { FeasibilityBadge } from '../components/projects';
 import { trackEvent } from '../lib/analytics';
 import type { LightLevel } from '../components/projects/FeasibilityBadge';
 
-interface FeasibilitySummary {
+interface FeasibilityAggregate {
   projectId: string;
-  patternId: string;
   overallStatus: LightLevel;
+  patternIds: string[];
 }
 
 /**
- * Tri-state projection of feasibility summaries → projectId-keyed map.
+ * Tri-state projection of feasibility aggregates → projectId-keyed map.
  *
  * `loaded === false` (query loading or errored) returns an empty map so
  * downstream UI treats every project as "unknown" and renders no
- * derived badges. `loaded === true` fills the map from `summaries`,
+ * derived badges. `loaded === true` fills the map from `aggregates`,
  * including the empty-array case (which legitimately means "no projects
- * have feasibility data yet"). Pure — exported for test.
+ * have feasibility data yet"). Aggregates are computed server-side as
+ * the worst attached pattern's status — a multi-pattern project's badge
+ * surfaces the most pessimistic verdict so the card never under-reports
+ * a missing yarn or tool. Pure — exported for test.
  */
 export function buildFeasibilityMap(
-  summaries: FeasibilitySummary[] | undefined,
+  aggregates: FeasibilityAggregate[] | undefined,
   loaded: boolean,
-): Map<string, FeasibilitySummary> {
-  const map = new Map<string, FeasibilitySummary>();
+): Map<string, FeasibilityAggregate> {
+  const map = new Map<string, FeasibilityAggregate>();
   if (!loaded) return map;
-  for (const s of summaries ?? []) map.set(s.projectId, s);
+  for (const a of aggregates ?? []) map.set(a.projectId, a);
   return map;
 }
 
@@ -145,28 +148,32 @@ export default function Projects() {
   const updateProjectMutation = useUpdateProject();
   const deleteProjectMutation = useDeleteProject();
 
-  // Tri-state: only treat the feasibility map as authoritative once the
+  // Tri-state: only treat the aggregate map as authoritative once the
   // query has SUCCEEDED. While loading or errored, we treat data as
   // "unknown" — the badge stays hidden rather than implying a project is
   // unconfigured. Today's UI is positive-only (badges only render on hit),
   // so the practical user-visible difference is minimal; the gate is here
   // so a future negative-state badge can't accidentally false-positive
   // during transport hiccups (the bug PR #373 fixed on Dashboard).
-  const { data: feasibilitySummaries, isSuccess: feasibilityLoaded } = useQuery<
-    FeasibilitySummary[]
+  // We pull `aggregates` (worst-of per project) so multi-pattern projects
+  // surface a single accurate badge; `summaries` is also returned by the
+  // API for callers that need per-pattern detail, but the list view
+  // doesn't drill in.
+  const { data: feasibilityAggregates, isSuccess: feasibilityLoaded } = useQuery<
+    FeasibilityAggregate[]
   >({
     queryKey: ['projects-feasibility-summary'],
     queryFn: async () => {
       const { data } = await axios.get('/api/projects/feasibility-summary');
-      return data.data.summaries as FeasibilitySummary[];
+      return (data?.data?.aggregates as FeasibilityAggregate[] | undefined) ?? [];
     },
     // Stash/tool edits propagate after ~30 s without manual reload.
     staleTime: 30_000,
   });
 
   const feasibilityByProject = useMemo(
-    () => buildFeasibilityMap(feasibilitySummaries, feasibilityLoaded),
-    [feasibilitySummaries, feasibilityLoaded],
+    () => buildFeasibilityMap(feasibilityAggregates, feasibilityLoaded),
+    [feasibilityAggregates, feasibilityLoaded],
   );
 
   const [showMoreMenu, setShowMoreMenu] = useState(false);
@@ -478,7 +485,7 @@ export default function Projects() {
                 <div className="mb-3">
                   <FeasibilityBadge
                     status={feasibilityByProject.get(project.id)!.overallStatus}
-                    patternId={feasibilityByProject.get(project.id)!.patternId}
+                    patternId={feasibilityByProject.get(project.id)!.patternIds[0] ?? project.id}
                   />
                 </div>
               )}
