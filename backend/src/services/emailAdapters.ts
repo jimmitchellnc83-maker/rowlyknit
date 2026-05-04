@@ -152,33 +152,39 @@ class NoopAdapter implements EmailAdapter {
  *
  * If EMAIL_PROVIDER is unset, the adapter defaults to "sendgrid"
  * (preserving existing prod). If the chosen provider's secrets are
- * missing AND we are NOT in production, fall back to no-op so tests
- * and unconfigured dev boxes don't try to dial SMTP. In production,
- * a missing secret degrades to no-op too with a warn-level log —
- * better than crashing the request path; the welcome / reset call
- * sites already swallow send errors and surface via audit log.
+ * missing in dev / test, fall back to no-op so unconfigured boxes
+ * don't try to dial SMTP. In production we refuse silent fallback:
+ * missing secrets throw a configuration error at startup so that
+ * signup / password reset never appear successful while no email is
+ * sent. To intentionally run production with no transactional email
+ * (e.g. a brief grace period before a provider is provisioned), set
+ * `ALLOW_NOOP_EMAIL_IN_PRODUCTION=true` — this is loud-warned at
+ * startup and is documented as UNSAFE for launch.
  */
 export function createEmailAdapter(): EmailAdapter {
   const provider = (process.env.EMAIL_PROVIDER || 'sendgrid').toLowerCase();
   const apiKey = process.env.EMAIL_API_KEY;
   const isProduction = process.env.NODE_ENV === 'production';
+  const noopOverride = process.env.ALLOW_NOOP_EMAIL_IN_PRODUCTION === 'true';
 
-  if (provider === 'noop') return new NoopAdapter();
+  if (provider === 'noop') {
+    if (isProduction && !noopOverride) {
+      throw configError(
+        'EMAIL_PROVIDER=noop is rejected in production unless ALLOW_NOOP_EMAIL_IN_PRODUCTION=true ' +
+          '(UNSAFE for launch — no transactional email will be delivered).',
+      );
+    }
+    if (isProduction) warnUnsafeNoop(provider);
+    return new NoopAdapter();
+  }
 
   if (provider === 'resend') {
-    if (!apiKey) {
-      if (isProduction) {
-        logger.warn(
-          '[email] EMAIL_PROVIDER=resend but EMAIL_API_KEY is unset — falling back to no-op',
-        );
-      }
-      return new NoopAdapter();
-    }
+    if (!apiKey) return missingSecretFallback(provider, isProduction, noopOverride);
     return new ResendAdapter(apiKey);
   }
 
   if (provider === 'postmark') {
-    if (!apiKey) return missingSecretFallback(provider, isProduction);
+    if (!apiKey) return missingSecretFallback(provider, isProduction, noopOverride);
     return new NodemailerSmtpAdapter({
       name: provider,
       host: 'smtp.postmarkapp.com',
@@ -192,7 +198,7 @@ export function createEmailAdapter(): EmailAdapter {
   if (provider === 'ses') {
     const user = process.env.AWS_SES_ACCESS_KEY;
     const pass = process.env.AWS_SES_SECRET_KEY;
-    if (!user || !pass) return missingSecretFallback(provider, isProduction);
+    if (!user || !pass) return missingSecretFallback(provider, isProduction, noopOverride);
     return new NodemailerSmtpAdapter({
       name: provider,
       host: `email-smtp.${process.env.AWS_REGION || 'us-east-1'}.amazonaws.com`,
@@ -204,7 +210,7 @@ export function createEmailAdapter(): EmailAdapter {
 
   // Default branch — sendgrid SMTP. Preserved so existing prod env
   // (EMAIL_PROVIDER=sendgrid) continues to work without re-config.
-  if (!apiKey) return missingSecretFallback('sendgrid', isProduction);
+  if (!apiKey) return missingSecretFallback('sendgrid', isProduction, noopOverride);
   return new NodemailerSmtpAdapter({
     name: 'sendgrid',
     host: 'smtp.sendgrid.net',
@@ -214,13 +220,34 @@ export function createEmailAdapter(): EmailAdapter {
   });
 }
 
-function missingSecretFallback(provider: string, isProduction: boolean): EmailAdapter {
-  if (isProduction) {
-    logger.warn(
-      `[email] EMAIL_PROVIDER=${provider} but provider secrets are unset — falling back to no-op`,
+function missingSecretFallback(
+  provider: string,
+  isProduction: boolean,
+  noopOverride: boolean,
+): EmailAdapter {
+  if (isProduction && !noopOverride) {
+    throw configError(
+      `EMAIL_PROVIDER=${provider} but provider secrets are unset in production. ` +
+        `Set EMAIL_API_KEY (or AWS_SES_ACCESS_KEY + AWS_SES_SECRET_KEY for ses) to enable ` +
+        `transactional email, or set ALLOW_NOOP_EMAIL_IN_PRODUCTION=true to explicitly accept ` +
+        `silent no-op (UNSAFE for launch — signup and password reset will appear successful ` +
+        `while no email is delivered).`,
     );
   }
+  if (isProduction) warnUnsafeNoop(provider);
   return new NoopAdapter();
+}
+
+function configError(message: string): Error {
+  logger.error(`[email] configuration error: ${message}`);
+  return new Error(`[email] ${message}`);
+}
+
+function warnUnsafeNoop(provider: string): void {
+  logger.warn(
+    `[email] ALLOW_NOOP_EMAIL_IN_PRODUCTION=true overrides missing-secret check for ` +
+      `provider=${provider}. No transactional email will be delivered. UNSAFE for launch.`,
+  );
 }
 
 // ---------- Helpers (exported for tests) --------------------------------

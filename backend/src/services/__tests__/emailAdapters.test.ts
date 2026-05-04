@@ -1,10 +1,15 @@
 /**
  * Auth + Security Hardening Sprint — provider-agnostic email plumbing.
  *
- * Pins three contracts:
+ * Pins four contracts:
  *   1. The factory picks the right adapter by EMAIL_PROVIDER.
- *   2. Missing secrets degrade to no-op (in dev/test) without crash.
- *   3. The no-op adapter logs ONLY non-secret metadata — never the
+ *   2. Missing secrets degrade to no-op only in dev / test.
+ *   3. In production, missing secrets throw at adapter-creation time
+ *      so signup / reset flows can never silently appear successful
+ *      while no email is delivered. The only escape hatch is the
+ *      explicit env override `ALLOW_NOOP_EMAIL_IN_PRODUCTION=true`,
+ *      which is loud-warn-logged and documented as UNSAFE for launch.
+ *   4. The no-op adapter logs ONLY non-secret metadata — never the
  *      body, never a reset URL.
  */
 
@@ -47,6 +52,7 @@ const ENV_KEYS = [
   'AWS_SES_SECRET_KEY',
   'AWS_REGION',
   'NODE_ENV',
+  'ALLOW_NOOP_EMAIL_IN_PRODUCTION',
 ] as const;
 
 const originalEnv: Partial<Record<(typeof ENV_KEYS)[number], string | undefined>> = {};
@@ -83,16 +89,6 @@ describe('createEmailAdapter', () => {
     expect(adapter.name).toBe('noop');
   });
 
-  it('falls back to no-op when provider=resend but EMAIL_API_KEY missing (prod logs a warning)', () => {
-    process.env.EMAIL_PROVIDER = 'resend';
-    process.env.NODE_ENV = 'production';
-    const adapter = createEmailAdapter();
-    expect(adapter.name).toBe('noop');
-    expect(loggerWarn).toHaveBeenCalledWith(
-      expect.stringContaining('EMAIL_PROVIDER=resend'),
-    );
-  });
-
   it('returns a Postmark SMTP adapter for provider=postmark', () => {
     process.env.EMAIL_PROVIDER = 'postmark';
     process.env.EMAIL_API_KEY = 'postmark-server-token';
@@ -107,22 +103,99 @@ describe('createEmailAdapter', () => {
     expect(adapter.name).toBe('sendgrid');
   });
 
-  it('falls back to no-op when sendgrid is the default and no key is set', () => {
+  it('falls back to no-op when sendgrid is the default and no key is set (dev)', () => {
     process.env.NODE_ENV = 'test';
     const adapter = createEmailAdapter();
     expect(adapter.name).toBe('noop');
   });
 
-  it('returns the explicit no-op adapter when EMAIL_PROVIDER=noop', () => {
+  it('returns the explicit no-op adapter when EMAIL_PROVIDER=noop in dev/test', () => {
     process.env.EMAIL_PROVIDER = 'noop';
+    process.env.NODE_ENV = 'test';
     const adapter = createEmailAdapter();
     expect(adapter.name).toBe('noop');
   });
 
-  it('falls back to no-op for ses without AWS credentials', () => {
+  it('falls back to no-op for ses without AWS credentials (dev)', () => {
     process.env.EMAIL_PROVIDER = 'ses';
+    process.env.NODE_ENV = 'test';
     const adapter = createEmailAdapter();
     expect(adapter.name).toBe('noop');
+  });
+});
+
+describe('createEmailAdapter — production refuses silent no-op', () => {
+  it('throws when provider=resend has no EMAIL_API_KEY in production', () => {
+    process.env.EMAIL_PROVIDER = 'resend';
+    process.env.NODE_ENV = 'production';
+    expect(() => createEmailAdapter()).toThrow(/EMAIL_PROVIDER=resend/);
+    expect(() => createEmailAdapter()).toThrow(/ALLOW_NOOP_EMAIL_IN_PRODUCTION/);
+    expect(loggerError).toHaveBeenCalledWith(
+      expect.stringContaining('configuration error'),
+    );
+  });
+
+  it('throws when provider=sendgrid (default) has no EMAIL_API_KEY in production', () => {
+    process.env.NODE_ENV = 'production';
+    expect(() => createEmailAdapter()).toThrow(/EMAIL_PROVIDER=sendgrid/);
+  });
+
+  it('throws when provider=postmark has no EMAIL_API_KEY in production', () => {
+    process.env.EMAIL_PROVIDER = 'postmark';
+    process.env.NODE_ENV = 'production';
+    expect(() => createEmailAdapter()).toThrow(/EMAIL_PROVIDER=postmark/);
+  });
+
+  it('throws when provider=ses has no AWS credentials in production', () => {
+    process.env.EMAIL_PROVIDER = 'ses';
+    process.env.NODE_ENV = 'production';
+    expect(() => createEmailAdapter()).toThrow(/EMAIL_PROVIDER=ses/);
+  });
+
+  it('throws when EMAIL_PROVIDER=noop is set in production without override', () => {
+    process.env.EMAIL_PROVIDER = 'noop';
+    process.env.NODE_ENV = 'production';
+    expect(() => createEmailAdapter()).toThrow(/EMAIL_PROVIDER=noop is rejected/);
+    expect(() => createEmailAdapter()).toThrow(/ALLOW_NOOP_EMAIL_IN_PRODUCTION/);
+  });
+});
+
+describe('createEmailAdapter — explicit production override', () => {
+  it('allows no-op in production when ALLOW_NOOP_EMAIL_IN_PRODUCTION=true (with loud UNSAFE warning)', () => {
+    process.env.EMAIL_PROVIDER = 'resend';
+    process.env.NODE_ENV = 'production';
+    process.env.ALLOW_NOOP_EMAIL_IN_PRODUCTION = 'true';
+    const adapter = createEmailAdapter();
+    expect(adapter.name).toBe('noop');
+    expect(loggerWarn).toHaveBeenCalledWith(
+      expect.stringContaining('UNSAFE for launch'),
+    );
+  });
+
+  it('allows EMAIL_PROVIDER=noop in production when override is set', () => {
+    process.env.EMAIL_PROVIDER = 'noop';
+    process.env.NODE_ENV = 'production';
+    process.env.ALLOW_NOOP_EMAIL_IN_PRODUCTION = 'true';
+    const adapter = createEmailAdapter();
+    expect(adapter.name).toBe('noop');
+    expect(loggerWarn).toHaveBeenCalledWith(expect.stringContaining('UNSAFE'));
+  });
+
+  it('rejects override values other than the literal string "true"', () => {
+    process.env.EMAIL_PROVIDER = 'resend';
+    process.env.NODE_ENV = 'production';
+    process.env.ALLOW_NOOP_EMAIL_IN_PRODUCTION = '1'; // not "true" — must throw
+    expect(() => createEmailAdapter()).toThrow(/EMAIL_PROVIDER=resend/);
+  });
+
+  it('still constructs the real adapter when secrets are present (override is ignored)', () => {
+    process.env.EMAIL_PROVIDER = 'resend';
+    process.env.EMAIL_API_KEY = 'rk_live_xxx';
+    process.env.NODE_ENV = 'production';
+    process.env.ALLOW_NOOP_EMAIL_IN_PRODUCTION = 'true';
+    const adapter = createEmailAdapter();
+    expect(adapter.name).toBe('resend');
+    expect(adapter).toBeInstanceOf(__test__.ResendAdapter);
   });
 });
 

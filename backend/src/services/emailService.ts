@@ -55,21 +55,29 @@ class EmailService {
         template: options.template,
       });
 
+      // The no-op adapter never touches a real provider — recording it as
+      // 'sent' would let production silently appear to deliver mail when
+      // it didn't. Mark these rows as 'skipped' so audit + reporting can
+      // distinguish real provider delivery from log-only no-ops.
+      const isNoop = info.adapter === 'noop';
       await db('email_logs').insert({
         to_email: options.to,
         subject: options.subject,
         template: options.template || 'custom',
-        status: 'sent',
+        status: isNoop ? 'skipped' : 'sent',
         provider_id: info.id,
         sent_at: new Date(),
       });
 
-      logger.info('Email sent successfully', {
-        to: options.to,
-        subject: options.subject,
-        messageId: info.id,
-        adapter: info.adapter,
-      });
+      logger.info(
+        isNoop ? 'Email send skipped (no-op adapter)' : 'Email sent successfully',
+        {
+          to: options.to,
+          subject: options.subject,
+          messageId: info.id,
+          adapter: info.adapter,
+        },
+      );
     } catch (error) {
       logger.error('Failed to send email', {
         to: options.to,
