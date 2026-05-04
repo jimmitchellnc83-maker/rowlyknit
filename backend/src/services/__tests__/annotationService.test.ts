@@ -55,6 +55,7 @@ jest.mock('../../config/database', () => {
 
 import {
   assertValidAnnotationInput,
+  assertValidQuickKeyPosition,
   createAnnotation,
   listQuickKeysForPattern,
   setCropQuickKey,
@@ -149,9 +150,51 @@ describe('softDeleteAnnotation', () => {
   });
 });
 
+describe('assertValidQuickKeyPosition', () => {
+  it('accepts null and undefined (clear-position path)', () => {
+    expect(() => assertValidQuickKeyPosition(null)).not.toThrow();
+    expect(() => assertValidQuickKeyPosition(undefined)).not.toThrow();
+  });
+
+  it('accepts small non-negative integers', () => {
+    expect(() => assertValidQuickKeyPosition(0)).not.toThrow();
+    expect(() => assertValidQuickKeyPosition(1)).not.toThrow();
+    expect(() => assertValidQuickKeyPosition(2_147_483_647)).not.toThrow();
+  });
+
+  it('rejects Date.now()-style ms timestamps that overflow int32', () => {
+    // ~1.78e12, well over 2^31 - 1
+    expect(() => assertValidQuickKeyPosition(Date.now())).toThrow(ValidationError);
+    expect(() => assertValidQuickKeyPosition(2_147_483_648)).toThrow(ValidationError);
+  });
+
+  it('rejects negative integers, NaN, Infinity, and non-integer floats', () => {
+    expect(() => assertValidQuickKeyPosition(-1)).toThrow(ValidationError);
+    expect(() => assertValidQuickKeyPosition(Number.NaN)).toThrow(ValidationError);
+    expect(() => assertValidQuickKeyPosition(Number.POSITIVE_INFINITY)).toThrow(
+      ValidationError,
+    );
+    expect(() => assertValidQuickKeyPosition(1.5)).toThrow(ValidationError);
+  });
+});
+
 describe('setCropQuickKey', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  it('rejects out-of-range positions with ValidationError before touching the DB', async () => {
+    await expect(
+      setCropQuickKey({
+        cropId: 'crop-1',
+        userId: 'u-1',
+        isQuickKey: true,
+        position: Date.now(),
+      }),
+    ).rejects.toThrow(ValidationError);
+    // Must short-circuit BEFORE the update so a malformed input never
+    // reaches Postgres and causes a 22003 / 500.
+    expect(dbBuilders.pattern_crops.update).not.toHaveBeenCalled();
   });
 
   it('returns null when the crop is foreign (update count 0)', async () => {

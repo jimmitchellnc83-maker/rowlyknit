@@ -150,6 +150,30 @@ export async function softDeleteAnnotation(
 // QuickKey on pattern_crops
 // ============================================
 
+/**
+ * `pattern_crops.quickkey_position` is a Postgres `integer` (int32),
+ * so writes must stay in [0, 2^31 - 1]. Reject anything outside the
+ * range cleanly with a 400 instead of letting Postgres throw an
+ * out-of-range integer 22003 error and surface a 500.
+ */
+const QUICKKEY_POSITION_MAX = 2147483647;
+
+export function assertValidQuickKeyPosition(
+  position: number | null | undefined,
+): void {
+  if (position === null || position === undefined) return;
+  if (
+    !Number.isFinite(position) ||
+    !Number.isInteger(position) ||
+    position < 0 ||
+    position > QUICKKEY_POSITION_MAX
+  ) {
+    throw new ValidationError(
+      `position must be a non-negative integer <= ${QUICKKEY_POSITION_MAX}`,
+    );
+  }
+}
+
 export async function setCropQuickKey(input: {
   cropId: string;
   userId: string;
@@ -161,6 +185,9 @@ export async function setCropQuickKey(input: {
   quickKeyPosition: number | null;
   label: string | null;
 } | null> {
+  if (input.isQuickKey && input.position !== undefined) {
+    assertValidQuickKeyPosition(input.position);
+  }
   const update: Record<string, unknown> = {
     is_quickkey: input.isQuickKey,
     updated_at: new Date(),
