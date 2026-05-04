@@ -136,35 +136,55 @@ export default function ProjectHeader({
         Back to Projects
       </Link>
 
-      <div className="flex items-start justify-between">
-        <div className="flex-1">
-          <div className="flex items-center gap-3 mb-2">
-            <h1 className="text-3xl font-bold text-gray-900">{project.name}</h1>
-            <span
-              className={`px-3 py-1 text-sm font-medium rounded-full ${getStatusColor(project.status)}`}
-            >
-              {project.status}
-            </span>
-          </div>
-          {project.project_type && (
-            <p className="text-gray-600">Type: {project.project_type}</p>
-          )}
-          {selectedRecipient && (
-            <p className="text-gray-600 flex items-center mt-1">
-              <FiUser className="mr-2 h-4 w-4" />
-              Gift for: {selectedRecipient.first_name} {selectedRecipient.last_name}
-            </p>
-          )}
+      {/* Stacked responsive header — mirrors the Designer header pattern.
+            Row 1 — title + status pill (never clipped, never sharing space
+                    with action buttons on small screens).
+            Row 2 — project type + recipient subtext (only when present).
+            Row 3 — action toolbar; wraps freely, every button gets a
+                    44px+ touch target.
+         The old single-row `flex justify-between` collided around
+         ~900px because the actions row had grown to 7 buttons; the
+         flex-shrink rules then gnawed the title text instead of
+         wrapping the buttons. This layout never fights for space. */}
+      <header
+        data-testid="project-header"
+        className="flex flex-col gap-3"
+      >
+        <div
+          data-testid="project-header-title"
+          className="flex flex-wrap items-center gap-2"
+        >
+          <h1 className="text-2xl font-bold text-gray-900 md:text-3xl">{project.name}</h1>
+          <span
+            className={`rounded-full px-3 py-1 text-sm font-medium ${getStatusColor(project.status)}`}
+          >
+            {project.status}
+          </span>
         </div>
 
-        <div className="flex gap-2 flex-wrap">
+        {(project.project_type || selectedRecipient) && (
+          <div className="flex flex-col gap-1 text-sm text-gray-600">
+            {project.project_type && <p>Type: {project.project_type}</p>}
+            {selectedRecipient && (
+              <p className="flex items-center">
+                <FiUser className="mr-2 h-4 w-4" />
+                Gift for: {selectedRecipient.first_name} {selectedRecipient.last_name}
+              </p>
+            )}
+          </div>
+        )}
+
+        <div
+          data-testid="project-header-actions"
+          className="flex flex-wrap items-center gap-2"
+        >
           {showCanonicalEntry && (
             <button
               type="button"
               onClick={handleOpenMakeMode}
               data-testid="project-open-make-mode"
               title="Open in Make Mode — row-by-row tracker, persists per pattern"
-              className="px-4 py-3 md:py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center min-h-[48px] md:min-h-0 font-medium shadow-sm"
+              className="inline-flex min-h-[44px] items-center rounded-lg bg-blue-600 px-4 py-2 font-medium text-white shadow-sm transition hover:bg-blue-700"
             >
               <FiPlay className="mr-2 h-5 w-5 md:h-4 md:w-4" />
               <span className="text-base md:text-sm">Open in Make Mode</span>
@@ -173,12 +193,12 @@ export default function ProjectHeader({
           <button
             onClick={handleToggleKnittingMode}
             data-testid="project-toggle-workspace"
-            className={`px-4 py-3 md:py-2 rounded-lg transition flex items-center min-h-[48px] md:min-h-0 font-medium ${
+            className={`inline-flex min-h-[44px] items-center rounded-lg px-4 py-2 font-medium transition ${
               knittingMode
                 ? 'bg-green-600 text-white hover:bg-green-700'
                 : showCanonicalEntry
                   ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                  : 'bg-purple-600 text-white hover:bg-purple-700 shadow-sm'
+                  : 'bg-purple-600 text-white shadow-sm hover:bg-purple-700'
             }`}
           >
             {knittingMode ? (
@@ -204,7 +224,7 @@ export default function ProjectHeader({
           <button
             onClick={onShare}
             aria-label={isPublic ? 'Share — currently public' : 'Share — currently private'}
-            className={`px-4 py-3 md:py-2 rounded-lg transition flex items-center min-h-[48px] md:min-h-0 ${
+            className={`inline-flex min-h-[44px] items-center rounded-lg px-4 py-2 transition ${
               isPublic
                 ? 'bg-purple-100 text-purple-700 hover:bg-purple-200'
                 : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
@@ -217,27 +237,27 @@ export default function ProjectHeader({
             onClick={onDuplicate}
             disabled={duplicating}
             title="Make a fresh copy with the same pattern, tools, counters, and pieces — but no yarn, photos, or row history."
-            className="px-4 py-3 md:py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition flex items-center min-h-[48px] md:min-h-0 disabled:opacity-60"
+            className="inline-flex min-h-[44px] items-center rounded-lg bg-gray-200 px-4 py-2 text-gray-700 transition hover:bg-gray-300 disabled:opacity-60"
           >
             <FiCopy className="mr-2 h-5 w-5 md:h-4 md:w-4" />
             <span className="text-base md:text-sm">{duplicating ? 'Copying…' : 'Make this again'}</span>
           </button>
           <button
             onClick={onEdit}
-            className="px-4 py-3 md:py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition flex items-center min-h-[48px] md:min-h-0"
+            className="inline-flex min-h-[44px] items-center rounded-lg bg-purple-600 px-4 py-2 text-white transition hover:bg-purple-700"
           >
             <FiEdit2 className="mr-2 h-5 w-5 md:h-4 md:w-4" />
             <span className="text-base md:text-sm">Edit</span>
           </button>
           <button
             onClick={onDelete}
-            className="px-4 py-3 md:py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition flex items-center min-h-[48px] md:min-h-0"
+            className="inline-flex min-h-[44px] items-center rounded-lg bg-red-600 px-4 py-2 text-white transition hover:bg-red-700"
           >
             <FiTrash2 className="mr-2 h-5 w-5 md:h-4 md:w-4" />
             <span className="text-base md:text-sm">Delete</span>
           </button>
         </div>
-      </div>
+      </header>
 
       {showPicker && (
         <MakeModePicker

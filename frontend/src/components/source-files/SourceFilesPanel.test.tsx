@@ -116,3 +116,64 @@ describe('SourceFilesPanel responsive layout', () => {
     expect(screen.getAllByLabelText('Delete file').length).toBe(2);
   });
 });
+
+/**
+ * Auth + Launch Polish Sprint 2026-05-04 — Codex review on PR #381 flagged
+ * the source-file rail's controls as below the 44px touch target. The
+ * upload button was `py-1.5` (~24px), the delete `×` was a tiny inline
+ * link, and the inline confirm/cancel were 12px text. iPad + PWA users
+ * could not consistently tap the right control. We lock the
+ * Tailwind arbitrary-value class so a future style sweep can't quietly
+ * shrink them again.
+ */
+describe('SourceFilesPanel — touch target contract', () => {
+  it('upload button has min-h-[44px]', async () => {
+    listSourceFilesMock.mockResolvedValueOnce([]);
+    render(<SourceFilesPanel patternId="pat-1" />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    const upload = screen.getByRole('button', { name: /Upload/i });
+    expect(upload.className).toMatch(/(^|\s)min-h-\[44px\](\s|$)/);
+  });
+
+  it('per-file delete button is at least 44x44 (icon target)', async () => {
+    listSourceFilesMock.mockResolvedValueOnce([makeFile('a', 'one.pdf')]);
+    render(<SourceFilesPanel patternId="pat-1" />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    const del = screen.getByLabelText('Delete file');
+    expect(del.className).toMatch(/(^|\s)min-h-\[44px\](\s|$)/);
+    expect(del.className).toMatch(/(^|\s)min-w-\[44px\](\s|$)/);
+  });
+
+  it('open-file row click target is at least 44px tall', async () => {
+    listSourceFilesMock.mockResolvedValueOnce([makeFile('a', 'one.pdf')]);
+    render(<SourceFilesPanel patternId="pat-1" />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    // The truncated filename button is the row's primary tap target.
+    const row = screen.getByTitle('one.pdf');
+    expect(row.className).toMatch(/(^|\s)min-h-\[44px\](\s|$)/);
+  });
+
+  it('confirm / cancel inline buttons are at least 44px tall, 44px wide', async () => {
+    listSourceFilesMock.mockResolvedValueOnce([makeFile('a', 'one.pdf')]);
+    const { fireEvent } = await import('@testing-library/react');
+    render(<SourceFilesPanel patternId="pat-1" />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    fireEvent.click(screen.getByLabelText('Delete file'));
+
+    const confirm = screen.getByTestId('source-file-delete-confirm');
+    const cancel = screen.getByTestId('source-file-delete-cancel');
+
+    for (const btn of [confirm, cancel]) {
+      expect(btn.className).toMatch(/(^|\s)min-h-\[44px\](\s|$)/);
+      expect(btn.className).toMatch(/(^|\s)min-w-\[44px\](\s|$)/);
+    }
+  });
+});

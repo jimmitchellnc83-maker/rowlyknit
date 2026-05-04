@@ -202,3 +202,82 @@ describe('ProjectHeader unified Make Mode entry', () => {
     expect(legacyRows[0]).toHaveTextContent(/legacy pattern/i);
   });
 });
+
+/**
+ * Auth + Launch Polish Sprint 2026-05-04 — responsive header layout.
+ *
+ * The previous header was a single `flex justify-between` row that
+ * collided around ~900px because the actions row had grown to 7
+ * buttons; the title text was the casualty. The new layout stacks
+ * title / subtext / actions like the Designer header. Every action
+ * button must clear a 44px touch target on every breakpoint, and the
+ * actions row must be a flex container that wraps freely (so on a
+ * narrow viewport buttons fall to the next visual line instead of
+ * spilling horizontally and cropping).
+ *
+ * jsdom has no real layout, so we lock the contract via class-regex
+ * matchers.
+ */
+describe('ProjectHeader responsive layout (Designer-style stack)', () => {
+  it('uses a stacked column header that never asks title and actions to share the same row', () => {
+    renderHeader(defaultProps());
+
+    const header = screen.getByTestId('project-header');
+    expect(header.className).toMatch(/\bflex-col\b/);
+    // No `flex-row` on small screens — the actions toolbar moves to its
+    // own row, away from the title.
+    expect(header.className).not.toMatch(/(^|\s)flex-row(\s|$)/);
+  });
+
+  it('puts title + status pill in their own row', () => {
+    renderHeader(defaultProps());
+    const titleRow = screen.getByTestId('project-header-title');
+    expect(titleRow.className).toMatch(/\bflex-wrap\b/);
+    expect(titleRow).toHaveTextContent(/cabled cardigan/i);
+    expect(titleRow).toHaveTextContent(/active/i);
+  });
+
+  it('puts every action button in a single wrapping toolbar row', () => {
+    renderHeader(
+      defaultProps({
+        patterns: [{ id: 'pat-1', name: 'Sweater', canonicalPatternModelId: 'cpm-1' }],
+      }),
+    );
+    const actions = screen.getByTestId('project-header-actions');
+    expect(actions.className).toMatch(/\bflex\b/);
+    expect(actions.className).toMatch(/\bflex-wrap\b/);
+    // Spot-check: every primary CTA renders inside the toolbar row.
+    expect(actions).toContainElement(screen.getByTestId('project-open-make-mode'));
+    expect(actions).toContainElement(screen.getByTestId('project-toggle-workspace'));
+  });
+
+  it('every primary action button clears a 44px touch target', () => {
+    renderHeader(
+      defaultProps({
+        patterns: [{ id: 'pat-1', name: 'Sweater', canonicalPatternModelId: 'cpm-1' }],
+      }),
+    );
+
+    // Lock min-h-[44px] specifically (not 36px or 40px) on every
+    // primary CTA in the toolbar row. We don't sweep ALL buttons under
+    // the actions container because HelpTooltip mounts a tiny help-icon
+    // trigger that is intentionally smaller — it's not a primary
+    // touch target. Locking the 6 user-driven buttons by their text /
+    // testid is what matters. Codex review on PR #381 flagged primary
+    // controls below 44px as a regression hazard.
+    const primaryButtons = [
+      screen.getByTestId('project-open-make-mode'),
+      screen.getByTestId('project-toggle-workspace'),
+      screen.getByRole('button', { name: /share|public/i }),
+      screen.getByRole('button', { name: /make this again/i }),
+      screen.getByRole('button', { name: /^edit$/i }),
+      screen.getByRole('button', { name: /^delete$/i }),
+    ];
+
+    for (const btn of primaryButtons) {
+      // The `[` in the arbitrary-value class isn't a word char, so use
+      // a whitespace/start/end anchor instead of `\b`.
+      expect(btn.className).toMatch(/(^|\s)min-h-\[44px\](\s|$)/);
+    }
+  });
+});

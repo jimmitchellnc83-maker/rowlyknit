@@ -4,7 +4,7 @@
  * The same payloads are emitted client-side by `useSeo` in:
  *   - frontend/src/pages/Calculators.tsx          (/calculators)
  *   - frontend/src/pages/GaugeCalculator.tsx      (/calculators/gauge)
- *   - frontend/src/pages/GiftSizeCalculator.tsx   (/calculators/gift-size)
+ *   - frontend/src/pages/GiftSizeCalculator.tsx   (/calculators/size, alias /calculators/gift-size)
  *
  * Google's renderer executes the SPA's JS so it sees the client-injected
  * versions, but Bing, Pinterest, and Facebook's scraper read static HTML
@@ -103,7 +103,9 @@ const CALCULATORS_INDEX_LIST = [
     title: 'Knitting Size Calculator',
     description:
       'Enter a chest or bust measurement and a fit style; get a recommended size across women, men, children, and baby sizing schemes. Works for gifts or your own projects.',
-    href: '/calculators/gift-size',
+    // Canonical route. /calculators/gift-size still serves but
+    // canonical points at /calculators/size everywhere.
+    href: '/calculators/size',
   },
 ];
 
@@ -174,12 +176,12 @@ export const GAUGE_CALCULATOR_JSONLD: Array<Record<string, unknown>> = [
   faqPage(GAUGE_FAQS),
 ];
 
-export const GIFT_SIZE_CALCULATOR_JSONLD: Array<Record<string, unknown>> = [
+export const SIZE_CALCULATOR_JSONLD: Array<Record<string, unknown>> = [
   {
     '@context': 'https://schema.org',
     '@type': 'WebApplication',
     name: 'Knitting Size Calculator',
-    url: 'https://rowlyknit.com/calculators/gift-size',
+    url: 'https://rowlyknit.com/calculators/size',
     description:
       'Enter a chest or bust measurement and a fit style; get a recommended size across women, men, children, and baby schemes.',
     applicationCategory: 'UtilitiesApplication',
@@ -197,9 +199,17 @@ export const GIFT_SIZE_CALCULATOR_JSONLD: Array<Record<string, unknown>> = [
         '@type': 'ListItem',
         position: 3,
         name: 'Size Calculator',
-        item: 'https://rowlyknit.com/calculators/gift-size',
+        item: 'https://rowlyknit.com/calculators/size',
       },
     ],
   },
   faqPage(GIFT_SIZE_FAQS),
 ];
+
+/**
+ * Backwards-compat export. The constant was historically named
+ * `GIFT_SIZE_CALCULATOR_JSONLD`; new code should use
+ * `SIZE_CALCULATOR_JSONLD`. Both still emit canonical URLs at
+ * `/calculators/size`.
+ */
+export const GIFT_SIZE_CALCULATOR_JSONLD = SIZE_CALCULATOR_JSONLD;

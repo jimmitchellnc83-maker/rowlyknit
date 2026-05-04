@@ -5,7 +5,7 @@ import logger from '../config/logger';
 import {
   CALCULATORS_INDEX_JSONLD,
   GAUGE_CALCULATOR_JSONLD,
-  GIFT_SIZE_CALCULATOR_JSONLD,
+  SIZE_CALCULATOR_JSONLD,
 } from '../seo/calculatorJsonLd';
 
 const router = Router();
@@ -22,14 +22,18 @@ const router = Router();
  * fine, the duplicates parse independently.
  *
  * Routed via nginx `location` blocks for `/calculators`,
- * `/calculators/gauge`, and `/calculators/gift-size` (same pattern as
- * `/p/:slug`).
+ * `/calculators/gauge`, `/calculators/size`, and the legacy
+ * `/calculators/gift-size` alias (same pattern as `/p/:slug`).
  */
 
 const ROUTE_PAYLOADS: Record<string, Array<Record<string, unknown>>> = {
   '/calculators': CALCULATORS_INDEX_JSONLD,
   '/calculators/gauge': GAUGE_CALCULATOR_JSONLD,
-  '/calculators/gift-size': GIFT_SIZE_CALCULATOR_JSONLD,
+  // Canonical route. Both URLs serve the same JSON-LD; canonical inside
+  // the structured data points at `/calculators/size` so search engines
+  // converge on the new slug.
+  '/calculators/size': SIZE_CALCULATOR_JSONLD,
+  '/calculators/gift-size': SIZE_CALCULATOR_JSONLD,
 };
 
 function makeHandler(payloads: Array<Record<string, unknown>>) {

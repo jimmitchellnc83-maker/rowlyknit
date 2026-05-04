@@ -130,17 +130,22 @@ function SchemeCard({ rec }: { rec: SizeRecommendation }) {
 }
 
 export default function GiftSizeCalculator() {
+  // Auth + Launch Polish Sprint 2026-05-04 — calculator was historically
+  // routed at /calculators/gift-size. Canonical is now /calculators/size;
+  // the old path stays as a backwards-compatible alias (App.tsx). All
+  // SEO + JSON-LD points at the new canonical so search engines pick up
+  // the rename cleanly.
   useSeo({
     title: 'Knitting Size Calculator — Find the Right Sweater Size | Rowly',
     description:
-      'Free knitting size calculator. Enter a chest measurement and a fit style; get a recommended size across women, men, children, and baby schemes.',
-    canonicalPath: '/calculators/gift-size',
+      'Knitting size calculator. Enter a chest measurement and a fit style; get a recommended size across women, men, children, and baby schemes.',
+    canonicalPath: '/calculators/size',
     structuredData: [
       {
         '@context': 'https://schema.org',
         '@type': 'WebApplication',
         name: 'Knitting Size Calculator',
-        url: 'https://rowlyknit.com/calculators/gift-size',
+        url: 'https://rowlyknit.com/calculators/size',
         description:
           'Enter a chest or bust measurement and a fit style; get a recommended size across women, men, children, and baby schemes.',
         applicationCategory: 'UtilitiesApplication',
@@ -158,7 +163,7 @@ export default function GiftSizeCalculator() {
         itemListElement: [
           { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://rowlyknit.com/' },
           { '@type': 'ListItem', position: 2, name: 'Calculators', item: 'https://rowlyknit.com/calculators' },
-          { '@type': 'ListItem', position: 3, name: 'Size Calculator', item: 'https://rowlyknit.com/calculators/gift-size' },
+          { '@type': 'ListItem', position: 3, name: 'Size Calculator', item: 'https://rowlyknit.com/calculators/size' },
         ],
       },
       {
@@ -201,7 +206,11 @@ export default function GiftSizeCalculator() {
   useEffect(() => {
     if (result && !trackedRef.current) {
       trackedRef.current = true;
-      trackEvent('Calculator Used', { calculator: 'gift-size', fit });
+      // Analytics rename: the calculator was historically `gift-size`.
+      // Going forward the canonical event slug is `size` to match the
+      // canonical route + the public-facing name. Plausible dashboards
+      // tied to the old slug should be updated.
+      trackEvent('Calculator Used', { calculator: 'size', fit });
     }
   }, [result, fit]);
 
@@ -423,13 +432,17 @@ export default function GiftSizeCalculator() {
           </h2>
           <p className="mt-2 max-w-2xl text-sm text-gray-700 dark:text-gray-300">
             Save recipients with their measurements, gift history, and preferences in Rowly so
-            you never have to ask &quot;what size again?&quot; mid-project. Free in early access.
+            you never have to ask &quot;what size again?&quot; mid-project.
           </p>
+          {/* CTA copy intentionally avoids the word &quot;free&quot; —
+              Rowly is a paid app with a trial; saying &quot;Sign up
+              free&quot; here was off-strategy. The calculator itself
+              stays open without an account. */}
           <Link
             to="/register"
             className="mt-4 inline-block rounded-lg bg-purple-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-purple-700"
           >
-            Sign up free
+            Try Rowly
           </Link>
         </section>
       ) : null}

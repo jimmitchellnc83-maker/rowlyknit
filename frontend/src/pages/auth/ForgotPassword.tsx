@@ -1,15 +1,36 @@
 import { useState, FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
 import { toast } from 'react-toastify';
 
+/**
+ * Forgot-password form.
+ *
+ * Enumeration-safe success: any 2xx from /request-password-reset shows
+ * the same "if an account exists, we've sent a link" message — the
+ * controller already returns 200 whether or not the email matches a
+ * real user. We must NOT swallow real failures the same way, though,
+ * or the user has no idea the form even tried (and rate-limit lockouts
+ * masquerade as success). Live smoke after PR #381 caught this.
+ *
+ * Failure modes we surface:
+ *   - 429 — too many requests (per-IP or per-email composite limiter)
+ *   - 4xx other than 429 — validation / CSRF / origin failures
+ *   - 5xx — server error
+ *   - no response (transport error) — network down, DNS, proxy down
+ *
+ * Codex: enumeration safety is preserved because every "success" branch
+ * shows the same wording regardless of whether the email exists.
+ */
 export default function ForgotPassword() {
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [sent, setSent] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    setErrorMessage(null);
 
     if (!email) {
       toast.error('Please enter your email');
@@ -22,10 +43,34 @@ export default function ForgotPassword() {
       await axios.post('/api/auth/request-password-reset', { email });
       setSent(true);
       toast.success('If an account exists with this email, a reset link has been sent.');
-    } catch (error: any) {
-      // Still show success to prevent email enumeration
-      setSent(true);
-      toast.success('If an account exists with this email, a reset link has been sent.');
+    } catch (error) {
+      const ax = error as AxiosError<{ message?: string }>;
+      const status = ax.response?.status;
+      const serverMessage = ax.response?.data?.message;
+
+      let display: string;
+      if (status === 429) {
+        display =
+          serverMessage ||
+          'Too many password reset requests. Please wait a few minutes before trying again.';
+      } else if (status && status >= 500) {
+        display = "Something went wrong on our end. Please try again in a moment.";
+      } else if (!ax.response) {
+        // Transport failure — no response object at all.
+        display = "Couldn't reach the server. Check your connection and try again.";
+      } else if (status === 403) {
+        // Most often a CSRF / same-origin issue — surface a hint that's
+        // useful without leaking internals.
+        display = serverMessage || 'Your session expired. Reload the page and try again.';
+      } else {
+        // Other 4xx (validator complaints, etc.) — show whatever the
+        // backend said. We do NOT silently 200 the user out, because
+        // they'll never realize the request didn't actually go through.
+        display = serverMessage || 'Could not send reset link. Please try again.';
+      }
+
+      setErrorMessage(display);
+      toast.error(display);
     } finally {
       setIsLoading(false);
     }
@@ -59,6 +104,16 @@ export default function ForgotPassword() {
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
               Enter the email address associated with your account and we'll send you a link to reset your password.
             </p>
+
+            {errorMessage ? (
+              <div
+                role="alert"
+                data-testid="forgot-password-error"
+                className="mb-4 rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-800 dark:border-red-700 dark:bg-red-900/30 dark:text-red-200"
+              >
+                {errorMessage}
+              </div>
+            ) : null}
 
             <form onSubmit={handleSubmit} className="space-y-6">
               <div>

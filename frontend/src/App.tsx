@@ -124,6 +124,12 @@ function App() {
       <Route element={<PublicLayout />}>
         <Route path="/calculators" element={<Calculators />} />
         <Route path="/calculators/gauge" element={<ErrorBoundary><GaugeCalculator /></ErrorBoundary>} />
+        {/* Size Calculator — canonical route. The `gift-size` alias
+            below stays for backwards compatibility (sitemap still
+            references it for one Google recrawl cycle); both render
+            the same component, but the component's `useSeo` always
+            sets the canonical to `/calculators/size`. */}
+        <Route path="/calculators/size" element={<ErrorBoundary><GiftSizeCalculator /></ErrorBoundary>} />
         <Route path="/calculators/gift-size" element={<ErrorBoundary><GiftSizeCalculator /></ErrorBoundary>} />
         <Route path="/help/glossary" element={<PublicSuspense><Glossary /></PublicSuspense>} />
         <Route path="/help/knit911" element={<PublicSuspense><Knit911 /></PublicSuspense>} />

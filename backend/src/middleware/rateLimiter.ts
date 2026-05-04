@@ -149,26 +149,63 @@ function createDynamicLimiter(window: 'perMinute' | 'perHour' | 'perDay') {
 export const apiLimiter = createDynamicLimiter('perMinute');
 
 /**
- * Strict rate limiter for authentication endpoints - 5 requests per minute
+ * Login rate limiter — 5 requests per minute per IP. Successful logins are
+ * not counted (skipSuccessfulRequests=true) so a knitter who logs in,
+ * logs out, and logs back in a few times in a minute won't get throttled.
+ *
+ * Historically named `authLimiter`; `loginLimiter` is the canonical name
+ * going forward and `authLimiter` is preserved as a thin re-export for any
+ * external code still importing the old symbol.
  */
-export const authLimiter = rateLimit({
+export const loginLimiter = rateLimit({
   store: new RedisStore({
     sendCommand: ((...args: any[]) => redisClient.call(args[0], ...args.slice(1))) as any,
   }),
   windowMs: 60000, // 1 minute
-  max: parseInt(process.env.AUTH_RATE_LIMIT_MAX || '5'),
+  max: parseInt(process.env.LOGIN_RATE_LIMIT_MAX || process.env.AUTH_RATE_LIMIT_MAX || '5'),
   message: {
     success: false,
-    message: 'Too many authentication attempts, please try again later',
+    message: 'Too many login attempts, please try again later',
   },
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => {
-    // Use IP for auth endpoints
-    return req.ip || 'unknown';
-  },
-  skipSuccessfulRequests: true, // Don't count successful logins
+  keyGenerator: (req) => `login:${req.ip || 'unknown'}`,
+  skipSuccessfulRequests: true,
 });
+
+/**
+ * Registration rate limiter — counts BOTH successful and failed requests
+ * so a single IP cannot spin up unlimited accounts in a minute. The cap
+ * is still generous enough that a household / family-of-four registering
+ * at the same time won't trip it.
+ *
+ * Login can afford `skipSuccessfulRequests: true` (the only thing a
+ * successful login proves is that the actor knows the password). Register
+ * cannot — every successful POST creates a real row, so we have to count
+ * the wins.
+ */
+export const registerLimiter = rateLimit({
+  store: new RedisStore({
+    sendCommand: ((...args: any[]) => redisClient.call(args[0], ...args.slice(1))) as any,
+  }),
+  windowMs: 60000, // 1 minute
+  max: parseInt(process.env.REGISTER_RATE_LIMIT_MAX || '5'),
+  message: {
+    success: false,
+    message: 'Too many registration attempts, please try again later',
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => `register:${req.ip || 'unknown'}`,
+  // Default: count everything (skipSuccessfulRequests is false).
+});
+
+/**
+ * Backwards-compatible alias. Old import sites that say `authLimiter` keep
+ * working but receive the login-shaped behavior (successful requests do
+ * not count). Prefer `loginLimiter` / `registerLimiter` in new code.
+ */
+export const authLimiter = loginLimiter;
 
 /**
  * File upload rate limiter - 20 requests per hour
@@ -191,24 +228,65 @@ export const uploadLimiter = rateLimit({
 });
 
 /**
- * Password reset rate limiter - 3 requests per hour
+ * Password reset rate limiter — composite throttle across two dimensions:
+ *
+ *   1) Per-email — 3 / hour. Stops a single account from being spammed
+ *      with reset emails (whether by the user, a misbehaving form, or an
+ *      attacker who knows the address).
+ *   2) Per-IP — 20 / hour. Stops one origin from spraying many email
+ *      addresses to map which ones exist or to mass-send reset emails.
+ *
+ * Either limit hitting first returns 429. Per-email alone wasn't enough:
+ * an attacker could rotate the email field across 1000 addresses an hour
+ * and stay under the per-email cap forever. Both gates run sequentially
+ * (express middleware chain), so the first one to fire wins.
  */
-export const passwordResetLimiter = rateLimit({
+export const passwordResetIpLimiter = rateLimit({
   store: new RedisStore({
     sendCommand: ((...args: any[]) => redisClient.call(args[0], ...args.slice(1))) as any,
   }),
   windowMs: 3600000, // 1 hour
-  max: 3,
+  max: parseInt(process.env.PASSWORD_RESET_IP_RATE_LIMIT_MAX || '20'),
   message: {
     success: false,
     message: 'Too many password reset requests, please try again later',
   },
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: (req) => `pwreset-ip:${req.ip || 'unknown'}`,
+});
+
+export const passwordResetEmailLimiter = rateLimit({
+  store: new RedisStore({
+    sendCommand: ((...args: any[]) => redisClient.call(args[0], ...args.slice(1))) as any,
+  }),
+  windowMs: 3600000, // 1 hour
+  max: parseInt(process.env.PASSWORD_RESET_EMAIL_RATE_LIMIT_MAX || '3'),
+  message: {
+    success: false,
+    message: 'Too many password reset requests, please try again later',
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  // When the request has no email (validator should reject before this
+  // limiter, but be defensive), fall back to IP so the bucket is still
+  // distinct from a different IP doing the same thing.
   keyGenerator: (req) => {
-    return req.body.email || req.ip || 'unknown';
+    const raw = (req.body && typeof req.body.email === 'string') ? req.body.email.trim().toLowerCase() : '';
+    return raw ? `pwreset-email:${raw}` : `pwreset-email:fallback-ip:${req.ip || 'unknown'}`;
   },
 });
+
+/**
+ * Composite reset limiter: applies the IP gate first (fast-fail on
+ * spraying) then the per-email gate (per-account spam). Mounted as a
+ * single middleware on the route so the order is fixed and the route
+ * doesn't have to know about both pieces.
+ *
+ * Backwards-compatible alias — old `passwordResetLimiter` callers keep
+ * working but get the stronger composite check.
+ */
+export const passwordResetLimiter = [passwordResetIpLimiter, passwordResetEmailLimiter];
 
 /**
  * Hourly API rate limiter based on user tier

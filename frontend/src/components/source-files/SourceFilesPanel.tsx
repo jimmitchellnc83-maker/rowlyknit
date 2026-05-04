@@ -117,11 +117,15 @@ export default function SourceFilesPanel({
               }
             }}
           />
+          {/* Upload is the primary affordance on this panel — keep the
+              touch target at the 44px minimum so it's tappable on iPad
+              + PWA. Codex review on PR #381 flagged the previous 24px
+              vertical (`py-1.5`) as a regression hazard. */}
           <button
             type="button"
             disabled={uploading}
             onClick={() => fileInputRef.current?.click()}
-            className="rounded bg-purple-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-purple-700 disabled:opacity-50"
+            className="inline-flex min-h-[44px] items-center rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-purple-700 disabled:opacity-50"
           >
             {uploading ? 'Uploading…' : '+ Upload'}
           </button>
@@ -161,16 +165,22 @@ export default function SourceFilesPanel({
             {sourceFiles.map((sf) => (
               <li
                 key={sf.id}
-                className={`rounded px-2 py-1.5 text-sm flex items-center justify-between gap-2 flex-shrink-0 lg:flex-shrink lg:w-auto w-[180px] sm:w-[220px] ${
+                className={`rounded text-sm flex items-center justify-between gap-2 flex-shrink-0 lg:flex-shrink lg:w-auto w-[180px] sm:w-[220px] ${
                   activeId === sf.id
                     ? 'bg-purple-100 dark:bg-purple-900/40'
                     : 'hover:bg-gray-50 dark:hover:bg-gray-800'
                 }`}
               >
+                {/* Touch targets on a Source-files row.
+                      - File-row open: min-h-[44px] (was px-2 py-1.5 = ~28px).
+                      - Delete: 44x44 square so the × is tappable on iPad.
+                      - Confirm/Cancel: 44px tall, 44px min-w each.
+                    Codex review on PR #381 flagged each of these as below
+                    the 44px Apple HIG / Material Material minimum. */}
                 <button
                   type="button"
                   onClick={() => setActiveId(sf.id)}
-                  className="flex-1 text-left truncate min-w-0"
+                  className="min-h-[44px] flex-1 text-left truncate min-w-0 px-3 py-2"
                   title={sf.originalFilename ?? sf.id}
                 >
                   <span className="flex items-center gap-1.5">
@@ -190,19 +200,20 @@ export default function SourceFilesPanel({
                   </span>
                 </button>
                 {pendingDelete?.id === sf.id ? (
-                  <span className="flex items-center gap-1 text-xs flex-shrink-0">
+                  <span className="flex items-center gap-1 text-xs flex-shrink-0 pr-1">
                     <button
                       type="button"
                       onClick={() => void performDelete(sf)}
-                      className="font-medium text-red-600 hover:text-red-800"
+                      data-testid="source-file-delete-confirm"
+                      className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded px-2 py-1 font-medium text-red-600 hover:bg-red-50 hover:text-red-800 dark:hover:bg-red-900/20"
                     >
                       Confirm
                     </button>
-                    <span className="text-gray-400">·</span>
                     <button
                       type="button"
                       onClick={() => setPendingDelete(null)}
-                      className="text-gray-500 hover:text-gray-700"
+                      data-testid="source-file-delete-cancel"
+                      className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded px-2 py-1 text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-800"
                     >
                       Cancel
                     </button>
@@ -211,7 +222,7 @@ export default function SourceFilesPanel({
                   <button
                     type="button"
                     onClick={() => setPendingDelete(sf)}
-                    className="text-xs text-red-600 hover:text-red-800 flex-shrink-0"
+                    className="inline-flex min-h-[44px] min-w-[44px] flex-shrink-0 items-center justify-center text-base text-red-600 hover:bg-red-50 hover:text-red-800 dark:hover:bg-red-900/20 mr-1"
                     aria-label="Delete file"
                   >
                     ×
