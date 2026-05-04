@@ -13,8 +13,9 @@ interface ImportMetaEnv {
   /** When 'true', `/patterns/:id/make` renders the canonical Make Mode
    *  and Pattern Detail shows an "Open in Make Mode" entry button for
    *  patterns with a canonical `pattern_models` twin. Default (unset /
-   *  any other value) renders NotFound on the route and hides the
-   *  entry button so users only see surfaces backed by real data. */
+   *  any other value): the route redirects to `/patterns` and the
+   *  Pattern Detail entry button is hidden, so users only see surfaces
+   *  backed by real data. */
   readonly VITE_DESIGNER_MAKE_MODE?: string;
 }
 

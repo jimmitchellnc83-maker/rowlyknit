@@ -25,8 +25,11 @@ export const isDesignerAuthorModeEnabled = (): boolean =>
 /** When true, `/patterns/:id/make` renders the canonical Make Mode and
  *  Pattern Detail surfaces an "Open in Make Mode" entry button for any
  *  legacy pattern that has a canonical `pattern_models` twin. Default
- *  false: the route renders a 404 / NotFound and the entry button is
+ *  false: the route redirects to `/patterns` and the entry button is
  *  hidden, so users only see surfaces that have a working data path.
+ *  Redirect (vs NotFound) keeps a typed-URL bounce gentle and lands the
+ *  user on a page that exists for them, mirroring the sibling redirect
+ *  Author Mode does to `/patterns/:id/make` when its own flag is off.
  *
  *  This intentionally does NOT route project-level "Resume Knitting"
  *  through the canonical surface — those persistence layers diverge
