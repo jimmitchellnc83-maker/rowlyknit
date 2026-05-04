@@ -4,6 +4,7 @@ Allow: /privacy
 Allow: /terms
 Allow: /calculators
 Allow: /calculators/gauge
+Allow: /calculators/size
 Allow: /calculators/gift-size
 Disallow: /login
 Disallow: /register

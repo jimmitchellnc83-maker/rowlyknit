@@ -549,7 +549,10 @@ export const PAGE_HELP: PageHelpRoute[] = [
     },
   },
   {
-    pattern: /^\/calculators\/gift-size$/,
+    // Match both the canonical /calculators/size and the legacy
+    // /calculators/gift-size alias so help loads on either URL while
+    // search engines transition.
+    pattern: /^\/calculators\/(size|gift-size)$/,
     help: {
       title: 'Gift size calculator',
       tagline: 'Every tool on this page, step by step.',

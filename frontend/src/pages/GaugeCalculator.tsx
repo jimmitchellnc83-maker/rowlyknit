@@ -511,7 +511,7 @@ export default function GaugeCalculator() {
         </h2>
         <ul className="mt-2 space-y-1 text-purple-700 dark:text-purple-400">
           <li>
-            <Link to="/calculators/gift-size" className="hover:underline">
+            <Link to="/calculators/size" className="hover:underline">
               Knitting size calculator
             </Link>{' '}
             <span className="text-gray-600 dark:text-gray-400">

@@ -30,7 +30,10 @@ const CALCULATORS: CalculatorLink[] = [
     title: 'Knitting Size Calculator',
     description:
       'Enter a chest or bust measurement and a fit style; get a recommended size across women, men, children, and baby sizing schemes. Works for gifts or your own projects.',
-    href: '/calculators/gift-size',
+    // Canonical Size Calculator route (renamed from /calculators/gift-size
+    // during the Auth + Launch Polish Sprint 2026-05-04). The old slug
+    // still works as an alias for backwards compatibility.
+    href: '/calculators/size',
     publicAvailable: true,
   },
 ];
@@ -131,14 +134,15 @@ export default function Calculators() {
           </h2>
           <p className="mt-2 max-w-2xl text-sm text-gray-700 dark:text-gray-300">
             Rowly is the workspace for hand knitters — track your projects row-by-row, organize
-            your yarn stash, store patterns, and design your own garments. Free while we&apos;re
-            in early access.
+            your yarn stash, store patterns, and design your own garments.
           </p>
+          {/* CTA copy: paid-app trial language. The calculators
+              themselves stay open without an account. */}
           <Link
             to="/register"
             className="mt-4 inline-block rounded-lg bg-purple-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-purple-700"
           >
-            Sign up free
+            Try Rowly
           </Link>
         </section>
       ) : null}

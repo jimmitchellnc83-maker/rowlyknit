@@ -31,6 +31,21 @@ export const ALLOWED_PROJECT_TYPES = [
 ];
 
 /**
+ * `projects.status` enum. Mirrors the original migration comment
+ * (`active, paused, completed, archived`) plus `planned`, which the
+ * Edit Project modal has surfaced for a long time even though the DB
+ * column was free-form. Lock the contract here so a stray `status`
+ * value can't slip into the row.
+ */
+export const ALLOWED_PROJECT_STATUSES = [
+  'planned',
+  'active',
+  'paused',
+  'completed',
+  'archived',
+];
+
+/**
  * Return allowed project types for UI/API consumers
  */
 export async function getProjectTypes(req: Request, res: Response) {
@@ -246,6 +261,20 @@ export async function createProject(req: Request, res: Response) {
 
 /**
  * Update project
+ *
+ * Hardening contract — Auth + Launch Polish Sprint 2026-05-04. Live
+ * smoke against PR #381 surfaced two issues:
+ *
+ *   - `name` of `""` (or whitespace-only) was being persisted, blanking
+ *     the project title. Now: if `name` is sent at all, it must be a
+ *     non-empty string after trim.
+ *   - `recipient_id` was being silently accepted and dropped on the
+ *     floor (the `projects` table has no such column — recipient
+ *     linkage runs through the `gifts` join table). Silent drop hides
+ *     bugs; reject with 422 so the frontend learns to use the right
+ *     field. Same for any other unknown body keys.
+ *
+ * Allowed fields below are the only ones that ever reach the UPDATE.
  */
 export async function updateProject(req: Request, res: Response) {
   const userId = req.user!.userId;
@@ -260,7 +289,35 @@ export async function updateProject(req: Request, res: Response) {
     throw new NotFoundError('Project not found');
   }
 
-  // Whitelist allowed fields to prevent mass assignment
+  // Whitelist allowed fields to prevent mass assignment.
+  const ALLOWED_BODY_KEYS = new Set([
+    'name',
+    'description',
+    'projectType',
+    'startDate',
+    'targetCompletionDate',
+    'completedDate',
+    'status',
+    'notes',
+    'metadata',
+    'tags',
+    'isFavorite',
+  ]);
+
+  const incomingKeys = Object.keys(req.body ?? {});
+  const unknownKeys = incomingKeys.filter((k) => !ALLOWED_BODY_KEYS.has(k));
+  if (unknownKeys.length > 0) {
+    // The PUT /api/projects/:id route is the one the Edit Project modal
+    // talks to; pinning the contract here keeps the modal honest. The
+    // most common accidental key is `recipientId` / `recipient_id`,
+    // which the modal has historically sent even though the projects
+    // table has no such column (recipient linkage flows through the
+    // `gifts` table). Caller should drop these before sending.
+    throw new ValidationError(
+      `Unknown field(s): ${unknownKeys.join(', ')}. Allowed: ${[...ALLOWED_BODY_KEYS].join(', ')}.`,
+    );
+  }
+
   const {
     name,
     description,
@@ -279,9 +336,14 @@ export async function updateProject(req: Request, res: Response) {
     updated_at: new Date(),
   };
 
-  if (name !== undefined) updateData.name = name;
+  if (name !== undefined) {
+    if (typeof name !== 'string' || name.trim().length === 0) {
+      throw new ValidationError('Project name cannot be empty');
+    }
+    updateData.name = name.trim();
+  }
   if (description !== undefined) updateData.description = description;
-  if (projectType !== undefined) {
+  if (projectType !== undefined && projectType !== null && projectType !== '') {
     if (!ALLOWED_PROJECT_TYPES.includes(projectType)) {
       throw new ValidationError(`Project type must be one of: ${ALLOWED_PROJECT_TYPES.join(', ')}`);
     }
@@ -290,7 +352,12 @@ export async function updateProject(req: Request, res: Response) {
   if (startDate !== undefined) updateData.start_date = startDate || null;
   if (targetCompletionDate !== undefined) updateData.target_completion_date = targetCompletionDate || null;
   if (completedAt !== undefined) updateData.completed_at = completedAt || null;
-  if (status !== undefined) {
+  if (status !== undefined && status !== null && status !== '') {
+    if (!ALLOWED_PROJECT_STATUSES.includes(status)) {
+      throw new ValidationError(
+        `Status must be one of: ${ALLOWED_PROJECT_STATUSES.join(', ')}`,
+      );
+    }
     updateData.status = status;
 
     if (status === 'completed' && updateData.completed_at === undefined) {

@@ -276,7 +276,16 @@ export default function ProjectDetail() {
 
   const handleUpdateProject = async (data: EditProjectFormData) => {
     try {
-      await axios.put(`/api/projects/${id}`, data);
+      // Strip `recipientId` before PUT — the projects table has no
+      // `recipient_id` column (recipient linkage flows through the
+      // `gifts` join table), and after the Auth + Launch Polish Sprint
+      // the backend explicitly rejects unknown body keys. The modal
+      // still surfaces a recipient picker as a UI placeholder, but
+      // selecting one is currently a no-op until a "set gift recipient"
+      // surface lands.
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { recipientId, ...payload } = data;
+      await axios.put(`/api/projects/${id}`, payload);
       toast.success('Project updated successfully!');
       await fetchProject();
     } catch (error: any) {

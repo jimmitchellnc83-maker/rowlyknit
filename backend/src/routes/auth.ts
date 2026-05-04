@@ -3,7 +3,12 @@ import { body } from 'express-validator';
 import * as authController from '../controllers/authController';
 import { authenticate } from '../middleware/auth';
 import { validate } from '../middleware/validator';
-import { authLimiter, passwordResetLimiter } from '../middleware/rateLimiter';
+import {
+  loginLimiter,
+  registerLimiter,
+  passwordResetIpLimiter,
+  passwordResetEmailLimiter,
+} from '../middleware/rateLimiter';
 import { requireSameOrigin } from '../middleware/originCheck';
 import { asyncHandler } from '../utils/errorHandler';
 
@@ -16,7 +21,7 @@ const router = Router();
  */
 router.post(
   '/register',
-  authLimiter,
+  registerLimiter,
   [
     body('email').isEmail().normalizeEmail(),
     body('password').isLength({ min: 8 }),
@@ -35,7 +40,7 @@ router.post(
 router.post(
   '/login',
   requireSameOrigin,
-  authLimiter,
+  loginLimiter,
   [
     body('email').isEmail().normalizeEmail(),
     body('password').notEmpty(),
@@ -113,7 +118,10 @@ router.get('/verify-email', asyncHandler(authController.verifyEmail));
  */
 router.post(
   '/request-password-reset',
-  passwordResetLimiter,
+  // Composite: IP gate first (cheap, blocks email-spraying from one origin),
+  // per-email gate second (blocks repeated reset emails to one address).
+  passwordResetIpLimiter,
+  passwordResetEmailLimiter,
   [body('email').isEmail().normalizeEmail()],
   validate,
   asyncHandler(authController.requestPasswordReset)
