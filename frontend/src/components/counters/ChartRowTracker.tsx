@@ -53,7 +53,7 @@ export default function ChartRowTracker({
           <button
             type="button"
             onClick={() => onStep(1)}
-            disabled={disabled}
+            disabled={disabled || currentRow >= chart.height}
             className="flex h-12 w-12 items-center justify-center rounded-lg bg-amber-500 text-white shadow hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-40"
             aria-label="Next chart row"
           >

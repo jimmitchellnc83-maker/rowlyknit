@@ -123,7 +123,7 @@ export default function Register() {
               minLength={8}
             />
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              At least 8 characters with letters, numbers, and a special character.
+              At least 8 characters with an uppercase letter, a lowercase letter, a number, and a special character (e.g., !@#$%).
             </p>
           </div>
 

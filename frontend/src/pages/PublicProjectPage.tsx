@@ -259,7 +259,13 @@ export default function PublicProjectPage() {
           <div className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4">
             {project.photos.slice(1).map((p, idx) => (
               <figure key={idx} className="overflow-hidden rounded-lg bg-gray-100 dark:bg-gray-800">
-                <img src={p.url} alt={p.caption ?? `Photo ${idx + 2}`} className="h-full w-full object-cover" />
+                <img
+                  src={p.url}
+                  alt={p.caption ?? `Photo ${idx + 2}`}
+                  loading="lazy"
+                  decoding="async"
+                  className="h-full w-full object-cover"
+                />
                 {p.caption ? (
                   <figcaption className="px-3 py-2 text-xs text-gray-600 dark:text-gray-400">
                     {p.caption}

@@ -16,18 +16,18 @@ export default function ProjectPatternsList({ patterns, onRemove, onSelectClick,
         <div className="flex gap-2">
           <button
             onClick={onSelectClick}
-            className="text-purple-600 hover:text-purple-700 text-xs flex items-center gap-1"
+            className="inline-flex min-h-[44px] items-center gap-1 rounded px-3 py-2 text-sm text-purple-600 hover:bg-purple-50 hover:text-purple-700"
             title="Select existing pattern"
           >
-            <FiPlus className="h-4 w-4" />
+            <FiPlus className="h-4 w-4" aria-hidden="true" />
             Select
           </button>
           <button
             onClick={onUploadClick}
-            className="px-2 py-1 bg-purple-600 text-white rounded text-xs hover:bg-purple-700 flex items-center gap-1"
+            className="inline-flex min-h-[44px] items-center gap-1 rounded bg-purple-600 px-3 py-2 text-sm text-white hover:bg-purple-700"
             title="Upload new pattern"
           >
-            <FiPlus className="h-3 w-3" />
+            <FiPlus className="h-4 w-4" aria-hidden="true" />
             Upload
           </button>
         </div>
@@ -36,19 +36,20 @@ export default function ProjectPatternsList({ patterns, onRemove, onSelectClick,
       {patterns.length > 0 ? (
         <ul className="space-y-2">
           {patterns.map((pattern: any) => (
-            <li key={pattern.id} className="flex items-center justify-between text-sm">
+            <li key={pattern.id} className="flex items-center justify-between gap-2 text-sm">
               <Link
                 to={`/patterns/${pattern.id}`}
-                className="text-purple-600 hover:text-purple-700 flex-1"
+                className="flex min-h-[44px] flex-1 items-center text-purple-600 hover:text-purple-700"
               >
                 {pattern.name}
               </Link>
               <button
                 onClick={() => onRemove(pattern.id)}
-                className="text-red-600 hover:text-red-700 ml-2"
+                className="inline-flex h-11 w-11 flex-shrink-0 items-center justify-center rounded text-red-600 hover:bg-red-50 hover:text-red-700"
                 title="Remove pattern"
+                aria-label={`Remove ${pattern.name}`}
               >
-                <FiX className="h-4 w-4" />
+                <FiX className="h-4 w-4" aria-hidden="true" />
               </button>
             </li>
           ))}

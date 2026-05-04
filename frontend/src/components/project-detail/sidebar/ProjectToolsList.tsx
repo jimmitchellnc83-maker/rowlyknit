@@ -13,27 +13,29 @@ export default function ProjectToolsList({ tools, onRemove, onAddClick }: Props)
         <h2 className="text-lg font-semibold text-gray-900">Tools</h2>
         <button
           onClick={onAddClick}
-          className="text-purple-600 hover:text-purple-700"
+          className="inline-flex h-11 w-11 items-center justify-center rounded text-purple-600 hover:bg-purple-50 hover:text-purple-700"
           title="Add tool"
+          aria-label="Add tool"
         >
-          <FiPlus className="h-5 w-5" />
+          <FiPlus className="h-5 w-5" aria-hidden="true" />
         </button>
       </div>
 
       {tools.length > 0 ? (
         <ul className="space-y-2">
           {tools.map((tool: any) => (
-            <li key={tool.id} className="flex items-center justify-between text-sm">
-              <span className="text-gray-700 flex-1">
+            <li key={tool.id} className="flex items-center justify-between gap-2 text-sm">
+              <span className="flex min-h-[44px] flex-1 items-center text-gray-700">
                 {tool.name}
-                {tool.size && <span className="text-gray-500"> ({tool.size})</span>}
+                {tool.size && <span className="text-gray-500">&nbsp;({tool.size})</span>}
               </span>
               <button
                 onClick={() => onRemove(tool.id)}
-                className="text-red-600 hover:text-red-700 ml-2"
+                className="inline-flex h-11 w-11 flex-shrink-0 items-center justify-center rounded text-red-600 hover:bg-red-50 hover:text-red-700"
                 title="Remove tool"
+                aria-label={`Remove ${tool.name}`}
               >
-                <FiX className="h-4 w-4" />
+                <FiX className="h-4 w-4" aria-hidden="true" />
               </button>
             </li>
           ))}
