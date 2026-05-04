@@ -1059,3 +1059,148 @@ describe('rowToPattern — read-side normalization for legacy rows', () => {
     expect(result!.sections[0].notes).toBeNull();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Codex P1 follow-up to PR #372: read-side normalization MUST NOT mint a
+// fresh `randomUUID()` for sections missing an `id`. `progressState` is keyed
+// by section id (`rowsBySection`, `activeSectionId`); a non-deterministic
+// fallback would silently zero out saved Make-Mode progress on every reload.
+// ---------------------------------------------------------------------------
+
+describe('rowToPattern — deterministic section ids for legacy rows', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  const legacyRowWithIdlessSections = () => ({
+    id: 'p1',
+    user_id: 'u1',
+    source_pattern_id: null,
+    source_project_id: null,
+    name: 'Legacy idless',
+    craft: 'knit',
+    technique: 'standard',
+    gauge_profile: '{}',
+    size_set: '{"active":"x","sizes":[]}',
+    // Two sections with NO `id` field — simulates a row written before the
+    // boundary normalization landed (or by a writer that skipped id).
+    sections:
+      '[{"name":"Body","kind":"sweater-body","sortOrder":0},{"name":"Sleeve","kind":"sweater-sleeve","sortOrder":1}]',
+    legend: '{"overrides":{}}',
+    materials: '[]',
+    // Pre-existing Make-Mode progress saved against the deterministic fallback ids.
+    progress_state:
+      '{"activeSectionId":"section-0","rowsBySection":{"section-0":12,"section-1":3}}',
+    notes: null,
+    schema_version: 1,
+    created_at: new Date(),
+    updated_at: new Date(),
+    deleted_at: null,
+  });
+
+  it('returns the SAME section ids on repeated reads of an idless legacy row', async () => {
+    mockedDb.__builder.first
+      .mockResolvedValueOnce(legacyRowWithIdlessSections())
+      .mockResolvedValueOnce(legacyRowWithIdlessSections());
+
+    const { getPattern } = await import('../patternService');
+    const first = await getPattern('p1', 'u1');
+    const second = await getPattern('p1', 'u1');
+
+    expect(first).not.toBeNull();
+    expect(second).not.toBeNull();
+    const firstIds = first!.sections.map((s) => s.id);
+    const secondIds = second!.sections.map((s) => s.id);
+    expect(firstIds).toEqual(secondIds);
+    // And the deterministic shape is `section-${index}` so callers can predict it.
+    expect(firstIds).toEqual(['section-0', 'section-1']);
+  });
+
+  it('keeps progressState keyed by section id aligned across reads', async () => {
+    mockedDb.__builder.first.mockResolvedValueOnce(legacyRowWithIdlessSections());
+
+    const { getPattern } = await import('../patternService');
+    const result = await getPattern('p1', 'u1');
+    expect(result).not.toBeNull();
+
+    const ids = result!.sections.map((s) => s.id);
+    const progress = result!.progressState as {
+      activeSectionId?: string;
+      rowsBySection?: Record<string, number>;
+    };
+    // The active id from progress must still resolve to one of the
+    // returned sections (i.e. stable + predictable).
+    expect(ids).toContain(progress.activeSectionId);
+    // And every key in rowsBySection should still match a returned section id.
+    for (const key of Object.keys(progress.rowsBySection ?? {})) {
+      expect(ids).toContain(key);
+    }
+    expect(progress.rowsBySection?.['section-0']).toBe(12);
+    expect(progress.rowsBySection?.['section-1']).toBe(3);
+  });
+
+  it('preserves real stored ids when present (does not overwrite with section-${i})', async () => {
+    mockedDb.__builder.first.mockResolvedValueOnce({
+      ...legacyRowWithIdlessSections(),
+      sections:
+        '[{"id":"real-uuid-aaa","name":"Body","kind":"sweater-body","sortOrder":0}]',
+    });
+
+    const { getPattern } = await import('../patternService');
+    const result = await getPattern('p1', 'u1');
+    expect(result!.sections[0].id).toBe('real-uuid-aaa');
+  });
+});
+
+describe('createPattern — write-side still mints real UUIDs for missing ids', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('persists a real UUID (not a deterministic placeholder) when input.section.id is missing', async () => {
+    mockedDb.__builder.returning.mockResolvedValueOnce([
+      {
+        id: 'p1',
+        user_id: 'u1',
+        source_pattern_id: null,
+        source_project_id: null,
+        name: 'New Pattern',
+        craft: 'knit',
+        technique: 'standard',
+        gauge_profile: '{}',
+        size_set: '{"active":"x","sizes":[{"id":"x","label":"Default","measurements":{}}]}',
+        sections: '[]',
+        legend: '{"overrides":{}}',
+        materials: '[]',
+        progress_state: '{}',
+        notes: null,
+        schema_version: 1,
+        created_at: new Date(),
+        updated_at: new Date(),
+        deleted_at: null,
+      },
+    ]);
+
+    await createPattern('u1', {
+      name: 'New Pattern',
+      craft: 'knit',
+      sections: [
+        // No `id` — write-side must mint a real UUID so it gets persisted.
+        { name: 'Body', kind: 'sweater-body', sortOrder: 0 } as any,
+      ],
+    });
+
+    const insertArg = mockedDb.__builder.insert.mock.calls[0][0];
+    const sentSections = JSON.parse(insertArg.sections as string);
+    expect(sentSections).toHaveLength(1);
+    // Should NOT be the deterministic read-side placeholder — write-side
+    // mints real UUIDs because the value is going to be persisted.
+    expect(sentSections[0].id).not.toBe('section-0');
+    // And it should be a real UUID-shaped string, not empty.
+    expect(typeof sentSections[0].id).toBe('string');
+    expect(sentSections[0].id.length).toBeGreaterThan(10);
+    expect(sentSections[0].id).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+    );
+  });
+});

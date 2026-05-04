@@ -757,14 +757,29 @@ const makeSection = (input: MakeSectionInput): PatternSection => ({
  *
  * Preserves any valid values; only fills holes. Existing valid `parameters`
  * objects are passed through unchanged.
+ *
+ * `idStrategy` controls the missing-id fallback:
+ *  - `'random'` (default, write-side) — mints a fresh `randomUUID()` so the
+ *    write call gets a real persisted id.
+ *  - `'deterministic'` (read-side) — uses `section-${fallbackSortOrder}` so
+ *    re-reads of a legacy row missing `id` always return the SAME id. This
+ *    matters because `progressState.rowsBySection` and
+ *    `progressState.activeSectionId` are keyed by section id; if reads
+ *    minted a new UUID per request, saved Make-Mode progress would appear
+ *    to reset on every reload.
  */
-export const normalizePatternSection = (
+type SectionIdStrategy = 'random' | 'deterministic';
+
+const buildNormalizedSection = (
   raw: unknown,
-  fallbackSortOrder = 0,
+  fallbackSortOrder: number,
+  idStrategy: SectionIdStrategy,
 ): PatternSection => {
   const s = (raw ?? {}) as Partial<PatternSection> & Record<string, unknown>;
+  const fallbackId =
+    idStrategy === 'deterministic' ? `section-${fallbackSortOrder}` : randomUUID();
   return {
-    id: typeof s.id === 'string' && s.id.length > 0 ? s.id : randomUUID(),
+    id: typeof s.id === 'string' && s.id.length > 0 ? s.id : fallbackId,
     name: typeof s.name === 'string' ? s.name : '',
     // SectionKind is a string enum; if a writer sent something garbage, fall
     // back to the catch-all `custom-draft-section` rather than throwing.
@@ -788,6 +803,22 @@ export const normalizePatternSection = (
   };
 };
 
+/** Write-side normalization. Missing ids → `randomUUID()` (gets persisted). */
+export const normalizePatternSection = (
+  raw: unknown,
+  fallbackSortOrder = 0,
+): PatternSection => buildNormalizedSection(raw, fallbackSortOrder, 'random');
+
+/**
+ * Read-side normalization for legacy rows whose stored sections may be
+ * missing fields. Missing ids → deterministic `section-${i}` so the same
+ * row returns the same section ids on every read.
+ */
+export const normalizePatternSectionForRead = (
+  raw: unknown,
+  fallbackSortOrder = 0,
+): PatternSection => buildNormalizedSection(raw, fallbackSortOrder, 'deterministic');
+
 const SECTION_KINDS: ReadonlySet<SectionKind> = new Set([
   'sweater-body',
   'sweater-sleeve',
@@ -800,10 +831,21 @@ const SECTION_KINDS: ReadonlySet<SectionKind> = new Set([
   'custom-draft-section',
 ]);
 
-/** Apply `normalizePatternSection` across an array, preserving order. */
+/** Apply write-side `normalizePatternSection` across an array. */
 export const normalizePatternSections = (raw: unknown): PatternSection[] => {
   if (!Array.isArray(raw)) return [];
-  return raw.map((s, i) => normalizePatternSection(s, i));
+  return raw.map((s, i) => buildNormalizedSection(s, i, 'random'));
+};
+
+/**
+ * Apply read-side normalization across an array. Used by `rowToPattern` so
+ * that legacy rows with missing section ids return stable, deterministic
+ * ids on every read (`section-0`, `section-1`, …) instead of a fresh UUID
+ * per request.
+ */
+export const normalizePatternSectionsForRead = (raw: unknown): PatternSection[] => {
+  if (!Array.isArray(raw)) return [];
+  return raw.map((s, i) => buildNormalizedSection(s, i, 'deterministic'));
 };
 
 const pickKeys = (
@@ -1061,7 +1103,7 @@ const rowToPattern = (row: PatternModelRow): CanonicalPattern => ({
   technique: row.technique,
   gaugeProfile: parseJsonb<GaugeProfile>(row.gauge_profile, defaultGaugeProfile()),
   sizeSet: parseJsonb<SizeSet>(row.size_set, { active: '', sizes: [] }),
-  sections: normalizePatternSections(parseJsonb<unknown[]>(row.sections, [])),
+  sections: normalizePatternSectionsForRead(parseJsonb<unknown[]>(row.sections, [])),
   legend: parseJsonb<PatternLegend>(row.legend, { overrides: {} }),
   materials: parseJsonb<MaterialEntry[]>(row.materials, []),
   progressState: parseJsonb<ProgressState>(row.progress_state, {}),
