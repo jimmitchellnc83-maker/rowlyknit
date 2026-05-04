@@ -113,7 +113,7 @@ describe('ProjectHeader unified Make Mode entry', () => {
     expect(screen.getByTestId('project-toggle-workspace')).toHaveTextContent(/resume knitting/i);
   });
 
-  it('routes directly to canonical Make Mode for single-pattern + twin (N=1)', () => {
+  it('routes directly to canonical Make Mode only when the project has exactly one pattern AND it has a twin', () => {
     renderHeader(
       defaultProps({
         patterns: [
@@ -129,7 +129,7 @@ describe('ProjectHeader unified Make Mode entry', () => {
     expect(screen.queryByTestId('make-mode-picker-list')).not.toBeInTheDocument();
   });
 
-  it('opens the picker when the project has multiple canonical patterns (N≥2)', () => {
+  it('opens the picker when the project has multiple canonical patterns (N≥2 canonical)', () => {
     renderHeader(
       defaultProps({
         patterns: [
@@ -144,6 +144,32 @@ describe('ProjectHeader unified Make Mode entry', () => {
     expect(screen.getAllByTestId('make-mode-picker-canonical-row')).toHaveLength(2);
     expect(screen.getByText('Body chart')).toBeInTheDocument();
     expect(screen.getByText('Sleeve chart')).toBeInTheDocument();
+  });
+
+  it('opens the picker (NOT direct-navigates) when the project has multiple patterns but only one has a canonical twin', () => {
+    // Regression: previously, canonicalCount === 1 routed directly to
+    // the twin even when the project had additional legacy-only
+    // patterns, hiding them. Now we always show the picker for
+    // multi-pattern projects so legacy-only siblings stay visible
+    // (rendered as disabled rows).
+    renderHeader(
+      defaultProps({
+        patterns: [
+          { id: 'pat-1', name: 'Body chart', canonicalPatternModelId: 'cpm-1' },
+          { id: 'pat-2', name: 'Sleeve PDF', canonicalPatternModelId: null },
+        ],
+      }),
+    );
+    fireEvent.click(screen.getByTestId('project-open-make-mode'));
+    // Picker opened — direct-navigate did NOT fire.
+    expect(screen.getByTestId('make-mode-picker-list')).toBeInTheDocument();
+    expect(screen.queryByTestId('make-mode-page')).not.toBeInTheDocument();
+    expect(screen.getAllByTestId('make-mode-picker-canonical-row')).toHaveLength(1);
+    const legacyRows = screen.getAllByTestId('make-mode-picker-legacy-row');
+    expect(legacyRows).toHaveLength(1);
+    expect(legacyRows[0]).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.getByText('Body chart')).toBeInTheDocument();
+    expect(screen.getByText('Sleeve PDF')).toBeInTheDocument();
   });
 
   it('keeps Project workspace as a secondary action alongside canonical CTA', () => {

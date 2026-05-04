@@ -9,12 +9,11 @@
  * canonical row is reachable via the legacy list — surfacing it again as
  * a "canonical-only" pick would be a confusing dupe.
  *
- * The helper drops any canonical with `sourcePatternId !== null`,
- * regardless of whether the pointed-to legacy row is in the legacy list
- * (a defensive choice — if the legacy is missing for any reason, the
- * user can still re-attach via the legacy picker after we backfill it,
- * and this avoids leaking a "ghost canonical" pick that would route to a
- * different code path on the backend).
+ * The helper drops a canonical only when its `sourcePatternId` matches a
+ * visible legacy row OR a legacy already attached to the project. Stale
+ * links (sourcePatternId set, but pointed-to legacy missing/deleted) are
+ * KEPT — the backend's `materializeLegacyStubForCanonical` has a recovery
+ * branch for them, and hiding them in the UI would block the recovery.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -35,7 +34,7 @@ describe('buildAvailablePatternOptions', () => {
     expect(out.map((o) => o.kind)).toEqual(['legacy', 'legacy', 'canonical']);
   });
 
-  it('drops canonical patterns whose sourcePatternId is set (no duplicate twin in the picker)', () => {
+  it('drops a canonical when its sourcePatternId matches a visible legacy row (no duplicate twin)', () => {
     const out = buildAvailablePatternOptions(
       [
         { id: 'legacy-1', name: 'Sweater', designer: 'Alice' },
@@ -48,21 +47,63 @@ describe('buildAvailablePatternOptions', () => {
       ],
     );
     expect(out.map((o) => o.id)).toEqual(['legacy-1', 'cpm-2']);
-    // Specifically: the twin canonical is NOT present.
     expect(out.find((o) => o.id === 'cpm-twin-of-1')).toBeUndefined();
   });
 
-  it('drops the canonical even when the linked legacy is not in the list (defensive — never leak a phantom canonical pick)', () => {
-    // Canonical claims a back-link that isn't represented in the legacy
-    // list (could be soft-deleted, or just not yet refreshed). The
-    // helper still drops it — letting it through would route to the
-    // canonical attach branch but the user thinks they're picking a
-    // standalone canonical, which it isn't.
+  it('drops a canonical when its sourcePatternId is in attachedLegacyIds (alive twin attached via project_patterns even if soft-deleted upstream)', () => {
+    // The user's `/api/patterns` list filters soft-deleted rows, but
+    // `project.patterns[i]` still surfaces a project-attached row even
+    // if its legacy was soft-deleted. The canonical's twin link points
+    // at that attached id, so we drop it from the picker — the project
+    // already has it via the attached legacy.
     const out = buildAvailablePatternOptions(
-      [],
-      [{ id: 'cpm-orphan', name: 'Orphan', sourcePatternId: 'legacy-missing' }],
+      /* legacy (full /api/patterns list) */ [],
+      [{ id: 'cpm-attached-twin', name: 'Already attached', sourcePatternId: 'legacy-attached' }],
+      /* attachedLegacyIds (project.patterns[i].id) */ ['legacy-attached'],
     );
     expect(out).toHaveLength(0);
+  });
+
+  it('keeps a canonical with a STALE link (sourcePatternId set, pointed-to legacy missing) so backend recovery can run', () => {
+    // Canonical claims a back-link that isn't in the legacy list AND
+    // isn't attached to the project. The pointed-to legacy is gone
+    // (deleted, never existed for some reason). The backend
+    // materializer's stale-link branch will recover this on attach by
+    // inserting a fresh stub and overwriting source_pattern_id. Hiding
+    // it here would orphan the canonical permanently.
+    const out = buildAvailablePatternOptions(
+      [],
+      [{ id: 'cpm-stale', name: 'Recoverable', sourcePatternId: 'legacy-zombie' }],
+    );
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ id: 'cpm-stale', kind: 'canonical' });
+  });
+
+  it('keeps a canonical-only pattern (sourcePatternId is null)', () => {
+    const out = buildAvailablePatternOptions(
+      [],
+      [{ id: 'cpm-only', name: 'Designer-only', sourcePatternId: null }],
+    );
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ id: 'cpm-only', kind: 'canonical' });
+  });
+
+  it('handles a mixed list: visible-twin dropped, stale-link kept, canonical-only kept, attached-twin dropped', () => {
+    const out = buildAvailablePatternOptions(
+      [{ id: 'legacy-1', name: 'Visible legacy', designer: null }],
+      [
+        { id: 'cpm-visible-twin', name: 'Visible twin', sourcePatternId: 'legacy-1' },
+        { id: 'cpm-stale', name: 'Stale link', sourcePatternId: 'legacy-zombie' },
+        { id: 'cpm-only', name: 'Designer-only', sourcePatternId: null },
+        { id: 'cpm-attached-twin', name: 'Attached twin', sourcePatternId: 'legacy-attached' },
+      ],
+      ['legacy-attached'],
+    );
+    expect(out.map((o) => o.id)).toEqual([
+      'legacy-1',
+      'cpm-stale',
+      'cpm-only',
+    ]);
   });
 
   it('preserves designer string when present, normalizes missing/undefined to null', () => {

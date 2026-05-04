@@ -842,6 +842,7 @@ export default function ProjectDetail() {
           options={buildAvailablePatternOptions(
             availablePatterns,
             availablePatternModels,
+            (project.patterns || []).map((p: any) => p.id),
           )}
           existingLegacyIds={(project.patterns || []).map((p: any) => p.id)}
           existingCanonicalIds={(project.patterns || [])

@@ -96,16 +96,20 @@ export default function ProjectHeader({
     [canonicalCandidates],
   );
   const showCanonicalEntry = makeModeEnabled && canonicalCount > 0;
-  const singleCanonical =
-    canonicalCount === 1
-      ? canonicalCandidates.find((p) => p.canonicalPatternModelId)?.canonicalPatternModelId ??
-        null
+  // Direct-navigate ONLY when the project has exactly one attached
+  // pattern AND that pattern has a canonical twin. Multi-pattern projects
+  // always go through the picker — even when only one pattern has a
+  // twin — so the user can see the legacy-only siblings (rendered as
+  // disabled rows in MakeModePicker) and isn't routed past them.
+  const directNavigateTarget =
+    canonicalCandidates.length === 1 && canonicalCount === 1
+      ? canonicalCandidates[0].canonicalPatternModelId
       : null;
 
   const handleOpenMakeMode = () => {
     if (!showCanonicalEntry) return;
-    if (singleCanonical) {
-      navigate(`/patterns/${singleCanonical}/make`);
+    if (directNavigateTarget) {
+      navigate(`/patterns/${directNavigateTarget}/make`);
       return;
     }
     setShowPicker(true);
