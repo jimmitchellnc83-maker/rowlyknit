@@ -47,6 +47,10 @@ import {
 } from '../components/project-detail/main';
 import { useKnittingMode } from '../contexts/KnittingModeContext';
 import { readKnittingMode } from '../utils/knittingModeStorage';
+import {
+  buildAvailablePatternOptions,
+  type PatternPickerKind,
+} from '../components/project-detail/availablePatterns';
 
 interface Project {
   id: string;
@@ -208,6 +212,7 @@ export default function ProjectDetail() {
 
   // Available items to add
   const [availablePatterns, setAvailablePatterns] = useState<any[]>([]);
+  const [availablePatternModels, setAvailablePatternModels] = useState<any[]>([]);
   const [availableYarn, setAvailableYarn] = useState<any[]>([]);
   const [availableTools, setAvailableTools] = useState<any[]>([]);
   const [availableRecipients, setAvailableRecipients] = useState<any[]>([]);
@@ -245,13 +250,22 @@ export default function ProjectDetail() {
 
   const fetchAvailableItems = async () => {
     try {
-      const [patternsRes, yarnRes, toolsRes, recipientsRes] = await Promise.all([
+      const [patternsRes, patternModelsRes, yarnRes, toolsRes, recipientsRes] = await Promise.all([
         axios.get('/api/patterns'),
+        // Canonical patterns. Errors here shouldn't break the modal —
+        // legacy patterns are still attachable. The merge helper drops
+        // canonicals that already have a legacy twin, so the fallthrough
+        // mirrors what the picker would render with no canonical-only
+        // patterns at all.
+        axios.get('/api/pattern-models').catch(() => ({ data: { data: [] } })),
         axios.get('/api/yarn'),
         axios.get('/api/tools'),
         axios.get('/api/recipients'),
       ]);
       setAvailablePatterns(patternsRes.data.data.patterns || []);
+      setAvailablePatternModels(
+        Array.isArray(patternModelsRes.data?.data) ? patternModelsRes.data.data : [],
+      );
       setAvailableYarn(yarnRes.data.data.yarn || []);
       setAvailableTools(toolsRes.data.data.tools || []);
       setAvailableRecipients(recipientsRes.data.data.recipients || []);
@@ -319,12 +333,20 @@ export default function ProjectDetail() {
     await fetchProject();
   };
 
-  // Pattern management
-  const handleAddPattern = async (patternId: string) => {
+  // Pattern management. The selection arrives kind-tagged from the modal
+  // so we can route the request body to the correct branch on the
+  // backend — `{ patternId }` for legacy patterns (unchanged historical
+  // behavior) and `{ patternModelId }` for canonical-only patterns
+  // (which the backend resolves through `materializeLegacyStubForCanonical`).
+  const handleAddPattern = async (selection: { kind: PatternPickerKind; id: string }) => {
     try {
-      await axios.post(`/api/projects/${id}/patterns`, { patternId });
+      const body =
+        selection.kind === 'legacy'
+          ? { patternId: selection.id }
+          : { patternModelId: selection.id };
+      await axios.post(`/api/projects/${id}/patterns`, body);
       toast.success('Pattern added to project!');
-      await fetchProject();
+      await Promise.all([fetchProject(), fetchAvailableItems()]);
     } catch (error: any) {
       console.error('Error adding pattern:', error);
       toast.error(error.response?.data?.message || 'Failed to add pattern');
@@ -817,8 +839,14 @@ export default function ProjectDetail() {
 
       {showAddPatternModal && (
         <AddPatternModal
-          availablePatterns={availablePatterns}
-          existingPatternIds={(project.patterns || []).map((p: any) => p.id)}
+          options={buildAvailablePatternOptions(
+            availablePatterns,
+            availablePatternModels,
+          )}
+          existingLegacyIds={(project.patterns || []).map((p: any) => p.id)}
+          existingCanonicalIds={(project.patterns || [])
+            .map((p: any) => p.canonicalPatternModelId)
+            .filter((x: string | null | undefined): x is string => Boolean(x))}
           onClose={() => setShowAddPatternModal(false)}
           onSubmit={handleAddPattern}
         />

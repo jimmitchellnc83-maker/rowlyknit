@@ -8,21 +8,22 @@
  *
  *   1. `addPatternToProject` accepts `patternModelId` (alongside the
  *      existing `patternId` branch) and resolves it via the materializer.
- *   2. `materializeLegacyStubForCanonical` is idempotent — re-attaching
- *      the same canonical pattern to a different project reuses the same
- *      legacy stub instead of inserting duplicates.
+ *   2. `materializeLegacyStubForCanonical` is idempotent + race-safe —
+ *      runs inside one transaction with `SELECT ... FOR UPDATE` on the
+ *      canonical row, so concurrent attaches serialize and the second
+ *      wakes up to the link and reuses the stub.
  *   3. After materialization, opening the legacy stub via
  *      `GET /api/patterns/:id` surfaces `canonicalPatternModelId` (the
  *      Sprint 1 twin lookup follows `pattern_models.source_pattern_id`).
  */
 
-const projectsBuilder = {
+const projectsBuilder: any = {
   where: jest.fn().mockReturnThis(),
   whereNull: jest.fn().mockReturnThis(),
   first: jest.fn(),
 };
 
-const patternsBuilder = {
+const patternsBuilder: any = {
   where: jest.fn().mockReturnThis(),
   whereNull: jest.fn().mockReturnThis(),
   first: jest.fn(),
@@ -30,18 +31,47 @@ const patternsBuilder = {
   returning: jest.fn(),
 };
 
-const projectPatternsBuilder = {
+const projectPatternsBuilder: any = {
   where: jest.fn().mockReturnThis(),
   first: jest.fn(),
   insert: jest.fn().mockResolvedValue(undefined),
 };
 
-const patternModelsBuilder = {
+const patternModelsBuilder: any = {
   where: jest.fn().mockReturnThis(),
   whereNull: jest.fn().mockReturnThis(),
+  forUpdate: jest.fn().mockReturnThis(),
   first: jest.fn(),
   update: jest.fn().mockResolvedValue(undefined),
 };
+
+// Transaction-scoped builders mirror the same shape but track separately,
+// so we can assert that the materializer's lookups + writes all flow
+// through the trx (not raw db) — i.e. that the row lock is real.
+const trxBuilders: Record<string, any> = {
+  pattern_models: {
+    where: jest.fn().mockReturnThis(),
+    whereNull: jest.fn().mockReturnThis(),
+    forUpdate: jest.fn().mockReturnThis(),
+    first: jest.fn(),
+    update: jest.fn().mockResolvedValue(undefined),
+  },
+  patterns: {
+    where: jest.fn().mockReturnThis(),
+    whereNull: jest.fn().mockReturnThis(),
+    first: jest.fn(),
+    insert: jest.fn().mockReturnThis(),
+    returning: jest.fn(),
+  },
+};
+
+const trxFn: any = jest.fn((table: string) => trxBuilders[table] ?? {
+  where: jest.fn().mockReturnThis(),
+  whereNull: jest.fn().mockReturnThis(),
+  first: jest.fn().mockResolvedValue(null),
+});
+
+const transactionMock = jest.fn(async (cb: (trx: any) => Promise<unknown>) => cb(trxFn));
 
 jest.mock('../../config/database', () => {
   const dbFn: any = jest.fn((table: string) => {
@@ -55,6 +85,7 @@ jest.mock('../../config/database', () => {
       first: jest.fn().mockResolvedValue(null),
     };
   });
+  dbFn.transaction = transactionMock;
   return { default: dbFn, __esModule: true };
 });
 
@@ -91,7 +122,7 @@ function makeRes(): any {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  // Re-stub the chained-builder methods after clearAllMocks.
+  // Re-stub chained-builder methods after clearAllMocks.
   projectsBuilder.where = jest.fn().mockReturnThis();
   projectsBuilder.whereNull = jest.fn().mockReturnThis();
   patternsBuilder.where = jest.fn().mockReturnThis();
@@ -100,8 +131,19 @@ beforeEach(() => {
   projectPatternsBuilder.where = jest.fn().mockReturnThis();
   patternModelsBuilder.where = jest.fn().mockReturnThis();
   patternModelsBuilder.whereNull = jest.fn().mockReturnThis();
+  patternModelsBuilder.forUpdate = jest.fn().mockReturnThis();
   patternModelsBuilder.update = jest.fn().mockResolvedValue(undefined);
   projectPatternsBuilder.insert = jest.fn().mockResolvedValue(undefined);
+
+  trxBuilders.pattern_models.where = jest.fn().mockReturnThis();
+  trxBuilders.pattern_models.whereNull = jest.fn().mockReturnThis();
+  trxBuilders.pattern_models.forUpdate = jest.fn().mockReturnThis();
+  trxBuilders.pattern_models.update = jest.fn().mockResolvedValue(undefined);
+  trxBuilders.patterns.where = jest.fn().mockReturnThis();
+  trxBuilders.patterns.whereNull = jest.fn().mockReturnThis();
+  trxBuilders.patterns.insert = jest.fn().mockReturnThis();
+  // Reset transaction wrapper to call-through behavior.
+  transactionMock.mockImplementation(async (cb: (trx: any) => Promise<unknown>) => cb(trxFn));
 });
 
 describe('addPatternToProject — input validation', () => {
@@ -126,44 +168,50 @@ describe('addPatternToProject — input validation', () => {
 });
 
 describe('addPatternToProject — patternModelId branch (canonical-only attach)', () => {
-  it('materializes a legacy stub and links the project to it', async () => {
-    // Project lookup
+  it('materializes a legacy stub via the transactional path and links the project to it', async () => {
     projectsBuilder.first.mockResolvedValueOnce({ id: 'proj-1', user_id: 'user-1' });
-    // Materializer: canonical pattern_models row with no source_pattern_id yet
-    patternModelsBuilder.first.mockResolvedValueOnce({
+    // Materializer (inside transaction): canonical row has no source yet
+    trxBuilders.pattern_models.first.mockResolvedValueOnce({
       id: 'cpm-1',
       user_id: 'user-1',
       source_pattern_id: null,
       name: 'Blog-imported sweater',
     });
-    // Insert into legacy patterns → returns the new id
-    patternsBuilder.returning = jest.fn().mockResolvedValueOnce([{ id: 'legacy-stub-1' }]);
-    // Verification fetch on the freshly-minted legacy stub
+    // Insert into legacy patterns (via trx) → returns the new id
+    trxBuilders.patterns.returning = jest
+      .fn()
+      .mockResolvedValueOnce([{ id: 'legacy-stub-1' }]);
+    // Verification fetch (controller, post-materializer, on raw db)
     patternsBuilder.first.mockResolvedValueOnce({
       id: 'legacy-stub-1',
       user_id: 'user-1',
       name: 'Blog-imported sweater',
     });
-    // No pre-existing project_patterns link
     projectPatternsBuilder.first.mockResolvedValueOnce(undefined);
 
     const res = makeRes();
     await addPatternToProject(makeReq({ patternModelId: 'cpm-1' }), res);
 
-    // Legacy stub was inserted with the canonical's name + traceability
-    // metadata so we can find it again.
-    expect(patternsBuilder.insert).toHaveBeenCalledWith(
+    // The materializer ran inside db.transaction(...).
+    expect(transactionMock).toHaveBeenCalledTimes(1);
+    // Row lock was acquired on the canonical row.
+    expect(trxBuilders.pattern_models.forUpdate).toHaveBeenCalled();
+    // Insert + back-fill happened on the trx, not raw db.
+    expect(trxBuilders.patterns.insert).toHaveBeenCalledWith(
       expect.objectContaining({
         user_id: 'user-1',
         name: 'Blog-imported sweater',
         metadata: expect.stringContaining('canonicalPatternModelId'),
       }),
     );
-    // The canonical row was back-linked via source_pattern_id.
-    expect(patternModelsBuilder.update).toHaveBeenCalledWith(
+    expect(trxBuilders.pattern_models.update).toHaveBeenCalledWith(
       expect.objectContaining({ source_pattern_id: 'legacy-stub-1' }),
     );
-    // The project_patterns row uses the resolved legacy id.
+    // The non-trx helpers did NOT take the canonical write path (defense
+    // against a future refactor that drops the transaction wrapper).
+    expect(patternsBuilder.insert).not.toHaveBeenCalled();
+    expect(patternModelsBuilder.update).not.toHaveBeenCalled();
+    // Project link was made with the resolved legacy id.
     expect(projectPatternsBuilder.insert).toHaveBeenCalledWith(
       expect.objectContaining({
         project_id: 'proj-1',
@@ -176,26 +224,23 @@ describe('addPatternToProject — patternModelId branch (canonical-only attach)'
 
   it('reuses an existing legacy stub when source_pattern_id is already set (idempotent re-attach)', async () => {
     projectsBuilder.first.mockResolvedValueOnce({ id: 'proj-2', user_id: 'user-1' });
-    // Canonical row already has a back-link to a live legacy row
-    patternModelsBuilder.first.mockResolvedValueOnce({
+    trxBuilders.pattern_models.first.mockResolvedValueOnce({
       id: 'cpm-1',
       user_id: 'user-1',
       source_pattern_id: 'legacy-stub-1',
       name: 'Blog-imported sweater',
     });
-    // The legacy row exists and belongs to this user
-    patternsBuilder.first
-      .mockResolvedValueOnce({
-        id: 'legacy-stub-1',
-        user_id: 'user-1',
-        name: 'Blog-imported sweater',
-      })
-      // Verification fetch in the controller after the materializer returns
-      .mockResolvedValueOnce({
-        id: 'legacy-stub-1',
-        user_id: 'user-1',
-        name: 'Blog-imported sweater',
-      });
+    trxBuilders.patterns.first.mockResolvedValueOnce({
+      id: 'legacy-stub-1',
+      user_id: 'user-1',
+      name: 'Blog-imported sweater',
+    });
+    // Verification fetch on raw db (after materializer returns)
+    patternsBuilder.first.mockResolvedValueOnce({
+      id: 'legacy-stub-1',
+      user_id: 'user-1',
+      name: 'Blog-imported sweater',
+    });
     projectPatternsBuilder.first.mockResolvedValueOnce(undefined);
 
     const res = makeRes();
@@ -204,9 +249,9 @@ describe('addPatternToProject — patternModelId branch (canonical-only attach)'
       res,
     );
 
-    // No new insert into legacy patterns — the materializer reused the stub.
-    expect(patternsBuilder.insert).not.toHaveBeenCalled();
-    expect(patternModelsBuilder.update).not.toHaveBeenCalled();
+    // Reuse path: no new insert into legacy patterns, no canonical update.
+    expect(trxBuilders.patterns.insert).not.toHaveBeenCalled();
+    expect(trxBuilders.pattern_models.update).not.toHaveBeenCalled();
     expect(projectPatternsBuilder.insert).toHaveBeenCalledWith(
       expect.objectContaining({
         project_id: 'proj-2',
@@ -217,7 +262,7 @@ describe('addPatternToProject — patternModelId branch (canonical-only attach)'
 
   it('throws NotFoundError when the canonical id does not belong to the user', async () => {
     projectsBuilder.first.mockResolvedValueOnce({ id: 'proj-1', user_id: 'user-1' });
-    patternModelsBuilder.first.mockResolvedValueOnce(undefined);
+    trxBuilders.pattern_models.first.mockResolvedValueOnce(undefined);
 
     const res = makeRes();
     await expect(
@@ -241,8 +286,10 @@ describe('addPatternToProject — patternId branch (legacy unchanged)', () => {
     await addPatternToProject(makeReq({ patternId: 'legacy-1' }), res);
 
     // The materializer is never reached on the legacy path.
+    expect(transactionMock).not.toHaveBeenCalled();
+    expect(trxBuilders.pattern_models.first).not.toHaveBeenCalled();
+    expect(trxBuilders.pattern_models.update).not.toHaveBeenCalled();
     expect(patternModelsBuilder.first).not.toHaveBeenCalled();
-    expect(patternModelsBuilder.update).not.toHaveBeenCalled();
     expect(projectPatternsBuilder.insert).toHaveBeenCalledWith(
       expect.objectContaining({
         project_id: 'proj-1',
@@ -252,68 +299,126 @@ describe('addPatternToProject — patternId branch (legacy unchanged)', () => {
   });
 });
 
-describe('materializeLegacyStubForCanonical — directly', () => {
-  it('returns the existing legacy id when the canonical is already linked', async () => {
-    patternModelsBuilder.first.mockResolvedValueOnce({
-      id: 'cpm-x',
-      user_id: 'user-1',
-      source_pattern_id: 'legacy-existing',
-      name: 'Whatever',
-    });
-    patternsBuilder.first.mockResolvedValueOnce({
-      id: 'legacy-existing',
-      user_id: 'user-1',
-      name: 'Whatever',
-    });
-
-    const id = await materializeLegacyStubForCanonical('user-1', 'cpm-x');
-    expect(id).toBe('legacy-existing');
-    expect(patternsBuilder.insert).not.toHaveBeenCalled();
-  });
-
-  it('inserts a new legacy stub when no link exists, and back-fills the canonical', async () => {
-    patternModelsBuilder.first.mockResolvedValueOnce({
-      id: 'cpm-y',
+describe('materializeLegacyStubForCanonical — atomicity + race safety', () => {
+  it('runs the entire decide-and-write in a single transaction', async () => {
+    trxBuilders.pattern_models.first.mockResolvedValueOnce({
+      id: 'cpm-tx',
       user_id: 'user-1',
       source_pattern_id: null,
-      name: 'Chart upload',
+      name: 'TXN test',
     });
-    patternsBuilder.returning = jest.fn().mockResolvedValueOnce([{ id: 'legacy-new' }]);
+    trxBuilders.patterns.returning = jest
+      .fn()
+      .mockResolvedValueOnce([{ id: 'legacy-tx' }]);
 
-    const id = await materializeLegacyStubForCanonical('user-1', 'cpm-y');
-    expect(id).toBe('legacy-new');
-    expect(patternsBuilder.insert).toHaveBeenCalledTimes(1);
-    expect(patternModelsBuilder.update).toHaveBeenCalledWith(
-      expect.objectContaining({ source_pattern_id: 'legacy-new' }),
+    const id = await materializeLegacyStubForCanonical('user-1', 'cpm-tx');
+
+    expect(id).toBe('legacy-tx');
+    expect(transactionMock).toHaveBeenCalledTimes(1);
+    // Lock + insert + back-fill all touched the trx, not raw db.
+    expect(trxBuilders.pattern_models.forUpdate).toHaveBeenCalled();
+    expect(trxBuilders.patterns.insert).toHaveBeenCalled();
+    expect(trxBuilders.pattern_models.update).toHaveBeenCalledWith(
+      expect.objectContaining({ source_pattern_id: 'legacy-tx' }),
     );
+    expect(patternsBuilder.insert).not.toHaveBeenCalled();
+    expect(patternModelsBuilder.update).not.toHaveBeenCalled();
   });
 
-  it('falls through to a fresh insert when source_pattern_id points at a deleted/foreign legacy row', async () => {
-    // Canonical claims a back-link, but the legacy row is gone (or owned
-    // by another user). The materializer should NOT trust a stale link
-    // and must create a fresh stub instead.
-    patternModelsBuilder.first.mockResolvedValueOnce({
-      id: 'cpm-z',
+  it('rolls back the legacy insert when the back-fill update fails (no orphan stub)', async () => {
+    trxBuilders.pattern_models.first.mockResolvedValueOnce({
+      id: 'cpm-fail',
+      user_id: 'user-1',
+      source_pattern_id: null,
+      name: 'Failure case',
+    });
+    trxBuilders.patterns.returning = jest
+      .fn()
+      .mockResolvedValueOnce([{ id: 'legacy-orphan' }]);
+    // Update fails — the trx wrapper should propagate, callers see the
+    // rejection, and Postgres rolls back the insert. The mock can't
+    // model rollback semantics, but we can prove the call surface
+    // bubbles the failure rather than swallowing it.
+    trxBuilders.pattern_models.update = jest
+      .fn()
+      .mockRejectedValueOnce(new Error('back-fill failed'));
+
+    await expect(
+      materializeLegacyStubForCanonical('user-1', 'cpm-fail'),
+    ).rejects.toThrow(/back-fill failed/);
+  });
+
+  it('serializes concurrent attaches: second caller, woken from the lock, reuses the stub the first one created', async () => {
+    // Tx A: cold canonical. Inserts stub-A and back-fills the link.
+    trxBuilders.pattern_models.first.mockResolvedValueOnce({
+      id: 'cpm-race',
+      user_id: 'user-1',
+      source_pattern_id: null,
+      name: 'Race target',
+    });
+    trxBuilders.patterns.returning = jest
+      .fn()
+      .mockResolvedValueOnce([{ id: 'legacy-from-A' }]);
+
+    const idA = await materializeLegacyStubForCanonical('user-1', 'cpm-race');
+    expect(idA).toBe('legacy-from-A');
+    // Tx A wrote to the trx, no extra reads on raw db.
+    expect(trxBuilders.pattern_models.forUpdate).toHaveBeenCalled();
+
+    // Reset call history but keep mock implementations.
+    trxBuilders.pattern_models.forUpdate.mockClear();
+    trxBuilders.patterns.insert.mockClear();
+    trxBuilders.pattern_models.update.mockClear();
+
+    // Tx B: woke from the lock, sees the back-filled link committed by A
+    // and the legacy row that A inserted. Must NOT insert another stub.
+    trxBuilders.pattern_models.first.mockResolvedValueOnce({
+      id: 'cpm-race',
+      user_id: 'user-1',
+      source_pattern_id: 'legacy-from-A',
+      name: 'Race target',
+    });
+    trxBuilders.patterns.first.mockResolvedValueOnce({
+      id: 'legacy-from-A',
+      user_id: 'user-1',
+      name: 'Race target',
+    });
+
+    const idB = await materializeLegacyStubForCanonical('user-1', 'cpm-race');
+    expect(idB).toBe('legacy-from-A');
+    // Tx B took the lock and read, but did NOT insert or back-fill.
+    expect(trxBuilders.pattern_models.forUpdate).toHaveBeenCalled();
+    expect(trxBuilders.patterns.insert).not.toHaveBeenCalled();
+    expect(trxBuilders.pattern_models.update).not.toHaveBeenCalled();
+  });
+
+  it('falls through to a fresh insert when source_pattern_id points at a soft-deleted/foreign legacy row (stale link)', async () => {
+    trxBuilders.pattern_models.first.mockResolvedValueOnce({
+      id: 'cpm-stale',
       user_id: 'user-1',
       source_pattern_id: 'legacy-zombie',
       name: 'Recovered',
     });
-    patternsBuilder.first.mockResolvedValueOnce(undefined);
-    patternsBuilder.returning = jest.fn().mockResolvedValueOnce([{ id: 'legacy-fresh' }]);
+    // The linked legacy row no longer exists for this user.
+    trxBuilders.patterns.first.mockResolvedValueOnce(undefined);
+    trxBuilders.patterns.returning = jest
+      .fn()
+      .mockResolvedValueOnce([{ id: 'legacy-fresh' }]);
 
-    const id = await materializeLegacyStubForCanonical('user-1', 'cpm-z');
+    const id = await materializeLegacyStubForCanonical('user-1', 'cpm-stale');
     expect(id).toBe('legacy-fresh');
-    expect(patternsBuilder.insert).toHaveBeenCalledTimes(1);
-    expect(patternModelsBuilder.update).toHaveBeenCalledWith(
+    expect(trxBuilders.patterns.insert).toHaveBeenCalledTimes(1);
+    expect(trxBuilders.pattern_models.update).toHaveBeenCalledWith(
       expect.objectContaining({ source_pattern_id: 'legacy-fresh' }),
     );
   });
 
   it('throws NotFoundError when the canonical pattern_model is missing or owned by another user', async () => {
-    patternModelsBuilder.first.mockResolvedValueOnce(undefined);
+    trxBuilders.pattern_models.first.mockResolvedValueOnce(undefined);
 
     await expect(
       materializeLegacyStubForCanonical('user-1', 'cpm-nope'),
     ).rejects.toThrow(/Pattern not found/i);
+    expect(trxBuilders.patterns.insert).not.toHaveBeenCalled();
   });
 });

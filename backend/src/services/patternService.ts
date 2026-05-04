@@ -1085,51 +1085,68 @@ export const softDeletePattern = async (
  * model so it can satisfy the `project_patterns.pattern_id` FK. Returns the
  * legacy id (newly minted or pre-existing).
  *
- * Idempotency: if `pattern_models.source_pattern_id` already points at a
- * live legacy row owned by `userId`, that id is reused. Otherwise a thin
- * shadow row is inserted (name copied from canonical, metadata carries
- * `canonicalPatternModelId` for traceability) and the canonical row's
- * `source_pattern_id` is back-filled in the same flow.
+ * Atomicity + race safety: the entire decide-and-write sequence runs in
+ * one transaction with a `SELECT ... FOR UPDATE` row lock on the canonical
+ * row. Two concurrent attaches of the same canonical serialize on that
+ * lock, so the second wakes up to a populated `source_pattern_id` and
+ * reuses the stub instead of inserting a duplicate. The insert + back-fill
+ * are also in the same transaction, so a failure between them rolls back
+ * — there's no orphan stub state.
  *
- * Throws NotFoundError when the canonical pattern doesn't exist or belongs
- * to another user.
+ * Idempotency: if `pattern_models.source_pattern_id` already points at a
+ * live legacy row owned by `userId`, that id is reused. If the linked
+ * legacy row was soft-deleted or never existed (stale link from a prior
+ * partial state), we fall through to insert a fresh stub and overwrite
+ * the link. Throws NotFoundError when the canonical pattern doesn't
+ * exist or belongs to another user.
  */
 export const materializeLegacyStubForCanonical = async (
   userId: string,
   patternModelId: string,
 ): Promise<string> => {
-  const canonical = await db('pattern_models')
-    .where({ id: patternModelId, user_id: userId })
-    .whereNull('deleted_at')
-    .first();
-  if (!canonical) {
-    throw new NotFoundError('Pattern not found');
-  }
-
-  if (canonical.source_pattern_id) {
-    const existing = await db('patterns')
-      .where({ id: canonical.source_pattern_id, user_id: userId })
+  return db.transaction(async (trx) => {
+    // Lock the canonical row for the duration of the transaction. Any
+    // concurrent attach for the same patternModelId blocks here until we
+    // commit, after which it sees the back-filled source_pattern_id and
+    // takes the reuse branch. `forUpdate` is a no-op outside a
+    // transaction in Postgres, so the txn wrapper is load-bearing.
+    const canonical = await trx('pattern_models')
+      .where({ id: patternModelId, user_id: userId })
       .whereNull('deleted_at')
+      .forUpdate()
       .first();
-    if (existing) return existing.id as string;
-  }
+    if (!canonical) {
+      throw new NotFoundError('Pattern not found');
+    }
 
-  const [legacy] = await db('patterns')
-    .insert({
-      user_id: userId,
-      name: canonical.name ?? 'Pattern',
-      tags: '[]',
-      metadata: JSON.stringify({ canonicalPatternModelId: patternModelId }),
-      created_at: new Date(),
-      updated_at: new Date(),
-    })
-    .returning('id');
+    if (canonical.source_pattern_id) {
+      const existing = await trx('patterns')
+        .where({ id: canonical.source_pattern_id, user_id: userId })
+        .whereNull('deleted_at')
+        .first();
+      if (existing) return existing.id as string;
+      // Fall through: linked legacy row is gone or owned by another
+      // user. We re-insert a fresh stub and overwrite the stale link
+      // below — same code path as a never-linked canonical.
+    }
 
-  await db('pattern_models')
-    .where({ id: patternModelId })
-    .update({ source_pattern_id: legacy.id, updated_at: new Date() });
+    const [legacy] = await trx('patterns')
+      .insert({
+        user_id: userId,
+        name: canonical.name ?? 'Pattern',
+        tags: '[]',
+        metadata: JSON.stringify({ canonicalPatternModelId: patternModelId }),
+        created_at: new Date(),
+        updated_at: new Date(),
+      })
+      .returning('id');
 
-  return legacy.id as string;
+    await trx('pattern_models')
+      .where({ id: patternModelId })
+      .update({ source_pattern_id: legacy.id, updated_at: new Date() });
+
+    return legacy.id as string;
+  });
 };
 
 const defaultGaugeProfile = (): GaugeProfile => ({
