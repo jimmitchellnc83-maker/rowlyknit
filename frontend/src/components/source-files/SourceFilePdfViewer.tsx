@@ -9,6 +9,8 @@ import {
   FiRotateCw,
   FiBookmark,
   FiGrid,
+  FiEye,
+  FiEyeOff,
 } from 'react-icons/fi';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
@@ -85,6 +87,23 @@ const HIGHLIGHT_DEFAULT_WIDTH = 0.025;
 const ERASER_DEFAULT_RADIUS = 0.02;
 
 /**
+ * Detect "Annotate page" backing crops — full-bleed (0,0,1,1) rectangles
+ * created by the page-level annotation entry point. These exist purely to
+ * mount AnnotationLayer over the whole page and are not real user-drawn
+ * regions, so they are excluded from the crop sidebar list and rendered
+ * without the loud purple bbox styling.
+ */
+const FULLPAGE_EPS = 1e-6;
+export function isFullPageCrop(c: PatternCrop): boolean {
+  return (
+    Math.abs(c.cropX) < FULLPAGE_EPS &&
+    Math.abs(c.cropY) < FULLPAGE_EPS &&
+    Math.abs(c.cropWidth - 1) < FULLPAGE_EPS &&
+    Math.abs(c.cropHeight - 1) < FULLPAGE_EPS
+  );
+}
+
+/**
  * Sensible bounds for the rendered PDF page width: never tinier than
  * 320px (legibility floor on a small phone) and never wider than 900px
  * (text wraps strangely beyond that on a 27" monitor + the rendered
@@ -113,6 +132,13 @@ export default function SourceFilePdfViewer({
     cropHeight: number;
   } | null>(null);
   const [activeCropId, setActiveCropId] = useState<string | null>(null);
+  // Sprint 2 — reading vs edit-regions mode. Default `'hidden'` is the
+  // calm reading view: saved crop overlays are tucked away so the PDF
+  // reads like a pattern, not a debug surface. Flip to `'visible'` to
+  // see + manage every saved region (full purple boxes, labels, click
+  // targets). Annotation/chart-assistance flows still surface the active
+  // region regardless of mode — those are explicit edit intents.
+  const [regionsMode, setRegionsMode] = useState<'hidden' | 'visible'>('hidden');
   // Wave 5 — chart assistance modal state. Stores the crop currently
   // open in the assistance UI (null = closed).
   const [chartAssistCrop, setChartAssistCrop] = useState<PatternCrop | null>(null);
@@ -300,15 +326,7 @@ export default function SourceFilePdfViewer({
    * draw across the entire page via the existing AnnotationLayer.
    */
   async function openFullPageAnnotation(page: number) {
-    const EPS = 1e-6;
-    const isFullpage = (c: PatternCrop) =>
-      c.pageNumber === page &&
-      Math.abs(c.cropX) < EPS &&
-      Math.abs(c.cropY) < EPS &&
-      Math.abs(c.cropWidth - 1) < EPS &&
-      Math.abs(c.cropHeight - 1) < EPS;
-
-    const existing = crops.find(isFullpage);
+    const existing = crops.find((c) => c.pageNumber === page && isFullPageCrop(c));
     if (existing) {
       setActiveCropId(existing.id);
       setTool('pen');
@@ -375,7 +393,7 @@ export default function SourceFilePdfViewer({
                   onClick={() => {
                     void openFullPageAnnotation(pageNumber);
                   }}
-                  className="inline-flex items-center gap-1 text-xs sm:text-sm rounded bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/40 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-200 px-3 py-2 font-medium min-h-[36px]"
+                  className="inline-flex items-center gap-1 text-xs sm:text-sm rounded bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/40 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-200 px-3 py-2 font-medium min-h-[44px]"
                   title="Annotate the whole page (pen, highlight, eraser)"
                 >
                   <FiEdit3 className="h-4 w-4" />
@@ -398,47 +416,72 @@ export default function SourceFilePdfViewer({
                 style={{ touchAction: 'none' }}
               >
                 <Page pageNumber={pageNumber} width={targetPageWidth} />
-                {/* Saved crops on this page */}
+                {/* Saved crops on this page.
+                    Mode rules:
+                      - Fullpage crops back "Annotate page" → render an
+                        invisible wrapper so AnnotationLayer can still
+                        mount; never show bbox styling.
+                      - Reading mode (`regionsMode === 'hidden'`) → only
+                        render the *active* crop's wrapper and even then
+                        with a soft outline; other saved crops are tucked
+                        away so the PDF reads cleanly.
+                      - Edit mode (`regionsMode === 'visible'`) →
+                        full purple bboxes, labels, click-to-select.
+                    Active+annotating always shows the bright bbox so the
+                    user knows where they are drawing. */}
                 {crops
                   .filter((c) => c.pageNumber === pageNumber)
                   .map((c) => {
                     const isActive = activeCropId === c.id;
-                    // Fullpage crops back the "Annotate page" surface; we
-                    // don't want them rendered as a giant purple rectangle
-                    // that obscures the page. Drop the bbox styling but
-                    // keep the wrapper so the AnnotationLayer can still
-                    // mount over the full page area.
-                    const EPS = 1e-6;
-                    const isFullpage =
-                      Math.abs(c.cropX) < EPS &&
-                      Math.abs(c.cropY) < EPS &&
-                      Math.abs(c.cropWidth - 1) < EPS &&
-                      Math.abs(c.cropHeight - 1) < EPS;
-                    const wrapperClass = isFullpage
-                      ? 'absolute pointer-events-none'
-                      : `absolute border-2 ${
-                          isActive
-                            ? 'border-purple-700 bg-purple-200 bg-opacity-15'
-                            : 'border-purple-500 bg-purple-200 bg-opacity-25'
-                        }`;
+                    const isFullpage = isFullPageCrop(c);
+                    const editing = regionsMode === 'visible';
+                    const showLoudBbox =
+                      !isFullpage && (editing || (isActive && tool !== null));
+                    const showSoftBbox =
+                      !isFullpage && !showLoudBbox && isActive && !tool;
+                    let wrapperClass: string;
+                    if (isFullpage) {
+                      wrapperClass = 'absolute pointer-events-none';
+                    } else if (showLoudBbox) {
+                      wrapperClass = `absolute border-2 ${
+                        isActive
+                          ? 'border-purple-700 bg-purple-200 bg-opacity-15'
+                          : 'border-purple-500 bg-purple-200 bg-opacity-25'
+                      }`;
+                    } else if (showSoftBbox) {
+                      wrapperClass =
+                        'absolute border border-dashed border-purple-400/70 bg-transparent';
+                    } else {
+                      // Reading mode, not active: no bbox — wrapper is a
+                      // zero-style absolute box so AnnotationLayer (only
+                      // mounted when isActive anyway) still has a parent.
+                      wrapperClass = 'absolute pointer-events-none';
+                    }
+                    const interactive = !isFullpage && editing && !tool;
+                    const showLabel = showLoudBbox && c.label && !isFullpage;
+                    const showTitleAttr = !isFullpage && c.label;
                     return (
                       <div
                         key={c.id}
                         className={wrapperClass}
+                        data-testid={`crop-overlay-${c.id}`}
+                        data-fullpage={isFullpage ? 'true' : 'false'}
+                        data-loud={showLoudBbox ? 'true' : 'false'}
+                        title={showTitleAttr ? (c.label as string) : undefined}
                         style={{
                           left: `${c.cropX * 100}%`,
                           top: `${c.cropY * 100}%`,
                           width: `${c.cropWidth * 100}%`,
                           height: `${c.cropHeight * 100}%`,
-                          pointerEvents: isFullpage ? 'none' : tool ? 'none' : 'auto',
+                          pointerEvents: interactive ? 'auto' : 'none',
                         }}
                         onClick={(e) => {
-                          if (isFullpage || tool) return;
+                          if (!interactive) return;
                           e.stopPropagation();
                           setActiveCropId(isActive ? null : c.id);
                         }}
                       >
-                        {c.label && !isFullpage ? (
+                        {showLabel ? (
                           <span className="absolute -top-5 left-0 text-xs bg-purple-600 text-white px-1.5 py-0.5 rounded pointer-events-none">
                             {c.label}
                           </span>
@@ -488,10 +531,10 @@ export default function SourceFilePdfViewer({
       </div>
 
       {/* Side panel — full-width on narrow viewports (stacks below PDF),
-          fixed-width column on lg+. Holds the new-crop label form and
-          the saved-crops list. Annotation tooling lives in the floating
-          toolbar so the user has one focused place to look during a
-          stroke. */}
+          fixed-width column on lg+. Holds the regions-mode toggle, the
+          new-crop label form, and the saved-crops list grouped by page.
+          Annotation tooling lives in the floating toolbar so the user
+          has one focused place to look during a stroke. */}
       <aside className="lg:w-72 lg:flex-shrink-0 flex flex-col gap-3">
         {pendingRect ? (
           <div className="rounded-lg border border-orange-300 bg-orange-50 dark:bg-orange-900/20 p-3">
@@ -526,77 +569,21 @@ export default function SourceFilePdfViewer({
           </div>
         ) : null}
 
-        <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-3 lg:max-h-[calc(100vh-12rem)] lg:overflow-auto">
-          <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-            Crops ({crops.length})
-          </h3>
-          {crops.length === 0 ? (
-            <p className="mt-2 text-xs text-gray-500">
-              Drag a rectangle on a page to mark a region. Or use the
-              "Annotate page" button to draw across the whole page.
-            </p>
-          ) : (
-            <ul className="mt-2 space-y-1">
-              {crops.map((c) => {
-                const isQK = c.isQuickKey;
-                return (
-                  <li
-                    key={c.id}
-                    className={`flex items-center justify-between gap-2 rounded px-2 py-1 text-sm ${
-                      activeCropId === c.id
-                        ? 'bg-purple-50 dark:bg-purple-900/20'
-                        : 'hover:bg-gray-50 dark:hover:bg-gray-800'
-                    }`}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => {
-                        jumpToPage(c.pageNumber);
-                        setActiveCropId(c.id);
-                      }}
-                      className="flex-1 text-left truncate min-h-[36px]"
-                    >
-                      <span className="text-gray-700 dark:text-gray-300">
-                        p{c.pageNumber}
-                      </span>{' '}
-                      <span className="text-gray-900 dark:text-gray-100">
-                        {c.label ?? <em className="text-gray-400">unlabeled</em>}
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleToggleQuickKey(c)}
-                      className={`min-h-[36px] min-w-[36px] flex items-center justify-center ${
-                        isQK ? 'text-yellow-500' : 'text-gray-300 hover:text-yellow-500'
-                      }`}
-                      aria-label={isQK ? 'Remove from QuickKeys' : 'Save as QuickKey'}
-                      title={isQK ? 'Remove from QuickKeys' : 'Save as QuickKey'}
-                    >
-                      <FiBookmark className={`h-4 w-4 ${isQK ? 'fill-current' : ''}`} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setChartAssistCrop(c)}
-                      className="min-h-[36px] min-w-[36px] flex items-center justify-center text-blue-600 hover:text-blue-800"
-                      aria-label="Open chart assistance"
-                      title="Align grid + Magic Marker"
-                    >
-                      <FiGrid className="h-4 w-4" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteCrop(c)}
-                      className="min-h-[36px] min-w-[36px] flex items-center justify-center text-red-600 hover:text-red-800"
-                      aria-label="Delete crop"
-                    >
-                      <FiTrash2 className="h-4 w-4" />
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </div>
+        <CropSidebar
+          crops={crops}
+          activeCropId={activeCropId}
+          regionsMode={regionsMode}
+          onToggleRegionsMode={() =>
+            setRegionsMode((m) => (m === 'hidden' ? 'visible' : 'hidden'))
+          }
+          onJumpToCrop={(c) => {
+            jumpToPage(c.pageNumber);
+            setActiveCropId(c.id);
+          }}
+          onToggleQuickKey={handleToggleQuickKey}
+          onChartAssist={(c) => setChartAssistCrop(c)}
+          onDeleteCrop={handleDeleteCrop}
+        />
       </aside>
 
       {/* Floating annotation toolbar — appears only when an annotation
@@ -868,6 +855,208 @@ function HighlighterIcon() {
       <path d="M14 6l4 4-7 7-4-4z" />
       <path d="M3 21h18" />
     </svg>
+  );
+}
+
+interface CropSidebarProps {
+  crops: PatternCrop[];
+  activeCropId: string | null;
+  regionsMode: 'hidden' | 'visible';
+  onToggleRegionsMode: () => void;
+  onJumpToCrop: (c: PatternCrop) => void;
+  onToggleQuickKey: (c: PatternCrop) => void;
+  onChartAssist: (c: PatternCrop) => void;
+  onDeleteCrop: (c: PatternCrop) => void;
+}
+
+/**
+ * Sprint 2 — saved-crop sidebar. Groups crops by page (subheader per
+ * page), filters out the full-page "Annotate page" backing crops so
+ * those don't masquerade as user regions in the list, surfaces them
+ * instead as a per-page "Annotated" badge, and exposes the
+ * regions-mode toggle as a top-level control. Action buttons run at
+ * 44×44 minimum so they're tappable on iPad/PWA.
+ */
+function CropSidebar({
+  crops,
+  activeCropId,
+  regionsMode,
+  onToggleRegionsMode,
+  onJumpToCrop,
+  onToggleQuickKey,
+  onChartAssist,
+  onDeleteCrop,
+}: CropSidebarProps) {
+  // Split user-drawn crops from full-page annotation backing crops.
+  // Real crops feed the grouped list; annotated pages feed the per-page
+  // "Annotated" badge so the sidebar still surfaces that the user has
+  // page-level annotations without dumping a fake "Page N annotations"
+  // entry in among the real regions.
+  const realCrops = crops.filter((c) => !isFullPageCrop(c));
+  const annotatedPages = new Set(
+    crops.filter((c) => isFullPageCrop(c)).map((c) => c.pageNumber),
+  );
+
+  // Group real crops by page in ascending order; preserve creation order
+  // within a page (the API already returns them sorted by created_at).
+  const groupedByPage: Map<number, PatternCrop[]> = new Map();
+  for (const c of realCrops) {
+    const list = groupedByPage.get(c.pageNumber) ?? [];
+    list.push(c);
+    groupedByPage.set(c.pageNumber, list);
+  }
+  const pageNumbers = Array.from(groupedByPage.keys()).sort((a, b) => a - b);
+  const editing = regionsMode === 'visible';
+
+  return (
+    <div
+      data-testid="crop-sidebar"
+      className="rounded-lg border border-gray-200 dark:border-gray-700 p-3 lg:max-h-[calc(100vh-12rem)] lg:overflow-auto flex flex-col gap-3"
+    >
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+          Crops ({realCrops.length})
+        </h3>
+        <button
+          type="button"
+          onClick={onToggleRegionsMode}
+          aria-pressed={editing}
+          data-testid="regions-mode-toggle"
+          data-mode={regionsMode}
+          title={editing ? 'Hide regions on the page' : 'Show regions on the page'}
+          className={`min-h-[44px] inline-flex items-center gap-1.5 rounded-lg border px-3 text-xs font-medium transition ${
+            editing
+              ? 'border-purple-600 bg-purple-600 text-white hover:bg-purple-700'
+              : 'border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800'
+          }`}
+        >
+          {editing ? (
+            <>
+              <FiEyeOff className="h-4 w-4" />
+              Done editing
+            </>
+          ) : (
+            <>
+              <FiEye className="h-4 w-4" />
+              Edit regions
+            </>
+          )}
+        </button>
+      </div>
+
+      {realCrops.length === 0 ? (
+        <p className="text-xs text-gray-500">
+          {annotatedPages.size > 0
+            ? 'No regions yet. Drag a rectangle on a page to mark one — page-level annotations live above each page.'
+            : 'Drag a rectangle on a page to mark a region, or use the "Annotate page" button above each page to draw on the whole page.'}
+        </p>
+      ) : (
+        <div className="space-y-3">
+          {pageNumbers.map((pageNumber) => {
+            const list = groupedByPage.get(pageNumber) ?? [];
+            const annotated = annotatedPages.has(pageNumber);
+            return (
+              <section key={pageNumber} data-testid={`crop-group-${pageNumber}`}>
+                <header className="flex items-center justify-between gap-2 mb-1">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    Page {pageNumber}
+                  </span>
+                  {annotated ? (
+                    <span
+                      className="rounded bg-blue-100 dark:bg-blue-900/40 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-blue-700 dark:text-blue-200"
+                      title="This page has annotations from the Annotate page button"
+                    >
+                      Annotated
+                    </span>
+                  ) : null}
+                </header>
+                <ul className="space-y-1">
+                  {list.map((c) => {
+                    const isQK = c.isQuickKey;
+                    const isActive = activeCropId === c.id;
+                    const labelDisplay =
+                      c.label && c.label.trim().length > 0
+                        ? c.label
+                        : 'Unlabeled region';
+                    return (
+                      <li
+                        key={c.id}
+                        data-testid={`crop-item-${c.id}`}
+                        className={`flex items-start gap-1 rounded px-2 py-1.5 text-sm ${
+                          isActive
+                            ? 'bg-purple-50 dark:bg-purple-900/20'
+                            : 'hover:bg-gray-50 dark:hover:bg-gray-800'
+                        }`}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => onJumpToCrop(c)}
+                          title={labelDisplay}
+                          className="flex-1 text-left min-w-0 min-h-[44px] py-1 px-1 rounded hover:bg-white/40 dark:hover:bg-black/20"
+                        >
+                          <span
+                            className={`block break-words ${
+                              c.label
+                                ? 'text-gray-900 dark:text-gray-100'
+                                : 'italic text-gray-500'
+                            }`}
+                          >
+                            {labelDisplay}
+                          </span>
+                          {isQK ? (
+                            <span className="mt-0.5 inline-flex items-center gap-1 text-[10px] font-medium uppercase tracking-wide text-yellow-700 dark:text-yellow-300">
+                              <FiBookmark className="h-3 w-3 fill-current" />
+                              QuickKey
+                            </span>
+                          ) : null}
+                        </button>
+                        <div className="flex items-center flex-shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => onToggleQuickKey(c)}
+                            className={`min-h-[44px] min-w-[44px] flex items-center justify-center rounded ${
+                              isQK
+                                ? 'text-yellow-500'
+                                : 'text-gray-400 hover:text-yellow-500'
+                            }`}
+                            aria-label={isQK ? 'Remove from QuickKeys' : 'Save as QuickKey'}
+                            title={isQK ? 'Remove from QuickKeys' : 'Save as QuickKey'}
+                          >
+                            <FiBookmark
+                              className={`h-4 w-4 ${isQK ? 'fill-current' : ''}`}
+                            />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => onChartAssist(c)}
+                            className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded text-blue-600 hover:text-blue-800"
+                            aria-label="Open chart assistance"
+                            title="Align grid + Magic Marker"
+                          >
+                            <FiGrid className="h-4 w-4" />
+                          </button>
+                          {editing ? (
+                            <button
+                              type="button"
+                              onClick={() => onDeleteCrop(c)}
+                              className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded text-red-600 hover:text-red-800"
+                              aria-label="Delete crop"
+                              title="Delete crop"
+                            >
+                              <FiTrash2 className="h-4 w-4" />
+                            </button>
+                          ) : null}
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </section>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }
 
