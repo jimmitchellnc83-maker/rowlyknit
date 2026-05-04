@@ -14,7 +14,10 @@ const truthy = (v: string | undefined): boolean => {
 };
 
 /** When true, `/patterns/:id/author` renders the canonical Author Mode
- *  preview. Default false: the route redirects to `/patterns/:id` so
- *  normal users never see the unfinished surface. */
+ *  preview. Default false: the route redirects to `/patterns/:id/make`
+ *  (a sibling canonical-pattern surface that always exists for a valid
+ *  pattern_models id) so normal users never land on the unfinished
+ *  surface. Prod is OFF as of 2026-05-03 — flip back ON only after the
+ *  chart editor / repeat-block editor / grading editor land. */
 export const isDesignerAuthorModeEnabled = (): boolean =>
   truthy(import.meta.env.VITE_DESIGNER_AUTHOR_MODE);

@@ -383,6 +383,54 @@ describe('patchSectionTotalRows', () => {
   });
 });
 
+describe('MakeMode — canonical-only pattern (no legacy source)', () => {
+  it('does not link to /patterns/{canonicalId}?tab=sources — that route 404s for canonical-model ids (regression: PR #370 follow-up)', () => {
+    const canonicalOnly = {
+      ...samplePattern,
+      sourcePatternId: null,
+    };
+    vi.mocked(usePatternModel).mockReturnValue({
+      data: canonicalOnly,
+      isLoading: false,
+    } as any);
+    renderRoute();
+
+    // The neutral message replaces the previous "Open Sources tab" link.
+    expect(screen.getByText(/no pdf source is linked/i)).toBeInTheDocument();
+
+    // Defensive: there should be NO link in the document with a
+    // ?tab=sources query — if a future change reintroduces a dead link,
+    // this assertion is the early-warning system.
+    const allAnchors = document.querySelectorAll('a[href*="tab=sources"]');
+    expect(allAnchors.length).toBe(0);
+
+    // And specifically, no link to /patterns/{canonicalId} either —
+    // canonical-only patterns don't have a legacy detail surface.
+    const badLink = document.querySelector(
+      `a[href^="/patterns/${canonicalOnly.id}?"]`,
+    );
+    expect(badLink).toBeNull();
+  });
+
+  it('still renders QuickKeys + PDFs panels for patterns with a legacy sourcePatternId', () => {
+    const linked = {
+      ...samplePattern,
+      sourcePatternId: 'legacy-uuid-1',
+    };
+    vi.mocked(usePatternModel).mockReturnValue({
+      data: linked,
+      isLoading: false,
+    } as any);
+    renderRoute();
+
+    // Tabs render only on the linked-source path.
+    expect(screen.getByRole('button', { name: /quickkeys/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /pdfs/i })).toBeInTheDocument();
+    // The neutral copy must NOT be present.
+    expect(screen.queryByText(/no pdf source is linked/i)).not.toBeInTheDocument();
+  });
+});
+
 describe('MakeMode — section without parameters object', () => {
   it('does not crash when section.parameters is undefined (regression: PR #370 prod smoke)', () => {
     const pattern = {

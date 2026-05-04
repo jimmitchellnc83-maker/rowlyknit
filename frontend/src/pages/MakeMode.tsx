@@ -209,10 +209,14 @@ export default function MakeMode() {
 
 /**
  * Reference panel: source PDFs + QuickKeys for the canonical pattern.
- * Source files attach to the legacy pattern row that the canonical
- * pattern was derived from (`pattern.sourcePatternId`). When that link
- * is missing, render a hint so the user knows where to look — instead
- * of an empty silent panel.
+ *
+ * Source files attach to the legacy `patterns` row that the canonical
+ * pattern was derived from, looked up via `pattern.sourcePatternId`.
+ * Canonical-only patterns (Designer-authored, no legacy twin) don't have
+ * that link — and they shouldn't be linked into `/patterns/:id` because
+ * `pattern.id` is a `pattern_models` UUID, which the legacy patterns
+ * route will 404 on. So when the link is missing we render a neutral
+ * message and stop short of producing a dead link.
  */
 function ReferenceMaterials({
   pattern,
@@ -231,16 +235,11 @@ function ReferenceMaterials({
           <FiFileText className="h-4 w-4" /> Pattern PDFs
         </h2>
         <p className="mt-2 text-xs text-amber-800 dark:text-amber-300">
-          This pattern doesn't have a linked PDF yet. Open the pattern's
-          Sources tab to upload one — your QuickKeys and crops will
-          appear here automatically.
+          No PDF source is linked to this Make Mode pattern yet. PDFs and
+          QuickKeys attach to legacy pattern entries; this pattern was
+          authored directly in the canonical model, so there's nothing to
+          show here.
         </p>
-        <Link
-          to={`/patterns/${pattern.id}?tab=sources`}
-          className="mt-2 inline-block text-xs font-medium text-amber-900 dark:text-amber-200 underline"
-        >
-          Open Sources tab
-        </Link>
       </div>
     );
   }
