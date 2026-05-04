@@ -9,7 +9,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
@@ -167,5 +167,99 @@ vi.mocked(usePatternModel).mockReturnValue({
     renderRoute();
 
     expect(screen.getByRole('group', { name: /terminology dialect/i })).toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Regression test for the SectionsEditor sorted-vs-unsorted index bug
+// (Sprint 1, post-PR #370–#373 audit, finding #3).
+//
+// Before the fix, `updateSection(idx, patch)` consumed the index from
+// `sortedSections.map`, but `sections.map((s, i) => i === idx ? ... : s)`
+// iterated the unsorted array. When sortOrder diverged from array order,
+// editing the visually-first section silently mutated a different one.
+// ---------------------------------------------------------------------------
+
+describe('AuthorMode — SectionsEditor edits the right section when sortOrder ≠ array order', () => {
+  it('mutates the correct section when sections are stored out of array order', async () => {
+    // `sections[0]` is "Sleeve" (sortOrder 1) — but the user sees "Body"
+    // (sortOrder 0) at the TOP of the rendered list because the editor
+    // sorts by sortOrder. Editing the visually-first ("Body") input must
+    // mutate the Body section, NOT sections[0] (which is Sleeve).
+    const reorderedPattern = {
+      id: 'abc',
+      userId: 'u',
+      sourcePatternId: null,
+      sourceProjectId: null,
+      name: 'Test Sweater',
+      craft: 'knit' as const,
+      technique: 'standard' as const,
+      gaugeProfile: { stitches: 20, rows: 28, measurement: 4, unit: 'in' as const },
+      sizeSet: { active: 's', sizes: [{ id: 's', label: 'M', measurements: {} }] },
+      sections: [
+        {
+          id: 'sec-sleeve',
+          name: 'Sleeve',
+          kind: 'sweater-sleeve' as const,
+          sortOrder: 1,
+          parameters: {},
+          chartPlacement: null,
+          notes: null,
+        },
+        {
+          id: 'sec-body',
+          name: 'Body',
+          kind: 'sweater-body' as const,
+          sortOrder: 0,
+          parameters: {},
+          chartPlacement: null,
+          notes: null,
+        },
+      ],
+      legend: { overrides: {} },
+      materials: [],
+      progressState: {},
+      notes: null,
+      schemaVersion: 1,
+      createdAt: '2026-04-28T00:00:00Z',
+      updatedAt: '2026-04-28T00:00:00Z',
+      deletedAt: null,
+    };
+
+    const mutateAsync = vi.fn().mockResolvedValue(undefined);
+    const { useUpdatePatternModel } = await import('../hooks/usePatternModel');
+    vi.mocked(useUpdatePatternModel).mockReturnValue({
+      mutateAsync,
+      isPending: false,
+    } as any);
+    vi.mocked(usePatternModel).mockReturnValue({
+      data: reorderedPattern,
+      isLoading: false,
+    } as any);
+
+    renderRoute();
+
+    // The visually-first input (sortOrder 0 = Body). Inputs are name fields.
+    const bodyInput = screen.getByDisplayValue('Body');
+    fireEvent.change(bodyInput, { target: { value: 'Body — renamed' } });
+
+    // Click Save and assert the patch mutated Body, NOT Sleeve.
+    fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
+
+    expect(mutateAsync).toHaveBeenCalledTimes(1);
+    const patchArg = mutateAsync.mock.calls[0][0];
+    expect(patchArg.id).toBe('abc');
+    const patchedSections = patchArg.patch.sections as Array<{
+      id: string;
+      name: string;
+    }>;
+
+    // The section identified as `sec-body` MUST carry the new name. The
+    // pre-fix bug would have rewritten `sec-sleeve.name` instead because
+    // it sat at array index 0 (the same index "Body" had in sorted view).
+    const bodyAfter = patchedSections.find((s) => s.id === 'sec-body');
+    const sleeveAfter = patchedSections.find((s) => s.id === 'sec-sleeve');
+    expect(bodyAfter?.name).toBe('Body — renamed');
+    expect(sleeveAfter?.name).toBe('Sleeve');
   });
 });

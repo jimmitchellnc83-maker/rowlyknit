@@ -169,6 +169,19 @@ export async function getPattern(req: Request, res: Response) {
     .whereNull('p.deleted_at')
     .select('p.*', 'pp.modifications');
 
+  // Look up the canonical pattern_models twin (if one exists). PatternDetail
+  // uses this id to render an "Open in Make Mode" entry button — only when
+  // both this column is non-null AND the frontend Make Mode flag is on.
+  // Designer-saved patterns get a twin via maybeMaterializeCanonicalTwin();
+  // legacy-only PDFs / Ravelry imports won't have one, and the entry button
+  // stays hidden for them.
+  const twin = await db('pattern_models')
+    .where({ source_pattern_id: id, user_id: userId })
+    .whereNull('deleted_at')
+    .select('id')
+    .first();
+  const canonicalPatternModelId: string | null = twin?.id ?? null;
+
   // Serialize JSONB fields to strings for frontend
   const serializedPattern = serializePattern(pattern);
 
@@ -187,6 +200,7 @@ export async function getPattern(req: Request, res: Response) {
         projects,
         complexity,
         madeCount,
+        canonicalPatternModelId,
       },
     },
   });

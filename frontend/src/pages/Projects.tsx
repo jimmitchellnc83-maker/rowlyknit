@@ -22,6 +22,25 @@ interface FeasibilitySummary {
   overallStatus: LightLevel;
 }
 
+/**
+ * Tri-state projection of feasibility summaries → projectId-keyed map.
+ *
+ * `loaded === false` (query loading or errored) returns an empty map so
+ * downstream UI treats every project as "unknown" and renders no
+ * derived badges. `loaded === true` fills the map from `summaries`,
+ * including the empty-array case (which legitimately means "no projects
+ * have feasibility data yet"). Pure — exported for test.
+ */
+export function buildFeasibilityMap(
+  summaries: FeasibilitySummary[] | undefined,
+  loaded: boolean,
+): Map<string, FeasibilitySummary> {
+  const map = new Map<string, FeasibilitySummary>();
+  if (!loaded) return map;
+  for (const s of summaries ?? []) map.set(s.projectId, s);
+  return map;
+}
+
 interface ProjectTypeOption {
   value: string;
   label: string;
@@ -126,7 +145,16 @@ export default function Projects() {
   const updateProjectMutation = useUpdateProject();
   const deleteProjectMutation = useDeleteProject();
 
-  const { data: feasibilitySummaries } = useQuery<FeasibilitySummary[]>({
+  // Tri-state: only treat the feasibility map as authoritative once the
+  // query has SUCCEEDED. While loading or errored, we treat data as
+  // "unknown" — the badge stays hidden rather than implying a project is
+  // unconfigured. Today's UI is positive-only (badges only render on hit),
+  // so the practical user-visible difference is minimal; the gate is here
+  // so a future negative-state badge can't accidentally false-positive
+  // during transport hiccups (the bug PR #373 fixed on Dashboard).
+  const { data: feasibilitySummaries, isSuccess: feasibilityLoaded } = useQuery<
+    FeasibilitySummary[]
+  >({
     queryKey: ['projects-feasibility-summary'],
     queryFn: async () => {
       const { data } = await axios.get('/api/projects/feasibility-summary');
@@ -136,11 +164,10 @@ export default function Projects() {
     staleTime: 30_000,
   });
 
-  const feasibilityByProject = useMemo(() => {
-    const map = new Map<string, FeasibilitySummary>();
-    for (const s of feasibilitySummaries ?? []) map.set(s.projectId, s);
-    return map;
-  }, [feasibilitySummaries]);
+  const feasibilityByProject = useMemo(
+    () => buildFeasibilityMap(feasibilitySummaries, feasibilityLoaded),
+    [feasibilitySummaries, feasibilityLoaded],
+  );
 
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const moreMenuRef = useRef<HTMLDivElement>(null);

@@ -1150,6 +1150,56 @@ describe('rowToPattern — deterministic section ids for legacy rows', () => {
     const result = await getPattern('p1', 'u1');
     expect(result!.sections[0].id).toBe('real-uuid-aaa');
   });
+
+  // Sprint 1, post-PR #370–#373 audit, finding #6: the deterministic
+  // fallback id used to be `section-${arrayIndex}`. If the JSONB array
+  // was ever re-ordered on read, `section-0` would point at a different
+  // section than the user's progressState had in mind. Now the fallback
+  // keys off the section's stored `sortOrder` so the identity stays
+  // tied to "the section the user calls 'first'", regardless of array
+  // position.
+  it('keys deterministic fallback id off sortOrder, not array index, when sortOrder is present', async () => {
+    mockedDb.__builder.first.mockResolvedValueOnce({
+      ...legacyRowWithIdlessSections(),
+      // Array stores Sleeve FIRST (index 0) but it has sortOrder=1.
+      // Body sits at array index 1 with sortOrder=0. With the old
+      // index-based fallback, Sleeve would have been `section-0` —
+      // but the user identifies Body as "first" (sortOrder=0). The
+      // fallback id should follow the user's mental model.
+      sections:
+        '[{"name":"Sleeve","kind":"sweater-sleeve","sortOrder":1},{"name":"Body","kind":"sweater-body","sortOrder":0}]',
+      progress_state:
+        '{"activeSectionId":"section-0","rowsBySection":{"section-0":12,"section-1":4}}',
+    });
+
+    const { getPattern } = await import('../patternService');
+    const result = await getPattern('p1', 'u1');
+    expect(result).not.toBeNull();
+
+    const bySortOrder: Record<number, string> = {};
+    for (const s of result!.sections) bySortOrder[s.sortOrder] = s.id;
+
+    // Body (sortOrder 0) is `section-0`, regardless of array position.
+    expect(bySortOrder[0]).toBe('section-0');
+    expect(bySortOrder[1]).toBe('section-1');
+    // The Body section's name is preserved — id is index-independent.
+    const body = result!.sections.find((s) => s.sortOrder === 0);
+    expect(body?.name).toBe('Body');
+  });
+
+  it('falls back to the array index only when sortOrder is missing/invalid', async () => {
+    mockedDb.__builder.first.mockResolvedValueOnce({
+      ...legacyRowWithIdlessSections(),
+      // Two sections, neither has sortOrder. Fallback drops to array index.
+      sections: '[{"name":"A","kind":"custom-draft-section"},{"name":"B","kind":"custom-draft-section"}]',
+      progress_state: '{}',
+    });
+
+    const { getPattern } = await import('../patternService');
+    const result = await getPattern('p1', 'u1');
+    expect(result!.sections[0].id).toBe('section-0');
+    expect(result!.sections[1].id).toBe('section-1');
+  });
 });
 
 describe('createPattern — write-side still mints real UUIDs for missing ids', () => {
