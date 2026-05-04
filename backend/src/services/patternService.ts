@@ -761,12 +761,19 @@ const makeSection = (input: MakeSectionInput): PatternSection => ({
  * `idStrategy` controls the missing-id fallback:
  *  - `'random'` (default, write-side) — mints a fresh `randomUUID()` so the
  *    write call gets a real persisted id.
- *  - `'deterministic'` (read-side) — uses `section-${fallbackSortOrder}` so
- *    re-reads of a legacy row missing `id` always return the SAME id. This
+ *  - `'deterministic'` (read-side) — uses `section-${stableKey}` where
+ *    `stableKey` prefers the section's own stored `sortOrder` and falls
+ *    back to the array index only when sortOrder is missing/invalid. This
  *    matters because `progressState.rowsBySection` and
  *    `progressState.activeSectionId` are keyed by section id; if reads
- *    minted a new UUID per request, saved Make-Mode progress would appear
- *    to reset on every reload.
+ *    minted a new UUID per request — or if the index-based fallback
+ *    shifted under a future re-order — saved Make-Mode progress would
+ *    appear to reset on reload.
+ *
+ *    Keying off the section's stored sortOrder makes the deterministic id
+ *    resilient to JSONB array re-ordering: the section the user identifies
+ *    as "first" (sortOrder 0) keeps the same fallback id regardless of
+ *    where it lands in the array.
  */
 type SectionIdStrategy = 'random' | 'deterministic';
 
@@ -776,8 +783,16 @@ const buildNormalizedSection = (
   idStrategy: SectionIdStrategy,
 ): PatternSection => {
   const s = (raw ?? {}) as Partial<PatternSection> & Record<string, unknown>;
+  const storedSortOrder =
+    typeof s.sortOrder === 'number' && Number.isFinite(s.sortOrder)
+      ? s.sortOrder
+      : fallbackSortOrder;
+  // Deterministic fallback id keys off stored sortOrder when present; only
+  // falls back to array index when sortOrder is missing/invalid. The intent
+  // is "the section the user calls 'first' keeps the same id regardless of
+  // JSONB array position."
   const fallbackId =
-    idStrategy === 'deterministic' ? `section-${fallbackSortOrder}` : randomUUID();
+    idStrategy === 'deterministic' ? `section-${storedSortOrder}` : randomUUID();
   return {
     id: typeof s.id === 'string' && s.id.length > 0 ? s.id : fallbackId,
     name: typeof s.name === 'string' ? s.name : '',
@@ -787,10 +802,7 @@ const buildNormalizedSection = (
       typeof s.kind === 'string' && SECTION_KINDS.has(s.kind as SectionKind)
         ? (s.kind as SectionKind)
         : 'custom-draft-section',
-    sortOrder:
-      typeof s.sortOrder === 'number' && Number.isFinite(s.sortOrder)
-        ? s.sortOrder
-        : fallbackSortOrder,
+    sortOrder: storedSortOrder,
     parameters:
       s.parameters && typeof s.parameters === 'object' && !Array.isArray(s.parameters)
         ? (s.parameters as SectionParameters)

@@ -7,7 +7,7 @@
  * paths are unit-tested in `progressMath.test.ts`.
  */
 
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -24,8 +24,13 @@ vi.mock('../hooks/useSeo', () => ({
   useSeo: vi.fn(),
 }));
 
+vi.mock('../lib/featureFlags', () => ({
+  isDesignerMakeModeEnabled: vi.fn(() => true),
+}));
+
 import MakeMode, { patchSectionTotalRows } from './MakeMode';
 import { usePatternModel, useUpdatePatternModel } from '../hooks/usePatternModel';
+import { isDesignerMakeModeEnabled } from '../lib/featureFlags';
 
 const renderRoute = () => {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -34,11 +39,16 @@ const renderRoute = () => {
       <MemoryRouter initialEntries={['/patterns/abc/make']}>
         <Routes>
           <Route path="/patterns/:id/make" element={<MakeMode />} />
+          <Route path="/patterns" element={<div>patterns-list</div>} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
   );
 };
+
+beforeEach(() => {
+  vi.mocked(isDesignerMakeModeEnabled).mockReturnValue(true);
+});
 
 const samplePattern = {
   id: 'abc',
@@ -82,6 +92,29 @@ const samplePattern = {
 
 afterEach(() => {
   vi.clearAllMocks();
+});
+
+describe('MakeMode — flag gate', () => {
+  it('redirects to /patterns when VITE_DESIGNER_MAKE_MODE is off', () => {
+    vi.mocked(isDesignerMakeModeEnabled).mockReturnValue(false);
+    vi.mocked(usePatternModel).mockReturnValue({ data: undefined, isLoading: false } as any);
+
+    renderRoute();
+
+    expect(screen.getByText('patterns-list')).toBeInTheDocument();
+    // Inner impl shouldn't have run when the gate redirects.
+    expect(usePatternModel).not.toHaveBeenCalled();
+  });
+
+  it('renders Make Mode when the flag is on', () => {
+    vi.mocked(isDesignerMakeModeEnabled).mockReturnValue(true);
+    vi.mocked(usePatternModel).mockReturnValue({ data: undefined, isLoading: true } as any);
+
+    renderRoute();
+
+    expect(screen.queryByText('patterns-list')).not.toBeInTheDocument();
+    expect(screen.getByText(/loading pattern/i)).toBeInTheDocument();
+  });
 });
 
 describe('MakeMode — loading + error', () => {

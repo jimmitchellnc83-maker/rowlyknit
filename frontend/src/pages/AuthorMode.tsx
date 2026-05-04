@@ -291,8 +291,14 @@ function SectionsEditor(props: {
 }) {
   const { sections, pattern, dialect, onChange } = props;
 
-  const updateSection = (idx: number, patch: Partial<PatternSection>) => {
-    const next = sections.map((s, i) => (i === idx ? { ...s, ...patch } : s));
+  // Update by stable section id — NOT by sorted-array index. The previous
+  // form passed `idx` from the sorted-display map back into a `sections.map`
+  // (which iterates the prop array in its original, unsorted order). When
+  // sortOrder diverged from array order, typing into one section's field
+  // mutated a different section. Keying off `id` is invariant under any
+  // ordering of either array.
+  const updateSection = (sectionId: string, patch: Partial<PatternSection>) => {
+    const next = sections.map((s) => (s.id === sectionId ? { ...s, ...patch } : s));
     onChange(next);
   };
 
@@ -314,7 +320,7 @@ function SectionsEditor(props: {
       <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200">
         Sections ({sortedSections.length})
       </h2>
-      {sortedSections.map((section, idx) => (
+      {sortedSections.map((section) => (
         <div
           key={section.id}
           className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800"
@@ -326,14 +332,14 @@ function SectionsEditor(props: {
             <input
               type="text"
               value={section.name}
-              onChange={(e) => updateSection(idx, { name: e.target.value })}
+              onChange={(e) => updateSection(section.id, { name: e.target.value })}
               className="flex-1 rounded-md border border-gray-300 px-2 py-1 text-sm font-semibold dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
             />
           </div>
           <ChartPlacementSummary section={section} pattern={pattern} dialect={dialect} />
           <textarea
             value={section.notes ?? ''}
-            onChange={(e) => updateSection(idx, { notes: e.target.value || null })}
+            onChange={(e) => updateSection(section.id, { notes: e.target.value || null })}
             rows={2}
             placeholder="Section notes…"
             className="mt-2 w-full rounded-md border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"

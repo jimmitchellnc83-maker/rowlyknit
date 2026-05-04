@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
-import { FiArrowLeft, FiEdit2, FiTrash2, FiFileText, FiGrid, FiTool, FiBook, FiCheckCircle, FiLayout, FiList } from 'react-icons/fi';
+import { FiArrowLeft, FiEdit2, FiTrash2, FiFileText, FiGrid, FiTool, FiBook, FiCheckCircle, FiLayout, FiList, FiPlay } from 'react-icons/fi';
+import { isDesignerMakeModeEnabled } from '../lib/featureFlags';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import PatternFileUpload from '../components/PatternFileUpload';
@@ -49,6 +50,11 @@ interface Pattern {
   metadata?: { designer?: unknown; [key: string]: unknown } | null;
   complexity?: ComplexityResult | null;
   madeCount?: number;
+  /** ID of the canonical `pattern_models` twin that mirrors this legacy
+   *  pattern, when one exists. Surfaces from the backend so the UI can
+   *  render an "Open in Make Mode" entry button without a dead link.
+   *  Null for legacy-only patterns (PDF imports, Ravelry pulls, ...). */
+  canonicalPatternModelId?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -328,6 +334,26 @@ export default function PatternDetail() {
           </div>
 
           <div className="flex gap-2 flex-wrap">
+            {/* Canonical Make Mode entry — only renders when both the
+                designer flag is on AND this pattern has a canonical
+                pattern_models twin. Distinct from the project-level
+                "Resume Knitting" toggle on Project Detail: this surface
+                reads/writes `pattern_models.progress_state` for the
+                pattern itself; "Resume Knitting" toggles a per-project
+                local-storage layout with project-scoped counters. The
+                two persistence paths don't share state today (see
+                docs/SEAM_AUDIT_2026_05_04.md finding #2). */}
+            {isDesignerMakeModeEnabled() && pattern.canonicalPatternModelId && (
+              <Link
+                to={`/patterns/${pattern.canonicalPatternModelId}/make`}
+                data-testid="open-canonical-make-mode"
+                title="Open this pattern in canonical Make Mode (row-by-row tracker, persisted per pattern)"
+                className="flex items-center justify-center px-4 py-3 md:py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition min-h-[48px] md:min-h-0 flex-1 sm:flex-none"
+              >
+                <FiPlay className="mr-2 h-5 w-5 md:h-4 md:w-4" />
+                <span className="text-base md:text-sm">Open in Make Mode</span>
+              </Link>
+            )}
             <button
               onClick={handleEditClick}
               className="flex items-center justify-center px-4 py-3 md:py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition min-h-[48px] md:min-h-0 flex-1 sm:flex-none"

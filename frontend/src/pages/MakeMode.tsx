@@ -17,9 +17,10 @@
  */
 
 import { useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { FiHelpCircle, FiBookOpen, FiFileText, FiX, FiTrash2 } from 'react-icons/fi';
 import { useSeo } from '../hooks/useSeo';
+import { isDesignerMakeModeEnabled } from '../lib/featureFlags';
 import { usePatternModel, useUpdatePatternModel } from '../hooks/usePatternModel';
 import {
   decrementCounter,
@@ -65,6 +66,19 @@ export function patchSectionTotalRows(
 
 export default function MakeMode() {
   const { id } = useParams<{ id: string }>();
+
+  // Flag-gated: when off, the canonical Make Mode is not exposed. Redirect
+  // to the patterns listing rather than rendering a broken / orphan surface.
+  // Defense-in-depth — Pattern Detail's entry button is also flag-gated, so
+  // a typed URL is the only way to land here when off.
+  if (!isDesignerMakeModeEnabled()) {
+    return <Navigate to="/patterns" replace />;
+  }
+
+  return <MakeModeImpl id={id} />;
+}
+
+function MakeModeImpl({ id }: { id: string | undefined }) {
   const navigate = useNavigate();
   const { data: pattern, isLoading, error } = usePatternModel(id);
   const update = useUpdatePatternModel();
