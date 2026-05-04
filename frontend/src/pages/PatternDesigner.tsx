@@ -2275,9 +2275,25 @@ export default function PatternDesigner() {
           onCancel={() => setConfirmAction(null)}
         />
       )}
-      <div>
-        <div className="flex items-center gap-2">
-          <FiTool className="h-6 w-6 text-purple-600" />
+      {/* Three-row responsive header.
+            Row 1 — title + Beta + Editing pill (always visible, never clipped)
+            Row 2 — Knit/Crochet segmented toggle (own row, full-width touch
+                    targets on small screens, inline on lg+)
+            Row 3 — action buttons (wrap freely; never squeeze the toggle)
+         The previous single-row layout used `ml-auto` to push the actions
+         right, which collided with the title + toggle below ~1100px and
+         clipped the Knit/Crochet control. Splitting into stacked rows
+         (and only inlining the toggle when there's room) avoids the
+         collision without sacrificing desktop polish. */}
+      <header
+        data-testid="designer-header"
+        className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center lg:gap-2"
+      >
+        <div
+          data-testid="designer-header-title"
+          className="flex flex-wrap items-center gap-2"
+        >
+          <FiTool className="h-6 w-6 shrink-0 text-purple-600" />
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 md:text-3xl">
             Pattern Designer
           </h1>
@@ -2292,94 +2308,103 @@ export default function PatternDesigner() {
               {loadingPattern ? 'Loading…' : 'Editing'}
             </span>
           )}
-          {/* Craft toggle — drives which stitch palette shows + future
-              construction-math forks. Persisted with the rest of the form. */}
-          <div
-            className="ml-2 inline-flex overflow-hidden rounded-full border border-purple-300 text-xs font-medium dark:border-purple-700"
-            role="group"
-            aria-label="Craft"
-          >
-            {(['knit', 'crochet'] as const).map((c) => {
-              const active = form.craft === c;
-              return (
-                <button
-                  key={c}
-                  type="button"
-                  onClick={() => update('craft', c)}
-                  aria-pressed={active}
-                  className={`px-3 py-1 transition ${
-                    active
-                      ? 'bg-purple-600 text-white'
-                      : 'bg-white text-purple-700 hover:bg-purple-50 dark:bg-gray-800 dark:text-purple-200 dark:hover:bg-purple-900/30'
-                  }`}
-                >
-                  {c === 'knit' ? 'Knit' : 'Crochet'}
-                </button>
-              );
-            })}
-          </div>
-          <div className="ml-auto flex flex-wrap items-center gap-2">
-            {editingPatternId && (
-              <button
-                type="button"
-                onClick={() => setConfirmAction({ kind: 'cancel-edit' })}
-                className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
-                title="Discard unsaved changes and go back to the pattern"
-              >
-                Cancel
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={() => setConfirmAction({ kind: 'new-design' })}
-              className="inline-flex items-center gap-2 rounded-lg border border-purple-300 bg-white px-3 py-1.5 text-sm font-medium text-purple-700 hover:bg-purple-50 dark:border-purple-800 dark:bg-gray-800 dark:text-purple-300 dark:hover:bg-purple-900/30"
-              title="Clear the form and start a fresh design"
-            >
-              <FiFilePlus className="h-4 w-4" />
-              New design
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                const el = document.getElementById('designer-chart-section');
-                if (!el) return;
-                el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                // Briefly highlight the save button so the user sees where
-                // it is once they're scrolled there.
-                const saveBtn = el.querySelector('[data-chart-save]') as HTMLElement | null;
-                if (saveBtn) {
-                  saveBtn.classList.add('ring-2', 'ring-purple-500');
-                  setTimeout(() => saveBtn.classList.remove('ring-2', 'ring-purple-500'), 1800);
-                }
-              }}
-              className="inline-flex items-center gap-2 rounded-lg border border-purple-300 bg-white px-3 py-1.5 text-sm font-medium text-purple-700 hover:bg-purple-50 dark:border-purple-800 dark:bg-gray-800 dark:text-purple-300 dark:hover:bg-purple-900/30"
-              title="Jump to the chart and save it as a reusable asset"
-            >
-              <FiSave className="h-4 w-4" />
-              Save chart
-            </button>
-            <SaveAsPatternButton form={form} patternId={editingPatternId} />
-            <SaveToProjectButton form={form} />
-            <Link
-              to="/designer/print"
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-2 rounded-lg border border-purple-300 px-3 py-1.5 text-sm font-medium text-purple-700 hover:bg-purple-50 dark:border-purple-800 dark:text-purple-300 dark:hover:bg-purple-900/30"
-              title="Open a printable pattern write-up in a new tab"
-            >
-              <FiPrinter className="h-4 w-4" />
-              Print pattern
-            </Link>
-            <PageHelpButton label="Designer help" />
-          </div>
         </div>
-        <p className="mt-1 max-w-2xl text-sm text-gray-600 dark:text-gray-400">
-          Draft garments from body measurements and your swatch gauge. Supports sweater, hat,
-          scarf, blanket, shawl, mittens, and socks. Click <strong>Print pattern</strong> to open a
-          clean write-up with schematics and step-by-step instructions, ready to print or save as
-          PDF. Drafts are saved locally to this browser.
-        </p>
-      </div>
+
+        {/* Craft toggle — drives which stitch palette shows + future
+            construction-math forks. Persisted with the rest of the form.
+            Mobile/tablet: own full-width row with 44px touch targets so
+            the segmented control isn't squeezed by the action buttons.
+            Desktop (lg+): inline next to the title. */}
+        <div
+          data-testid="designer-craft-toggle"
+          className="inline-flex w-full max-w-xs shrink-0 overflow-hidden rounded-full border border-purple-300 text-sm font-medium dark:border-purple-700 lg:order-none lg:w-auto lg:max-w-none lg:text-xs"
+          role="group"
+          aria-label="Craft"
+        >
+          {(['knit', 'crochet'] as const).map((c) => {
+            const active = form.craft === c;
+            return (
+              <button
+                key={c}
+                type="button"
+                onClick={() => update('craft', c)}
+                aria-pressed={active}
+                className={`flex min-h-[44px] flex-1 items-center justify-center px-4 py-2 transition lg:min-h-0 lg:flex-none lg:px-3 lg:py-1 ${
+                  active
+                    ? 'bg-purple-600 text-white'
+                    : 'bg-white text-purple-700 hover:bg-purple-50 dark:bg-gray-800 dark:text-purple-200 dark:hover:bg-purple-900/30'
+                }`}
+              >
+                {c === 'knit' ? 'Knit' : 'Crochet'}
+              </button>
+            );
+          })}
+        </div>
+
+        <div
+          data-testid="designer-header-actions"
+          className="flex flex-wrap items-center gap-2 lg:ml-auto"
+        >
+          {editingPatternId && (
+            <button
+              type="button"
+              onClick={() => setConfirmAction({ kind: 'cancel-edit' })}
+              className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+              title="Discard unsaved changes and go back to the pattern"
+            >
+              Cancel
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setConfirmAction({ kind: 'new-design' })}
+            className="inline-flex items-center gap-2 rounded-lg border border-purple-300 bg-white px-3 py-1.5 text-sm font-medium text-purple-700 hover:bg-purple-50 dark:border-purple-800 dark:bg-gray-800 dark:text-purple-300 dark:hover:bg-purple-900/30"
+            title="Clear the form and start a fresh design"
+          >
+            <FiFilePlus className="h-4 w-4" />
+            New design
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              const el = document.getElementById('designer-chart-section');
+              if (!el) return;
+              el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              // Briefly highlight the save button so the user sees where
+              // it is once they're scrolled there.
+              const saveBtn = el.querySelector('[data-chart-save]') as HTMLElement | null;
+              if (saveBtn) {
+                saveBtn.classList.add('ring-2', 'ring-purple-500');
+                setTimeout(() => saveBtn.classList.remove('ring-2', 'ring-purple-500'), 1800);
+              }
+            }}
+            className="inline-flex items-center gap-2 rounded-lg border border-purple-300 bg-white px-3 py-1.5 text-sm font-medium text-purple-700 hover:bg-purple-50 dark:border-purple-800 dark:bg-gray-800 dark:text-purple-300 dark:hover:bg-purple-900/30"
+            title="Jump to the chart and save it as a reusable asset"
+          >
+            <FiSave className="h-4 w-4" />
+            Save chart
+          </button>
+          <SaveAsPatternButton form={form} patternId={editingPatternId} />
+          <SaveToProjectButton form={form} />
+          <Link
+            to="/designer/print"
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-2 rounded-lg border border-purple-300 px-3 py-1.5 text-sm font-medium text-purple-700 hover:bg-purple-50 dark:border-purple-800 dark:text-purple-300 dark:hover:bg-purple-900/30"
+            title="Open a printable pattern write-up in a new tab"
+          >
+            <FiPrinter className="h-4 w-4" />
+            Print pattern
+          </Link>
+          <PageHelpButton label="Designer help" />
+        </div>
+      </header>
+      <p className="-mt-1 max-w-2xl text-sm text-gray-600 dark:text-gray-400">
+        Draft garments from body measurements and your swatch gauge. Supports sweater, hat,
+        scarf, blanket, shawl, mittens, and socks. Click <strong>Print pattern</strong> to open a
+        clean write-up with schematics and step-by-step instructions, ready to print or save as
+        PDF. Drafts are saved locally to this browser.
+      </p>
 
       <div className="grid grid-cols-1 gap-4 md:gap-6 lg:grid-cols-5">
         {/* Inputs — Gauge first; unit comes from the user's profile preference */}

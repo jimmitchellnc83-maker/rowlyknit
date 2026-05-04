@@ -72,6 +72,12 @@ export function conditionalCsrf(req: Request, res: Response, next: NextFunction)
     '/api/auth/forgot-password',
     '/api/auth/reset-password',
     '/api/csrf-token',
+    // Public shared content. Recipients of a shared link are anonymous
+    // visitors with no existing __csrf cookie, so we can't require the
+    // double-submit token here. Abuse is bounded by the /shared/* rate
+    // limiter (60/min/IP) and capability-based access (the share token
+    // and password are themselves the credential).
+    '/shared/',
   ];
 
   const hasJWT = req.headers.authorization?.startsWith('Bearer ');

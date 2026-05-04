@@ -4,6 +4,8 @@ import logger from '../config/logger';
 import {
   createChartShareLink,
   getSharedChart,
+  getSharedChartIfAccessible,
+  verifyChartSharePassword,
   trackChartView,
   trackChartCopy,
   trackChartDownload,
@@ -12,6 +14,24 @@ import {
   getUserSharedItems,
 } from '../services/chartSharingService';
 import { exportChart } from '../services/chartExportService';
+import {
+  issueShareAccessToken,
+  shareAccessCookieName,
+} from '../utils/shareAccessToken';
+
+/**
+ * Read an access token for `shareToken` from either the `x-share-access`
+ * header (API clients) or the per-share cookie (browsers). Cookies win
+ * if both are present so a stale header from a copy/paste link can't
+ * override a freshly-issued cookie.
+ */
+function readShareAccessToken(req: Request, shareToken: string): string | undefined {
+  const cookieToken = req.cookies?.[shareAccessCookieName(shareToken)];
+  if (typeof cookieToken === 'string' && cookieToken.length > 0) return cookieToken;
+  const header = req.headers['x-share-access'];
+  if (typeof header === 'string' && header.length > 0) return header;
+  return undefined;
+}
 
 /**
  * Create share link for chart
@@ -53,17 +73,28 @@ export const shareChart = async (req: Request, res: Response) => {
 
 /**
  * View shared chart (public endpoint)
- * GET /api/shared/chart/:token
+ * GET /shared/chart/:token
+ *
+ * Password-protected shares require a valid access token from POST
+ * /shared/chart/:token/access (cookie or `x-share-access` header).
+ * The legacy `?password=` query param is no longer accepted — passwords
+ * in URLs leak through history, server logs, analytics, and Referer.
  */
 export const viewSharedChart = async (req: Request, res: Response) => {
   try {
     const { token } = req.params;
-    const { password } = req.query;
 
-    const result = await getSharedChart(token, password as string);
+    const accessToken = readShareAccessToken(req, token);
+    const result = await getSharedChartIfAccessible(token, accessToken);
 
-    if (!result) {
+    if (result.status === 'not_found') {
       return res.status(404).json({ error: 'Chart not found or link expired' });
+    }
+    if (result.status === 'password_required') {
+      return res.status(401).json({
+        error: 'Password required',
+        password_protected: true,
+      });
     }
 
     // Track view
@@ -89,11 +120,57 @@ export const viewSharedChart = async (req: Request, res: Response) => {
       },
     });
   } catch (error: any) {
-    if (error.message === 'Password required') {
-      return res.status(401).json({ error: 'Password required', password_protected: true });
-    }
     logger.error('Error viewing shared chart:', error);
     return res.status(500).json({ error: 'Failed to load chart' });
+  }
+};
+
+/**
+ * Verify a password for a protected shared chart and issue a short-lived
+ * access token (HMAC-signed, 15-minute TTL). Replaces the previous
+ * "?password=…" query-string flow.
+ *
+ * POST /shared/chart/:token/access
+ */
+export const verifySharedChartAccess = async (req: Request, res: Response) => {
+  try {
+    const { token } = req.params;
+    const { password } = req.body || {};
+
+    if (typeof password !== 'string' || password.length === 0) {
+      return res.status(400).json({ error: 'Password required' });
+    }
+
+    const result = await verifyChartSharePassword(token, password);
+    if (result.status === 'not_found') {
+      return res.status(404).json({ error: 'Chart not found or link expired' });
+    }
+    if (result.status === 'not_password_protected') {
+      return res.status(400).json({ error: 'This chart is not password protected' });
+    }
+    if (result.status === 'invalid_password') {
+      return res.status(401).json({ error: 'Invalid password' });
+    }
+
+    const issued = issueShareAccessToken(token);
+    res.cookie(shareAccessCookieName(token), issued.token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: issued.ttlSeconds * 1000,
+      // Scope the cookie to this share's path so a recipient's browser
+      // doesn't ship every share's access cookie on every /shared/* call.
+      path: `/shared/chart/${token}`,
+    });
+
+    return res.json({
+      success: true,
+      access_token: issued.token,
+      expires_at: issued.expiresAt.toISOString(),
+    });
+  } catch (error) {
+    logger.error('Error verifying shared chart access:', error);
+    return res.status(500).json({ error: 'Failed to verify access' });
   }
 };
 
@@ -207,17 +284,28 @@ export const exportChartHandler = async (req: Request, res: Response) => {
 
 /**
  * Download shared chart
- * GET /api/shared/chart/:token/download
+ * GET /shared/chart/:token/download
+ *
+ * Password-protected shares require a valid access token from POST
+ * /shared/chart/:token/access (cookie or `x-share-access` header).
+ * The legacy `?password=` query param is no longer accepted.
  */
 export const downloadSharedChart = async (req: Request, res: Response) => {
   try {
     const { token } = req.params;
-    const { format = 'pdf', password } = req.query;
+    const { format = 'pdf' } = req.query;
 
-    const result = await getSharedChart(token, password as string);
+    const accessToken = readShareAccessToken(req, token);
+    const result = await getSharedChartIfAccessible(token, accessToken);
 
-    if (!result) {
+    if (result.status === 'not_found') {
       return res.status(404).json({ error: 'Chart not found or link expired' });
+    }
+    if (result.status === 'password_required') {
+      return res.status(401).json({
+        error: 'Password required',
+        password_protected: true,
+      });
     }
 
     if (!result.share.allow_download) {
@@ -241,9 +329,6 @@ export const downloadSharedChart = async (req: Request, res: Response) => {
 
     return res.send(exportResult.buffer);
   } catch (error: any) {
-    if (error.message === 'Password required') {
-      return res.status(401).json({ error: 'Password required' });
-    }
     logger.error('Error downloading chart:', error);
     return res.status(500).json({ error: 'Failed to download chart' });
   }
@@ -350,6 +435,7 @@ export const getExportHistory = async (req: Request, res: Response) => {
 export default {
   shareChart,
   viewSharedChart,
+  verifySharedChartAccess,
   copySharedChart,
   exportChartHandler,
   downloadSharedChart,

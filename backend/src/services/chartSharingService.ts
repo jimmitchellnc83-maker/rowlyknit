@@ -186,6 +186,11 @@ export const createPatternShareLink = async (
 
 /**
  * Get shared chart by token
+ *
+ * Legacy callsite: still used by the auth'd `copySharedChart` flow
+ * (POST /api/shared/chart/:token/copy) where the password sits in the
+ * request body, not the URL. The public view/download flow now uses
+ * `getSharedChartIfAccessible` + `verifyChartSharePassword` instead.
  */
 export const getSharedChart = async (
   token: string,
@@ -230,6 +235,88 @@ export const getSharedChart = async (
   }
 
   return { chart, share };
+};
+
+export type ChartShareAccessOutcome =
+  | { status: 'not_found' }
+  | { status: 'password_required'; share: any }
+  | { status: 'ok'; share: any; chart: any };
+
+export type ChartSharePasswordVerifyOutcome =
+  | { status: 'not_found' }
+  | { status: 'not_password_protected' }
+  | { status: 'invalid_password' }
+  | { status: 'ok'; share: any };
+
+/**
+ * Public-side chart accessor that does NOT take a raw password.
+ * The caller (controller) supplies an opaque access token previously
+ * issued by `verifyChartSharePassword` + `issueShareAccessToken`. For
+ * non-password shares the access token is ignored.
+ *
+ * Replaces the previous `?password=…` query-string flow flagged by
+ * the seam audit (2026-05-04).
+ */
+export const getSharedChartIfAccessible = async (
+  token: string,
+  accessToken: string | undefined
+): Promise<ChartShareAccessOutcome> => {
+  // Lazy import keeps a clean test-mock seam: existing service tests
+  // that stub the DB module don't pull in the JWT helpers as a side
+  // effect of importing the service.
+  const { verifyShareAccessToken } = await import('../utils/shareAccessToken');
+
+  const share = await db('shared_charts')
+    .where({ share_token: token })
+    .first();
+
+  if (!share) return { status: 'not_found' };
+  if (share.expires_at && new Date(share.expires_at) < new Date()) {
+    return { status: 'not_found' };
+  }
+
+  if (share.password_hash) {
+    if (!verifyShareAccessToken(token, accessToken)) {
+      return { status: 'password_required', share };
+    }
+  }
+
+  const chart = await db('charts').where({ id: share.chart_id }).first();
+  if (!chart) return { status: 'not_found' };
+
+  return { status: 'ok', share, chart };
+};
+
+/**
+ * Verify a password against the share's stored hash. On success the
+ * caller can mint an access token via `issueShareAccessToken`. The
+ * password never reaches `getSharedChartIfAccessible` — keeps the
+ * password out of any later URL or log line.
+ */
+export const verifyChartSharePassword = async (
+  token: string,
+  password: string
+): Promise<ChartSharePasswordVerifyOutcome> => {
+  const share = await db('shared_charts')
+    .where({ share_token: token })
+    .first();
+
+  if (!share) return { status: 'not_found' };
+  if (share.expires_at && new Date(share.expires_at) < new Date()) {
+    return { status: 'not_found' };
+  }
+  if (!share.password_hash) {
+    return { status: 'not_password_protected' };
+  }
+
+  const ok = await verifySharePassword(password, share.password_hash, {
+    table: 'shared_charts',
+    column: 'password_hash',
+    where: { id: share.id },
+  });
+
+  if (!ok) return { status: 'invalid_password' };
+  return { status: 'ok', share };
 };
 
 /**
@@ -355,6 +442,8 @@ export default {
   createChartShareLink,
   createPatternShareLink,
   getSharedChart,
+  getSharedChartIfAccessible,
+  verifyChartSharePassword,
   trackChartView,
   trackChartCopy,
   trackChartDownload,
