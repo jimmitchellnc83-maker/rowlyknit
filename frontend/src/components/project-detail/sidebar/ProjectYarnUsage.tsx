@@ -12,10 +12,37 @@ interface Props {
   onAddClick: () => void;
 }
 
-const getYarnPercentage = (y: any) => {
-  const remaining = y.yarn_remaining || 0;
-  const total = y.yarn_total || 1;
-  return Math.max(0, Math.min(100, (remaining / total) * 100));
+// "Stash level" bar: how much of the original stash is still on hand for
+// this yarn, expressed as a percentage. Pre-fix this read `yarn_remaining`
+// and `yarn_total`, fields the API never returns, so every bar always
+// rendered as 0%. The wire shape (see backend/src/controllers/projectsController.ts
+// where it joins `yarns y` with `project_yarn` columns `yards_used` /
+// `skeins_used`) gives us per-row `skeins_remaining` (current stash) and
+// `skeins_used` (allocated to this project). Original stash is
+// remaining + used; if both are missing we fall back to the length
+// fields so a yarn with only meters tracked still gets a meaningful bar.
+const getYarnPercentage = (y: any): number => {
+  const skeinsRemaining = Number(y.skeins_remaining ?? 0);
+  const skeinsUsedHere = Number(y.skeins_used ?? 0);
+  const skeinsOriginal = skeinsRemaining + skeinsUsedHere;
+  if (skeinsOriginal > 0) {
+    return Math.max(0, Math.min(100, (skeinsRemaining / skeinsOriginal) * 100));
+  }
+  // Length-based fallback (meters preferred, yards if that's what was
+  // entered). Same shape: original = remaining + used.
+  const remainingMeters =
+    y.remaining_length_m != null
+      ? Number(y.remaining_length_m)
+      : y.yards_remaining != null
+        ? Number(y.yards_remaining) * 0.9144
+        : 0;
+  const usedMeters =
+    y.yards_used != null ? Number(y.yards_used) * 0.9144 : 0;
+  const originalMeters = remainingMeters + usedMeters;
+  if (originalMeters > 0) {
+    return Math.max(0, Math.min(100, (remainingMeters / originalMeters) * 100));
+  }
+  return 0;
 };
 
 const toNumber = (v: unknown): number => {

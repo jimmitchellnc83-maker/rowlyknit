@@ -44,15 +44,30 @@ export default function EditProjectModal({
     recipientId: project.recipient_id || '',
   });
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
     setSubmitting(true);
     try {
       await onSubmit(formData);
       onClose();
-    } catch {
-      // stay open on error
+    } catch (err: unknown) {
+      // Surface the failure so the user knows to retry instead of staring at
+      // the same form. Server-supplied messages take precedence when
+      // available (e.g., validation errors); otherwise we fall back to a
+      // generic retry prompt that doesn't pretend to know more than we do.
+      const ax = err as {
+        response?: { data?: { message?: string; error?: string } };
+        message?: string;
+      };
+      const message =
+        ax?.response?.data?.message ??
+        ax?.response?.data?.error ??
+        ax?.message ??
+        'Could not save changes. Please try again.';
+      setError(message);
     } finally {
       setSubmitting(false);
     }
@@ -61,6 +76,15 @@ export default function EditProjectModal({
   return (
     <ModalShell titleId="edit-project-title" title="Edit Project" size="lg">
       <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        {error ? (
+          <div
+            role="alert"
+            className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-800 dark:border-red-700 dark:bg-red-900/30 dark:text-red-200"
+          >
+            {error}
+          </div>
+        ) : null}
+
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Project Name
