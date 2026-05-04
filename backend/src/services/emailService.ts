@@ -1,6 +1,6 @@
-import nodemailer, { Transporter } from 'nodemailer';
 import db from '../config/database';
 import logger from '../config/logger';
+import { createEmailAdapter, EmailAdapter } from './emailAdapters';
 
 interface EmailOptions {
   to: string;
@@ -10,89 +10,74 @@ interface EmailOptions {
   template?: string;
 }
 
+/**
+ * Provider-agnostic transactional email gateway. The actual SMTP/HTTP
+ * mechanics live in `emailAdapters.ts`; this service handles the
+ * cross-provider concerns: from-address composition, audit logging,
+ * and the dev/test failure swallow. Add new providers in
+ * `createEmailAdapter` — never branch on EMAIL_PROVIDER here.
+ *
+ * Env knobs (see `.env.example` for full docs):
+ *   EMAIL_PROVIDER      — resend | postmark | sendgrid | ses | noop
+ *   EMAIL_API_KEY       — provider key / token
+ *   FROM_EMAIL          — preferred. Falls back to legacy EMAIL_FROM.
+ *   EMAIL_FROM_NAME     — display name (defaults to "Rowly")
+ *   EMAIL_REPLY_TO      — optional Reply-To header
+ *   APP_URL             — base URL used in templated reset / verify links
+ */
 class EmailService {
-  private transporter: Transporter;
+  private adapter: EmailAdapter;
 
   constructor() {
-    this.transporter = this.createTransporter();
+    this.adapter = createEmailAdapter();
+    logger.info(`[email] adapter initialized: ${this.adapter.name}`);
   }
 
-  private createTransporter(): Transporter {
-    const provider = process.env.EMAIL_PROVIDER || 'sendgrid';
-
-    if (provider === 'sendgrid') {
-      return nodemailer.createTransport({
-        host: 'smtp.sendgrid.net',
-        port: 587,
-        auth: {
-          user: 'apikey',
-          pass: process.env.EMAIL_API_KEY,
-        },
-      });
-    } else if (provider === 'postmark') {
-      return nodemailer.createTransport({
-        host: 'smtp.postmarkapp.com',
-        port: 587,
-        auth: {
-          user: process.env.EMAIL_API_KEY,
-          pass: process.env.EMAIL_API_KEY,
-        },
-      });
-    } else if (provider === 'ses') {
-      return nodemailer.createTransport({
-        host: `email-smtp.${process.env.AWS_REGION || 'us-east-1'}.amazonaws.com`,
-        port: 587,
-        auth: {
-          user: process.env.AWS_SES_ACCESS_KEY,
-          pass: process.env.AWS_SES_SECRET_KEY,
-        },
-      });
-    } else {
-      // Development mode - log emails to console
-      return nodemailer.createTransport({
-        streamTransport: true,
-        newline: 'unix',
-        buffer: true,
-      } as any);
-    }
+  /** Visible to tests / ops only — production code paths use the typed senders below. */
+  getAdapterName(): string {
+    return this.adapter.name;
   }
 
   async sendEmail(options: EmailOptions): Promise<void> {
-    try {
-      const from = `${process.env.EMAIL_FROM_NAME || 'Rowly'} <${process.env.EMAIL_FROM || 'noreply@rowlyknit.com'}>`;
+    const fromAddress =
+      process.env.FROM_EMAIL || process.env.EMAIL_FROM || 'noreply@rowlyknit.com';
+    const from = `${process.env.EMAIL_FROM_NAME || 'Rowly'} <${fromAddress}>`;
+    const replyTo = process.env.EMAIL_REPLY_TO || 'support@rowlyknit.com';
 
-      const info = await this.transporter.sendMail({
+    try {
+      const info = await this.adapter.send({
         from,
         to: options.to,
         subject: options.subject,
         html: options.html,
         text: options.text,
-        replyTo: process.env.EMAIL_REPLY_TO || 'support@rowlyknit.com',
+        replyTo,
+        template: options.template,
       });
 
-      // Log email
       await db('email_logs').insert({
         to_email: options.to,
         subject: options.subject,
         template: options.template || 'custom',
         status: 'sent',
-        provider_id: info.messageId,
+        provider_id: info.id,
         sent_at: new Date(),
       });
 
       logger.info('Email sent successfully', {
         to: options.to,
         subject: options.subject,
-        messageId: info.messageId,
+        messageId: info.id,
+        adapter: info.adapter,
       });
     } catch (error) {
       logger.error('Failed to send email', {
         to: options.to,
         subject: options.subject,
+        adapter: this.adapter.name,
         error: error instanceof Error ? error.message : 'Unknown error',
       });
 
-      // Log failed email
       await db('email_logs').insert({
         to_email: options.to,
         subject: options.subject,
@@ -102,7 +87,11 @@ class EmailService {
         sent_at: new Date(),
       });
 
-      // In development, log the failure but don't crash the request
+      // Don't fail the request in development — the call sites that
+      // depend on transactional email (register, password reset) all
+      // already log + persist the underlying token, so a degraded
+      // outbound is recoverable. In production we still throw so
+      // monitoring picks it up.
       if (process.env.NODE_ENV === 'development') {
         logger.warn('Email sending skipped in development (no valid email provider configured)');
         return;

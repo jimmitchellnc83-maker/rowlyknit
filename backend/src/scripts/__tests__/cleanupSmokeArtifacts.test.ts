@@ -68,7 +68,10 @@ function recordingBuilder(
   );
 }
 
-import { selectPatternModelCandidates } from '../cleanupSmokeArtifacts';
+import {
+  selectJoinLayoutCandidates,
+  selectPatternModelCandidates,
+} from '../cleanupSmokeArtifacts';
 
 describe('cleanupSmokeArtifacts.selectPatternModelCandidates', () => {
   it('joins users and gates by smoke-account email + name prefix', async () => {
@@ -225,5 +228,146 @@ describe('cleanupSmokeArtifacts — script-level safety predicate', () => {
 
   it('leaves unrelated patterns alone regardless of email', () => {
     expect(mirrorPredicate(FIXTURE[5], [])).toBe(false);
+  });
+});
+
+describe('cleanupSmokeArtifacts.selectJoinLayoutCandidates', () => {
+  it('joins users and gates by smoke-account email + name prefix (no global name match)', async () => {
+    const calls: CapturedCall[] = [];
+    const depthRef = { d: 0 };
+    const builder = recordingBuilder(calls, depthRef, [
+      {
+        id: 'jl-smoke',
+        name: 'Smoke layout PR378',
+        user_id: 'u-smoke',
+        project_id: 'pj-smoke',
+        email: 'smoke@rowly.test',
+      },
+    ]);
+    const mockDb = jest.fn(() => builder);
+
+    const rows = await selectJoinLayoutCandidates(
+      mockDb as unknown as Parameters<typeof selectJoinLayoutCandidates>[0],
+    );
+
+    expect(mockDb).toHaveBeenCalledWith('join_layouts as jl');
+
+    expect(calls).toContainEqual(
+      expect.objectContaining({
+        method: 'innerJoin',
+        args: ['users as u', 'u.id', 'jl.user_id'],
+      }),
+    );
+
+    expect(calls).toContainEqual(
+      expect.objectContaining({
+        method: 'whereNull',
+        args: ['jl.deleted_at'],
+      }),
+    );
+
+    const emailGateCall = calls.find(
+      (c) =>
+        c.method === 'where' &&
+        c.args[0] === 'u.email' &&
+        c.args[1] === 'like' &&
+        c.args[2] === '%@rowly.test',
+    );
+    expect(emailGateCall).toBeDefined();
+
+    const nameLikeCall = calls.find(
+      (c) =>
+        c.method === 'orWhere' &&
+        c.args[0] === 'jl.name' &&
+        c.args[1] === 'ilike',
+    );
+    expect(nameLikeCall).toBeDefined();
+
+    expect(rows).toEqual([
+      {
+        id: 'jl-smoke',
+        name: 'Smoke layout PR378',
+        user_id: 'u-smoke',
+        project_id: 'pj-smoke',
+        email: 'smoke@rowly.test',
+      },
+    ]);
+  });
+
+  it('NEVER pulls join_layouts via name-only match (no name LIKE outside the email-gated closure)', async () => {
+    const calls: CapturedCall[] = [];
+    const depthRef = { d: 0 };
+    const builder = recordingBuilder(calls, depthRef, []);
+    const mockDb = jest.fn(() => builder);
+
+    await selectJoinLayoutCandidates(
+      mockDb as unknown as Parameters<typeof selectJoinLayoutCandidates>[0],
+    );
+
+    // Top-level (depth=0) where calls must NOT key off `jl.name`. That
+    // would mean a real user's "Smoke fade cardigan" join layout is
+    // deletable. Name-prefix matching is only legal *inside* the
+    // nested email-gated closure.
+    const topLevelNameMatch = calls.find(
+      (c) =>
+        c.depth === 0 &&
+        (c.method === 'where' || c.method === 'orWhere') &&
+        c.args[0] === 'jl.name',
+    );
+    expect(topLevelNameMatch).toBeUndefined();
+  });
+});
+
+describe('cleanupSmokeArtifacts — join_layouts safety predicate', () => {
+  /**
+   * Mirror predicate for join_layouts. Same JS-level proof as
+   * pattern_models: a real user's layout literally named
+   * "Smoke fade cardigan" must NOT show up as a candidate, while a
+   * smoke-account row with the same name does.
+   */
+  function mirrorPredicate(
+    row: { id: string; name: string; email: string },
+    idAllowlist: string[],
+  ): boolean {
+    if (idAllowlist.includes(row.id)) return true;
+    const isSmokeEmail = row.email.endsWith('@rowly.test');
+    if (!isSmokeEmail) return false;
+    const prefixes = ['Smoke ', 'Smoke layout PR', 'PR3', 'Hardening Smoke'];
+    return prefixes.some((p) =>
+      row.name.toLowerCase().startsWith(p.toLowerCase()),
+    );
+  }
+
+  const FIXTURE = [
+    { id: 'jl-1', name: 'Smoke fade cardigan', email: 'real@user.com' },
+    { id: 'jl-2', name: 'Smoke layout PR378', email: 'real@user.com' },
+    { id: 'jl-3', name: 'Smoke fade cardigan', email: 'smoke@rowly.test' },
+    { id: 'jl-4', name: 'Smoke layout PR378', email: 'smoke@rowly.test' },
+    { id: 'jl-5', name: 'PR378 join smoke', email: 'smoke@rowly.test' },
+    { id: 'jl-6', name: 'Hardening Smoke join', email: 'smoke@rowly.test' },
+    { id: 'jl-7', name: 'Sleeve join', email: 'real@user.com' },
+  ];
+
+  it('does NOT mark a real-user layout literally named "Smoke fade cardigan" as a candidate', () => {
+    expect(mirrorPredicate(FIXTURE[0], [])).toBe(false);
+  });
+
+  it('does NOT mark a real-user layout literally named "Smoke layout PR378" as a candidate', () => {
+    expect(mirrorPredicate(FIXTURE[1], [])).toBe(false);
+  });
+
+  it('marks smoke-account rows with a smoke prefix as candidates', () => {
+    expect(mirrorPredicate(FIXTURE[2], [])).toBe(true);
+    expect(mirrorPredicate(FIXTURE[3], [])).toBe(true);
+    expect(mirrorPredicate(FIXTURE[4], [])).toBe(true);
+    expect(mirrorPredicate(FIXTURE[5], [])).toBe(true);
+  });
+
+  it('honors the explicit ID allow-list even on a real-user row (operator opt-in)', () => {
+    expect(mirrorPredicate(FIXTURE[0], ['jl-1'])).toBe(true);
+  });
+
+  it('leaves unrelated layouts alone regardless of email', () => {
+    expect(mirrorPredicate(FIXTURE[6], [])).toBe(false);
   });
 });

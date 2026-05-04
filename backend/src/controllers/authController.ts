@@ -9,6 +9,7 @@ import {
   generateResetToken,
 } from '../utils/jwt';
 import { revokeAccessTokenJti, revokeAllUserTokensBefore } from '../utils/tokenRevocation';
+import { hashToken } from '../utils/tokenHash';
 import {
   UnauthorizedError,
   ValidationError,
@@ -128,10 +129,16 @@ async function issueSession(
   const sessionDays = rememberMe ? 30 : 7;
   const sessionExpires = new Date(Date.now() + sessionDays * 24 * 60 * 60 * 1000);
 
+  // Insert the session row first so we have a stable session.id to embed
+  // in the refresh token. The hash column starts null and is filled in
+  // immediately below; the row never sits without a hash for an
+  // attacker-relevant amount of time, but if the second update fails the
+  // session is unusable and will fall out of the index — never minting
+  // a valid refresh.
   const [session] = await db('sessions')
     .insert({
       user_id: user.id,
-      refresh_token: '',
+      refresh_token_hash: null,
       ip_address: req.ip,
       user_agent: req.headers['user-agent'],
       expires_at: sessionExpires,
@@ -150,7 +157,11 @@ async function issueSession(
     sessionId: session.id,
   });
 
-  await db('sessions').where({ id: session.id }).update({ refresh_token: refreshToken });
+  // Store only the hash. The raw token leaves the server in the
+  // response body + Set-Cookie header and is never persisted.
+  await db('sessions')
+    .where({ id: session.id })
+    .update({ refresh_token_hash: hashToken(refreshToken) });
 
   await db('users').where({ id: user.id }).update({
     last_login: new Date(),
@@ -249,10 +260,14 @@ export async function refreshToken(req: Request, res: Response) {
   // Verify refresh token
   const payload = verifyRefreshToken(token);
 
-  // Check if session exists and is valid
+  // Look up the session by the hash of the submitted token. The DB no
+  // longer holds the raw value, so a leaked backup can't be used to
+  // mint access tokens (the JWT signature still binds the userId/sessionId,
+  // but a stolen DB row with a raw token would have been enough on its
+  // own pre-PR to satisfy this clause).
   const session = await db('sessions')
     .where({
-      refresh_token: token,
+      refresh_token_hash: hashToken(token),
       user_id: payload.userId,
       is_revoked: false,
     })
@@ -315,9 +330,9 @@ export async function logout(req: Request, res: Response) {
   }
 
   if (refreshToken) {
-    // Revoke session
+    // Revoke session — match by hash since the raw column no longer exists.
     await db('sessions')
-      .where({ refresh_token: refreshToken, user_id: userId })
+      .where({ refresh_token_hash: hashToken(refreshToken), user_id: userId })
       .update({ is_revoked: true, updated_at: new Date() });
   }
 
@@ -584,15 +599,15 @@ export async function requestPasswordReset(req: Request, res: Response) {
     return;
   }
 
-  // Generate reset token
+  // Generate reset token. The raw token is emailed to the user; only
+  // the SHA-256 hash is persisted, so a leaked DB cannot mint a reset.
   const resetToken = generateResetToken();
   const resetExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
-  // Save token
   await db('users')
     .where({ id: user.id })
     .update({
-      reset_password_token: resetToken,
+      reset_password_token_hash: hashToken(resetToken),
       reset_password_expires: resetExpires,
       updated_at: new Date(),
     });
@@ -646,9 +661,10 @@ export async function resetPassword(req: Request, res: Response) {
     throw new ValidationError('Password does not meet requirements', passwordValidation.errors);
   }
 
-  // Find user with token
+  // Look up by hash. Submitted token is hashed and compared against
+  // the stored hash; the raw token never sits in the database.
   const user = await db('users')
-    .where({ reset_password_token: token })
+    .where({ reset_password_token_hash: hashToken(token) })
     .where('reset_password_expires', '>', new Date())
     .whereNull('deleted_at')
     .first();
@@ -660,12 +676,14 @@ export async function resetPassword(req: Request, res: Response) {
   // Hash new password
   const passwordHash = await hashPassword(password);
 
-  // Update user
+  // Clear the reset token immediately on use so the same email link
+  // cannot be redeemed twice — even if the second attempt arrives
+  // before the natural 1-hour expiry.
   await db('users')
     .where({ id: user.id })
     .update({
       password_hash: passwordHash,
-      reset_password_token: null,
+      reset_password_token_hash: null,
       reset_password_expires: null,
       updated_at: new Date(),
     });
