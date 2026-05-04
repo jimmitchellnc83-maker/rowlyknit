@@ -38,6 +38,7 @@ import Stats from './pages/Stats';
 import Help from './pages/Help';
 import AdminUsage from './pages/AdminUsage';
 import PublicProjectPage from './pages/PublicProjectPage';
+import PublicSharedChart from './pages/PublicSharedChart';
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
 import ForgotPassword from './pages/auth/ForgotPassword';
@@ -127,6 +128,11 @@ function App() {
         <Route path="/help/glossary" element={<PublicSuspense><Glossary /></PublicSuspense>} />
         <Route path="/help/knit911" element={<PublicSuspense><Knit911 /></PublicSuspense>} />
         <Route path="/p/:slug" element={<ErrorBoundary><PublicProjectPage /></ErrorBoundary>} />
+        {/* Recipient-facing public viewer for shared knitting charts.
+            share_url returned by POST /api/charts/:id/share now lands
+            here so non-Rowly users get a real password UI + chart view
+            instead of raw backend JSON. */}
+        <Route path="/c/:token" element={<ErrorBoundary><PublicSharedChart /></ErrorBoundary>} />
       </Route>
 
         {/* Auth routes */}

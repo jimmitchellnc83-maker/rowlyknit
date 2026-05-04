@@ -243,6 +243,48 @@ export const publicSharedLimiter = rateLimit({
 });
 
 /**
+ * Stricter limiter for POST /shared/chart/:token/access — the password-
+ * verification endpoint. Without this, the only protection on a protected
+ * share is the 60/min/IP `publicSharedLimiter`, which allows ~3.6k
+ * password attempts/hour per IP — fine for browsing, far too lax for a
+ * brute-force gate.
+ *
+ * Keyed by `${ip}:${token}` so that:
+ *   - an attacker hammering one share's password can be throttled without
+ *     locking another recipient on the same NAT out of a different share;
+ *   - rotating tokens does NOT reset the limit (we'd key by token alone
+ *     for that, but then a single attacker IP can pivot across many
+ *     tokens — IP must be in the key).
+ *
+ * Default: 10 attempts / 15 minutes per (ip, token). Successful unlocks
+ * still count — that's intentional. A legitimate recipient typing the
+ * password wrong a few times then succeeding is well under 10.
+ */
+export const sharedChartPasswordAttemptLimiter = rateLimit({
+  store: new RedisStore({
+    sendCommand: ((...args: any[]) => redisClient.call(args[0], ...args.slice(1))) as any,
+  }),
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: parseInt(process.env.SHARE_PASSWORD_RATE_LIMIT_MAX || '10'),
+  message: {
+    success: false,
+    message: 'Too many password attempts for this share, please try again later',
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => {
+    // `req.params.token` is set by the route param. Fall back to the
+    // raw URL fragment if for some reason params aren't populated yet
+    // (defensive — should never happen in practice).
+    const token =
+      (req.params && (req.params as Record<string, string>).token) ||
+      req.path.split('/').slice(-2, -1)[0] ||
+      'unknown';
+    return `share-pw:${req.ip || 'unknown'}:${token}`;
+  },
+});
+
+/**
  * Get current rate limit status for a user
  * Can be used in an API endpoint to show users their current usage
  */

@@ -11,12 +11,17 @@ const router = Router();
 router.use(authenticate);
 
 /**
- * Pattern Sections Routes
+ * Legacy PDF/page-navigation section routes — these manage rows in the
+ * `pattern_sections` table (page-anchor jump-points inside an uploaded
+ * PDF). NOT canonical Pattern Model sections — for those see
+ * /api/pattern-models/:id/sections in patternModelsController. See the
+ * file-level comment in patternEnhancementsController for the full
+ * legacy / canonical split.
  */
 
 /**
  * @route   GET /api/patterns/:patternId/sections
- * @desc    Get all sections for a pattern
+ * @desc    List legacy PDF/page-navigation sections for a pattern.
  * @access  Private
  */
 router.get(
@@ -27,7 +32,7 @@ router.get(
 
 /**
  * @route   POST /api/patterns/:patternId/sections
- * @desc    Create a pattern section
+ * @desc    Create a legacy PDF/page-navigation section.
  * @access  Private
  */
 router.post(
@@ -45,7 +50,7 @@ router.post(
 
 /**
  * @route   PUT /api/patterns/:patternId/sections/:sectionId
- * @desc    Update a pattern section
+ * @desc    Update a legacy PDF/page-navigation section.
  * @access  Private
  */
 router.put(
@@ -64,7 +69,7 @@ router.put(
 
 /**
  * @route   DELETE /api/patterns/:patternId/sections/:sectionId
- * @desc    Delete a pattern section
+ * @desc    Delete a legacy PDF/page-navigation section.
  * @access  Private
  */
 router.delete(

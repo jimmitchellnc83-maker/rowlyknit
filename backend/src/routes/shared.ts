@@ -1,8 +1,9 @@
 import { Router } from 'express';
-import { query } from 'express-validator';
+import { body, query } from 'express-validator';
 import * as abbreviationController from '../controllers/abbreviationController';
 import * as chartSharingController from '../controllers/chartSharingController';
 import * as projectSharingController from '../controllers/projectSharingController';
+import { sharedChartPasswordAttemptLimiter } from '../middleware/rateLimiter';
 import { validate } from '../middleware/validator';
 import { asyncHandler } from '../utils/errorHandler';
 
@@ -42,27 +43,48 @@ router.get(
 
 /**
  * @route   GET /shared/chart/:token
- * @desc    View shared chart (public)
+ * @desc    View shared chart (public). Password-protected charts require
+ *          an access token issued by POST /shared/chart/:token/access
+ *          (sent as the `share_access_<token>` cookie or `x-share-access`
+ *          header). The legacy `?password=` query param is no longer
+ *          accepted — passwords in URLs leak through history, server
+ *          logs, analytics, and Referer.
  * @access  Public
  */
 router.get(
   '/chart/:token',
-  [query('password').optional({ values: 'null' }).isString()],
-  validate,
   asyncHandler(chartSharingController.viewSharedChart)
 );
 
 /**
+ * @route   POST /shared/chart/:token/access
+ * @desc    Verify a password for a protected shared chart and issue a
+ *          short-lived (15-minute) HMAC-signed access token. Replaces
+ *          the previous `?password=…` query-string flow.
+ *
+ *          Wears a STRICTER per-(ip, token) limiter than the rest of
+ *          `/shared/*` (10 attempts / 15 min default) because this is a
+ *          password-attempt surface — the general 60/min/IP would allow
+ *          thousands of guesses per hour against a single share.
+ * @access  Public
+ */
+router.post(
+  '/chart/:token/access',
+  sharedChartPasswordAttemptLimiter,
+  [body('password').isString().isLength({ min: 1, max: 256 })],
+  validate,
+  asyncHandler(chartSharingController.verifySharedChartAccess)
+);
+
+/**
  * @route   GET /shared/chart/:token/download
- * @desc    Download shared chart (public)
+ * @desc    Download shared chart (public). Password-protected charts
+ *          require the access cookie/header from /access (see above).
  * @access  Public
  */
 router.get(
   '/chart/:token/download',
-  [
-    query('format').optional({ values: 'null' }).isIn(['pdf', 'png', 'csv']),
-    query('password').optional({ values: 'null' }).isString(),
-  ],
+  [query('format').optional({ values: 'null' }).isIn(['pdf', 'png', 'csv'])],
   validate,
   asyncHandler(chartSharingController.downloadSharedChart)
 );

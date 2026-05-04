@@ -5,11 +5,35 @@ import { createAuditLog } from '../middleware/auditLog';
 import { intOrNull, numOrNull } from '../utils/numericInput';
 
 /**
- * Pattern Sections
+ * LEGACY PDF / PAGE-NAVIGATION SECTIONS — NOT canonical pattern model sections.
+ *
+ * The endpoints in this file operate on the `pattern_sections` table, which
+ * predates the Pattern Designer rebuild (PRs #264–#270). Each row in
+ * `pattern_sections` represents a labelled jump-point inside an uploaded
+ * pattern PDF (page number + y-offset on that page) so the PDF workspace
+ * can show a "skip to neckline" / "skip to sleeves" sidebar.
+ *
+ * **They are NOT the same thing as `pattern_models.sections` (canonical
+ * Pattern Model sections used by Author Mode and Make Mode.)**
+ *
+ *   pattern_sections  → legacy PDF/page anchors. Created by the PDF
+ *                       workspace UI. Joined to a `patterns` row.
+ *   pattern_models.sections → JSONB array on the canonical pattern. Drives
+ *                       row-by-row Make Mode, feasibility, etc. Created
+ *                       by Author Mode / canonical importer.
+ *
+ * Routes: /api/patterns/:patternId/sections (legacy / PDF) — see
+ * routes/patternEnhancements.ts. Canonical Pattern Model sections live
+ * under /api/pattern-models/:id/sections in patternModelsController.
+ *
+ * Renaming the DB table is intentionally out of scope for this sprint —
+ * a rename would touch migrations, controllers, routes, frontend hooks,
+ * and any persisted shares. Comment-level clarification only for now;
+ * file a follow-up if/when the legacy PDF surface is fully replaced.
  */
 
 /**
- * Get all sections for a pattern
+ * Get all PDF/page-navigation sections for a pattern (legacy surface).
  */
 export async function getPatternSections(req: Request, res: Response) {
   const userId = req.user!.userId;
@@ -35,7 +59,9 @@ export async function getPatternSections(req: Request, res: Response) {
 }
 
 /**
- * Create a pattern section
+ * Create a legacy PDF/page-navigation section (`pattern_sections` row).
+ * Not to be confused with canonical Pattern Model sections — see the
+ * file-level comment above.
  */
 export async function createPatternSection(req: Request, res: Response) {
   const userId = req.user!.userId;
@@ -82,7 +108,9 @@ export async function createPatternSection(req: Request, res: Response) {
 }
 
 /**
- * Update a pattern section
+ * Update a legacy PDF/page-navigation section (`pattern_sections` row).
+ * Not to be confused with canonical Pattern Model sections — see the
+ * file-level comment above.
  */
 export async function updatePatternSection(req: Request, res: Response) {
   const userId = req.user!.userId;
@@ -134,7 +162,9 @@ export async function updatePatternSection(req: Request, res: Response) {
 }
 
 /**
- * Delete a pattern section
+ * Delete a legacy PDF/page-navigation section (`pattern_sections` row).
+ * Not to be confused with canonical Pattern Model sections — see the
+ * file-level comment above.
  */
 export async function deletePatternSection(req: Request, res: Response) {
   const userId = req.user!.userId;
