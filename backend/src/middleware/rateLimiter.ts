@@ -1,7 +1,8 @@
 import rateLimit from 'express-rate-limit';
 import RedisStore from 'rate-limit-redis';
+import validator from 'validator';
 import { redisClient } from '../config/redis';
-import { Request } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import logger from '../config/logger';
 
 /**
@@ -240,7 +241,46 @@ export const uploadLimiter = rateLimit({
  * an attacker could rotate the email field across 1000 addresses an hour
  * and stay under the per-email cap forever. Both gates run sequentially
  * (express middleware chain), so the first one to fire wins.
+ *
+ * Per-email key uses validator.normalizeEmail() (the same canonicalization
+ * the express-validator chain runs in the route definition). Codex caught
+ * a bypass on PR #382: a bare trim+lowercase let `Foo.Bar+spam@gmail.com`
+ * and `foobar@gmail.com` land in different buckets even though they
+ * resolve to the same Gmail account. We now share the canonical form so
+ * provider-normalized variants share one bucket.
  */
+export const normalizeResetEmail = (raw: string): string | null => {
+  if (typeof raw !== 'string') return null;
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  // validator.normalizeEmail returns `false` for clearly-invalid input;
+  // fall back to lowercased trim so the limiter still buckets bad input
+  // (the validator chain after the limiter will still 400 it).
+  const normalized = validator.normalizeEmail(trimmed);
+  return normalized || trimmed.toLowerCase();
+};
+
+/**
+ * Pre-normalization middleware: runs before the password-reset limiters
+ * so both the limiter keyGenerator and the downstream express-validator
+ * chain see one canonical email. Mutating `req.body.email` here is safe
+ * because the validator's `normalizeEmail()` is idempotent on already-
+ * normalized input.
+ */
+export const normalizePasswordResetEmail = (
+  req: Request,
+  _res: Response,
+  next: NextFunction
+): void => {
+  if (req.body && typeof req.body.email === 'string') {
+    const normalized = normalizeResetEmail(req.body.email);
+    if (normalized) {
+      req.body.email = normalized;
+    }
+  }
+  next();
+};
+
 export const passwordResetIpLimiter = rateLimit({
   store: new RedisStore({
     sendCommand: ((...args: any[]) => redisClient.call(args[0], ...args.slice(1))) as any,
@@ -268,12 +308,18 @@ export const passwordResetEmailLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
-  // When the request has no email (validator should reject before this
-  // limiter, but be defensive), fall back to IP so the bucket is still
-  // distinct from a different IP doing the same thing.
+  // The route mounts `normalizePasswordResetEmail` ahead of this limiter,
+  // so by the time we read `req.body.email` it's already canonical
+  // (provider-aware normalization, not just lowercase). When the
+  // normalization yields nothing usable (missing/invalid), fall back to
+  // an IP-scoped bucket so the limiter still applies and is distinct
+  // from other IPs doing the same thing.
   keyGenerator: (req) => {
-    const raw = (req.body && typeof req.body.email === 'string') ? req.body.email.trim().toLowerCase() : '';
-    return raw ? `pwreset-email:${raw}` : `pwreset-email:fallback-ip:${req.ip || 'unknown'}`;
+    const raw = req.body && typeof req.body.email === 'string' ? req.body.email : '';
+    const canonical = raw ? normalizeResetEmail(raw) : null;
+    return canonical
+      ? `pwreset-email:${canonical}`
+      : `pwreset-email:fallback-ip:${req.ip || 'unknown'}`;
   },
 });
 
