@@ -6,6 +6,9 @@ Allow: /calculators
 Allow: /calculators/gauge
 Allow: /calculators/size
 Allow: /calculators/gift-size
+Allow: /calculators/yardage
+Allow: /calculators/row-repeat
+Allow: /calculators/shaping
 Disallow: /login
 Disallow: /register
 Disallow: /forgot-password

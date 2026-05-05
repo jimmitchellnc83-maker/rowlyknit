@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { FiArrowLeft, FiUsers, FiCheck, FiSave } from 'react-icons/fi';
+import { FiArrowLeft, FiUsers, FiCheck } from 'react-icons/fi';
 import {
   recommendSizes,
   SCHEME_LABELS,
@@ -16,10 +16,11 @@ import {
   EASE_TIER_VERBOSE_LABELS,
 } from '../utils/easeTiers';
 import { useSeo } from '../hooks/useSeo';
-import { useAuthStore } from '../stores/authStore';
 import { useMeasurementPrefs } from '../hooks/useMeasurementPrefs';
 import { trackEvent } from '../lib/analytics';
-import SaveCalcToProjectModal, { type CalculatorMemoPayload } from '../components/calculators/SaveCalcToProjectModal';
+import SaveToRowlyCTA from '../components/calculators/SaveToRowlyCTA';
+import type { ToolResult, SizeResult } from '../lib/toolResult';
+import { PUBLIC_TOOLS } from '../lib/publicTools';
 
 type NumField = number | '';
 
@@ -178,7 +179,6 @@ export default function GiftSizeCalculator() {
     ],
   });
 
-  const { isAuthenticated } = useAuthStore();
   const { prefs } = useMeasurementPrefs();
   // Default the input unit + chest from the user's profile pref. The dropdown
   // still works — a knitter may want to type in the unit a pattern uses even
@@ -189,8 +189,6 @@ export default function GiftSizeCalculator() {
   const [fit, setFit] = useState<FitStyle>('classic');
   const [useCustomEase, setUseCustomEase] = useState(false);
   const [customEaseIn, setCustomEaseIn] = useState<NumField>(2);
-  const [showSaveModal, setShowSaveModal] = useState(false);
-
   const ready = typeof bodyChest === 'number' && bodyChest > 0;
   const result = useMemo(() => {
     if (!ready) return null;
@@ -202,15 +200,19 @@ export default function GiftSizeCalculator() {
     });
   }, [ready, bodyChest, unit, fit, useCustomEase, customEaseIn]);
 
+  // Sprint 1 Public Tools Conversion — funnel events. Backwards-compat:
+  // the original `Calculator Used` event is preserved (dashboards key
+  // off it) alongside the new generic `public_tool_*` events.
+  useEffect(() => {
+    trackEvent('public_tool_viewed', { toolId: 'size' });
+  }, []);
   const trackedRef = useRef(false);
   useEffect(() => {
     if (result && !trackedRef.current) {
       trackedRef.current = true;
-      // Analytics rename: the calculator was historically `gift-size`.
-      // Going forward the canonical event slug is `size` to match the
-      // canonical route + the public-facing name. Plausible dashboards
-      // tied to the old slug should be updated.
       trackEvent('Calculator Used', { calculator: 'size', fit });
+      trackEvent('public_tool_used', { toolId: 'size', fit });
+      trackEvent('public_tool_result_generated', { toolId: 'size' });
     }
   }, [result, fit]);
 
@@ -225,24 +227,54 @@ export default function GiftSizeCalculator() {
     return `${sign}${v} ${unit}`;
   };
 
-  const memoPayload: CalculatorMemoPayload | null = useMemo(() => {
+  const toolResult: ToolResult | null = useMemo(() => {
     if (!result) return null;
     const recs = result.recommendations
       .map((r) => `${SCHEME_LABELS[r.scheme]}: ${r.recommended ? r.recommended.label : 'out of range'}`)
       .join(' · ');
+    const sizeOut: SizeResult = {
+      recipientChestIn: result.bodyChestIn,
+      fit:
+        useCustomEase
+          ? 'classic'
+          : (fit === 'very_close' || fit === 'close'
+              ? 'fitted'
+              : fit === 'classic'
+                ? 'classic'
+                : fit === 'loose'
+                  ? 'relaxed'
+                  : 'oversized'),
+      recommendations: result.recommendations
+        .filter((r) => r.recommended)
+        .map((r) => ({
+          scheme:
+            r.scheme === 'women'
+              ? 'women'
+              : r.scheme === 'men'
+                ? 'men'
+                : r.scheme === 'child'
+                  ? 'children'
+                  : 'baby',
+          size: r.recommended!.label,
+          finishedChestIn: result.finishedChestIn,
+          easeIn: result.easeIn,
+        })),
+    };
     return {
-      calculator: 'gift_size',
+      toolId: 'size',
+      toolVersion: '1',
       inputs: {
-        body_chest: formatLen(result.bodyChestIn),
+        bodyChest: result.bodyChestIn,
         unit,
-        fit_style: useCustomEase ? `custom (${signedFormatLen(result.easeIn)} ease)` : `${fit} (${EASE_TIER_VERBOSE_LABELS[fit]})`,
+        fit,
+        useCustomEase,
+        finishedChestIn: result.finishedChestIn,
+        easeIn: result.easeIn,
       },
-      outputs: {
-        finished_chest: formatLen(result.finishedChestIn),
-        ease: signedFormatLen(result.easeIn),
-        recommendations: recs,
-      },
-      summary: `Recommended sizes for a ${formatLen(result.bodyChestIn)} chest with ${signedFormatLen(result.easeIn)} ease (finished chest ${formatLen(result.finishedChestIn)}).`,
+      result: sizeOut,
+      humanSummary: `${formatLen(result.bodyChestIn)} chest, ${signedFormatLen(result.easeIn)} ease → finished ${formatLen(result.finishedChestIn)}. ${recs}`,
+      recommendedSaveTargets: PUBLIC_TOOLS['size'].saveTargets,
+      createdAt: new Date().toISOString(),
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [result, unit, fit, useCustomEase]);
@@ -404,46 +436,19 @@ export default function GiftSizeCalculator() {
         </p>
       )}
 
-      {isAuthenticated && memoPayload ? (
+      {toolResult ? (
         <section className="flex flex-col items-start gap-3 rounded-lg border border-purple-200 bg-purple-50 p-4 dark:border-purple-800 dark:bg-purple-900/20 md:flex-row md:items-center md:justify-between md:p-6">
           <div>
             <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">
-              Save this size recommendation to a project
+              Create a project from this size in your Rowly workspace
             </h2>
             <p className="mt-1 text-sm text-gray-700 dark:text-gray-300">
-              Pins it under that project&apos;s structured notes so you&apos;ve got the math when you cast on.
+              Pin the math to an existing project, or start a fresh project with this size
+              already set. Sign up or start a 30-day trial — your result is preserved
+              through sign-in.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => setShowSaveModal(true)}
-            className="inline-flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700"
-          >
-            <FiSave className="h-4 w-4" />
-            Save to project
-          </button>
-        </section>
-      ) : null}
-
-      {!isAuthenticated ? (
-        <section className="rounded-lg border border-purple-200 bg-purple-50 p-6 dark:border-purple-800 dark:bg-purple-900/20 md:p-8">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-            Track who you&apos;re knitting for
-          </h2>
-          <p className="mt-2 max-w-2xl text-sm text-gray-700 dark:text-gray-300">
-            Save recipients with their measurements, gift history, and preferences in Rowly so
-            you never have to ask &quot;what size again?&quot; mid-project.
-          </p>
-          {/* CTA copy intentionally avoids the word &quot;free&quot; —
-              Rowly is a paid app with a trial; saying &quot;Sign up
-              free&quot; here was off-strategy. The calculator itself
-              stays open without an account. */}
-          <Link
-            to="/register"
-            className="mt-4 inline-block rounded-lg bg-purple-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-purple-700"
-          >
-            Try Rowly
-          </Link>
+          <SaveToRowlyCTA result={toolResult} autoResume />
         </section>
       ) : null}
 
@@ -483,14 +488,6 @@ export default function GiftSizeCalculator() {
         </ul>
       </section>
 
-      {memoPayload ? (
-        <SaveCalcToProjectModal
-          open={showSaveModal}
-          payload={memoPayload}
-          title="Size recommendation"
-          onClose={() => setShowSaveModal(false)}
-        />
-      ) : null}
     </div>
   );
 }

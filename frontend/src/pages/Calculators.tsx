@@ -20,21 +20,39 @@ const CALCULATORS: CalculatorLink[] = [
     publicAvailable: true,
   },
   {
+    title: 'Knitting Size Calculator',
+    description:
+      'Enter a chest or bust measurement and a fit style; get a recommended size across women, men, children, and baby sizing schemes. Works for gifts or your own projects.',
+    href: '/calculators/size',
+    publicAvailable: true,
+  },
+  {
+    title: 'Yarn Yardage & Skein Estimator',
+    description:
+      'Pick a garment, size, and yarn weight — get a yardage range and the number of skeins to buy. Useful for stash projects and yarn substitutions.',
+    href: '/calculators/yardage',
+    publicAvailable: true,
+  },
+  {
+    title: 'Row & Round Repeat Calculator',
+    description:
+      'Tell the calculator how many rows you have and how many rows are in a repeat — it returns the full repeats and remainder, with what to do next.',
+    href: '/calculators/row-repeat',
+    publicAvailable: true,
+  },
+  {
+    title: 'Increase / Decrease Spacing Calculator',
+    description:
+      'Spread shaping evenly across a section. Outputs the same "every Nth row X times, then every Mth row Y times" phrasing pattern designers use.',
+    href: '/calculators/shaping',
+    publicAvailable: true,
+  },
+  {
     title: 'Yarn Substitution Calculator',
     description:
       "Describe the yarn a pattern calls for and rank your stash by how well each option matches on weight, fiber, and yardage.",
     href: '/calculators/yarn-sub',
     publicAvailable: false,
-  },
-  {
-    title: 'Knitting Size Calculator',
-    description:
-      'Enter a chest or bust measurement and a fit style; get a recommended size across women, men, children, and baby sizing schemes. Works for gifts or your own projects.',
-    // Canonical Size Calculator route (renamed from /calculators/gift-size
-    // during the Auth + Launch Polish Sprint 2026-05-04). The old slug
-    // still works as an alias for backwards compatibility.
-    href: '/calculators/size',
-    publicAvailable: true,
   },
 ];
 

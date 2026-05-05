@@ -7,7 +7,6 @@ import {
   FiArrowUp,
   FiArrowDown,
   FiMinus,
-  FiSave,
 } from 'react-icons/fi';
 import {
   compareGauge,
@@ -17,10 +16,11 @@ import {
   type NeedleChange,
 } from '../utils/gaugeMath';
 import { useSeo } from '../hooks/useSeo';
-import { useAuthStore } from '../stores/authStore';
 import { useMeasurementPrefs } from '../hooks/useMeasurementPrefs';
 import { trackEvent } from '../lib/analytics';
-import SaveCalcToProjectModal, { type CalculatorMemoPayload } from '../components/calculators/SaveCalcToProjectModal';
+import SaveToRowlyCTA from '../components/calculators/SaveToRowlyCTA';
+import type { ToolResult, GaugeResult } from '../lib/toolResult';
+import { PUBLIC_TOOLS } from '../lib/publicTools';
 
 type NumField = number | '';
 
@@ -232,7 +232,6 @@ export default function GaugeCalculator() {
     ],
   });
 
-  const { isAuthenticated } = useAuthStore();
   const { prefs } = useMeasurementPrefs();
   // Initial unit comes from the user's profile pref. Each gauge form keeps its
   // own dropdown so a US pattern target (in inches) and a metric-measured
@@ -251,7 +250,6 @@ export default function GaugeCalculator() {
   });
   const [patternWidth, setPatternWidth] = useState<NumField>('');
   const [patternHeight, setPatternHeight] = useState<NumField>('');
-  const [showSaveModal, setShowSaveModal] = useState(false);
 
   const ready = isComplete(target) && isComplete(actual);
   const result = useMemo(() => {
@@ -259,13 +257,19 @@ export default function GaugeCalculator() {
     return compareGauge(toGauge(target), toGauge(actual));
   }, [ready, target, actual]);
 
-  // Fire one Plausible event the first time a result computes in a session.
-  // Lets us see how many anonymous visitors actually use the calculator.
+  // Sprint 1 Public Tools Conversion — funnel events. Backwards-compat:
+  // the original `Calculator Used` event is preserved (dashboards key
+  // off it) alongside the new generic `public_tool_*` events.
+  useEffect(() => {
+    trackEvent('public_tool_viewed', { toolId: 'gauge' });
+  }, []);
   const trackedRef = useRef(false);
   useEffect(() => {
     if (result && !trackedRef.current) {
       trackedRef.current = true;
       trackEvent('Calculator Used', { calculator: 'gauge', status: result.status });
+      trackEvent('public_tool_used', { toolId: 'gauge', status: result.status });
+      trackEvent('public_tool_result_generated', { toolId: 'gauge' });
     }
   }, [result]);
 
@@ -281,10 +285,8 @@ export default function GaugeCalculator() {
   const StatusIcon = result ? statusIcon[result.status] : FiMinus;
   const NeedleIcon = result ? needleIcon[result.needleChange] : FiMinus;
 
-  const memoPayload: CalculatorMemoPayload | null = useMemo(() => {
+  const toolResult: ToolResult | null = useMemo(() => {
     if (!result) return null;
-    const targetMeasure = `${target.measurement} ${target.unit}`;
-    const actualMeasure = `${actual.measurement} ${actual.unit}`;
     const summaryStatus =
       result.status === 'on-gauge'
         ? 'On gauge'
@@ -293,27 +295,48 @@ export default function GaugeCalculator() {
           : result.status === 'too-loose'
             ? 'Swatch too loose'
             : 'Mixed gauge';
-    return {
-      calculator: 'gauge',
-      inputs: {
-        pattern_target: `${target.stitches} sts × ${target.rows} rows over ${targetMeasure}`,
-        your_swatch: `${actual.stitches} sts × ${actual.rows} rows over ${actualMeasure}`,
-        pattern_width: typeof patternWidth === 'number' ? `${patternWidth} ${target.unit}` : '—',
-        pattern_length: typeof patternHeight === 'number' ? `${patternHeight} ${target.unit}` : '—',
-      },
-      outputs: {
-        status: summaryStatus,
-        stitch_diff_pct: `${result.stitchPercentDiff > 0 ? '+' : ''}${result.stitchPercentDiff}%`,
-        row_diff_pct: `${result.rowPercentDiff > 0 ? '+' : ''}${result.rowPercentDiff}%`,
-        needle_recommendation: needleLabel[result.needleChange],
-        predicted_width:
-          widthPrediction !== null ? `${widthPrediction} ${target.unit}` : '—',
-        predicted_length:
-          heightPrediction !== null ? `${heightPrediction} ${target.unit}` : '—',
-      },
-      summary: `Gauge check: ${summaryStatus}. ${result.message}`,
+    const gaugeOut: GaugeResult = {
+      status:
+        result.status === 'on-gauge'
+          ? 'on_gauge'
+          : result.status === 'too-tight'
+            ? 'tight'
+            : 'loose',
+      userStitchesPerInch:
+        actual.unit === 'cm'
+          ? (actual.stitches as number) / ((actual.measurement as number) / 2.54)
+          : (actual.stitches as number) / (actual.measurement as number),
+      userRowsPerInch:
+        actual.unit === 'cm'
+          ? (actual.rows as number) / ((actual.measurement as number) / 2.54)
+          : (actual.rows as number) / (actual.measurement as number),
+      patternStitchesPerInch:
+        target.unit === 'cm'
+          ? (target.stitches as number) / ((target.measurement as number) / 2.54)
+          : (target.stitches as number) / (target.measurement as number),
+      patternRowsPerInch:
+        target.unit === 'cm'
+          ? (target.rows as number) / ((target.measurement as number) / 2.54)
+          : (target.rows as number) / (target.measurement as number),
+      driftStitchesPerInch: result.stitchPercentDiff,
+      driftRowsPerInch: result.rowPercentDiff,
     };
-  }, [result, target, actual, patternWidth, patternHeight, widthPrediction, heightPrediction]);
+    const summaryDetail = `${summaryStatus} — ${result.stitchPercentDiff > 0 ? '+' : ''}${result.stitchPercentDiff}% sts, ${result.rowPercentDiff > 0 ? '+' : ''}${result.rowPercentDiff}% rows. ${needleLabel[result.needleChange]}.`;
+    return {
+      toolId: 'gauge',
+      toolVersion: '1',
+      inputs: {
+        target,
+        actual,
+        patternWidth,
+        patternHeight,
+      },
+      result: gaugeOut,
+      humanSummary: summaryDetail,
+      recommendedSaveTargets: PUBLIC_TOOLS['gauge'].saveTargets,
+      createdAt: new Date().toISOString(),
+    };
+  }, [result, target, actual, patternWidth, patternHeight]);
 
   return (
     <div className="space-y-4 md:space-y-6">
@@ -451,43 +474,18 @@ export default function GaugeCalculator() {
         </>
       ) : null}
 
-      {isAuthenticated && memoPayload ? (
+      {toolResult ? (
         <section className="flex flex-col items-start gap-3 rounded-lg border border-purple-200 bg-purple-50 p-4 dark:border-purple-800 dark:bg-purple-900/20 md:flex-row md:items-center md:justify-between md:p-6">
           <div>
             <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">
-              Save this calculation to a project
+              Save this gauge to your Rowly workspace
             </h2>
             <p className="mt-1 text-sm text-gray-700 dark:text-gray-300">
-              Captures your gauge inputs and recommendation under that project&apos;s structured notes.
+              Attach gauge inputs and recommendation to a project or pattern. Sign up
+              or start a 30-day trial — your result is preserved through sign-in.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => setShowSaveModal(true)}
-            className="inline-flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700"
-          >
-            <FiSave className="h-4 w-4" />
-            Save to project
-          </button>
-        </section>
-      ) : null}
-
-      {!isAuthenticated ? (
-        <section className="rounded-lg border border-purple-200 bg-purple-50 p-6 dark:border-purple-800 dark:bg-purple-900/20 md:p-8">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-            Save your gauge to a project
-          </h2>
-          <p className="mt-2 max-w-2xl text-sm text-gray-700 dark:text-gray-300">
-            Rowly stores your gauge with each project, so the row counter knows exactly when
-            you&apos;ve hit a target dimension. Free while we&apos;re in early access — no
-            credit card.
-          </p>
-          <Link
-            to="/register"
-            className="mt-4 inline-block rounded-lg bg-purple-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-purple-700"
-          >
-            Sign up free
-          </Link>
+          <SaveToRowlyCTA result={toolResult} autoResume />
         </section>
       ) : null}
 
@@ -527,14 +525,6 @@ export default function GaugeCalculator() {
         </ul>
       </section>
 
-      {memoPayload ? (
-        <SaveCalcToProjectModal
-          open={showSaveModal}
-          payload={memoPayload}
-          title="Gauge calculation"
-          onClose={() => setShowSaveModal(false)}
-        />
-      ) : null}
     </div>
   );
 }

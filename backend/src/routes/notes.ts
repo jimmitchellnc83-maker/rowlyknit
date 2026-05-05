@@ -5,6 +5,7 @@ import { authenticate } from '../middleware/auth';
 import { validate, validateUUID } from '../middleware/validator';
 import { asyncHandler } from '../utils/errorHandler';
 import { uploadAudioMiddleware, uploadHandwrittenMiddleware } from '../controllers/uploadsController';
+import { ALLOWED_TEMPLATE_TYPES } from './notesTemplateTypes';
 
 const router = Router();
 
@@ -136,11 +137,15 @@ router.get(
  * @desc    Create a structured memo
  * @access  Private
  */
+// `template_type` enum lives in a sibling file so unit tests can read
+// the contract without pulling the full route module (and the auth
+// middleware's JWT_SECRET requirement). See `notesTemplateTypes.ts`.
+
 router.post(
   '/projects/:id/memos',
   [
     validateUUID('id'),
-    body('templateType').notEmpty().isIn(['gauge_swatch', 'fit_adjustment', 'yarn_substitution', 'finishing', 'finishing_techniques', 'calculator_result']),
+    body('templateType').notEmpty().isIn(ALLOWED_TEMPLATE_TYPES),
     body('data').notEmpty().isObject(),
     body('title').optional({ values: 'null' }).isString().isLength({ max: 500 }),
   ],
@@ -151,7 +156,7 @@ router.post(
   '/projects/:id/structured-memos',
   [
     validateUUID('id'),
-    body('templateType').notEmpty().isIn(['gauge_swatch', 'fit_adjustment', 'yarn_substitution', 'finishing', 'finishing_techniques', 'calculator_result']),
+    body('templateType').notEmpty().isIn(ALLOWED_TEMPLATE_TYPES),
     body('data').notEmpty().isObject(),
     body('title').optional({ values: 'null' }).isString().isLength({ max: 500 }),
   ],
