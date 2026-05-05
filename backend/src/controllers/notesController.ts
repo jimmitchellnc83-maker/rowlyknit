@@ -7,6 +7,7 @@ import fs from 'fs';
 import path from 'path';
 import transcriptionService from '../services/transcriptionService';
 import { generateStorageFilename, streamSafeUpload } from '../utils/uploadStorage';
+import { ALLOWED_TEMPLATE_TYPES } from '../routes/notesTemplateTypes';
 
 /**
  * Audio Notes
@@ -399,9 +400,13 @@ export async function createStructuredMemo(req: Request, res: Response) {
     throw new ValidationError('Template type and data are required');
   }
 
-  const validTemplateTypes = ['gauge_swatch', 'fit_adjustment', 'yarn_substitution', 'finishing', 'finishing_techniques', 'calculator_result'];
-  if (!validTemplateTypes.includes(templateType)) {
-    throw new ValidationError(`Template type must be one of: ${validTemplateTypes.join(', ')}`);
+  // Defense-in-depth check that mirrors the route validator. Single
+  // source of truth lives in `routes/notesTemplateTypes.ts`; importing
+  // it here keeps the controller honest if a future caller bypasses
+  // the validator chain (e.g. internal services). Sprint 1 Public
+  // Tools Conversion added the destination-aware values.
+  if (!(ALLOWED_TEMPLATE_TYPES as readonly string[]).includes(templateType)) {
+    throw new ValidationError(`Template type must be one of: ${ALLOWED_TEMPLATE_TYPES.join(', ')}`);
   }
 
   // Verify project ownership
