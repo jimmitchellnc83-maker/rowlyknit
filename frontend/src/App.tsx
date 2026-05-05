@@ -62,6 +62,11 @@ const Privacy = lazy(() => import('./pages/Privacy'));
 const Terms = lazy(() => import('./pages/Terms'));
 const Glossary = lazy(() => import('./pages/Glossary'));
 const Knit911 = lazy(() => import('./pages/Knit911'));
+// Sprint 1 Public Tools Conversion — three new public calculators.
+const YardageCalculator = lazy(() => import('./pages/YardageCalculator'));
+const RowRepeatCalculator = lazy(() => import('./pages/RowRepeatCalculator'));
+const ShapingCalculator = lazy(() => import('./pages/ShapingCalculator'));
+const UpgradePage = lazy(() => import('./pages/UpgradePage'));
 
 // Protected route wrapper
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -131,6 +136,12 @@ function App() {
             sets the canonical to `/calculators/size`. */}
         <Route path="/calculators/size" element={<ErrorBoundary><GiftSizeCalculator /></ErrorBoundary>} />
         <Route path="/calculators/gift-size" element={<ErrorBoundary><GiftSizeCalculator /></ErrorBoundary>} />
+        {/* Sprint 1 Public Tools Conversion — three new free calculators. */}
+        <Route path="/calculators/yardage" element={<PublicSuspense><ErrorBoundary><YardageCalculator /></ErrorBoundary></PublicSuspense>} />
+        <Route path="/calculators/row-repeat" element={<PublicSuspense><ErrorBoundary><RowRepeatCalculator /></ErrorBoundary></PublicSuspense>} />
+        <Route path="/calculators/shaping" element={<PublicSuspense><ErrorBoundary><ShapingCalculator /></ErrorBoundary></PublicSuspense>} />
+        {/* Sprint 1 — placeholder upgrade page. Sprint 2 wires Lemon Squeezy here. */}
+        <Route path="/upgrade" element={<PublicSuspense><UpgradePage /></PublicSuspense>} />
         <Route path="/help/glossary" element={<PublicSuspense><Glossary /></PublicSuspense>} />
         <Route path="/help/knit911" element={<PublicSuspense><Knit911 /></PublicSuspense>} />
         <Route path="/p/:slug" element={<ErrorBoundary><PublicProjectPage /></ErrorBoundary>} />

@@ -111,15 +111,20 @@ describe('Size Calculator route + SEO contract', () => {
     expect(canonical!.href).toMatch(/\/calculators\/size$/);
   });
 
-  it('the unauthenticated CTA does not say the word "free" (paid-app copy)', async () => {
+  it('the unauthenticated CTA uses Sprint 1 paid-app copy (no "free", trial language present)', async () => {
     renderAt('/calculators/size');
     await act(async () => {
       await Promise.resolve();
     });
-    // The CTA has been retitled to "Try Rowly". The phrase "Sign up
-    // free" was on-strategy when Rowly was free in early access; it no
-    // longer is. Lock the new wording.
-    expect(screen.getByRole('link', { name: /try rowly/i })).toBeInTheDocument();
+    // Sprint 1 Public Tools Conversion — the CTA panel below the
+    // result is now driven by SaveToRowlyCTA. The button reads "Create
+    // a project from this size" and the surrounding copy mentions the
+    // 30-day trial. The phrase "Sign up free" was on-strategy when
+    // Rowly was free in early access; it no longer is.
+    expect(
+      screen.getByRole('button', { name: /create a project from this size/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/30-day trial/i)).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /sign up free/i })).not.toBeInTheDocument();
   });
 

@@ -1,8 +1,23 @@
 import { useState, FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { toast } from 'react-toastify';
 import { useNoIndex } from '../../hooks/useNoIndex';
+
+/**
+ * Resolve the post-login redirect target from the `?next=` query
+ * param. Only same-origin internal paths are honored — anything that
+ * looks absolute (`http://`, `//attacker.com`) is rejected and the
+ * default `/dashboard` is used. Sprint 1 added this so the public-tool
+ * "Save to Rowly" CTA can preserve a result through login.
+ */
+function resolveNextPath(search: string): string {
+  const params = new URLSearchParams(search);
+  const raw = params.get('next');
+  if (!raw) return '/dashboard';
+  if (!raw.startsWith('/') || raw.startsWith('//')) return '/dashboard';
+  return raw;
+}
 
 export default function Login() {
   useNoIndex();
@@ -11,6 +26,7 @@ export default function Login() {
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const login = useAuthStore((state) => state.login);
 
   const handleSubmit = async (e: FormEvent) => {
@@ -26,7 +42,7 @@ export default function Login() {
     try {
       await login(email, password, rememberMe);
       toast.success('Login successful!');
-      navigate('/dashboard');
+      navigate(resolveNextPath(location.search));
     } catch (error: any) {
       console.error('Login error:', error);
       const message = error.response?.data?.message || 'Login failed. Please check your credentials.';

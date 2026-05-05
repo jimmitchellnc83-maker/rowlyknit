@@ -1,9 +1,28 @@
 import { useState, FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { toast } from 'react-toastify';
 import { useNoIndex } from '../../hooks/useNoIndex';
 import { trackEvent } from '../../lib/analytics';
+
+/**
+ * After register, send the user to login while preserving the
+ * `?next=` and `?pendingSave=` query params so the post-login
+ * redirect lands them back on the public-tool page with the saved
+ * result. Sprint 1 Public Tools Conversion.
+ */
+function buildLoginRedirect(search: string): string {
+  const params = new URLSearchParams(search);
+  const next = params.get('next');
+  const pendingSave = params.get('pendingSave');
+  const out = new URLSearchParams();
+  if (next && next.startsWith('/') && !next.startsWith('//')) {
+    out.set('next', next);
+  }
+  if (pendingSave === '1') out.set('pendingSave', '1');
+  const qs = out.toString();
+  return qs ? `/login?${qs}` : '/login';
+}
 
 export default function Register() {
   useNoIndex();
@@ -14,6 +33,7 @@ export default function Register() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const register = useAuthStore((state) => state.register);
 
   const handleSubmit = async (e: FormEvent) => {
@@ -40,7 +60,7 @@ export default function Register() {
       await register({ email, password, firstName, lastName });
       trackEvent('Signup');
       toast.success('Registration successful! Please check your email to verify your account.');
-      navigate('/login');
+      navigate(buildLoginRedirect(location.search));
     } catch (error: any) {
       console.error('Registration error:', error);
       const message = error.response?.data?.message || 'Registration failed. Please try again.';
