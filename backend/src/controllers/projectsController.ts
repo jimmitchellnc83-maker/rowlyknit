@@ -703,7 +703,26 @@ export async function addYarnToProject(req: Request, res: Response) {
 }
 
 /**
- * Update yarn usage in project with automatic stash adjustment
+ * Update yarn usage in project with automatic stash adjustment.
+ *
+ * Partial-body contract — Platform Hardening Sprint 2026-05-05 follow-up.
+ * The `PUT /api/projects/:id/yarn/:yarnId` endpoint accepts a partial
+ * body: callers may send only `yardsUsed`, only `skeinsUsed`, or both.
+ * Previously the controller computed
+ *
+ *   yardsDiff  = (yardsUsed  || 0) - (existing.yards_used  || 0)
+ *   skeinsDiff = (skeinsUsed || 0) - (existing.skeins_used || 0)
+ *
+ * which folded `undefined` and `0` into the same value. A frontend
+ * that sent only `{ skeinsUsed: 4 }` would see `yardsUsed=undefined`
+ * collapse to 0, producing a NEGATIVE `yardsDiff` and CREDITING the
+ * user's stash for every yard the project had previously consumed —
+ * yards that were never returned to the skein.
+ *
+ * Fix: treat `undefined` as "no change." Diffs are computed off the
+ * EFFECTIVE values, where omitted fields fall back to the existing row.
+ * If both fields are undefined the request is rejected (400) so a
+ * misformed body is never a silent no-op.
  */
 export async function updateProjectYarn(req: Request, res: Response) {
   const userId = req.user!.userId;
@@ -715,6 +734,20 @@ export async function updateProjectYarn(req: Request, res: Response) {
   // negative and the stash UPDATE adds yards back, inflating the
   // available count beyond what the row was ever bought with.
   assertNonNegativeYarnUsage({ yardsUsed, skeinsUsed });
+
+  // A request that touches neither field is meaningless; return 400
+  // so a misformed body fails loudly instead of silently no-opping.
+  // Treat null and empty string as "not provided" to match the route
+  // validator's `optional({ values: 'falsy' })` semantics — a curl
+  // user typing `--data 'yardsUsed='` shouldn't accidentally trigger
+  // a stash mutation.
+  const yardsProvided = yardsUsed !== undefined && yardsUsed !== null && yardsUsed !== '';
+  const skeinsProvided = skeinsUsed !== undefined && skeinsUsed !== null && skeinsUsed !== '';
+  if (!yardsProvided && !skeinsProvided) {
+    throw new ValidationError(
+      'At least one of yardsUsed or skeinsUsed must be provided',
+    );
+  }
 
   // Verify project exists and belongs to user
   const project = await db('projects')
@@ -745,9 +778,19 @@ export async function updateProjectYarn(req: Request, res: Response) {
     throw new NotFoundError('Yarn not found');
   }
 
-  // Calculate the difference
-  const yardsDiff = (yardsUsed || 0) - (projectYarn.yards_used || 0);
-  const skeinsDiff = (skeinsUsed || 0) - (projectYarn.skeins_used || 0);
+  // Effective values: omitted fields fall back to the existing row so
+  // a partial body never credits or debits the omitted dimension. The
+  // numeric coercion (`Number(...)`) folds string-numeric inputs from
+  // `application/x-www-form-urlencoded` clients; the negative guard
+  // above already rejected anything non-finite.
+  const existingYards = Number(projectYarn.yards_used) || 0;
+  const existingSkeins = Number(projectYarn.skeins_used) || 0;
+  const effectiveYards = yardsProvided ? Number(yardsUsed) : existingYards;
+  const effectiveSkeins = skeinsProvided ? Number(skeinsUsed) : existingSkeins;
+
+  // Calculate the difference off effective values
+  const yardsDiff = effectiveYards - existingYards;
+  const skeinsDiff = effectiveSkeins - existingSkeins;
 
   // Check if sufficient yarn available for increase
   if (yardsDiff > 0 && yarn.yards_remaining < yardsDiff) {
@@ -759,12 +802,14 @@ export async function updateProjectYarn(req: Request, res: Response) {
 
   // Begin transaction
   await db.transaction(async (trx) => {
-    // Update project yarn usage
+    // Update project yarn usage with effective values — omitted fields
+    // are written back as the row's existing value, so the row stays
+    // internally consistent if a future read joins on it.
     await trx('project_yarn')
       .where({ project_id: projectId, yarn_id: yarnId })
       .update({
-        yards_used: yardsUsed,
-        skeins_used: skeinsUsed,
+        yards_used: effectiveYards,
+        skeins_used: effectiveSkeins,
       });
 
     // Adjust stash (subtract the difference — both legacy yards and normalized meters)
@@ -799,8 +844,8 @@ export async function updateProjectYarn(req: Request, res: Response) {
     action: 'project_yarn_updated',
     entityType: 'project',
     entityId: projectId,
-    oldValues: { yardsUsed: projectYarn.yards_used, skeinsUsed: projectYarn.skeins_used },
-    newValues: { yardsUsed, skeinsUsed },
+    oldValues: { yardsUsed: existingYards, skeinsUsed: existingSkeins },
+    newValues: { yardsUsed: effectiveYards, skeinsUsed: effectiveSkeins },
   });
 
   res.json({

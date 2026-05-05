@@ -207,6 +207,41 @@ export function checkNodeHeap(): CheckResult {
 }
 
 /**
+ * Latest `email_logs.sent_at` where `status='sent'` (real provider
+ * delivery, NOT 'skipped' / 'failed'). Returns null if no real send
+ * has ever recorded — a fresh deploy with no traffic, or an env that
+ * has only ever run on the noop adapter.
+ *
+ * Pulled out of `checkTransactionalEmail` so the env-only fast-path
+ * stays sync and easy to unit-test, while `/health` still gets a
+ * cheap ground-truth signal that the provider is actually delivering.
+ *
+ * Cheap by construction: single indexed query, no provider RPC, no
+ * dependency on the provider being up. If the DB is unreachable
+ * `database` health is already `fail` and the email signal is moot.
+ */
+export async function getLastTransactionalEmailSuccessAt(): Promise<string | null> {
+  try {
+    const row = await db('email_logs')
+      .where({ status: 'sent' })
+      .orderBy('sent_at', 'desc')
+      .first('sent_at');
+    if (!row || !row.sent_at) return null;
+    return row.sent_at instanceof Date
+      ? row.sent_at.toISOString()
+      : new Date(row.sent_at).toISOString();
+  } catch (error: any) {
+    // Don't let a transient DB issue corrupt the email signal — log
+    // and return null so the health check still serves. The database
+    // check itself is what surfaces a real DB outage.
+    logger.warn('email_logs lookup failed during health check', {
+      error: error.message,
+    });
+    return null;
+  }
+}
+
+/**
  * Inspect transactional-email configuration without actually sending a
  * message. Reports `pass` for any real provider (resend / postmark /
  * sendgrid / ses / smtp), `warn` when the no-op adapter is in use
@@ -220,6 +255,12 @@ export function checkNodeHeap(): CheckResult {
  * singleton to run during the unit test, which in turn instantiates
  * `nodemailer` etc. The adapter-name reporting at runtime is what
  * matters; envs and the singleton's `getAdapterName()` always agree.
+ *
+ * Provider health intentionally does NOT depend on an external Resend
+ * (or any provider) RPC — that would couple `/health` latency to the
+ * provider's uptime and potentially page on the wrong thing. The
+ * `lastSuccessAt` field that `/health` adds in is a passive ground
+ * truth from `email_logs`, populated by real outbound calls.
  */
 export function checkTransactionalEmail(): CheckResult {
   const provider = (process.env.EMAIL_PROVIDER || 'sendgrid').toLowerCase();
@@ -282,14 +323,26 @@ export async function healthCheckHandler(req: Request, res: Response): Promise<v
   const startTime = Date.now();
 
   try {
-    // Run all health checks in parallel
-    const [database, redis, memory, nodeHeap, transactionalEmail] = await Promise.all([
+    // Run all health checks in parallel. The email-success lookup is
+    // a cheap indexed query on `email_logs` and adds a passive
+    // ground-truth signal alongside the env-derived provider name.
+    const [database, redis, memory, nodeHeap, transactionalEmail, lastEmailSuccessAt] = await Promise.all([
       checkDatabase(),
       checkRedis(),
       Promise.resolve(checkMemory()),
       Promise.resolve(checkNodeHeap()),
       Promise.resolve(checkTransactionalEmail()),
+      getLastTransactionalEmailSuccessAt(),
     ]);
+
+    // Merge the lastSuccessAt signal into the transactionalEmail
+    // check details so admin tooling reads one cohesive object.
+    // Status / publicLaunchBlocked logic above is unchanged — this is
+    // an additive observability field, not a gate.
+    transactionalEmail.details = {
+      ...(transactionalEmail.details ?? {}),
+      lastSuccessAt: lastEmailSuccessAt,
+    };
 
     const checks = { database, redis, memory, nodeHeap, transactionalEmail };
 

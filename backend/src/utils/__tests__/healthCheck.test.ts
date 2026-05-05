@@ -8,7 +8,13 @@
  * only meaningful pressure signal.
  */
 
-jest.mock('../../config/database', () => ({ default: jest.fn(), __esModule: true }));
+// `email_logs` lookup builder is the only DB use this file exercises;
+// individual tests configure `firstSpy` per case.
+const firstSpy = jest.fn();
+const orderBySpy = jest.fn().mockReturnValue({ first: firstSpy });
+const whereSpy = jest.fn().mockReturnValue({ orderBy: orderBySpy });
+const dbFn: any = jest.fn(() => ({ where: whereSpy }));
+jest.mock('../../config/database', () => ({ default: dbFn, __esModule: true }));
 jest.mock('../../config/redis', () => ({
   redisClient: { ping: jest.fn(), info: jest.fn() },
   __esModule: true,
@@ -18,7 +24,12 @@ jest.mock('../../config/logger', () => ({
   __esModule: true,
 }));
 
-import { checkTransactionalEmail, evaluateNodeHeap, HeapSnapshot } from '../healthCheck';
+import {
+  checkTransactionalEmail,
+  evaluateNodeHeap,
+  getLastTransactionalEmailSuccessAt,
+  HeapSnapshot,
+} from '../healthCheck';
 
 const MB = 1024 * 1024;
 
@@ -205,5 +216,75 @@ describe('checkTransactionalEmail', () => {
     process.env.NODE_ENV = 'production';
     const result = checkTransactionalEmail();
     expect(result.details!.provider).toBe('postmark');
+  });
+});
+
+/**
+ * PR #384/#385 follow-up — finding #4.
+ *
+ * Provider env-readiness alone is a noisy signal: the env can say
+ * "resend, key set, ready to send" while the provider is silently
+ * rejecting every send. Adding `lastSuccessAt` from `email_logs` (the
+ * latest row where status='sent', i.e. real provider delivery) gives
+ * admin tooling a passive ground truth that doesn't require an
+ * external RPC and doesn't make /health depend on Resend uptime.
+ *
+ * The function returns null when no successful send has ever
+ * recorded — fresh deploy, log-only history, or DB error. In every
+ * case the caller treats null as "no signal," not "failure."
+ */
+describe('getLastTransactionalEmailSuccessAt', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    // Re-establish the mock chain after clearAllMocks
+    orderBySpy.mockReturnValue({ first: firstSpy });
+    whereSpy.mockReturnValue({ orderBy: orderBySpy });
+  });
+
+  it("queries email_logs filtered to status='sent', ordered by sent_at desc, limit 1", async () => {
+    firstSpy.mockResolvedValueOnce({ sent_at: new Date('2026-05-05T12:00:00Z') });
+
+    await getLastTransactionalEmailSuccessAt();
+
+    expect(dbFn).toHaveBeenCalledWith('email_logs');
+    // The where filter must be `status='sent'`. A 'skipped' (noop) row
+    // must NOT count — that's the whole point of distinguishing them.
+    expect(whereSpy).toHaveBeenCalledWith({ status: 'sent' });
+    expect(orderBySpy).toHaveBeenCalledWith('sent_at', 'desc');
+    expect(firstSpy).toHaveBeenCalledWith('sent_at');
+  });
+
+  it('returns ISO string when a sent row exists (Date column)', async () => {
+    firstSpy.mockResolvedValueOnce({
+      sent_at: new Date('2026-05-05T12:34:56.000Z'),
+    });
+    const result = await getLastTransactionalEmailSuccessAt();
+    expect(result).toBe('2026-05-05T12:34:56.000Z');
+  });
+
+  it('returns ISO string when a sent row exists (string column from some pg drivers)', async () => {
+    firstSpy.mockResolvedValueOnce({ sent_at: '2026-05-05T12:34:56.000Z' });
+    const result = await getLastTransactionalEmailSuccessAt();
+    expect(result).toBe('2026-05-05T12:34:56.000Z');
+  });
+
+  it('returns null when no sent row exists (fresh deploy / noop-only history)', async () => {
+    firstSpy.mockResolvedValueOnce(undefined);
+    const result = await getLastTransactionalEmailSuccessAt();
+    expect(result).toBeNull();
+  });
+
+  it('returns null when sent_at is null on the row (defensive)', async () => {
+    firstSpy.mockResolvedValueOnce({ sent_at: null });
+    const result = await getLastTransactionalEmailSuccessAt();
+    expect(result).toBeNull();
+  });
+
+  it('returns null without throwing when the DB query fails (warn-and-continue)', async () => {
+    firstSpy.mockRejectedValueOnce(new Error('connection refused'));
+    const result = await getLastTransactionalEmailSuccessAt();
+    expect(result).toBeNull();
+    // The /health check itself stays up; the database health row is
+    // what surfaces the underlying outage.
   });
 });

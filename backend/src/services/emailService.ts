@@ -1,6 +1,7 @@
 import db from '../config/database';
 import logger from '../config/logger';
 import { createEmailAdapter, EmailAdapter } from './emailAdapters';
+import { escapeHtml } from '../utils/escapeHtml';
 
 interface EmailOptions {
   to: string;
@@ -109,6 +110,13 @@ class EmailService {
   }
 
   async sendWelcomeEmail(to: string, name: string, verificationUrl: string): Promise<void> {
+    // User-controlled `name` (set at register) is escaped before
+    // template interpolation. URLs are server-issued, but we escape
+    // them too — a future change that builds the URL from a request
+    // param mustn't be one missed-edit away from breaking out of the
+    // attribute or anchor body.
+    const safeName = escapeHtml(name);
+    const safeUrl = escapeHtml(verificationUrl);
     const html = `
       <!DOCTYPE html>
       <html>
@@ -123,12 +131,12 @@ class EmailService {
       <body>
         <div class="container">
           <h1>Welcome to Rowly! 🧶</h1>
-          <p>Hi ${name},</p>
+          <p>Hi ${safeName},</p>
           <p>Thank you for joining Rowly, your complete knitting project management app!</p>
           <p>To get started, please verify your email address:</p>
-          <a href="${verificationUrl}" class="button" style="display:inline-block;padding:12px 24px;background-color:#4F46E5;color:#ffffff;text-decoration:none;border-radius:6px;margin:20px 0;font-family:Arial,sans-serif;font-weight:600;font-size:16px;">Verify Email Address</a>
+          <a href="${safeUrl}" class="button" style="display:inline-block;padding:12px 24px;background-color:#4F46E5;color:#ffffff;text-decoration:none;border-radius:6px;margin:20px 0;font-family:Arial,sans-serif;font-weight:600;font-size:16px;">Verify Email Address</a>
           <p>Or copy and paste this link into your browser:</p>
-          <p style="word-break: break-all;">${verificationUrl}</p>
+          <p style="word-break: break-all;">${safeUrl}</p>
           <p>Once verified, you'll be able to:</p>
           <ul>
             <li>Track multiple knitting projects</li>
@@ -155,6 +163,8 @@ class EmailService {
   }
 
   async sendPasswordResetEmail(to: string, name: string, resetUrl: string): Promise<void> {
+    const safeName = escapeHtml(name);
+    const safeUrl = escapeHtml(resetUrl);
     const html = `
       <!DOCTYPE html>
       <html>
@@ -170,11 +180,11 @@ class EmailService {
       <body>
         <div class="container">
           <h1>Password Reset Request</h1>
-          <p>Hi ${name},</p>
+          <p>Hi ${safeName},</p>
           <p>We received a request to reset your password for your Rowly account.</p>
-          <a href="${resetUrl}" class="button" style="display:inline-block;padding:12px 24px;background-color:#4F46E5;color:#ffffff;text-decoration:none;border-radius:6px;margin:20px 0;font-family:Arial,sans-serif;font-weight:600;font-size:16px;">Reset Password</a>
+          <a href="${safeUrl}" class="button" style="display:inline-block;padding:12px 24px;background-color:#4F46E5;color:#ffffff;text-decoration:none;border-radius:6px;margin:20px 0;font-family:Arial,sans-serif;font-weight:600;font-size:16px;">Reset Password</a>
           <p>Or copy and paste this link into your browser:</p>
-          <p style="word-break: break-all;">${resetUrl}</p>
+          <p style="word-break: break-all;">${safeUrl}</p>
           <div class="warning">
             <strong>Security Notice:</strong> This link will expire in 1 hour for security reasons.
           </div>
@@ -202,6 +212,13 @@ class EmailService {
     confirmUrl: string,
     graceDays: number,
   ): Promise<void> {
+    const safeName = escapeHtml(name);
+    const safeUrl = escapeHtml(confirmUrl);
+    // graceDays is operator-controlled (env var / default), but
+    // escape defensively — interpolating numeric values into HTML
+    // through a typed channel today doesn't preclude a future
+    // refactor that lets a request influence the value.
+    const safeGraceDays = escapeHtml(graceDays);
     const html = `
       <!DOCTYPE html>
       <html>
@@ -217,13 +234,13 @@ class EmailService {
       <body>
         <div class="container">
           <h1>Confirm Account Deletion</h1>
-          <p>Hi ${name},</p>
-          <p>We received a request to delete your Rowly account. Click the button below to confirm. After you confirm, your account will be permanently deleted in <strong>${graceDays} days</strong>.</p>
-          <a href="${confirmUrl}" class="button" style="display:inline-block;padding:12px 24px;background-color:#DC2626;color:#ffffff;text-decoration:none;border-radius:6px;margin:20px 0;font-family:Arial,sans-serif;font-weight:600;font-size:16px;">Confirm Deletion</a>
+          <p>Hi ${safeName},</p>
+          <p>We received a request to delete your Rowly account. Click the button below to confirm. After you confirm, your account will be permanently deleted in <strong>${safeGraceDays} days</strong>.</p>
+          <a href="${safeUrl}" class="button" style="display:inline-block;padding:12px 24px;background-color:#DC2626;color:#ffffff;text-decoration:none;border-radius:6px;margin:20px 0;font-family:Arial,sans-serif;font-weight:600;font-size:16px;">Confirm Deletion</a>
           <p>Or copy and paste this link into your browser:</p>
-          <p style="word-break: break-all;">${confirmUrl}</p>
+          <p style="word-break: break-all;">${safeUrl}</p>
           <div class="warning">
-            <strong>Change your mind?</strong> You can cancel the deletion any time during the ${graceDays}-day grace period from your Profile page. After ${graceDays} days, all your projects, patterns, yarn, and other data will be permanently removed and cannot be recovered.
+            <strong>Change your mind?</strong> You can cancel the deletion any time during the ${safeGraceDays}-day grace period from your Profile page. After ${safeGraceDays} days, all your projects, patterns, yarn, and other data will be permanently removed and cannot be recovered.
           </div>
           <p>If you didn't request this, please ignore this email — no action will be taken.</p>
           <div class="footer">
@@ -244,6 +261,8 @@ class EmailService {
   }
 
   async sendVerificationEmail(to: string, name: string, verificationUrl: string): Promise<void> {
+    const safeName = escapeHtml(name);
+    const safeUrl = escapeHtml(verificationUrl);
     const html = `
       <!DOCTYPE html>
       <html>
@@ -258,11 +277,11 @@ class EmailService {
       <body>
         <div class="container">
           <h1>Verify Your Email</h1>
-          <p>Hi ${name},</p>
+          <p>Hi ${safeName},</p>
           <p>Please verify your email address to continue using Rowly:</p>
-          <a href="${verificationUrl}" class="button" style="display:inline-block;padding:12px 24px;background-color:#4F46E5;color:#ffffff;text-decoration:none;border-radius:6px;margin:20px 0;font-family:Arial,sans-serif;font-weight:600;font-size:16px;">Verify Email Address</a>
+          <a href="${safeUrl}" class="button" style="display:inline-block;padding:12px 24px;background-color:#4F46E5;color:#ffffff;text-decoration:none;border-radius:6px;margin:20px 0;font-family:Arial,sans-serif;font-weight:600;font-size:16px;">Verify Email Address</a>
           <p>Or copy and paste this link into your browser:</p>
-          <p style="word-break: break-all;">${verificationUrl}</p>
+          <p style="word-break: break-all;">${safeUrl}</p>
           <div class="footer">
             <p>If you didn't request this verification, please ignore this email.</p>
             <p>&copy; ${new Date().getFullYear()} Rowly. All rights reserved.</p>
