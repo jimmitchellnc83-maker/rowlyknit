@@ -117,3 +117,79 @@ describe('EmailService.sendEmail — log status reflects real vs no-op delivery'
     process.env.NODE_ENV = previousNodeEnv;
   });
 });
+
+/**
+ * Gmail (and several mobile clients) strip <style> blocks that use class
+ * selectors before rendering, leaving the <a class="button"> with no
+ * declared color and the link text inheriting the client's default link
+ * color — which on a saturated background reads as invisible / barely
+ * legible. Bug observed live on Resend smoke 2026-05-05: "Reset Password"
+ * and "Verify Email Address" buttons rendered with their fill but no
+ * readable label.
+ *
+ * Fix is to inline the critical button styles directly on each <a>.
+ * These tests pin "every templated CTA button has its color inlined"
+ * so a future template tweak can't silently regress the same way.
+ */
+describe('email template buttons — inline styles survive Gmail <style> stripping', () => {
+  const captureSentHtml = async (
+    runner: () => Promise<void>,
+  ): Promise<string> => {
+    let captured = '';
+    adapterStub.send = jest.fn().mockImplementation(async (payload: { html: string }) => {
+      captured = payload.html;
+      return { id: 'capture', adapter: 'resend' };
+    });
+    await runner();
+    return captured;
+  };
+
+  const assertInlinedButton = (html: string, expectedBg: string) => {
+    // Every templated CTA is rendered as <a class="button" style="...">.
+    // The inline style MUST set the text color (Gmail strips the
+    // class-selector color rule) AND must keep display:inline-block so
+    // padding renders.
+    const buttonAnchorRegex =
+      /<a [^>]*class="button"[^>]*style="([^"]*)"[^>]*>/g;
+    const matches = [...html.matchAll(buttonAnchorRegex)];
+    expect(matches.length).toBeGreaterThan(0);
+    for (const [, styleAttr] of matches) {
+      expect(styleAttr).toMatch(/color:\s*#ffffff/i);
+      expect(styleAttr).toMatch(/display:\s*inline-block/i);
+      expect(styleAttr).toMatch(new RegExp(`background-color:\\s*${expectedBg}`, 'i'));
+    }
+  };
+
+  it('welcome email: button has color:#ffffff inlined on the indigo bg', async () => {
+    const html = await captureSentHtml(() =>
+      emailService.sendWelcomeEmail('a@example.com', 'A', 'https://rowlyknit.com/verify?t=x'),
+    );
+    assertInlinedButton(html, '#4F46E5');
+  });
+
+  it('password reset email: button has color:#ffffff inlined on the indigo bg', async () => {
+    const html = await captureSentHtml(() =>
+      emailService.sendPasswordResetEmail('a@example.com', 'A', 'https://rowlyknit.com/reset?t=x'),
+    );
+    assertInlinedButton(html, '#4F46E5');
+  });
+
+  it('account deletion email: button has color:#ffffff inlined on the red bg', async () => {
+    const html = await captureSentHtml(() =>
+      emailService.sendAccountDeletionConfirmEmail(
+        'a@example.com',
+        'A',
+        'https://rowlyknit.com/delete?t=x',
+        14,
+      ),
+    );
+    assertInlinedButton(html, '#DC2626');
+  });
+
+  it('verification (resend) email: button has color:#ffffff inlined on the indigo bg', async () => {
+    const html = await captureSentHtml(() =>
+      emailService.sendVerificationEmail('a@example.com', 'A', 'https://rowlyknit.com/verify?t=x'),
+    );
+    assertInlinedButton(html, '#4F46E5');
+  });
+});

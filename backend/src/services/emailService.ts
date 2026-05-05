@@ -126,7 +126,7 @@ class EmailService {
           <p>Hi ${name},</p>
           <p>Thank you for joining Rowly, your complete knitting project management app!</p>
           <p>To get started, please verify your email address:</p>
-          <a href="${verificationUrl}" class="button">Verify Email Address</a>
+          <a href="${verificationUrl}" class="button" style="display:inline-block;padding:12px 24px;background-color:#4F46E5;color:#ffffff;text-decoration:none;border-radius:6px;margin:20px 0;font-family:Arial,sans-serif;font-weight:600;font-size:16px;">Verify Email Address</a>
           <p>Or copy and paste this link into your browser:</p>
           <p style="word-break: break-all;">${verificationUrl}</p>
           <p>Once verified, you'll be able to:</p>
@@ -172,7 +172,7 @@ class EmailService {
           <h1>Password Reset Request</h1>
           <p>Hi ${name},</p>
           <p>We received a request to reset your password for your Rowly account.</p>
-          <a href="${resetUrl}" class="button">Reset Password</a>
+          <a href="${resetUrl}" class="button" style="display:inline-block;padding:12px 24px;background-color:#4F46E5;color:#ffffff;text-decoration:none;border-radius:6px;margin:20px 0;font-family:Arial,sans-serif;font-weight:600;font-size:16px;">Reset Password</a>
           <p>Or copy and paste this link into your browser:</p>
           <p style="word-break: break-all;">${resetUrl}</p>
           <div class="warning">
@@ -219,7 +219,7 @@ class EmailService {
           <h1>Confirm Account Deletion</h1>
           <p>Hi ${name},</p>
           <p>We received a request to delete your Rowly account. Click the button below to confirm. After you confirm, your account will be permanently deleted in <strong>${graceDays} days</strong>.</p>
-          <a href="${confirmUrl}" class="button">Confirm Deletion</a>
+          <a href="${confirmUrl}" class="button" style="display:inline-block;padding:12px 24px;background-color:#DC2626;color:#ffffff;text-decoration:none;border-radius:6px;margin:20px 0;font-family:Arial,sans-serif;font-weight:600;font-size:16px;">Confirm Deletion</a>
           <p>Or copy and paste this link into your browser:</p>
           <p style="word-break: break-all;">${confirmUrl}</p>
           <div class="warning">
@@ -260,7 +260,7 @@ class EmailService {
           <h1>Verify Your Email</h1>
           <p>Hi ${name},</p>
           <p>Please verify your email address to continue using Rowly:</p>
-          <a href="${verificationUrl}" class="button">Verify Email Address</a>
+          <a href="${verificationUrl}" class="button" style="display:inline-block;padding:12px 24px;background-color:#4F46E5;color:#ffffff;text-decoration:none;border-radius:6px;margin:20px 0;font-family:Arial,sans-serif;font-weight:600;font-size:16px;">Verify Email Address</a>
           <p>Or copy and paste this link into your browser:</p>
           <p style="word-break: break-all;">${verificationUrl}</p>
           <div class="footer">
