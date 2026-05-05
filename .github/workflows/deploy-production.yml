@@ -13,7 +13,10 @@ name: Deploy to Production
 #   1. Pull latest main into the live tree (/home/user/rowlyknit)
 #   2. Run scripts/deploy-production.sh — the same OOM-safe docker compose
 #      rebuild we run by hand (stops frontend container to free RAM, builds
-#      backend+frontend, brings everything back up, internal health check)
+#      backend+frontend, brings everything back up, internal health check,
+#      then `nginx -t` + `nginx -s reload` inside rowly_nginx so any
+#      bind-mounted route changes in deployment/nginx/conf.d take effect —
+#      the script aborts with a non-zero exit if `nginx -t` fails).
 #   3. Run pending knex migrations against the now-running backend container
 #   4. External health check via https://rowlyknit.com/health
 #

@@ -71,6 +71,30 @@ interface AuthState {
   checkAuth: () => Promise<void>;
 }
 
+// One-shot legacy cleanup: previous versions of this store persisted
+// `accessToken` to localStorage. After the cookie-first migration that
+// blob is dead weight (and a small XSS surface). Strip it out of any
+// existing entry BEFORE create(persist(...)) runs — otherwise persist
+// hydrates the stale token into in-memory state on import, and the
+// cleanup pass only fixes the on-disk copy. Codex caught this on PR
+// #382 review (Sprint 383). The `merge` step in the persist config
+// below is the belt-and-braces equivalent for any blob shape we miss.
+if (typeof window !== 'undefined') {
+  try {
+    const raw = window.localStorage.getItem('rowly-auth');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed?.state && Object.prototype.hasOwnProperty.call(parsed.state, 'accessToken')) {
+        delete parsed.state.accessToken;
+        window.localStorage.setItem('rowly-auth', JSON.stringify(parsed));
+      }
+    }
+  } catch {
+    // localStorage may be disabled (Safari private mode etc.); nothing
+    // to clean up if we can't read it.
+  }
+}
+
 export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
@@ -162,29 +186,20 @@ export const useAuthStore = create<AuthState>()(
         user: state.user,
         isAuthenticated: state.isAuthenticated,
       }),
+      // Defense-in-depth against the same Codex finding: even if a stale
+      // blob survives the pre-create cleanup (different storage adapter,
+      // race, whatever), drop `accessToken` while merging persisted →
+      // in-memory state so it never enters the store.
+      merge: (persisted, current) => {
+        const safe = { ...(persisted as Record<string, unknown> | null) };
+        if (safe && 'accessToken' in safe) {
+          delete safe.accessToken;
+        }
+        return { ...current, ...(safe as Partial<AuthState>) };
+      },
     }
   )
 );
-
-// One-shot legacy cleanup: previous versions of this store persisted
-// `accessToken` to localStorage. After the cookie-first migration that
-// blob is dead weight (and a small XSS surface). Strip it out of any
-// existing entry so returning users don't carry it forever.
-if (typeof window !== 'undefined') {
-  try {
-    const raw = window.localStorage.getItem('rowly-auth');
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (parsed?.state && Object.prototype.hasOwnProperty.call(parsed.state, 'accessToken')) {
-        delete parsed.state.accessToken;
-        window.localStorage.setItem('rowly-auth', JSON.stringify(parsed));
-      }
-    }
-  } catch {
-    // localStorage may be disabled (Safari private mode etc.); nothing
-    // to clean up if we can't read it.
-  }
-}
 
 // On app load, if the persisted state thinks we're authenticated, hit
 // /refresh to confirm the httpOnly cookie is still valid and get a

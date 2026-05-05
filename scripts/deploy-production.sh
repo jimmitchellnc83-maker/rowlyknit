@@ -86,6 +86,29 @@ if (( SECONDS >= deadline )); then
     exit 1
 fi
 
+# nginx config is bind-mounted (deployment/nginx/conf.d → /etc/nginx/conf.d)
+# but the running container does NOT reload on its own. PR #382 added the
+# /calculators/size route and the deploy "succeeded" without it taking
+# effect — the route only worked after a manual `nginx -s reload` on the
+# droplet. Codex Sprint 383 makes the reload part of the automated deploy.
+#
+# Order of operations:
+#   1. nginx -t inside the container (validates the bind-mounted conf)
+#   2. only reload if -t passed — don't shoot the running config
+#   3. abort the deploy with a non-zero exit if -t fails
+echo -e "${YELLOW}🔍 Validating nginx config (nginx -t inside rowly_nginx)...${NC}"
+if ! docker compose exec -T nginx nginx -t; then
+    echo -e "${RED}❌ nginx -t FAILED — refusing to reload, aborting deploy${NC}"
+    echo "Recent nginx logs:"
+    docker compose logs --tail=30 nginx
+    exit 1
+fi
+echo -e "${GREEN}✅ nginx config valid${NC}"
+
+echo -e "${YELLOW}🔄 Reloading nginx so bind-mounted route changes pick up...${NC}"
+docker compose exec -T nginx nginx -s reload
+echo -e "${GREEN}✅ nginx reloaded${NC}"
+
 # Show running services
 echo ""
 echo -e "${GREEN}=========================================="

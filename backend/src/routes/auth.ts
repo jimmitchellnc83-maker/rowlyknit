@@ -8,6 +8,7 @@ import {
   registerLimiter,
   passwordResetIpLimiter,
   passwordResetEmailLimiter,
+  normalizePasswordResetEmail,
 } from '../middleware/rateLimiter';
 import { requireSameOrigin } from '../middleware/originCheck';
 import { asyncHandler } from '../utils/errorHandler';
@@ -118,6 +119,11 @@ router.get('/verify-email', asyncHandler(authController.verifyEmail));
  */
 router.post(
   '/request-password-reset',
+  // Pre-normalize email so the per-email limiter and the express-validator
+  // chain see one canonical form (Codex finding on PR #382: a bare
+  // trim+lowercase let provider-normalized variants escape the per-email
+  // bucket). Idempotent against the validator's `.normalizeEmail()` call.
+  normalizePasswordResetEmail,
   // Composite: IP gate first (cheap, blocks email-spraying from one origin),
   // per-email gate second (blocks repeated reset emails to one address).
   passwordResetIpLimiter,
