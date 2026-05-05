@@ -62,4 +62,69 @@ describe('deployment/nginx/conf.d/rowlyknit.conf', () => {
       expect(connectSrc).toMatch(/https:\/\/plausible\.io/);
     });
   });
+
+  // Regression: Platform Hardening Sprint 2026-05-05.
+  //
+  // Backend already retired the unauthenticated `app.use('/uploads',
+  // express.static(...))` mount (migration 070). The nginx vhost still
+  // had two `alias /usr/share/nginx/html/uploads` blocks (one per server
+  // context) that mapped any guessed `/uploads/<hex>.<ext>` URL straight
+  // to the production volume — bypassing every ownership check in
+  // uploadsController, sourceFilesController, notesController, etc.
+  //
+  // These assertions lock the post-fix contract: every uploaded asset
+  // (project / yarn photos, pattern PDFs, source files, audio notes,
+  // chart images, handwritten notes) must traverse the auth-streaming
+  // /api/uploads/* surface; raw /uploads/... must 404 at the edge so a
+  // misconfigured backend container or future regression cannot quietly
+  // re-expose private bytes.
+  describe('uploads exposure (Platform Hardening Sprint 2026-05-05)', () => {
+    it('contains zero `alias .../uploads` directives anywhere in the file', () => {
+      // The historical exposure shape was `alias /usr/share/nginx/html/uploads;`.
+      // Any future edit that points an alias at a different on-disk
+      // upload tree is equally unsafe — the auth-streaming endpoints
+      // are the only sanctioned read path.
+      const matches = conf.match(/alias\s+[^;]*uploads[^;]*;/g) ?? [];
+      expect(matches).toEqual([]);
+    });
+
+    it('contains zero `root .../uploads` directives anywhere in the file', () => {
+      // `root` would be a different way to spell the same exposure
+      // (`location /uploads { root /usr/share/nginx/html; }`).
+      const matches = conf.match(/^\s*root\s+[^;]*uploads[^;]*;/gm) ?? [];
+      expect(matches).toEqual([]);
+    });
+
+    it('every `location /uploads*` block returns 404 (no proxy_pass / alias / root)', () => {
+      // Find every location block whose path begins with /uploads, with
+      // or without `^~` prefix-priority modifier, with or without a
+      // trailing slash. Per-block: must `return 404;` and must not
+      // smuggle the bytes through a different directive.
+      const locationRegex =
+        /location\s+(?:\^~\s+)?\/uploads\/?\s*\{([^{}]*)\}/g;
+      const blocks: string[] = [];
+      let m: RegExpExecArray | null;
+      while ((m = locationRegex.exec(conf)) !== null) {
+        blocks.push(m[1]);
+      }
+      // We expect at least 4 blocks (api server + frontend server,
+      // each with a `/uploads` and a `/uploads/` form). A future edit
+      // that collapses or re-shapes them is fine as long as every
+      // remaining block still 404s.
+      expect(blocks.length).toBeGreaterThanOrEqual(4);
+      blocks.forEach((body) => {
+        expect(body).toMatch(/return\s+404\s*;/);
+        expect(body).not.toMatch(/proxy_pass/);
+        expect(body).not.toMatch(/alias/);
+        expect(body).not.toMatch(/\broot\s+/);
+      });
+    });
+
+    it('keeps the authenticated /api/ proxy path wired (regression guard)', () => {
+      // Defense against an over-zealous edit that strips the upload
+      // surface entirely. /api/uploads/* IS authenticated and must
+      // remain reachable; nothing in this PR touches it.
+      expect(conf).toMatch(/location\s+\/api\/\s*\{/);
+    });
+  });
 });

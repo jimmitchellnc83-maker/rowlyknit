@@ -31,6 +31,7 @@ import {
   createCrop,
   createSourceFile,
   getCropById,
+  getCropForParent,
   getSourceFileById,
   isPatternOwnedByUser,
   listCropsForPattern,
@@ -305,9 +306,15 @@ export async function listPatternCrops(req: Request, res: Response): Promise<voi
 // PATCH /api/source-files/:fileId/crops/:cropId
 export async function updateSourceFileCrop(req: Request, res: Response): Promise<void> {
   const userId = req.user!.userId;
-  const { cropId } = req.params;
+  const { id: sourceFileId, cropId } = req.params;
 
-  const existing = await getCropById(cropId, userId);
+  // Parent-child invariant gate: the URL must claim the right parent
+  // for this crop. A request like `/api/source-files/A/crops/<crop-from-B>`
+  // must 404 — even within a single user's namespace — because letting
+  // it through would write history that contradicts the URL and break
+  // any downstream join / audit / cache that trusts the parent. See
+  // `getCropForParent` for the full rationale.
+  const existing = await getCropForParent(sourceFileId, cropId, userId);
   if (!existing) throw new NotFoundError('Crop not found');
 
   const body = req.body as Record<string, unknown>;
@@ -368,7 +375,15 @@ export async function updateSourceFileCrop(req: Request, res: Response): Promise
 // DELETE /api/source-files/:fileId/crops/:cropId
 export async function deleteSourceFileCrop(req: Request, res: Response): Promise<void> {
   const userId = req.user!.userId;
-  const ok = await softDeleteCrop(req.params.cropId, userId);
+  const { id: sourceFileId, cropId } = req.params;
+
+  // Parent-child invariant — see updateSourceFileCrop for the full
+  // rationale. The pre-check fails closed BEFORE the soft-delete
+  // UPDATE runs so a mismatched parent never mutates state.
+  const parent = await getCropForParent(sourceFileId, cropId, userId);
+  if (!parent) throw new NotFoundError('Crop not found');
+
+  const ok = await softDeleteCrop(cropId, userId);
   if (!ok) throw new NotFoundError('Crop not found');
   res.json({ success: true, message: 'Crop deleted' });
 }

@@ -19,7 +19,23 @@ interface HealthStatus {
     redis: CheckResult;
     memory: CheckResult;
     nodeHeap: CheckResult;
+    transactionalEmail: CheckResult;
   };
+  /**
+   * `true` when at least one launch-blocking placeholder is active in
+   * production. Today the only condition is `EMAIL_PROVIDER=noop`
+   * (signup welcome + password reset go to `email_logs.status='skipped'`
+   * and the email body never leaves the box). Surfaced at the top
+   * level so an admin / monitoring ping can read one boolean instead
+   * of walking the per-check tree.
+   */
+  publicLaunchBlocked: boolean;
+  /**
+   * Human-readable list of every blocker driving `publicLaunchBlocked`.
+   * Empty array when there are no blockers. The shape is stable so
+   * callers can render the list verbatim.
+   */
+  publicLaunchBlockers: string[];
 }
 
 interface CheckResult {
@@ -191,6 +207,75 @@ export function checkNodeHeap(): CheckResult {
 }
 
 /**
+ * Inspect transactional-email configuration without actually sending a
+ * message. Reports `pass` for any real provider (resend / postmark /
+ * sendgrid / ses / smtp), `warn` when the no-op adapter is in use
+ * — production no-op is loud-warn-logged on adapter init too, but we
+ * also surface it here so /health is the single source of truth for
+ * "are we ready for real users."
+ *
+ * Reads `EMAIL_PROVIDER` and `ALLOW_NOOP_EMAIL_IN_PRODUCTION` directly
+ * (mirrors `createEmailAdapter`) instead of importing emailService —
+ * importing emailService would force the `new EmailService()`
+ * singleton to run during the unit test, which in turn instantiates
+ * `nodemailer` etc. The adapter-name reporting at runtime is what
+ * matters; envs and the singleton's `getAdapterName()` always agree.
+ */
+export function checkTransactionalEmail(): CheckResult {
+  const provider = (process.env.EMAIL_PROVIDER || 'sendgrid').toLowerCase();
+  const isProduction = process.env.NODE_ENV === 'production';
+  const noopOverride = process.env.ALLOW_NOOP_EMAIL_IN_PRODUCTION === 'true';
+
+  // Mirror the createEmailAdapter() decision tree without instantiating
+  // an adapter. Anything that resolves to the no-op adapter at runtime
+  // also returns `noop` here.
+  let resolvedProvider = provider;
+  if (provider === 'noop') {
+    resolvedProvider = 'noop';
+  } else if (provider === 'ses') {
+    if (!process.env.AWS_SES_ACCESS_KEY || !process.env.AWS_SES_SECRET_KEY) {
+      resolvedProvider = 'noop';
+    }
+  } else {
+    // resend / postmark / sendgrid / default — all need EMAIL_API_KEY.
+    if (!process.env.EMAIL_API_KEY) resolvedProvider = 'noop';
+  }
+
+  if (resolvedProvider !== 'noop') {
+    return {
+      status: 'pass',
+      details: {
+        provider: resolvedProvider,
+        publicLaunchBlocked: false,
+      },
+    };
+  }
+
+  // No-op path. In dev / test this is fine (warn so it's visible but
+  // not a fail). In production this is the launch-blocker the user
+  // explicitly named; same reason `createEmailAdapter` requires an
+  // explicit `ALLOW_NOOP_EMAIL_IN_PRODUCTION=true` opt-in.
+  return {
+    status: 'warn',
+    message: isProduction
+      ? 'Transactional email is in placeholder mode (EMAIL_PROVIDER=noop). ' +
+        'Signup welcome + password reset are logged as `skipped` and the email ' +
+        'body never leaves the box. PUBLIC LAUNCH IS BLOCKED until a real ' +
+        'provider (Resend / Postmark / SendGrid / SES) is provisioned with ' +
+        'SPF + DKIM + DMARC and re-smoked.'
+      : 'No transactional email provider configured (dev / test default).',
+    details: {
+      provider: 'noop',
+      configuredProvider: provider,
+      isProduction,
+      noopOverride,
+      // The single boolean that admin tooling can latch on to.
+      publicLaunchBlocked: isProduction,
+    },
+  };
+}
+
+/**
  * Comprehensive health check handler
  */
 export async function healthCheckHandler(req: Request, res: Response): Promise<void> {
@@ -198,23 +283,38 @@ export async function healthCheckHandler(req: Request, res: Response): Promise<v
 
   try {
     // Run all health checks in parallel
-    const [database, redis, memory, nodeHeap] = await Promise.all([
+    const [database, redis, memory, nodeHeap, transactionalEmail] = await Promise.all([
       checkDatabase(),
       checkRedis(),
       Promise.resolve(checkMemory()),
       Promise.resolve(checkNodeHeap()),
+      Promise.resolve(checkTransactionalEmail()),
     ]);
 
-    const checks = { database, redis, memory, nodeHeap };
+    const checks = { database, redis, memory, nodeHeap, transactionalEmail };
 
     // Determine overall status
     // Only database and Redis failures should make the service unhealthy (503)
-    // Memory and heap issues are degraded (200) - service can still function
+    // Memory, heap, and email-noop issues are degraded (200) - service can still function
     const hasCriticalFailure = database.status === 'fail' || redis.status === 'fail';
     const hasFailure = Object.values(checks).some(check => check.status === 'fail');
     const hasWarning = Object.values(checks).some(check => check.status === 'warn');
 
     const status: HealthStatus['status'] = hasCriticalFailure ? 'unhealthy' : hasFailure || hasWarning ? 'degraded' : 'healthy';
+
+    // Surface launch-blockers at the top level so admin / monitoring
+    // can ping `/health` and read one boolean. Today the only blocker
+    // is `EMAIL_PROVIDER=noop` in production; the list is structured
+    // so a future blocker (SMS, payment provider, etc.) plugs in here.
+    const publicLaunchBlockers: string[] = [];
+    if (transactionalEmail.details?.publicLaunchBlocked) {
+      publicLaunchBlockers.push(
+        'transactional_email_noop: ' +
+          'production EMAIL_PROVIDER=noop with ALLOW_NOOP_EMAIL_IN_PRODUCTION=true; ' +
+          'signup + reset emails are not delivered',
+      );
+    }
+    const publicLaunchBlocked = publicLaunchBlockers.length > 0;
 
     const healthStatus: HealthStatus = {
       status,
@@ -223,6 +323,8 @@ export async function healthCheckHandler(req: Request, res: Response): Promise<v
       environment: process.env.NODE_ENV || 'development',
       version: process.env.npm_package_version || '1.0.0',
       checks,
+      publicLaunchBlocked,
+      publicLaunchBlockers,
     };
 
     const responseTime = Date.now() - startTime;
@@ -230,6 +332,7 @@ export async function healthCheckHandler(req: Request, res: Response): Promise<v
     logger.info('Health check completed', {
       status,
       responseTime,
+      publicLaunchBlocked,
       checks: Object.entries(checks).map(([name, check]) => ({ name, status: check.status })),
     });
 
