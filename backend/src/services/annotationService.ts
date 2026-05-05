@@ -114,6 +114,16 @@ export async function listAnnotationsForCrop(
 export async function updateAnnotation(input: {
   annotationId: string;
   userId: string;
+  /**
+   * Required when called from the nested PATCH route. The service
+   * verifies the annotation belongs to this crop AND the user before
+   * mutating, so a request like
+   *   PATCH /api/source-files/A/crops/B/annotations/<ann-from-crop-C>
+   * fails closed instead of silently mutating an annotation under a
+   * different crop. Optional only for back-compat with internal
+   * callers that have already authorized the parent gate.
+   */
+  cropId?: string;
   payload?: AnnotationPayload;
 }): Promise<PatternAnnotation | null> {
   if (input.payload !== undefined) {
@@ -124,8 +134,15 @@ export async function updateAnnotation(input: {
   }
   const update: Record<string, unknown> = { updated_at: new Date() };
   if (input.payload !== undefined) update.payload = JSON.stringify(input.payload);
+  const where: Record<string, string> = {
+    id: input.annotationId,
+    user_id: input.userId,
+  };
+  if (input.cropId !== undefined) {
+    where.pattern_crop_id = input.cropId;
+  }
   const updated = await db('pattern_crop_annotations')
-    .where({ id: input.annotationId, user_id: input.userId })
+    .where(where)
     .whereNull('deleted_at')
     .update(update);
   if (updated === 0) return null;
@@ -137,10 +154,23 @@ export async function updateAnnotation(input: {
 
 export async function softDeleteAnnotation(
   annotationId: string,
-  userId: string
+  userId: string,
+  /**
+   * Required when called from the nested DELETE route. Same reasoning
+   * as updateAnnotation's `cropId` arg — without this, a DELETE
+   * `/api/source-files/A/crops/B/annotations/<ann-from-crop-C>` would
+   * silently soft-delete the foreign annotation as long as the user
+   * owns it. Optional only for internal callers that have authorized
+   * via a different path.
+   */
+  cropId?: string,
 ): Promise<boolean> {
+  const where: Record<string, string> = { id: annotationId, user_id: userId };
+  if (cropId !== undefined) {
+    where.pattern_crop_id = cropId;
+  }
   const updated = await db('pattern_crop_annotations')
-    .where({ id: annotationId, user_id: userId })
+    .where(where)
     .whereNull('deleted_at')
     .update({ deleted_at: new Date() });
   return updated > 0;

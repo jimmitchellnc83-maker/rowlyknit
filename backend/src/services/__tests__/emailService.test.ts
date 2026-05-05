@@ -193,3 +193,125 @@ describe('email template buttons — inline styles survive Gmail <style> strippi
     assertInlinedButton(html, '#4F46E5');
   });
 });
+
+/**
+ * PR #384/#385 follow-up — finding #3.
+ *
+ * `firstName` / `name` is user-controlled (set at register) and gets
+ * interpolated into HTML email bodies. Pre-fix that was raw `${name}`
+ * concatenation, so a name like `<script>alert(1)</script>` or
+ * `"><img src=x onerror=alert(1)>` would render in the recipient's
+ * mail client. Fix is the shared `escapeHtml` helper applied to every
+ * user-influenceable interpolation in every templated send.
+ *
+ * These tests pin "every templated email escapes name + URL." A
+ * future template tweak can't accidentally drop the helper without
+ * tripping a test.
+ */
+describe('email templates — user-controlled inputs are HTML-escaped', () => {
+  // Reuses the module-level `adapterStub` from the file's setup
+  // section. `beforeEach` clears it; we re-stub `.send` per call.
+  const captureSentHtml = async (
+    runner: () => Promise<void>,
+  ): Promise<string> => {
+    let captured = '';
+    adapterStub.send = jest.fn().mockImplementation(async (payload: { html: string }) => {
+      captured = payload.html;
+      return { id: 'capture', adapter: 'resend' };
+    });
+    await runner();
+    return captured;
+  };
+
+  // Three names, each exercising a different attack class:
+  //   - `<script>` is the textbook XSS payload
+  //   - `"><img onerror>` is the attribute-breakout via double-quote
+  //   - `O'Brien` is the realistic-name single-quote case
+  const HOSTILE_NAMES = [
+    {
+      label: 'angle brackets',
+      raw: '<script>alert(1)</script>',
+      escaped: '&lt;script&gt;alert(1)&lt;/script&gt;',
+    },
+    {
+      label: 'attribute breakout',
+      raw: '"><img src=x onerror=alert(1)>',
+      escaped: '&quot;&gt;&lt;img src=x onerror=alert(1)&gt;',
+    },
+    {
+      label: 'apostrophe (realistic name)',
+      raw: "O'Brien",
+      escaped: 'O&#39;Brien',
+    },
+  ];
+
+  const assertEscaped = (html: string, raw: string, escaped: string) => {
+    // The escaped form must appear in the output.
+    expect(html).toContain(escaped);
+    // The raw, unescaped string must NOT appear anywhere — no
+    // unescaped `<script>` even in a comment.
+    expect(html).not.toContain(raw);
+  };
+
+  for (const { label, raw, escaped } of HOSTILE_NAMES) {
+    it(`welcome email escapes name (${label})`, async () => {
+      const html = await captureSentHtml(() =>
+        emailService.sendWelcomeEmail(
+          'x@example.com',
+          raw,
+          'https://rowlyknit.com/verify?t=x',
+        ),
+      );
+      assertEscaped(html, raw, escaped);
+    });
+
+    it(`password reset email escapes name (${label})`, async () => {
+      const html = await captureSentHtml(() =>
+        emailService.sendPasswordResetEmail(
+          'x@example.com',
+          raw,
+          'https://rowlyknit.com/reset?t=x',
+        ),
+      );
+      assertEscaped(html, raw, escaped);
+    });
+
+    it(`account deletion email escapes name (${label})`, async () => {
+      const html = await captureSentHtml(() =>
+        emailService.sendAccountDeletionConfirmEmail(
+          'x@example.com',
+          raw,
+          'https://rowlyknit.com/delete?t=x',
+          14,
+        ),
+      );
+      assertEscaped(html, raw, escaped);
+    });
+
+    it(`verification email escapes name (${label})`, async () => {
+      const html = await captureSentHtml(() =>
+        emailService.sendVerificationEmail(
+          'x@example.com',
+          raw,
+          'https://rowlyknit.com/verify?t=x',
+        ),
+      );
+      assertEscaped(html, raw, escaped);
+    });
+  }
+
+  it('escapes URLs that contain & in query strings (smoke test for token URLs)', async () => {
+    // Real reset URLs carry tokens; a query string with `&` must
+    // become `&amp;` so the rendered HTML is valid AND so an attacker
+    // who somehow gets the URL building piece can't inject through it.
+    const html = await captureSentHtml(() =>
+      emailService.sendPasswordResetEmail(
+        'x@example.com',
+        'A',
+        'https://rowlyknit.com/reset?t=x&u=y',
+      ),
+    );
+    expect(html).toContain('https://rowlyknit.com/reset?t=x&amp;u=y');
+    expect(html).not.toContain('reset?t=x&u=y"'); // the raw `&` followed by quote
+  });
+});

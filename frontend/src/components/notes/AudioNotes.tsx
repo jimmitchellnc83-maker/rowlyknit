@@ -8,11 +8,14 @@ import ConfirmModal from '../ConfirmModal';
 
 /**
  * Resolve a potentially-relative audio URL to an absolute URL.
- * In development the Vite proxy forwards /uploads to the backend,
- * so a bare relative path like "/uploads/audio/foo.webm" works.
- * In production the frontend and API may share the same origin.
- * If VITE_API_URL is set and the audio_url is relative, we prepend
- * the API origin so the browser can reach the backend file server.
+ * Modern audio_url values are authenticated streaming endpoints under
+ * `/api/projects/:projectId/audio-notes/:noteId/stream` (see
+ * `notesController.streamAudioNote`); the public `/uploads/*` static
+ * mount was removed on 2026-05-02 (see migration #070 + nginx tests).
+ * In dev the Vite `/api` proxy reaches the backend; in prod the
+ * frontend and API typically share an origin and a relative path is
+ * sufficient. If VITE_API_URL is set to a different origin, we
+ * prepend it so the browser can reach the streaming endpoint.
  */
 function resolveAudioUrl(audioUrl: string): string {
   // Already absolute – nothing to do
@@ -20,7 +23,7 @@ function resolveAudioUrl(audioUrl: string): string {
     return audioUrl;
   }
 
-  // In dev mode the Vite proxy handles /uploads, so relative paths work
+  // In dev mode the Vite proxy handles /api so relative paths work.
   if (import.meta.env.DEV) {
     return audioUrl;
   }
