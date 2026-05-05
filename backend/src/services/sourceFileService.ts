@@ -332,6 +332,46 @@ export async function getCropById(
   return row ? mapCropRow(row as PatternCropRow) : null;
 }
 
+/**
+ * Verify a (sourceFileId, cropId) pair refers to a real, owned, undeleted
+ * crop whose parent IS that source file. Returns the crop on success,
+ * `null` on any mismatch — including a real cropId attached to a
+ * DIFFERENT source file id than the URL says.
+ *
+ * Why this exists (Platform Hardening Sprint 2026-05-05, finding #3):
+ *   The nested `/api/source-files/:id/crops/:cropId/...` routes only
+ *   looked up by `:cropId` for ownership. Within a single user's
+ *   namespace this is a data-integrity issue, not a cross-user
+ *   exploit — a hostile or buggy client could PATCH a crop attached
+ *   to file B by addressing it through file A, and any downstream
+ *   audit / cache / cross-table query that joined back through the
+ *   URL parent would see a contradiction.
+ *
+ *   Fix is to make the parent-child invariant load-bearing in the
+ *   service layer: every nested mutation goes through this gate
+ *   first. Returns null instead of throwing so callers can pick the
+ *   404 response shape that fits their handler (some routes prefer
+ *   to swallow into a NotFoundError, some prefer their own message).
+ *
+ * Soft-deleted parents and crops are treated as not-found — the URL
+ * is stale and the operation must fail closed.
+ */
+export async function getCropForParent(
+  sourceFileId: string,
+  cropId: string,
+  userId: string,
+): Promise<PatternCrop | null> {
+  const row = await db('pattern_crops')
+    .where({
+      id: cropId,
+      source_file_id: sourceFileId,
+      user_id: userId,
+    })
+    .whereNull('deleted_at')
+    .first();
+  return row ? mapCropRow(row as PatternCropRow) : null;
+}
+
 export async function listCropsForSourceFile(
   sourceFileId: string,
   userId: string

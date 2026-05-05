@@ -272,8 +272,13 @@ router.post(
   [
     validateUUID('id'),
     body('yarnId').notEmpty().isUUID(),
-    body('yardsUsed').optional({ values: 'falsy' }).isNumeric(),
-    body('skeinsUsed').optional({ values: 'falsy' }).isNumeric(),
+    // `min: 0` rejects negatives at the validator boundary. A negative
+    // `yardsUsed` would otherwise survive `isNumeric` and reach the
+    // stash-adjust transaction in `addYarnToProject` — where the diff
+    // arithmetic happily credits the user's stash for a value that was
+    // never knit. Defense in depth lives in the controller too.
+    body('yardsUsed').optional({ values: 'falsy' }).isFloat({ min: 0 }),
+    body('skeinsUsed').optional({ values: 'falsy' }).isFloat({ min: 0 }),
   ],
   validate,
   asyncHandler(projectsController.addYarnToProject)
@@ -289,8 +294,12 @@ router.put(
   [
     validateUUID('id'),
     validateUUID('yarnId'),
-    body('yardsUsed').optional({ values: 'falsy' }).isNumeric(),
-    body('skeinsUsed').optional({ values: 'falsy' }).isNumeric(),
+    // Same `min: 0` reasoning as the POST above. The update path is
+    // worse if it slips: the diff `yardsUsed - projectYarn.yards_used`
+    // goes negative and the stash UPDATE adds yards back, inflating
+    // the available count beyond what the row was ever bought with.
+    body('yardsUsed').optional({ values: 'falsy' }).isFloat({ min: 0 }),
+    body('skeinsUsed').optional({ values: 'falsy' }).isFloat({ min: 0 }),
   ],
   validate,
   asyncHandler(projectsController.updateProjectYarn)

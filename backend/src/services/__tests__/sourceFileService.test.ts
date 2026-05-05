@@ -106,6 +106,7 @@ import {
   assertCropWithinUnitSquare,
   createCrop,
   createSourceFile,
+  getCropForParent,
   pinSourceFileToProjectPattern,
 } from '../sourceFileService';
 import { ValidationError } from '../../utils/errorHandler';
@@ -323,6 +324,85 @@ describe('createCrop ownership gate', () => {
     });
     expect(crop.id).toBe('crop-1');
     expect(dbBuilders.pattern_crops.insert).toHaveBeenCalled();
+  });
+});
+
+describe('getCropForParent (Platform Hardening Sprint 2026-05-05 finding #3)', () => {
+  // The pre-fix nested route handlers (annotations, QuickKey,
+  // alignment, Magic Marker) loaded a crop by `:cropId` only and
+  // trusted the URL parent. A request like
+  // `/api/source-files/A/crops/<crop-from-B>/...` would mutate the
+  // crop attached to file B but addressed through file A — even
+  // within a single user's namespace this writes history that
+  // contradicts the URL. `getCropForParent` is the single gate that
+  // re-asserts the parent-child invariant on every nested route.
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('returns the crop when sourceFileId, cropId, and userId all line up', async () => {
+    dbBuilders.pattern_crops.first.mockResolvedValueOnce({
+      id: 'crop-1',
+      source_file_id: 'sf-1',
+      user_id: 'u-1',
+      pattern_id: null,
+      pattern_section_id: null,
+      page_number: 1,
+      crop_x: 0.1,
+      crop_y: 0.1,
+      crop_width: 0.5,
+      crop_height: 0.5,
+      label: null,
+      chart_id: null,
+      metadata: '{}',
+      is_quickkey: false,
+      quickkey_position: null,
+      created_at: new Date(),
+      updated_at: new Date(),
+      deleted_at: null,
+    });
+
+    const crop = await getCropForParent('sf-1', 'crop-1', 'u-1');
+    expect(crop).not.toBeNull();
+    expect(crop!.id).toBe('crop-1');
+    expect(crop!.sourceFileId).toBe('sf-1');
+
+    // The query must include the parent constraint, otherwise the
+    // gate is doing nothing — verify by inspecting the where call.
+    expect(dbBuilders.pattern_crops.where).toHaveBeenCalledWith({
+      id: 'crop-1',
+      source_file_id: 'sf-1',
+      user_id: 'u-1',
+    });
+  });
+
+  it('returns null when cropId belongs to a DIFFERENT source file', async () => {
+    // The crop exists and is owned by the user, but its parent is
+    // source file `sf-other`, not `sf-1`. Postgres returns no row
+    // because of the `source_file_id = 'sf-1'` filter.
+    dbBuilders.pattern_crops.first.mockResolvedValueOnce(undefined);
+
+    const crop = await getCropForParent('sf-1', 'crop-from-other-file', 'u-1');
+    expect(crop).toBeNull();
+  });
+
+  it('returns null when the crop is owned by a different user', async () => {
+    dbBuilders.pattern_crops.first.mockResolvedValueOnce(undefined);
+    const crop = await getCropForParent('sf-1', 'crop-1', 'u-attacker');
+    expect(crop).toBeNull();
+  });
+
+  it('returns null when the crop is soft-deleted (whereNull deleted_at)', async () => {
+    dbBuilders.pattern_crops.first.mockResolvedValueOnce(undefined);
+    const crop = await getCropForParent('sf-1', 'crop-deleted', 'u-1');
+    expect(crop).toBeNull();
+    expect(dbBuilders.pattern_crops.whereNull).toHaveBeenCalledWith('deleted_at');
+  });
+
+  it('returns null when both ids are completely unknown', async () => {
+    dbBuilders.pattern_crops.first.mockResolvedValueOnce(undefined);
+    const crop = await getCropForParent('sf-bogus', 'crop-bogus', 'u-1');
+    expect(crop).toBeNull();
   });
 });
 

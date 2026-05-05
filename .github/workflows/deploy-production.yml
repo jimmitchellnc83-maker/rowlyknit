@@ -3,22 +3,30 @@ name: Deploy to Production
 # Auto-deploy `main` to the production droplet (rowlyknit.com).
 #
 # Required GitHub Secrets (production environment):
-#   PROD_SSH_HOST   — droplet IP or rowlyknit.com
-#   PROD_SSH_USER   — SSH user (root)
-#   PROD_SSH_KEY    — Private key, OpenSSH format
-#                     (-----BEGIN OPENSSH PRIVATE KEY-----)
-#   PROD_SSH_PORT   — Optional; defaults to 22
+#   PROD_SSH_HOST    — droplet IP or rowlyknit.com
+#   PROD_SSH_USER    — SSH user (root)
+#   PROD_SSH_KEY     — Private key, OpenSSH format
+#                      (-----BEGIN OPENSSH PRIVATE KEY-----)
+#   PROD_SSH_PORT    — Optional; defaults to 22
+#   RESEND_API_KEY   — Resend API token. Mapped to backend EMAIL_API_KEY
+#                      by scripts/provision-email-env.sh on every deploy.
+#                      Empty value => deploy aborts before docker rebuild
+#                      (loud-fail by design — silent fallback to noop
+#                      would let signup / password reset appear to work
+#                      while no mail is delivered).
 #
 # What this does on the droplet:
 #   1. Pull latest main into the live tree (/home/user/rowlyknit)
-#   2. Run scripts/deploy-production.sh — the same OOM-safe docker compose
+#   2. Provision email env from RESEND_API_KEY (provision-email-env.sh)
+#      — must run BEFORE step 3 so docker compose re-reads the env_file
+#   3. Run scripts/deploy-production.sh — the same OOM-safe docker compose
 #      rebuild we run by hand (stops frontend container to free RAM, builds
 #      backend+frontend, brings everything back up, internal health check,
 #      then `nginx -t` + `nginx -s reload` inside rowly_nginx so any
 #      bind-mounted route changes in deployment/nginx/conf.d take effect —
 #      the script aborts with a non-zero exit if `nginx -t` fails).
-#   3. Run pending knex migrations against the now-running backend container
-#   4. External health check via https://rowlyknit.com/health
+#   4. Run pending knex migrations against the now-running backend container
+#   5. External health check via https://rowlyknit.com/health
 #
 # Triggers: every push to main (auto), plus a manual workflow_dispatch button
 # in the Actions tab. Concurrency lock prevents overlapping deploys.
@@ -42,6 +50,8 @@ jobs:
     steps:
       - name: SSH deploy
         uses: appleboy/ssh-action@v1.2.0
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
         with:
           host: ${{ secrets.PROD_SSH_HOST }}
           username: ${{ secrets.PROD_SSH_USER }}
@@ -49,6 +59,10 @@ jobs:
           port: ${{ secrets.PROD_SSH_PORT || 22 }}
           script_stop: true
           command_timeout: 30m
+          # Forward RESEND_API_KEY into the remote shell so
+          # provision-email-env.sh can map it to backend EMAIL_API_KEY
+          # without ever materialising the value in the workflow logs.
+          envs: RESEND_API_KEY
           script: |
             set -euo pipefail
             cd /home/user/rowlyknit
@@ -56,6 +70,9 @@ jobs:
             echo "==> pulling latest main…"
             git fetch origin main
             git reset --hard origin/main
+
+            echo "==> provisioning email env from RESEND_API_KEY GitHub secret…"
+            bash scripts/provision-email-env.sh
 
             echo "==> docker compose build + up + internal health (deploy-production.sh)…"
             bash scripts/deploy-production.sh

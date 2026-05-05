@@ -575,12 +575,43 @@ export async function getProjectStats(req: Request, res: Response) {
 }
 
 /**
+ * Reject negative yarn usage values at the controller boundary.
+ *
+ * Defense in depth — the route validator already rejects negatives, but
+ * any future caller that bypasses the route (an internal service, a
+ * migration script, a Codex-generated test fixture) must hit the same
+ * guard. Treats `null` / `undefined` / empty string as "not provided"
+ * (the route's `.optional({ values: 'falsy' })` semantics).
+ *
+ * Throws `ValidationError` so `asyncHandler` returns a 400 with the
+ * field name in the message — same shape every other validator emits.
+ */
+function assertNonNegativeYarnUsage(input: {
+  yardsUsed?: unknown;
+  skeinsUsed?: unknown;
+}): void {
+  for (const field of ['yardsUsed', 'skeinsUsed'] as const) {
+    const raw = input[field];
+    if (raw === undefined || raw === null || raw === '') continue;
+    const n = Number(raw);
+    if (!Number.isFinite(n) || n < 0) {
+      throw new ValidationError(`${field} must be a non-negative number`);
+    }
+  }
+}
+
+/**
  * Add yarn to project with automatic stash deduction
  */
 export async function addYarnToProject(req: Request, res: Response) {
   const userId = req.user!.userId;
   const { id: projectId } = req.params;
   const { yarnId, yardsUsed = 0, skeinsUsed = 0 } = req.body;
+
+  // Service-layer guard runs BEFORE any DB read so a hostile request
+  // can't even probe project / yarn existence with a poisoned numeric
+  // value. Pairs with the route validator above for defense in depth.
+  assertNonNegativeYarnUsage({ yardsUsed, skeinsUsed });
 
   // Verify project exists and belongs to user
   const project = await db('projects')
@@ -678,6 +709,12 @@ export async function updateProjectYarn(req: Request, res: Response) {
   const userId = req.user!.userId;
   const { id: projectId, yarnId } = req.params;
   const { yardsUsed, skeinsUsed } = req.body;
+
+  // Same negative-usage guard as the add path. The update flow is
+  // worse if a negative slips: the diff `yardsUsed - existing` goes
+  // negative and the stash UPDATE adds yards back, inflating the
+  // available count beyond what the row was ever bought with.
+  assertNonNegativeYarnUsage({ yardsUsed, skeinsUsed });
 
   // Verify project exists and belongs to user
   const project = await db('projects')

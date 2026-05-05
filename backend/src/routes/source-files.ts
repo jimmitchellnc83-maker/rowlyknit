@@ -1,14 +1,43 @@
-import { Router } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import { body, query } from 'express-validator';
 import { authenticate } from '../middleware/auth';
 import { validate, validateUUID } from '../middleware/validator';
-import { asyncHandler } from '../utils/errorHandler';
+import { asyncHandler, NotFoundError } from '../utils/errorHandler';
 import * as sf from '../controllers/sourceFilesController';
 import * as ann from '../controllers/annotationsController';
 import * as ca from '../controllers/chartAlignmentController';
+import { getCropForParent } from '../services/sourceFileService';
 
 const router = Router();
 router.use(authenticate);
+
+/**
+ * Parent-child invariant gate for `/:id/crops/:cropId/...` nested routes.
+ *
+ * Without this, the nested controllers (annotations, QuickKey, chart
+ * alignment, Magic Marker) load by `:cropId` only and trust that the
+ * URL parent was correct. A request like `/api/source-files/A/crops/B`
+ * where crop B is attached to source file C would mutate the wrong
+ * thing relative to what the URL claimed — even within a single user's
+ * namespace this is a data-integrity issue (downstream joins / audit
+ * logs / caches that key off the URL parent see a contradiction).
+ *
+ * Mount AFTER the validateUUID checks so we don't waste a DB roundtrip
+ * on garbage IDs. Mount BEFORE any controller that mutates state.
+ *
+ * Returns 404 (not 403) so the response shape doesn't differentiate
+ * "no permission" from "no row" — same contract every other ownership
+ * gate in this codebase uses.
+ */
+const verifyCropBelongsToParent = asyncHandler(
+  async (req: Request, _res: Response, next: NextFunction) => {
+    const userId = req.user!.userId;
+    const { id: sourceFileId, cropId } = req.params;
+    const crop = await getCropForParent(sourceFileId, cropId, userId);
+    if (!crop) throw new NotFoundError('Crop not found');
+    next();
+  },
+);
 
 // POST /api/source-files
 router.post(
@@ -75,6 +104,11 @@ router.get(
 );
 
 // PATCH /api/source-files/:id/crops/:cropId
+//
+// `verifyCropBelongsToParent` is also redundant with the controller's
+// own `getCropForParent` call — kept on the route as defense in depth
+// so a future refactor that changes the controller still can't bypass
+// the parent gate. Same reasoning for DELETE below.
 router.patch(
   '/:id/crops/:cropId',
   [
@@ -90,6 +124,7 @@ router.patch(
     body('cropHeight').optional().isFloat({ gt: 0, max: 1 }),
   ],
   validate,
+  verifyCropBelongsToParent,
   asyncHandler(sf.updateSourceFileCrop)
 );
 
@@ -98,6 +133,7 @@ router.delete(
   '/:id/crops/:cropId',
   [validateUUID('id'), validateUUID('cropId')],
   validate,
+  verifyCropBelongsToParent,
   asyncHandler(sf.deleteSourceFileCrop)
 );
 
@@ -115,6 +151,7 @@ router.post(
     body('payload').isObject(),
   ],
   validate,
+  verifyCropBelongsToParent,
   asyncHandler(ann.createAnnotationHandler)
 );
 
@@ -123,10 +160,16 @@ router.get(
   '/:id/crops/:cropId/annotations',
   [validateUUID('id'), validateUUID('cropId')],
   validate,
+  verifyCropBelongsToParent,
   asyncHandler(ann.listAnnotationsHandler)
 );
 
 // PATCH /api/source-files/:id/crops/:cropId/annotations/:annotationId
+//
+// Run `verifyCropBelongsToParent` BEFORE the :annotationId → :id rewrite
+// so it sees the original `:id` (= sourceFileId) param. The wrapper
+// then aliases :annotationId onto :id for the controller's uniform
+// signature, AFTER the parent gate has fired.
 router.patch(
   '/:id/crops/:cropId/annotations/:annotationId',
   [
@@ -136,7 +179,7 @@ router.patch(
     body('payload').optional().isObject(),
   ],
   validate,
-  // Re-route :annotationId → :id so the controller's signature is uniform.
+  verifyCropBelongsToParent,
   asyncHandler(async (req, res) => {
     (req.params as Record<string, string>).id = req.params.annotationId;
     return ann.updateAnnotationHandler(req, res);
@@ -148,6 +191,7 @@ router.delete(
   '/:id/crops/:cropId/annotations/:annotationId',
   [validateUUID('id'), validateUUID('cropId'), validateUUID('annotationId')],
   validate,
+  verifyCropBelongsToParent,
   asyncHandler(async (req, res) => {
     (req.params as Record<string, string>).id = req.params.annotationId;
     return ann.deleteAnnotationHandler(req, res);
@@ -169,6 +213,7 @@ router.patch(
     body('label').optional({ values: 'null' }).isString().isLength({ max: 120 }),
   ],
   validate,
+  verifyCropBelongsToParent,
   asyncHandler(ann.setQuickKeyHandler)
 );
 
@@ -190,6 +235,7 @@ router.put(
     body('cellsDown').isInt({ min: 1 }),
   ],
   validate,
+  verifyCropBelongsToParent,
   asyncHandler(ca.setAlignmentHandler)
 );
 
@@ -198,6 +244,7 @@ router.get(
   '/:id/crops/:cropId/alignment',
   [validateUUID('id'), validateUUID('cropId')],
   validate,
+  verifyCropBelongsToParent,
   asyncHandler(ca.getAlignmentHandler)
 );
 
@@ -215,6 +262,7 @@ router.post(
     body('matchMetadata').optional({ values: 'null' }).isObject(),
   ],
   validate,
+  verifyCropBelongsToParent,
   asyncHandler(ca.recordSampleHandler)
 );
 
@@ -229,6 +277,7 @@ router.post(
     body('maxDistance').optional().isInt({ min: 0, max: 64 }),
   ],
   validate,
+  verifyCropBelongsToParent,
   asyncHandler(ca.findMatchesHandler)
 );
 
@@ -243,6 +292,7 @@ router.post(
     body('cells').isArray(),
   ],
   validate,
+  verifyCropBelongsToParent,
   asyncHandler(ca.confirmMatchesHandler)
 );
 

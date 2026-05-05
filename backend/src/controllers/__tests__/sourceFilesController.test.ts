@@ -470,6 +470,11 @@ describe('deleteSourceFileCrop', () => {
   });
 
   it('soft-deletes when owned', async () => {
+    // First lookup is the new parent-gate (`getCropForParent`); second
+    // is the soft-delete UPDATE. Both must succeed for the controller
+    // to return success. The parent-gate is added in the Platform
+    // Hardening Sprint 2026-05-05 — see deleteSourceFileCrop.
+    dbBuilders.pattern_crops.first.mockResolvedValueOnce(CROP_ROW);
     dbBuilders.pattern_crops.update.mockResolvedValueOnce(1);
     const res = makeRes();
     await deleteSourceFileCrop(
@@ -479,6 +484,20 @@ describe('deleteSourceFileCrop', () => {
     expect(res.json).toHaveBeenCalledWith(
       expect.objectContaining({ success: true })
     );
+  });
+
+  it('throws NotFoundError when cropId belongs to a different source file (parent gate)', async () => {
+    // Parent-gate test: `first` returns null because the SQL
+    // `where source_file_id = sf-1 AND id = crop-from-other-file`
+    // matches nothing. The soft-delete UPDATE must NOT run.
+    dbBuilders.pattern_crops.first.mockResolvedValueOnce(undefined);
+    await expect(
+      deleteSourceFileCrop(
+        makeReq({ params: { id: 'sf-1', cropId: 'crop-from-other-file' } }),
+        makeRes()
+      )
+    ).rejects.toThrow(NotFoundError);
+    expect(dbBuilders.pattern_crops.update).not.toHaveBeenCalled();
   });
 });
 
