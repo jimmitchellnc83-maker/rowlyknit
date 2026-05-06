@@ -3,32 +3,32 @@ import { persist } from 'zustand/middleware';
 import axios from 'axios'; // Uses globally configured axios from lib/axios
 
 /**
- * Browser auth — cookie-first.
+ * Browser auth — cookie-only.
  *
- * After the Auth + Launch Polish Sprint (2026-05-04) the access token is
- * NEVER persisted to localStorage in the browser. Both the access token
- * and the refresh token live in httpOnly + secure cookies set by the
- * backend on /api/auth/login (and /api/auth/refresh). axios runs with
- * `withCredentials: true` so those cookies travel with every same-origin
- * request automatically, no Bearer header required.
+ * After PR #389 final pass (2026-05-06), neither the access token nor
+ * the refresh token reaches JS. Both are httpOnly + secure cookies set
+ * by the backend on /api/auth/login (and /api/auth/refresh). axios runs
+ * with `withCredentials: true` so those cookies travel with every
+ * same-origin request automatically, no Bearer header required.
  *
  * What we DO persist locally is the user profile + isAuthenticated bit
  * so the app shell can render immediately without a layout flash on
  * page load. On hydration we still call /api/auth/refresh + /profile to
  * confirm the cookie is still valid; if it isn't, we wipe local state.
  *
- * The in-memory `accessToken` is kept around for two non-browser
- * consumers:
- *   1. Socket.IO — connect-time auth payload `{ token: accessToken }`
- *      (httpOnly cookies don't reach the WebSocket handshake on every
- *      browser; the in-memory copy is the safest cross-browser path).
- *   2. Future API clients (mobile / scripts) that prefer Bearer.
+ * Socket.IO uses cookie-auth too: socket.io-client connects with
+ * `withCredentials: true` and the backend reads the `accessToken`
+ * cookie out of the handshake header (see backend/src/config/socket.ts).
+ * No JS-readable token is required for any in-app consumer.
  *
- * The Bearer-header path on axios was removed because:
+ * Why no JS bearer at all in the browser:
  *   - Same-origin cookies already authenticate every request.
- *   - Setting `axios.defaults.headers.common.Authorization` from a
- *     persisted localStorage token is exactly the XSS exfil surface
- *     this sprint is closing.
+ *   - An XSS payload that lands a script in our origin can read
+ *     anything in `document.cookie`-readable storage and anything in
+ *     in-memory globals. httpOnly cookies are the only place a JWT
+ *     can sit where the payload can't see it. Returning the token in
+ *     the JSON body, or storing it in zustand, gives that payload a
+ *     handle on the user's session — that's the surface this closes.
  */
 
 interface UserPreferences {
@@ -82,16 +82,22 @@ interface User {
 interface AuthState {
   user: User | null;
   /**
-   * In-memory only. Lives for the duration of the JS context. Used by
-   * the Socket.IO client and any future Bearer-preferring consumer.
-   * NEVER written to localStorage.
+   * Always `null`. Retained as a field so any lingering reference
+   * (component, devtool, third-party hook) reads `null` instead of
+   * crashing — but no code path writes to it. Cookie-only auth means
+   * there is no JS-side token to track.
    */
-  accessToken: string | null;
+  accessToken: null;
   isAuthenticated: boolean;
   login: (email: string, password: string, rememberMe?: boolean) => Promise<void>;
   register: (data: any) => Promise<void>;
   logout: () => Promise<void>;
   setUser: (user: User) => void;
+  /**
+   * No-op. Kept for backwards compatibility with the axios refresh
+   * interceptor and any other call site that imports it; the new
+   * cookie-only flow has nothing to set.
+   */
   setToken: (token: string) => void;
   checkAuth: () => Promise<void>;
 }
@@ -134,12 +140,15 @@ export const useAuthStore = create<AuthState>()(
           rememberMe,
         });
 
-        const { user, accessToken } = response.data.data;
+        // Cookie-only flow: the response body intentionally does NOT
+        // carry accessToken/refreshToken. The httpOnly cookies set by
+        // the response authenticate every subsequent request including
+        // the WebSocket handshake.
+        const { user } = response.data.data;
 
         set({
           user,
-          // In-memory only — for Socket.IO + non-browser consumers.
-          accessToken,
+          accessToken: null,
           isAuthenticated: true,
         });
       },
@@ -166,26 +175,21 @@ export const useAuthStore = create<AuthState>()(
         set({ user });
       },
 
-      setToken: (token: string) => {
-        // In-memory only — does NOT persist to localStorage. Called by
-        // the axios refresh-on-401 interceptor with the new access token
-        // returned in the /api/auth/refresh response body, so Socket.IO
-        // can pick it up on its next connect.
-        set({ accessToken: token });
+      setToken: (_token: string) => {
+        // No-op. The axios refresh interceptor still calls this for
+        // backwards compatibility, but cookie-only auth has nothing to
+        // track in memory — the new access cookie is set by the
+        // /api/auth/refresh response and travels automatically.
       },
 
       checkAuth: async () => {
         // The persisted state only carries `user` + `isAuthenticated`;
-        // the access cookie is httpOnly so we can't see it from JS. We
-        // try to mint a fresh in-memory token via /api/auth/refresh
-        // (which reads the refresh cookie) — if that succeeds we trust
-        // the persisted user; if not, wipe everything.
+        // both auth cookies are httpOnly so we can't see them from JS.
+        // We POST /api/auth/refresh to confirm the refresh cookie is
+        // still valid; success rotates a fresh access cookie in. If
+        // either /refresh or /profile rejects, wipe local state.
         try {
-          const refresh = await axios.post('/api/auth/refresh', {});
-          const newToken = refresh.data?.data?.accessToken;
-          if (newToken) {
-            set({ accessToken: newToken });
-          }
+          await axios.post('/api/auth/refresh', {});
 
           const profile = await axios.get('/api/auth/profile');
           const user = profile.data?.data?.user;

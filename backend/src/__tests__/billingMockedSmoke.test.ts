@@ -29,19 +29,56 @@ function dbMockFn(table: string): any {
   if (table === 'billing_events') {
     return {
       insert: (row: any) => ({
-        onConflict: () => ({
-          ignore: () => ({
-            returning: async () => {
-              const key = `${row.provider}:${row.provider_event_id}`;
-              if (inMemoryEvents.has(key)) return [];
-              const inserted = { id: `evt-${inMemoryEvents.size + 1}`, ...row };
-              inMemoryEvents.set(key, inserted);
-              return [{ id: inserted.id }];
-            },
-          }),
-        }),
+        onConflict: () => {
+          const key = `${row.provider}:${row.provider_event_id}`;
+          // PR #389 final-pass P1: the service now uses
+          // `.onConflict.merge(...).returning(...)` so retries of a
+          // previously-failed event re-run side effects. The mock
+          // mirrors the same idempotency contract: returns
+          // `[{id, processed}]` for both new and existing rows so the
+          // service can branch on the row's prior state. We keep the
+          // legacy `.ignore` shape for any other caller.
+          return {
+            merge: () => ({
+              returning: async () => {
+                if (inMemoryEvents.has(key)) {
+                  const existing = inMemoryEvents.get(key)!;
+                  return [{ id: existing.id, processed: !!existing.processed }];
+                }
+                const inserted = {
+                  id: `evt-${inMemoryEvents.size + 1}`,
+                  processed: false,
+                  ...row,
+                };
+                inMemoryEvents.set(key, inserted);
+                return [{ id: inserted.id, processed: false }];
+              },
+            }),
+            ignore: () => ({
+              returning: async () => {
+                if (inMemoryEvents.has(key)) return [];
+                const inserted = { id: `evt-${inMemoryEvents.size + 1}`, ...row };
+                inMemoryEvents.set(key, inserted);
+                return [{ id: inserted.id }];
+              },
+            }),
+          };
+        },
       }),
-      where: () => ({ update: async () => 1 }),
+      where: () => ({
+        // Mark the event as processed=true after a successful side-effect
+        // run so a retry sees `alreadyProcessed=true` and returns
+        // 'duplicate' from the service.
+        update: async (payload: any) => {
+          if (payload?.processed === true) {
+            for (const v of inMemoryEvents.values()) {
+              if (v.processed !== true) v.processed = true;
+            }
+          }
+          return 1;
+        },
+        first: async () => null,
+      }),
     };
   }
 

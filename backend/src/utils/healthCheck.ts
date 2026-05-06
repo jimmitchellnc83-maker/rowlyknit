@@ -4,6 +4,10 @@ import db from '../config/database';
 import { redisClient } from '../config/redis';
 import logger from '../config/logger';
 import os from 'os';
+import {
+  getBillingConfig,
+  LEMONSQUEEZY_REQUIRED_ENV,
+} from '../config/billing';
 
 /**
  * Health check status interface
@@ -20,6 +24,7 @@ interface HealthStatus {
     memory: CheckResult;
     nodeHeap: CheckResult;
     transactionalEmail: CheckResult;
+    billing: CheckResult;
   };
   /**
    * `true` when at least one launch-blocking placeholder is active in
@@ -317,6 +322,107 @@ export function checkTransactionalEmail(): CheckResult {
 }
 
 /**
+ * Inspect billing configuration without hitting the provider. Reports:
+ *
+ *   - `pass` when billing is wired enough to take real money
+ *     (lemonsqueezy provider with all required env vars present), and
+ *     `BILLING_PRE_LAUNCH_OPEN` is false in production.
+ *   - `warn` outside production for any healthy non-production state
+ *     (mock / none provider, missing LS envs in dev).
+ *   - `fail` in production for any of:
+ *       * BILLING_PROVIDER unset / `none` / `mock`
+ *       * Lemon Squeezy provider with one or more missing required vars
+ *       * `BILLING_PRE_LAUNCH_OPEN=true`
+ *
+ * The `details.publicLaunchBlocked` flag (mirroring the email check)
+ * tells the top-level `/health` handler whether to add billing-shaped
+ * blockers to the launch list. Production publishes that gate; dev /
+ * test stays informational.
+ */
+export function checkBilling(): CheckResult {
+  const cfg = getBillingConfig();
+  const isProduction = process.env.NODE_ENV === 'production';
+
+  const baseDetails = {
+    provider: cfg.provider,
+    providerReady: cfg.ready,
+    preLaunchOpen: cfg.preLaunchOpen,
+  };
+
+  // Production with no real provider — launch blocker.
+  if (isProduction && (cfg.provider === 'none' || cfg.provider === 'mock')) {
+    return {
+      status: 'fail',
+      message:
+        'Billing provider is not configured for production. Set BILLING_PROVIDER=lemonsqueezy and ' +
+        'populate the LEMONSQUEEZY_* env vars before opening signups.',
+      details: {
+        ...baseDetails,
+        missing: cfg.provider === 'none' ? [...LEMONSQUEEZY_REQUIRED_ENV] : [],
+        publicLaunchBlocked: true,
+      },
+    };
+  }
+
+  // Lemon Squeezy with missing config — launch blocker in production.
+  if (cfg.provider === 'lemonsqueezy' && !cfg.ready) {
+    return {
+      status: isProduction ? 'fail' : 'warn',
+      message:
+        'Lemon Squeezy is configured but missing required env vars. ' +
+        `Missing: ${cfg.missing.join(', ')}.`,
+      details: {
+        ...baseDetails,
+        missing: cfg.missing,
+        publicLaunchBlocked: isProduction,
+      },
+    };
+  }
+
+  // Pre-launch escape hatch ON in production — surface as a blocker.
+  // Anyone signed in gets free paid-workspace access through this flag,
+  // which is fine pre-launch but must be off the day Lemon Squeezy goes
+  // live or the gate is meaningless.
+  if (isProduction && cfg.preLaunchOpen) {
+    return {
+      status: 'fail',
+      message:
+        'BILLING_PRE_LAUNCH_OPEN=true in production — every authed user gets free paid-workspace access. ' +
+        'Flip to false before charging real money.',
+      details: {
+        ...baseDetails,
+        publicLaunchBlocked: true,
+      },
+    };
+  }
+
+  // Healthy: production-ready Lemon Squeezy OR dev/test on any provider
+  // (but flag the latter so dev still sees the warning).
+  if (cfg.provider === 'lemonsqueezy' && cfg.ready) {
+    return {
+      status: 'pass',
+      details: {
+        ...baseDetails,
+        publicLaunchBlocked: false,
+      },
+    };
+  }
+
+  // Dev/test with mock or none — informational warn, not a blocker.
+  return {
+    status: 'warn',
+    message:
+      cfg.provider === 'none'
+        ? 'Billing is OFF (BILLING_PROVIDER unset). Pre-launch posture for dev/test only.'
+        : 'Billing in mock mode. Dev/test only — must flip to lemonsqueezy before production.',
+    details: {
+      ...baseDetails,
+      publicLaunchBlocked: false,
+    },
+  };
+}
+
+/**
  * Comprehensive health check handler
  */
 export async function healthCheckHandler(req: Request, res: Response): Promise<void> {
@@ -326,13 +432,14 @@ export async function healthCheckHandler(req: Request, res: Response): Promise<v
     // Run all health checks in parallel. The email-success lookup is
     // a cheap indexed query on `email_logs` and adds a passive
     // ground-truth signal alongside the env-derived provider name.
-    const [database, redis, memory, nodeHeap, transactionalEmail, lastEmailSuccessAt] = await Promise.all([
+    const [database, redis, memory, nodeHeap, transactionalEmail, lastEmailSuccessAt, billing] = await Promise.all([
       checkDatabase(),
       checkRedis(),
       Promise.resolve(checkMemory()),
       Promise.resolve(checkNodeHeap()),
       Promise.resolve(checkTransactionalEmail()),
       getLastTransactionalEmailSuccessAt(),
+      Promise.resolve(checkBilling()),
     ]);
 
     // Merge the lastSuccessAt signal into the transactionalEmail
@@ -344,11 +451,14 @@ export async function healthCheckHandler(req: Request, res: Response): Promise<v
       lastSuccessAt: lastEmailSuccessAt,
     };
 
-    const checks = { database, redis, memory, nodeHeap, transactionalEmail };
+    const checks = { database, redis, memory, nodeHeap, transactionalEmail, billing };
 
     // Determine overall status
     // Only database and Redis failures should make the service unhealthy (503)
-    // Memory, heap, and email-noop issues are degraded (200) - service can still function
+    // Memory, heap, email-noop, and billing-not-ready issues are degraded
+    // (200) — the service still functions and returns 200, but launch
+    // blockers are surfaced via publicLaunchBlocked / publicLaunchBlockers
+    // so admin tooling sees the gap loudly.
     const hasCriticalFailure = database.status === 'fail' || redis.status === 'fail';
     const hasFailure = Object.values(checks).some(check => check.status === 'fail');
     const hasWarning = Object.values(checks).some(check => check.status === 'warn');
@@ -356,15 +466,22 @@ export async function healthCheckHandler(req: Request, res: Response): Promise<v
     const status: HealthStatus['status'] = hasCriticalFailure ? 'unhealthy' : hasFailure || hasWarning ? 'degraded' : 'healthy';
 
     // Surface launch-blockers at the top level so admin / monitoring
-    // can ping `/health` and read one boolean. Today the only blocker
-    // is `EMAIL_PROVIDER=noop` in production; the list is structured
-    // so a future blocker (SMS, payment provider, etc.) plugs in here.
+    // can ping `/health` and read one boolean. Each check that knows
+    // it's a blocker stamps `details.publicLaunchBlocked = true`.
     const publicLaunchBlockers: string[] = [];
     if (transactionalEmail.details?.publicLaunchBlocked) {
       publicLaunchBlockers.push(
         'transactional_email_noop: ' +
           'production EMAIL_PROVIDER=noop with ALLOW_NOOP_EMAIL_IN_PRODUCTION=true; ' +
           'signup + reset emails are not delivered',
+      );
+    }
+    if (billing.details?.publicLaunchBlocked) {
+      // The billing message is already shaped for an operator — mirror
+      // the email pattern (machine-friendly prefix + human message) so
+      // a single tooling path can read both.
+      publicLaunchBlockers.push(
+        `billing_not_ready: ${billing.message ?? 'billing provider not production-ready'}`,
       );
     }
     const publicLaunchBlocked = publicLaunchBlockers.length > 0;

@@ -124,13 +124,21 @@ describe('POST /api/auth/login', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
-    expect(res.body.data.accessToken).toBeDefined();
-    expect(res.body.data.refreshToken).toBeDefined();
+    // PR #389 final-pass P2: cookie-only auth — neither token is in the body.
+    expect(res.body.data.accessToken).toBeUndefined();
+    expect(res.body.data.refreshToken).toBeUndefined();
     expect(res.body.data.user.email).toBe(TEST_EMAIL);
 
-    // Store tokens for subsequent tests.
-    accessToken = res.body.data.accessToken;
-    refreshToken = res.body.data.refreshToken;
+    // Pull tokens out of the Set-Cookie response for the legacy bearer
+    // assertions in tests further down. Each cookie comes back as a full
+    // `name=value; Path=/; HttpOnly...` string.
+    const cookies = (res.headers['set-cookie'] || []) as string[];
+    const accessCookie = cookies.find((c) => c.startsWith('accessToken='));
+    const refreshCookie = cookies.find((c) => c.startsWith('refreshToken='));
+    expect(accessCookie).toBeDefined();
+    expect(refreshCookie).toBeDefined();
+    accessToken = accessCookie!.split(';')[0].split('=')[1];
+    refreshToken = refreshCookie!.split(';')[0].split('=')[1];
   });
 
   it('should return 401 for a wrong password', async () => {
@@ -247,19 +255,25 @@ describe('PUT /api/auth/password', () => {
 // Refresh Token
 // ===========================================================================
 describe('POST /api/auth/refresh', () => {
-  it('should return a new access token', async () => {
+  it('should rotate the access cookie without returning the token in the body', async () => {
     const res = await request(app)
       .post('/api/auth/refresh')
       .send({ refreshToken });
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
-    expect(res.body.data.accessToken).toBeDefined();
+    // PR #389 final-pass P2: cookie-only refresh — body does not echo the token.
+    expect(res.body.data.accessToken).toBeUndefined();
+
+    const cookies = (res.headers['set-cookie'] || []) as string[];
+    const accessCookie = cookies.find((c) => c.startsWith('accessToken='));
+    expect(accessCookie).toBeDefined();
+    const newAccessToken = accessCookie!.split(';')[0].split('=')[1];
     // The new access token should be different from the original one.
-    expect(res.body.data.accessToken).not.toBe(accessToken);
+    expect(newAccessToken).not.toBe(accessToken);
 
     // Update stored token for any tests that might follow.
-    accessToken = res.body.data.accessToken;
+    accessToken = newAccessToken;
   });
 });
 

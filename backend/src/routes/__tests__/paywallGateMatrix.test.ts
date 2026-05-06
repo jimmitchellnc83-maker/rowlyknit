@@ -100,6 +100,18 @@ const GATED: GatedRoute[] = [
     pathInFile: '/detection/:detectionId/correct',
     note: 'mutates detected_charts.grid + corrections',
   },
+  {
+    file: 'charts.ts',
+    method: 'post',
+    pathInFile: '/:chartId/share',
+    note: 'mints durable share token + public /shared/chart/:token surface',
+  },
+  {
+    file: 'charts.ts',
+    method: 'post',
+    pathInFile: '/:chartId/export',
+    note: 'writes export_history row + generates paid-workspace deliverable',
+  },
 
   // routes/source-files.ts
   {
@@ -326,12 +338,11 @@ describe('paywall gate matrix — static scan of real route files', () => {
   );
 
   it('matrix size enforces lower bound — adding new gated routes requires updating this file', () => {
-    // Was 27 in pass 1. Pass 2 adds chart detect-from-image, chart
-    // correct, patterns import-from-url, tools, and 5 Ravelry imports
-    // = +9. The lower bound here doubles as a "did you forget to add a
-    // row?" signal — adding a new gated route to a routes/*.ts file
-    // means appending to GATED above. This assertion catches the
+    // Was 27 in pass 1. Pass 2 added 9. PR #389 final pass adds 2 more
+    // for chart share + export = 38. This assertion doubles as a "did
+    // you forget to add a row?" signal — appending a new gated route
+    // means appending to GATED above; the lower bound catches the
     // symmetric mistake of adding the gate without locking it in.
-    expect(GATED.length).toBeGreaterThanOrEqual(36);
+    expect(GATED.length).toBeGreaterThanOrEqual(38);
   });
 });

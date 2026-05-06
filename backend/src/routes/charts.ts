@@ -240,10 +240,16 @@ router.delete(
 /**
  * @route   POST /api/charts/:chartId/share
  * @desc    Create shareable link for chart
- * @access  Private
+ * @access  Private (paid workspace)
+ *
+ * Sharing is a paid-workspace creation: it mints a durable share token,
+ * may set a password, and exposes the chart through `/shared/chart/:token`
+ * for public consumption. Gate at the route level so an unentitled
+ * caller cannot create distributable artifacts.
  */
 router.post(
   '/:chartId/share',
+  requireEntitlement,
   [
     validateUUID('chartId'),
     body('visibility').optional({ values: 'null' }).isIn(['public', 'private']),
@@ -259,10 +265,16 @@ router.post(
 /**
  * @route   POST /api/charts/:chartId/export
  * @desc    Export chart to specified format
- * @access  Private
+ * @access  Private (paid workspace)
+ *
+ * Exports write a row to `export_history` (durable workspace record) and
+ * produce a paid-workspace deliverable (PDF / PNG / SVG / CSV / Ravelry
+ * / Markdown). Gate at the route level — an unentitled caller cannot
+ * generate an export.
  */
 router.post(
   '/:chartId/export',
+  requireEntitlement,
   [
     validateUUID('chartId'),
     body('format').isIn(['pdf', 'png', 'svg', 'csv', 'ravelry', 'markdown']),

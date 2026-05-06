@@ -1,16 +1,20 @@
 /**
- * Auth + Launch Polish Sprint 2026-05-04 — cookie-first browser auth.
+ * Auth — cookie-only browser auth (PR #389 final pass 2026-05-06).
  *
- * The access token must NEVER end up in localStorage. The backend sets
- * it as an httpOnly cookie; the in-memory zustand store is the only
- * other place it should live (so Socket.IO can pick it up). This test
- * pins the contract:
+ * After this sprint the access token never reaches JS at all:
+ *   - The login response body does not include `accessToken` /
+ *     `refreshToken`. Both live in httpOnly cookies.
+ *   - The store keeps `accessToken: null` always. `setToken` is a
+ *     no-op (kept only so the legacy axios interceptor still compiles).
+ *   - localStorage continues to hold only the user profile +
+ *     isAuthenticated bit.
  *
- *   1. After login, localStorage["rowly-auth"] does NOT contain
- *      `accessToken`.
- *   2. After a token refresh via setToken, localStorage["rowly-auth"]
- *      still does NOT contain `accessToken`.
- *   3. The legacy-cleanup pass strips a stale `accessToken` blob from
+ * This suite pins the contract:
+ *
+ *   1. After login, the in-memory `accessToken` is null AND
+ *      localStorage does not contain `accessToken`.
+ *   2. `setToken` is a no-op — calling it never sets `accessToken`.
+ *   3. Legacy cleanup still strips a stale `accessToken` blob from
  *      any persisted entry that still has one.
  *
  * Vitest with happy-dom gives us a real localStorage to read.
@@ -60,13 +64,14 @@ async function importStore() {
   return await import('./authStore');
 }
 
-describe('authStore — cookie-first browser auth', () => {
-  it('does not persist accessToken to localStorage after login', async () => {
+describe('authStore — cookie-only browser auth', () => {
+  it('does not store accessToken anywhere after login (cookie-only response)', async () => {
+    // Cookie-only login: the JSON body MUST NOT carry tokens. The store
+    // reads only `user`, leaves `accessToken=null`, and sets isAuthenticated.
     (axios.post as any).mockResolvedValueOnce({
       data: {
         data: {
           user: { id: 'u-1', email: 'a@rowly.test', firstName: 'A', lastName: 'B', emailVerified: true },
-          accessToken: 'in-memory-only-token',
         },
       },
     });
@@ -74,11 +79,11 @@ describe('authStore — cookie-first browser auth', () => {
     const { useAuthStore } = await importStore();
     await useAuthStore.getState().login('a@rowly.test', 'StrongP@ss1!');
 
-    // In-memory: present.
-    expect(useAuthStore.getState().accessToken).toBe('in-memory-only-token');
+    // In-memory: must be null. The cookie path is the only auth state.
+    expect(useAuthStore.getState().accessToken).toBeNull();
     expect(useAuthStore.getState().isAuthenticated).toBe(true);
 
-    // localStorage: must NOT carry the token.
+    // localStorage: still no token (existing contract).
     const raw = window.localStorage.getItem('rowly-auth');
     expect(raw).toBeTruthy();
     const parsed = JSON.parse(raw!);
@@ -86,16 +91,38 @@ describe('authStore — cookie-first browser auth', () => {
     expect(parsed.state.user).toBeDefined();
     expect(parsed.state.isAuthenticated).toBe(true);
     expect(parsed.state.accessToken).toBeUndefined();
-    // Belt-and-braces: the stringified blob doesn't even mention it.
-    expect(raw).not.toContain('in-memory-only-token');
     expect(raw).not.toContain('accessToken');
   });
 
-  it('does not persist accessToken when setToken is called (refresh path)', async () => {
+  it('login ignores any server-side accessToken if it accidentally appears in the body', async () => {
+    // Defense-in-depth: if a regression re-introduces the token in the
+    // response body, the store still must NOT pick it up.
+    (axios.post as any).mockResolvedValueOnce({
+      data: {
+        data: {
+          user: { id: 'u-2', email: 'b@rowly.test', firstName: 'B', lastName: 'C', emailVerified: true },
+          // This MUST be ignored.
+          accessToken: 'rogue-server-leaked-token',
+        },
+      },
+    });
+
+    const { useAuthStore } = await importStore();
+    await useAuthStore.getState().login('b@rowly.test', 'StrongP@ss1!');
+
+    expect(useAuthStore.getState().accessToken).toBeNull();
+    const raw = window.localStorage.getItem('rowly-auth');
+    expect(raw ?? '').not.toContain('rogue-server-leaked-token');
+  });
+
+  it('setToken is a no-op — cookie-only auth has nothing to track', async () => {
     const { useAuthStore } = await importStore();
     useAuthStore.getState().setToken('refreshed-token-xyz');
 
-    expect(useAuthStore.getState().accessToken).toBe('refreshed-token-xyz');
+    // Must remain null. The axios interceptor still calls setToken for
+    // backwards compatibility, but it should not introduce a token in
+    // the JS-readable store.
+    expect(useAuthStore.getState().accessToken).toBeNull();
 
     const raw = window.localStorage.getItem('rowly-auth');
     if (raw) {
@@ -110,7 +137,6 @@ describe('authStore — cookie-first browser auth', () => {
       data: {
         data: {
           user: { id: 'u-1', email: 'a@rowly.test', firstName: 'A', lastName: 'B', emailVerified: true },
-          accessToken: 'login-token',
         },
       },
     });
@@ -121,7 +147,6 @@ describe('authStore — cookie-first browser auth', () => {
     await useAuthStore.getState().logout();
 
     const raw = window.localStorage.getItem('rowly-auth');
-    expect(raw ?? '').not.toContain('login-token');
     expect(raw ?? '').not.toContain('accessToken');
   });
 
@@ -215,13 +240,16 @@ describe('authStore — cookie-first browser auth', () => {
     expect(useAuthStore.getState().user?.email).toBe('merge@rowly.test');
   });
 
-  // Same finding — confirm the post-fix login + setToken paths still
-  // hold the contract: accessToken stays in memory, never localStorage.
-  it('post-fix: login and setToken keep accessToken memory-only and never persist it', async () => {
+  // PR #389 final-pass P2: confirm the post-fix login + setToken paths
+  // hold the new contract: accessToken stays NULL — neither in memory
+  // nor localStorage. There is no longer any JS-side token handle.
+  it('post-fix: login and setToken keep accessToken null and never persist anything', async () => {
     (axios.post as any).mockResolvedValueOnce({
       data: {
         data: {
           user: { id: 'u-post', email: 'post@rowly.test', firstName: 'P', lastName: 'O', emailVerified: true },
+          // The body MAY still carry this in some adversarial server build,
+          // but the cookie-only client must ignore it.
           accessToken: 'login-token-after-fix',
         },
       },
@@ -230,13 +258,13 @@ describe('authStore — cookie-first browser auth', () => {
     const { useAuthStore } = await importStore();
     await useAuthStore.getState().login('post@rowly.test', 'StrongP@ss1!');
 
-    expect(useAuthStore.getState().accessToken).toBe('login-token-after-fix');
+    expect(useAuthStore.getState().accessToken).toBeNull();
     let raw = window.localStorage.getItem('rowly-auth');
     expect(raw ?? '').not.toContain('login-token-after-fix');
     expect(raw ?? '').not.toContain('accessToken');
 
     useAuthStore.getState().setToken('refreshed-token-after-fix');
-    expect(useAuthStore.getState().accessToken).toBe('refreshed-token-after-fix');
+    expect(useAuthStore.getState().accessToken).toBeNull();
     raw = window.localStorage.getItem('rowly-auth');
     expect(raw ?? '').not.toContain('refreshed-token-after-fix');
     expect(raw ?? '').not.toContain('accessToken');

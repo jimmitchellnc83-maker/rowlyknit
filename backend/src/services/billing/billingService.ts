@@ -111,35 +111,103 @@ export class BillingService {
   }
 
   /**
-   * Idempotent webhook ingest. Walks the parsed event, writes the
-   * customer + subscription rows, and records the event. Returns:
-   *   - `'duplicate'`  — the event id was already in `billing_events`.
-   *   - `'processed'`  — first time we've seen this event id.
+   * Idempotent webhook ingest with retry-on-failure. Walks the parsed
+   * event, writes the customer + subscription rows, and records the
+   * event. Returns:
+   *   - `'duplicate'`  — exact replay of an already-processed event;
+   *                      side effects are NOT re-run.
+   *   - `'processed'`  — side effects ran (first delivery OR successful
+   *                      retry of a previously-failed delivery).
    *   - `'unhandled'`  — event recorded but no domain change made
    *                       (unknown event name / missing user link).
    *
-   * On error mid-handler we still write the event row with
-   * `processed=false` and `error=<message>` so an operator can spot
-   * stuck deliveries.
+   * Provider retry semantics:
+   *   - LS retries failed webhook deliveries; the same `eventId` is
+   *     re-presented. The previous design called `onConflict.ignore()`
+   *     and returned `'duplicate'` on every retry — even when the
+   *     original attempt landed in `processed=false` because the
+   *     side-effect handler threw — so a once-failed event NEVER
+   *     re-ran. That's the P1 we're closing here.
+   *   - The fix: use `onConflict.merge()` to atomically claim the row
+   *     (insert OR re-read), then check `processed`. If it's already
+   *     true, it's a true duplicate. If false, we've inherited the
+   *     row from a prior failure and should re-run side effects.
+   *   - Successful retry sets `processed=true`, `processed_at=now`,
+   *     and clears `error`. A repeated failure leaves `processed=false`
+   *     and updates `error` with the latest message.
+   *
+   * The merge writes only the timestamp-style "we touched this row"
+   * fields and explicitly leaves `processed`/`error` alone on conflict
+   * — those reflect the LATEST attempt, which the try/catch below
+   * decides. Race-safe because two concurrent retries would each
+   * reach the same `processed=true` post-condition; the second one
+   * would re-run idempotently or short-circuit on the now-true flag.
    */
   async ingestWebhookEvent(
     event: NormalizedWebhookEvent,
   ): Promise<'duplicate' | 'processed' | 'unhandled'> {
-    // 1. Idempotency check — race-safe insert.
-    const inserted = await db('billing_events')
+    const now = new Date();
+
+    // Atomic upsert: insert OR (on conflict) leave the row alone but
+    // still get the id back via returning. We update payload/event_name
+    // on conflict so a retry that carries an updated envelope is
+    // captured, but we DO NOT touch `processed`, `processed_at`, or
+    // `error` — those describe the latest *attempt* and are written
+    // below by the try/catch.
+    const upserted = await db('billing_events')
       .insert({
         provider: this.provider.name,
         provider_event_id: event.eventId,
         event_name: event.eventName,
         payload: JSON.stringify(event.raw),
         processed: false,
+        created_at: now,
       })
       .onConflict(['provider', 'provider_event_id'])
-      .ignore()
-      .returning(['id']);
+      .merge({
+        // Refresh envelope-level fields in case the provider replayed a
+        // newer copy. `processed` / `error` / `processed_at` are
+        // intentionally NOT in this merge list.
+        event_name: event.eventName,
+        payload: JSON.stringify(event.raw),
+      })
+      .returning(['id', 'processed']);
 
-    if (!inserted || inserted.length === 0) {
-      logger.info('Billing webhook duplicate ignored', {
+    if (!upserted || upserted.length === 0) {
+      // Defensive: the merge form should always return a row. If the
+      // driver returns nothing (some adapters do for pure-no-op
+      // conflicts), look the row up explicitly.
+      const existing = await db('billing_events')
+        .where({
+          provider: this.provider.name,
+          provider_event_id: event.eventId,
+        })
+        .first<{ id: string; processed: boolean } | undefined>('id', 'processed');
+      if (!existing) {
+        // Truly impossible — we just inserted-or-merged this row. Fail
+        // loud so the bug is visible.
+        throw new Error('Billing webhook upsert returned no row');
+      }
+      return this.runSideEffectsAndMarkProcessed(existing.id, existing.processed, event);
+    }
+
+    const row = upserted[0] as { id: string; processed: boolean };
+    return this.runSideEffectsAndMarkProcessed(row.id, row.processed, event);
+  }
+
+  /**
+   * Apply side effects iff the row hasn't already been marked
+   * `processed=true`. Encapsulates the "first delivery vs retry vs
+   * true duplicate" decision so `ingestWebhookEvent` only has to
+   * resolve the row identity.
+   */
+  private async runSideEffectsAndMarkProcessed(
+    eventRowId: string,
+    alreadyProcessed: boolean,
+    event: NormalizedWebhookEvent,
+  ): Promise<'duplicate' | 'processed' | 'unhandled'> {
+    if (alreadyProcessed) {
+      logger.info('Billing webhook duplicate ignored (already processed)', {
         provider: this.provider.name,
         eventId: event.eventId,
         eventName: event.eventName,
@@ -147,13 +215,17 @@ export class BillingService {
       return 'duplicate';
     }
 
-    const eventRowId = inserted[0].id as string;
-
     try {
       const handled = await this.applyWebhookSideEffects(event);
+      // Mark success: clear any prior error message so a once-failed
+      // event that now succeeds has a clean audit row.
       await db('billing_events')
         .where({ id: eventRowId })
-        .update({ processed: true, processed_at: new Date() });
+        .update({
+          processed: true,
+          processed_at: new Date(),
+          error: null,
+        });
       return handled ? 'processed' : 'unhandled';
     } catch (err: any) {
       logger.error('Billing webhook handler failed', {
@@ -162,6 +234,10 @@ export class BillingService {
         eventName: event.eventName,
         error: err?.message,
       });
+      // Keep `processed=false` so the next retry re-runs side effects.
+      // `processed_at` records the attempt time (useful for "stuck
+      // event" alerts); `error` captures the latest message so an
+      // operator sees the most recent failure cause.
       await db('billing_events')
         .where({ id: eventRowId })
         .update({

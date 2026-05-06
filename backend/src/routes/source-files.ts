@@ -2,6 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { body, query } from 'express-validator';
 import { authenticate } from '../middleware/auth';
 import { requireEntitlement } from '../middleware/requireEntitlement';
+import { uploadLimiter } from '../middleware/rateLimiter';
 import { validate, validateUUID } from '../middleware/validator';
 import { asyncHandler, NotFoundError } from '../utils/errorHandler';
 import * as sf from '../controllers/sourceFilesController';
@@ -42,15 +43,19 @@ const verifyCropBelongsToParent = asyncHandler(
 
 // POST /api/source-files
 //
-// `requireEntitlement` runs BEFORE `uploadSourceFileMiddleware` so an
-// unentitled request is rejected with a 402 *before* multer parses the
-// upload body. That means we never write the temp file to disk for a
-// request we're going to reject — important because multer streams
-// directly to a tmp path; running the gate after parse would let an
-// unentitled user fill the disk by repeatedly POSTing PDFs.
+// Order: authenticate (router.use above) → requireEntitlement →
+// uploadLimiter → multer → controller. Both the entitlement gate and
+// the per-user upload throttle MUST run before multer so an unentitled
+// or rate-limited request never streams a file to the temp disk path.
+//
+// `uploadLimiter` is keyed by `req.user?.userId || req.ip` and capped at
+// `UPLOAD_RATE_LIMIT_MAX` (default 20/hour). Without this gate, an
+// authed and entitled user could fill the disk via repeated source-file
+// POSTs — same blast radius as a slow-loris on the multer parser.
 router.post(
   '/',
   requireEntitlement,
+  uploadLimiter,
   sf.uploadSourceFileMiddleware,
   [
     body('craft').optional().isIn(['knit', 'crochet']),

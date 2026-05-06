@@ -229,7 +229,14 @@ export async function login(req: Request, res: Response) {
     throw new UnauthorizedError('Invalid email or password');
   }
 
-  const { accessToken, refreshToken } = await issueSession(req, res, user, !!rememberMe, 'user_login');
+  // PR #389 final-pass P2: browser auth is cookie-only. `issueSession`
+  // sets httpOnly access + refresh cookies (same path as before); the
+  // raw token strings are intentionally NOT echoed in the JSON body so
+  // an XSS payload can't read them out of `response.data`. Socket.IO
+  // and the axios refresh interceptor both run cookie-authenticated
+  // (same-origin, withCredentials), so dropping the body fields does
+  // not regress any in-app consumer.
+  await issueSession(req, res, user, !!rememberMe, 'user_login');
 
   res.json({
     success: true,
@@ -243,8 +250,6 @@ export async function login(req: Request, res: Response) {
         emailVerified: user.email_verified,
         preferences: user.preferences,
       },
-      accessToken,
-      refreshToken,
     },
   });
 }
@@ -311,10 +316,14 @@ export async function refreshToken(req: Request, res: Response) {
     path: '/',
   });
 
+  // PR #389 final-pass P2: cookie-only refresh. The raw access token is
+  // not echoed in the body — an XSS payload cannot read it from
+  // `response.data.accessToken`. axios runs `withCredentials: true` so
+  // the new cookie is automatically attached to subsequent requests.
   res.json({
     success: true,
     message: 'Token refreshed successfully',
-    data: { accessToken },
+    data: {},
   });
 }
 

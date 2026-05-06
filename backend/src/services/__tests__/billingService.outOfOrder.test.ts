@@ -37,18 +37,50 @@ function tableHandler(table: string): any {
   if (table === 'billing_events') {
     return {
       insert: (row: any) => ({
-        onConflict: () => ({
-          ignore: () => ({
-            returning: async () => {
-              const key = `${row.provider}:${row.provider_event_id}`;
-              if (eventStore.has(key)) return [];
-              eventStore.set(key, { id: `e-${eventStore.size + 1}`, ...row });
-              return [{ id: eventStore.get(key).id }];
-            },
-          }),
-        }),
+        onConflict: () => {
+          // The service uses `.onConflict([...]).merge({...}).returning([...])`.
+          // The pre-PR shape used `.onConflict([...]).ignore().returning(...)`.
+          // Mock both for back-compat across test suites.
+          const key = `${row.provider}:${row.provider_event_id}`;
+          return {
+            merge: () => ({
+              returning: async () => {
+                if (eventStore.has(key)) {
+                  const existing = eventStore.get(key)!;
+                  return [{ id: existing.id, processed: !!existing.processed }];
+                }
+                eventStore.set(key, {
+                  id: `e-${eventStore.size + 1}`,
+                  processed: false,
+                  ...row,
+                });
+                return [{ id: eventStore.get(key)!.id, processed: false }];
+              },
+            }),
+            ignore: () => ({
+              returning: async () => {
+                if (eventStore.has(key)) return [];
+                eventStore.set(key, { id: `e-${eventStore.size + 1}`, ...row });
+                return [{ id: eventStore.get(key).id }];
+              },
+            }),
+          };
+        },
       }),
-      where: () => ({ update: async () => 1 }),
+      where: () => ({
+        // After side-effects we update billing_events with processed=true.
+        // Mark the row in our store so subsequent retries see it as
+        // already-processed and short-circuit to 'duplicate'.
+        update: async (payload: any) => {
+          if (payload?.processed === true) {
+            for (const v of eventStore.values()) {
+              if (v.processed !== true) v.processed = true;
+            }
+          }
+          return 1;
+        },
+        first: async () => null,
+      }),
     };
   }
 

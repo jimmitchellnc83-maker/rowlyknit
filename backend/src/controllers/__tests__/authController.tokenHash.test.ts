@@ -186,14 +186,26 @@ describe('login → issueSession stores refresh_token_hash, not raw', () => {
     });
     expect(hashUpdate).toBeDefined();
 
-    // The response carries the raw refresh token; the DB only ever sees the hash.
+    // PR #389 final-pass P2: cookie-only auth means the response body
+    // does NOT include the raw refresh token. The cookie still carries
+    // the hashed-by-the-DB raw value to the browser; the DB only ever
+    // sees the hash.
     expect(res.json).toHaveBeenCalled();
     const body = (res.json as jest.Mock).mock.calls[0][0];
-    expect(body.data.refreshToken).toEqual(expect.any(String));
+    expect(body.data?.refreshToken).toBeUndefined();
+    expect(body.data?.accessToken).toBeUndefined();
+
+    // The cookie path carries the raw token instead. Match the token in
+    // the Set-Cookie call against the hash that landed in the sessions
+    // row to prove the same value was used.
+    const refreshCookieCall = (res.cookie as jest.Mock).mock.calls.find(
+      (call) => call[0] === 'refreshToken',
+    );
+    expect(refreshCookieCall).toBeDefined();
     const writtenHash = (
       hashUpdate!.args[0] as { refresh_token_hash: string }
     ).refresh_token_hash;
-    expect(writtenHash).toBe(hashToken(body.data.refreshToken));
+    expect(writtenHash).toBe(hashToken(refreshCookieCall![1] as string));
 
     // No call site should ever read a `refresh_token` column anywhere.
     const rawColumnUse = captured.find((c) => {
@@ -205,6 +217,76 @@ describe('login → issueSession stores refresh_token_hash, not raw', () => {
       );
     });
     expect(rawColumnUse).toBeUndefined();
+  });
+});
+
+// PR #389 final-pass P2: backend-side proof that login + refresh JSON
+// bodies do not contain accessToken or refreshToken. The cookie path
+// is unchanged; only the JSON surface tightens.
+describe('login + refresh response bodies — cookie-only contract', () => {
+  it('login JSON body must not contain accessToken or refreshToken', async () => {
+    const passwordHash = await hashPassword('StrongP@ss1!');
+    usersFirst.mockResolvedValueOnce({
+      id: 'user-2',
+      email: 'b@example.com',
+      password_hash: passwordHash,
+      first_name: 'B',
+      last_name: 'User',
+      is_active: true,
+      email_verified: true,
+      preferences: {},
+    });
+    sessionsInsertReturning.mockResolvedValueOnce([
+      { id: 'session-2', user_id: 'user-2' },
+    ]);
+    sessionsUpdate.mockResolvedValueOnce(1);
+    usersUpdate.mockResolvedValueOnce(1);
+
+    const res = makeRes();
+    await login(
+      makeReq({ body: { email: 'b@example.com', password: 'StrongP@ss1!' } }),
+      res,
+    );
+
+    const body = (res.json as jest.Mock).mock.calls[0][0];
+    expect(body.data?.accessToken).toBeUndefined();
+    expect(body.data?.refreshToken).toBeUndefined();
+    // Belt-and-braces: the stringified body doesn't even mention either name.
+    expect(JSON.stringify(body)).not.toMatch(/"accessToken"/);
+    expect(JSON.stringify(body)).not.toMatch(/"refreshToken"/);
+
+    // Cookies were set, proving the auth path still runs.
+    const cookieNames = (res.cookie as jest.Mock).mock.calls.map((c) => c[0]);
+    expect(cookieNames).toEqual(expect.arrayContaining(['accessToken', 'refreshToken']));
+  });
+
+  it('refresh JSON body must not contain accessToken', async () => {
+    const token = generateRefreshToken({
+      userId: 'user-3',
+      sessionId: 'session-3',
+    });
+    sessionsFirst.mockResolvedValueOnce({
+      id: 'session-3',
+      user_id: 'user-3',
+      is_revoked: false,
+      expires_at: new Date(Date.now() + 60_000),
+    });
+    usersFirst.mockResolvedValueOnce({
+      id: 'user-3',
+      email: 'c@example.com',
+      is_active: true,
+    });
+
+    const res = makeRes();
+    await refreshTokenHandler(makeReq({ body: { refreshToken: token } }), res);
+
+    const body = (res.json as jest.Mock).mock.calls[0][0];
+    expect(body.data?.accessToken).toBeUndefined();
+    expect(JSON.stringify(body)).not.toMatch(/"accessToken"/);
+
+    // Cookie was rotated.
+    const cookieNames = (res.cookie as jest.Mock).mock.calls.map((c) => c[0]);
+    expect(cookieNames).toContain('accessToken');
   });
 });
 
@@ -259,7 +341,11 @@ describe('refreshToken handler — looks up session by hash, never raw', () => {
     expect(res.json).toHaveBeenCalled();
     const body = (res.json as jest.Mock).mock.calls[0][0];
     expect(body.success).toBe(true);
-    expect(body.data.accessToken).toEqual(expect.any(String));
+    // PR #389 final-pass P2: cookie-only refresh — the access token is
+    // set as a cookie, not echoed in the JSON body.
+    expect(body.data?.accessToken).toBeUndefined();
+    const cookieNames = (res.cookie as jest.Mock).mock.calls.map((c) => c[0]);
+    expect(cookieNames).toContain('accessToken');
   });
 
   it('rejects when no session row matches the submitted-token hash', async () => {

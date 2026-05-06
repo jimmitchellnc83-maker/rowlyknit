@@ -86,6 +86,51 @@ const GIFT_SIZE_FAQS: Faq[] = [
   },
 ];
 
+const YARDAGE_FAQS: Faq[] = [
+  {
+    q: 'How do I estimate yarn yardage for a project?',
+    a: 'The calculator multiplies a per-size yardage band for the garment type by your yarn-weight factor. The bands come from finished-garment averages, not pattern-specific math, so treat the result as a planning ceiling — buy a little extra if you tend to swatch a lot or knit loose.',
+  },
+  {
+    q: 'How many skeins should I buy?',
+    a: 'Round the recommended yards up by your skein length, then add one skein for safety. Dye lots can drift between batches, so finishing short on a single skein from a different lot can leave a visible color line.',
+  },
+  {
+    q: 'Why do worsted and fingering yardage estimates differ so much?',
+    a: 'Thinner yarns need more length to cover the same fabric area. A worsted-weight pullover might need ~1,200 yds; the same shape in fingering can need ~2,000 yds because the gauge is finer and the rows count up faster.',
+  },
+];
+
+const ROW_REPEAT_FAQS: Faq[] = [
+  {
+    q: "What's a row repeat?",
+    a: 'A repeat is a chunk of pattern that recurs vertically (in rows) or around (in rounds). Calculators like this one help you figure out how many full repeats fit between two markers — the start of a sleeve cap, a yoke decrease section, etc. — so you can place them evenly.',
+  },
+  {
+    q: "What if my repeat doesn't divide evenly into the rows?",
+    a: 'Either work the partial repeat as plain rows top or bottom of the section, or shift one full repeat across two sections to rebalance. The calculator shows the remainder so you can decide where to absorb it.',
+  },
+  {
+    q: 'Does this work for in-the-round projects?',
+    a: 'Yes — round counts work the same way as flat rows for repeat math. Use the round count between the two reference points (e.g. start of yoke to first decrease round) and the repeat-round count.',
+  },
+];
+
+const SHAPING_FAQS: Faq[] = [
+  {
+    q: 'How do I space increases or decreases evenly along a piece?',
+    a: 'Divide rows-available by the number of shaping rows you need. The calculator does this for you and produces an "every Nth row" plan — sometimes split into two cadences (e.g. "5× every 4th row, then 3× every 6th row") so the total still lands on the row count you have.',
+  },
+  {
+    q: 'Why does the plan use two different cadences?',
+    a: "When the start-to-end stitch difference doesn't divide cleanly into rows-available, a single 'every Nth row' would either run out before the end or land past the end. Splitting into two cadences keeps the spacing visually even while landing on exactly the right row.",
+  },
+  {
+    q: 'Where should I work the shaping — at the edge, paired, or somewhere else?',
+    a: 'For raglans and yokes, paired increases sit at marker positions specified by the pattern. For sleeve tapers, edge increases (1 stitch in from each end) are most common. The calculator only computes spacing — placement comes from the pattern.',
+  },
+];
+
 const CALCULATORS_INDEX_LIST = [
   {
     title: 'Knitting Gauge Calculator',
@@ -106,6 +151,24 @@ const CALCULATORS_INDEX_LIST = [
     // Canonical route. /calculators/gift-size still serves but
     // canonical points at /calculators/size everywhere.
     href: '/calculators/size',
+  },
+  {
+    title: 'Yardage & Skein Estimator',
+    description:
+      'Estimate how much yarn a project will eat — by garment type, size, and yarn weight — and how many skeins to buy.',
+    href: '/calculators/yardage',
+  },
+  {
+    title: 'Row & Round Repeat Calculator',
+    description:
+      'Work out how many repeats fit between two markers, given total rows/rounds and the repeat length.',
+    href: '/calculators/row-repeat',
+  },
+  {
+    title: 'Increase / Decrease Spacing Calculator',
+    description:
+      'Spread shaping evenly: given start stitches, end stitches, and rows available, get the exact "every Nth row" plan.',
+    href: '/calculators/shaping',
   },
 ];
 
@@ -213,3 +276,65 @@ export const SIZE_CALCULATOR_JSONLD: Array<Record<string, unknown>> = [
  * `/calculators/size`.
  */
 export const GIFT_SIZE_CALCULATOR_JSONLD = SIZE_CALCULATOR_JSONLD;
+
+/**
+ * Helper for the three Sprint-1 tools (yardage, row-repeat, shaping)
+ * which share the same JSON-LD shape — WebApplication + breadcrumb +
+ * FAQPage. Less copy-paste than the gauge/size payloads above.
+ */
+function buildToolJsonLd(
+  toolPath: string,
+  name: string,
+  description: string,
+  faqs: Faq[],
+): Array<Record<string, unknown>> {
+  return [
+    {
+      '@context': 'https://schema.org',
+      '@type': 'WebApplication',
+      name,
+      url: `https://rowlyknit.com${toolPath}`,
+      description,
+      applicationCategory: 'UtilitiesApplication',
+      operatingSystem: 'Any',
+      offers: FREE_OFFER,
+      publisher: ORG_PUBLISHER,
+    },
+    {
+      '@context': 'https://schema.org',
+      '@type': 'BreadcrumbList',
+      itemListElement: [
+        BREADCRUMB_HOME,
+        BREADCRUMB_CALCULATORS,
+        {
+          '@type': 'ListItem',
+          position: 3,
+          name,
+          item: `https://rowlyknit.com${toolPath}`,
+        },
+      ],
+    },
+    faqPage(faqs),
+  ];
+}
+
+export const YARDAGE_CALCULATOR_JSONLD: Array<Record<string, unknown>> = buildToolJsonLd(
+  '/calculators/yardage',
+  'Yardage & Skein Estimator',
+  'Estimate how much yarn a project will eat — by garment type, size, and yarn weight — and how many skeins to buy.',
+  YARDAGE_FAQS,
+);
+
+export const ROW_REPEAT_CALCULATOR_JSONLD: Array<Record<string, unknown>> = buildToolJsonLd(
+  '/calculators/row-repeat',
+  'Row & Round Repeat Calculator',
+  'Work out how many repeats fit between two markers, given total rows/rounds and the repeat length.',
+  ROW_REPEAT_FAQS,
+);
+
+export const SHAPING_CALCULATOR_JSONLD: Array<Record<string, unknown>> = buildToolJsonLd(
+  '/calculators/shaping',
+  'Increase / Decrease Spacing Calculator',
+  'Spread shaping evenly: given start stitches, end stitches, and rows available, get the exact "every Nth row" plan.',
+  SHAPING_FAQS,
+);
