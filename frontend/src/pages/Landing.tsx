@@ -12,6 +12,19 @@ import {
   FiTrendingUp,
 } from 'react-icons/fi';
 import ThemeToggle from '../components/ThemeToggle';
+import { PUBLIC_TOOL_LIST } from '../lib/publicTools';
+
+// Plain-language one-liners for the landing-page card grid. We don't
+// reuse PublicTool.description verbatim because the homepage benefit copy
+// is shorter and more outcome-focused than the meta description used for
+// search results.
+const TOOL_BENEFIT_COPY: Record<string, string> = {
+  gauge: 'Check your swatch before you cast on. See if you need to size up or down.',
+  size: 'Pick the right finished size from a chest measurement and a fit style.',
+  yardage: 'Estimate yarn for a project — by garment, size, and weight. Includes skein count.',
+  'row-repeat': 'How many full repeats fit between markers? Also tells you the remainder.',
+  shaping: 'Spread increases or decreases evenly across a section. No spreadsheet needed.',
+};
 
 /**
  * Public landing page shown at / for unauthenticated visitors. The app
@@ -40,17 +53,29 @@ export default function Landing() {
         >
           Rowly
         </Link>
-        <nav aria-label="Primary" className="flex items-center gap-2">
+        <nav aria-label="Primary" className="flex items-center gap-1 sm:gap-2">
+          <Link
+            to="/calculators"
+            className="px-2 py-2 text-sm font-medium text-gray-700 hover:text-purple-700 hover:bg-purple-50 rounded-lg dark:text-gray-200 dark:hover:text-purple-300 dark:hover:bg-purple-900/30 sm:px-3"
+          >
+            Tools
+          </Link>
+          <Link
+            to="/help/glossary"
+            className="hidden px-3 py-2 text-sm font-medium text-gray-700 hover:text-purple-700 hover:bg-purple-50 rounded-lg dark:text-gray-200 dark:hover:text-purple-300 dark:hover:bg-purple-900/30 md:inline"
+          >
+            Glossary
+          </Link>
           <ThemeToggle />
           <Link
             to="/login"
-            className="px-4 py-2 text-sm font-medium text-purple-700 hover:bg-purple-50 rounded-lg dark:text-purple-300 dark:hover:bg-purple-900/30"
+            className="hidden px-3 py-2 text-sm font-medium text-purple-700 hover:bg-purple-50 rounded-lg dark:text-purple-300 dark:hover:bg-purple-900/30 sm:inline-flex sm:px-4"
           >
             Log in
           </Link>
           <Link
             to="/register"
-            className="px-4 py-2 text-sm font-semibold bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
+            className="px-3 py-2 text-sm font-semibold bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition sm:px-4"
           >
             Sign up
           </Link>
@@ -73,20 +98,20 @@ export default function Landing() {
         </p>
         <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
           <Link
-            to="/register"
+            to="/calculators"
             className="inline-flex items-center justify-center gap-2 px-6 py-3 text-base font-semibold bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition shadow-lg shadow-purple-600/20"
           >
-            Start your next project <FiArrowRight className="h-4 w-4" />
+            Try free knitting tools <FiArrowRight className="h-4 w-4" />
           </Link>
-          <a
-            href="#pillar-plan"
+          <Link
+            to="/register"
             className="inline-flex items-center justify-center px-6 py-3 text-base font-medium text-gray-700 hover:bg-gray-100 rounded-lg border border-gray-200 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
           >
-            Browse the calculators
-          </a>
+            Start your next project
+          </Link>
         </div>
         <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">
-          Free while we're in early access. No credit card.
+          Use the tools free. Save results to Rowly when you're ready to track a project.
         </p>
       </section>
 
@@ -112,6 +137,57 @@ export default function Landing() {
             title="Grow into advanced workflows"
             body="Guided Pieces for full garments with shaping. Parametric designer with live schematics and cast-on math. Pattern imports via OCR, barcode, or Ravelry. Rowly grows with you as projects get bigger."
           />
+        </div>
+      </section>
+
+      {/* Public tools section — discovery path from landing → /calculators.
+          Each card links directly to its individual route so search bots
+          and visitors both see explicit internal links instead of an
+          opaque "Browse" CTA. */}
+      <section
+        id="public-tools"
+        aria-labelledby="public-tools-heading"
+        className="mx-auto max-w-6xl px-6 pb-20 scroll-mt-24"
+      >
+        <div className="text-center">
+          <h2 id="public-tools-heading" className="text-2xl sm:text-3xl font-bold">
+            Try free knitting and crochet tools
+          </h2>
+          <p className="mt-2 text-gray-600 dark:text-gray-400">
+            Use the tools free. Save results to Rowly when you're ready to track a project.
+          </p>
+        </div>
+        <ul className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {PUBLIC_TOOL_LIST.map((tool) => (
+            <li key={tool.id}>
+              <Link
+                to={tool.route}
+                data-testid={`landing-tool-${tool.id}`}
+                className="group flex h-full flex-col rounded-xl border border-gray-200 bg-white p-5 transition hover:border-purple-300 hover:shadow-md dark:border-gray-800 dark:bg-gray-800/50 dark:hover:border-purple-700"
+              >
+                <div className="flex items-center gap-2 text-purple-700 dark:text-purple-300">
+                  <FiGrid className="h-5 w-5" />
+                  <h3 className="font-semibold text-gray-900 dark:text-gray-100">
+                    {tool.title}
+                  </h3>
+                </div>
+                <p className="mt-2 flex-1 text-sm text-gray-600 dark:text-gray-300">
+                  {TOOL_BENEFIT_COPY[tool.id] ?? tool.description}
+                </p>
+                <span className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-purple-700 group-hover:text-purple-800 dark:text-purple-300 dark:group-hover:text-purple-200">
+                  Use tool <FiArrowRight className="h-4 w-4" />
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+        <div className="mt-8 text-center">
+          <Link
+            to="/calculators"
+            className="inline-flex items-center gap-2 text-sm font-semibold text-purple-700 hover:text-purple-800 dark:text-purple-300 dark:hover:text-purple-200"
+          >
+            See all calculators <FiArrowRight className="h-4 w-4" />
+          </Link>
         </div>
       </section>
 
