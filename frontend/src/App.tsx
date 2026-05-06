@@ -67,6 +67,7 @@ const YardageCalculator = lazy(() => import('./pages/YardageCalculator'));
 const RowRepeatCalculator = lazy(() => import('./pages/RowRepeatCalculator'));
 const ShapingCalculator = lazy(() => import('./pages/ShapingCalculator'));
 const UpgradePage = lazy(() => import('./pages/UpgradePage'));
+const AccountBillingPage = lazy(() => import('./pages/AccountBillingPage'));
 
 // Protected route wrapper
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -210,6 +211,21 @@ function App() {
         <Route path="/charts" element={<ErrorBoundary><ChartsLibrary /></ErrorBoundary>} />
         <Route path="/recipients" element={<Recipients />} />
         <Route path="/profile" element={<Profile />} />
+        {/* Billing surface — entitlement state + manage portal link. */}
+        <Route
+          path="/account/billing"
+          element={
+            <Suspense
+              fallback={
+                <div className="flex items-center justify-center p-8">
+                  <div className="h-8 w-8 animate-spin rounded-full border-2 border-purple-600 border-t-transparent" />
+                </div>
+              }
+            >
+              <AccountBillingPage />
+            </Suspense>
+          }
+        />
         <Route path="/auth/ravelry/callback" element={<RavelryCallback />} />
         <Route path="/ravelry/sync" element={<RavelrySync />} />
         <Route path="/ravelry/stash/sync" element={<RavelryStashSync />} />

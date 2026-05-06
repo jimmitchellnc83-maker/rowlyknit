@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { body } from 'express-validator';
 import * as sessionsController from '../controllers/sessionsController';
 import { authenticate } from '../middleware/auth';
+import { requireEntitlement } from '../middleware/requireEntitlement';
 import { validate, validateUUID, validatePagination } from '../middleware/validator';
 import { asyncHandler } from '../utils/errorHandler';
 
@@ -78,6 +79,7 @@ router.get(
  */
 router.post(
   '/projects/:id/sessions/start',
+  requireEntitlement,
   [
     validateUUID('id'),
     body('mood').optional({ values: 'null' }).isString(),
@@ -157,6 +159,7 @@ router.get(
  */
 router.post(
   '/projects/:id/milestones',
+  requireEntitlement,
   [
     validateUUID('id'),
     body('name').trim().notEmpty().isLength({ max: 255 }),

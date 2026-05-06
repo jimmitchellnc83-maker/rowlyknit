@@ -6,6 +6,26 @@ import db from './database';
 
 let io: Server | null = null;
 
+/**
+ * Read a single cookie value out of a raw `Cookie:` header. Avoids
+ * pulling cookie-parser into the socket path for one lookup.
+ *
+ * Returns null if the header is missing or the named cookie isn't set.
+ */
+function readCookie(header: string | undefined, name: string): string | null {
+  if (!header) return null;
+  const parts = header.split(/;\s*/);
+  for (const part of parts) {
+    const eq = part.indexOf('=');
+    if (eq < 0) continue;
+    const k = part.slice(0, eq).trim();
+    if (k === name) {
+      return decodeURIComponent(part.slice(eq + 1));
+    }
+  }
+  return null;
+}
+
 export const initializeSocket = (httpServer: HTTPServer): Server => {
   io = new Server(httpServer, {
     cors: {
@@ -15,10 +35,21 @@ export const initializeSocket = (httpServer: HTTPServer): Server => {
     transports: ['websocket', 'polling'],
   });
 
-  // Authentication middleware
+  // Authentication middleware.
+  //
+  // Cookie-first browser auth (PR #389 final pass): the access token
+  // travels as an httpOnly `accessToken` cookie set by login/refresh.
+  // socket.io-client connects with `withCredentials: true` so the
+  // browser attaches the cookie to the WebSocket handshake. We fall
+  // back to `auth.token` and `Authorization: Bearer ...` for non-browser
+  // API-clients (mobile / scripts) — those paths intentionally remain.
   io.use(async (socket: Socket, next) => {
     try {
-      const token = socket.handshake.auth.token || socket.handshake.headers.authorization?.replace('Bearer ', '');
+      const cookieToken = readCookie(socket.handshake.headers.cookie, 'accessToken');
+      const explicitToken =
+        socket.handshake.auth.token ||
+        socket.handshake.headers.authorization?.replace('Bearer ', '');
+      const token = cookieToken || explicitToken;
 
       if (!token) {
         return next(new Error('Authentication error: No token provided'));

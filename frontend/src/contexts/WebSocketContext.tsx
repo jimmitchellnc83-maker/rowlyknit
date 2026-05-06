@@ -19,12 +19,17 @@ const WebSocketContext = createContext<WebSocketContextType | undefined>(undefin
 export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
-  const { accessToken } = useAuthStore();
+  // Cookie-only auth: there is no JS-readable token after PR #389
+  // final pass. Gate the socket on the persisted `isAuthenticated`
+  // bit instead — the actual auth happens via the httpOnly access
+  // cookie that the browser attaches to the socket handshake when
+  // we connect with `withCredentials: true`.
+  const { isAuthenticated } = useAuthStore();
   const socketRef = useRef<Socket | null>(null);
 
   useEffect(() => {
-    if (!accessToken) {
-      // Disconnect if no token
+    if (!isAuthenticated) {
+      // Disconnect if not authenticated
       if (socketRef.current) {
         socketRef.current.disconnect();
         socketRef.current = null;
@@ -41,9 +46,11 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const socketUrl = import.meta.env.VITE_API_URL || window.location.origin;
 
     const newSocket = io(socketUrl, {
-      auth: {
-        token: accessToken,
-      },
+      // Send the httpOnly accessToken cookie with the handshake. The
+      // backend reads it out of `socket.handshake.headers.cookie` and
+      // verifies the JWT before accepting the connection. No JS-readable
+      // bearer token is required.
+      withCredentials: true,
       transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionDelay: 1000,
@@ -74,7 +81,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         socketRef.current = null;
       }
     };
-  }, [accessToken]);
+  }, [isAuthenticated]);
 
   const joinProject = useCallback((projectId: string) => {
     if (socketRef.current?.connected) {

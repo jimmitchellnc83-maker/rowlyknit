@@ -3,6 +3,7 @@ import { body } from 'express-validator';
 import * as countersController from '../controllers/countersController';
 import * as counterLinksController from '../controllers/counterLinksController';
 import { authenticate } from '../middleware/auth';
+import { requireEntitlement } from '../middleware/requireEntitlement';
 import { validate, validateUUID } from '../middleware/validator';
 import { asyncHandler } from '../utils/errorHandler';
 
@@ -56,6 +57,7 @@ router.get(
  */
 router.post(
   '/projects/:id/counters',
+  requireEntitlement,
   [
     validateUUID('id'),
     body('name').trim().notEmpty().isLength({ max: 255 }),
@@ -204,6 +206,7 @@ router.get(
  */
 router.post(
   '/projects/:id/counter-links',
+  requireEntitlement,
   [
     validateUUID('id'),
     body('sourceCounterId').notEmpty().isUUID(),

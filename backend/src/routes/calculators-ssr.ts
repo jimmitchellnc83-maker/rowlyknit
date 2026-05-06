@@ -5,7 +5,10 @@ import logger from '../config/logger';
 import {
   CALCULATORS_INDEX_JSONLD,
   GAUGE_CALCULATOR_JSONLD,
+  ROW_REPEAT_CALCULATOR_JSONLD,
+  SHAPING_CALCULATOR_JSONLD,
   SIZE_CALCULATOR_JSONLD,
+  YARDAGE_CALCULATOR_JSONLD,
 } from '../seo/calculatorJsonLd';
 
 const router = Router();
@@ -21,8 +24,8 @@ const router = Router();
  * normally and may also set its own JSON-LD via `useSeo` — that's
  * fine, the duplicates parse independently.
  *
- * Routed via nginx `location` blocks for `/calculators`,
- * `/calculators/gauge`, `/calculators/size`, and the legacy
+ * Routed via nginx `location` blocks for `/calculators`, each tool
+ * route in `frontend/src/lib/publicTools.ts`, and the legacy
  * `/calculators/gift-size` alias (same pattern as `/p/:slug`).
  */
 
@@ -34,6 +37,12 @@ const ROUTE_PAYLOADS: Record<string, Array<Record<string, unknown>>> = {
   // converge on the new slug.
   '/calculators/size': SIZE_CALCULATOR_JSONLD,
   '/calculators/gift-size': SIZE_CALCULATOR_JSONLD,
+  // PR #389 final-pass P2: SSR JSON-LD for the three Sprint-1 tools so
+  // non-JS crawlers (Bing, Pinterest, FB) see structured data on first
+  // parse. Yarn-substitution stays auth-only (no public SSR).
+  '/calculators/yardage': YARDAGE_CALCULATOR_JSONLD,
+  '/calculators/row-repeat': ROW_REPEAT_CALCULATOR_JSONLD,
+  '/calculators/shaping': SHAPING_CALCULATOR_JSONLD,
 };
 
 function makeHandler(payloads: Array<Record<string, unknown>>) {

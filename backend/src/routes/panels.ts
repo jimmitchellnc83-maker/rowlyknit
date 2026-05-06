@@ -3,6 +3,7 @@ import { body } from 'express-validator';
 import * as panelGroupsController from '../controllers/panelGroupsController';
 import * as panelsController from '../controllers/panelsController';
 import { authenticate } from '../middleware/auth';
+import { requireEntitlement } from '../middleware/requireEntitlement';
 import { validate, validateUUID } from '../middleware/validator';
 import { asyncHandler } from '../utils/errorHandler';
 
@@ -40,6 +41,7 @@ router.get(
 
 router.post(
   '/projects/:id/panel-groups/:groupId/copy-panels',
+  requireEntitlement,
   [
     validateUUID('id'),
     validateUUID('groupId'),
@@ -51,6 +53,7 @@ router.post(
 
 router.post(
   '/projects/:id/panel-groups',
+  requireEntitlement,
   [
     validateUUID('id'),
     body('name').trim().notEmpty().isLength({ max: 255 }),
@@ -88,6 +91,7 @@ router.delete(
  */
 router.post(
   '/projects/:id/panel-groups/:groupId/panels',
+  requireEntitlement,
   [
     validateUUID('id'),
     validateUUID('groupId'),

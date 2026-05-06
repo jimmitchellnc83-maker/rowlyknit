@@ -6,6 +6,7 @@ import * as chartDetectionController from '../controllers/chartDetectionControll
 import * as chartSharingController from '../controllers/chartSharingController';
 import * as chartSymbolController from '../controllers/chartSymbolController';
 import { authenticate } from '../middleware/auth';
+import { requireEntitlement } from '../middleware/requireEntitlement';
 import { validate, validateUUID } from '../middleware/validator';
 import { asyncHandler } from '../utils/errorHandler';
 
@@ -43,10 +44,17 @@ router.use(authenticate);
 /**
  * @route   POST /api/charts/detect-from-image
  * @desc    Detect chart from uploaded image
- * @access  Private
+ * @access  Private (paid workspace)
+ *
+ * `requireEntitlement` runs BEFORE `upload.single('image')` so an
+ * unentitled request is rejected with 402 *before* multer parses the
+ * multipart body into memory storage. We also never insert the
+ * `detected_charts` pending row for an unentitled request, since the
+ * controller is unreachable. Mirrors the source-files upload pattern.
  */
 router.post(
   '/detect-from-image',
+  requireEntitlement,
   upload.single('image'),
   [body('project_id').optional({ values: 'null' }).isUUID()],
   validate,
@@ -77,11 +85,13 @@ router.get(
 
 /**
  * @route   POST /api/charts/detection/:detectionId/correct
- * @desc    Apply corrections to detected chart
- * @access  Private
+ * @desc    Apply corrections to detected chart (mutates detected_charts.grid +
+ *          detected_charts.corrections — durable workspace state).
+ * @access  Private (paid workspace)
  */
 router.post(
   '/detection/:detectionId/correct',
+  requireEntitlement,
   [
     validateUUID('detectionId'),
     body('corrections').isArray().withMessage('Corrections must be an array'),
@@ -100,6 +110,7 @@ router.post(
  */
 router.post(
   '/save-detected',
+  requireEntitlement,
   [
     body('detection_id').isUUID().withMessage('Detection ID is required'),
     body('project_id').optional({ values: 'null' }).isUUID(),
@@ -145,6 +156,7 @@ router.get(
  */
 router.post(
   '/symbols',
+  requireEntitlement,
   [
     body('symbol').isString().trim().isLength({ min: 1, max: 10 }),
     body('name').isString().trim().isLength({ min: 1, max: 100 }),
@@ -228,10 +240,16 @@ router.delete(
 /**
  * @route   POST /api/charts/:chartId/share
  * @desc    Create shareable link for chart
- * @access  Private
+ * @access  Private (paid workspace)
+ *
+ * Sharing is a paid-workspace creation: it mints a durable share token,
+ * may set a password, and exposes the chart through `/shared/chart/:token`
+ * for public consumption. Gate at the route level so an unentitled
+ * caller cannot create distributable artifacts.
  */
 router.post(
   '/:chartId/share',
+  requireEntitlement,
   [
     validateUUID('chartId'),
     body('visibility').optional({ values: 'null' }).isIn(['public', 'private']),
@@ -247,10 +265,16 @@ router.post(
 /**
  * @route   POST /api/charts/:chartId/export
  * @desc    Export chart to specified format
- * @access  Private
+ * @access  Private (paid workspace)
+ *
+ * Exports write a row to `export_history` (durable workspace record) and
+ * produce a paid-workspace deliverable (PDF / PNG / SVG / CSV / Ravelry
+ * / Markdown). Gate at the route level — an unentitled caller cannot
+ * generate an export.
  */
 router.post(
   '/:chartId/export',
+  requireEntitlement,
   [
     validateUUID('chartId'),
     body('format').isIn(['pdf', 'png', 'svg', 'csv', 'ravelry', 'markdown']),
@@ -339,6 +363,7 @@ router.get(
  */
 router.post(
   '/',
+  requireEntitlement,
   [
     body('name').isString().isLength({ min: 1, max: 255 }),
     body('grid').isObject(),
@@ -425,6 +450,7 @@ router.post(
  */
 router.post(
   '/:chartId/duplicate',
+  requireEntitlement,
   validateUUID('chartId'),
   asyncHandler(chartController.duplicate)
 );

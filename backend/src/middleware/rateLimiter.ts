@@ -93,27 +93,17 @@ function createDynamicLimiter(window: 'perMinute' | 'perHour' | 'perDay') {
     standardHeaders: true,
     legacyHeaders: false,
     keyGenerator: (req) => {
-      // Try to get user ID from req.user (if auth middleware already ran)
-      let userId = req.user?.userId;
-
-      // If not available, try to extract from JWT token in Authorization header
-      if (!userId) {
-        const authHeader = req.headers.authorization;
-        if (authHeader && authHeader.startsWith('Bearer ')) {
-          try {
-            const token = authHeader.substring(7);
-            // Quick decode of JWT payload (without verification, just for user ID)
-            const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
-            userId = payload.userId;
-          } catch (error) {
-            // If token parsing fails, userId remains undefined
-          }
-        }
-      }
-
+      // Trust ONLY req.user.userId, which is populated by the
+      // `authenticate` middleware after the JWT signature has been
+      // verified. We must not parse the bearer token ourselves here
+      // — an attacker can forge an `eyJ...` payload with any userId
+      // they like, and an unverified decode would happily attribute
+      // their requests to that bucket. The previous implementation
+      // did `JSON.parse(Buffer.from(...).toString())` on the payload
+      // segment with no signature check; that's the surface this
+      // closes. Fall back to IP otherwise.
+      const userId = req.user?.userId;
       const tier = getUserTier(req);
-      // Include tier in key to separate limits by tier
-      // Use userId if available, otherwise fall back to IP
       return userId ? `user:${userId}:${tier}:${window}` : `ip:${req.ip}:${window}`;
     },
     skip: (req) => {

@@ -1,6 +1,8 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { body, query } from 'express-validator';
 import { authenticate } from '../middleware/auth';
+import { requireEntitlement } from '../middleware/requireEntitlement';
+import { uploadLimiter } from '../middleware/rateLimiter';
 import { validate, validateUUID } from '../middleware/validator';
 import { asyncHandler, NotFoundError } from '../utils/errorHandler';
 import * as sf from '../controllers/sourceFilesController';
@@ -40,8 +42,20 @@ const verifyCropBelongsToParent = asyncHandler(
 );
 
 // POST /api/source-files
+//
+// Order: authenticate (router.use above) → requireEntitlement →
+// uploadLimiter → multer → controller. Both the entitlement gate and
+// the per-user upload throttle MUST run before multer so an unentitled
+// or rate-limited request never streams a file to the temp disk path.
+//
+// `uploadLimiter` is keyed by `req.user?.userId || req.ip` and capped at
+// `UPLOAD_RATE_LIMIT_MAX` (default 20/hour). Without this gate, an
+// authed and entitled user could fill the disk via repeated source-file
+// POSTs — same blast radius as a slow-loris on the multer parser.
 router.post(
   '/',
+  requireEntitlement,
+  uploadLimiter,
   sf.uploadSourceFileMiddleware,
   [
     body('craft').optional().isIn(['knit', 'crochet']),
@@ -80,6 +94,7 @@ router.delete('/:id', validateUUID('id'), asyncHandler(sf.deleteSourceFile));
 // POST /api/source-files/:id/crops
 router.post(
   '/:id/crops',
+  requireEntitlement,
   [
     validateUUID('id'),
     body('pageNumber').isInt({ min: 1 }),
@@ -144,6 +159,7 @@ router.delete(
 // POST /api/source-files/:id/crops/:cropId/annotations
 router.post(
   '/:id/crops/:cropId/annotations',
+  requireEntitlement,
   [
     validateUUID('id'),
     validateUUID('cropId'),

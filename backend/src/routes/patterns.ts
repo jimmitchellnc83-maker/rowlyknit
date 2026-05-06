@@ -7,6 +7,7 @@ import * as gaugeAdjustmentController from '../controllers/gaugeAdjustmentContro
 import { listPatternCrops as listPatternCropsHandler } from '../controllers/sourceFilesController';
 import { listQuickKeysHandler } from '../controllers/annotationsController';
 import { authenticate } from '../middleware/auth';
+import { requireEntitlement } from '../middleware/requireEntitlement';
 import { validate, validateUUID, validatePagination, validateSearch } from '../middleware/validator';
 import { asyncHandler } from '../utils/errorHandler';
 
@@ -149,11 +150,17 @@ router.post(
 
 /**
  * @route   POST /api/patterns/import-from-url
- * @desc    Extract pattern content from a blog URL
- * @access  Private
+ * @desc    Extract pattern content from a blog URL. Performs an outbound
+ *          fetch and writes a `pattern_imports` row with the raw HTML.
+ * @access  Private (paid workspace)
+ *
+ * `requireEntitlement` runs BEFORE the controller so an unentitled
+ * request never triggers `safeAxios` outbound traffic and never inserts
+ * the `pattern_imports` row. Mirrors `save-imported` below.
  */
 router.post(
   '/import-from-url',
+  requireEntitlement,
   [
     body('url').trim().notEmpty().isURL({ protocols: ['http', 'https'] })
       .withMessage('A valid URL is required'),
@@ -169,6 +176,7 @@ router.post(
  */
 router.post(
   '/save-imported',
+  requireEntitlement,
   [
     body('importId').isUUID().withMessage('Import ID is required'),
     body('patternData').isObject().withMessage('Pattern data is required'),
@@ -277,6 +285,7 @@ router.get(
  */
 router.post(
   '/',
+  requireEntitlement,
   [
     body('name').trim().notEmpty().isLength({ max: 255 }),
     body('description').optional().trim(),

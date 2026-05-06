@@ -9,6 +9,7 @@ import * as sourceFilesController from '../controllers/sourceFilesController';
 import * as markerStateController from '../controllers/markerStateController';
 import * as joinLayoutController from '../controllers/joinLayoutController';
 import { authenticate } from '../middleware/auth';
+import { requireEntitlement } from '../middleware/requireEntitlement';
 import { validate, validateUUID, validatePagination, validateSearch } from '../middleware/validator';
 import { asyncHandler } from '../utils/errorHandler';
 
@@ -71,6 +72,7 @@ router.get(
  */
 router.post(
   '/',
+  requireEntitlement,
   [
     body('name').trim().notEmpty().isLength({ max: 255 }),
     body('description').optional().trim(),
@@ -126,6 +128,7 @@ router.delete(
  */
 router.post(
   '/:id/duplicate',
+  requireEntitlement,
   [
     validateUUID('id'),
     body('newName').optional({ values: 'null' }).isString().isLength({ min: 1, max: 255 }),
@@ -192,6 +195,7 @@ router.post(
 // =========================
 router.post(
   '/:id/join-layouts',
+  requireEntitlement,
   [
     validateUUID('id'),
     body('name').isString().isLength({ min: 1, max: 120 }),
@@ -228,6 +232,7 @@ router.delete(
 // =========================
 router.post(
   '/:id/blank-pages',
+  requireEntitlement,
   [
     validateUUID('id'),
     body('width').isFloat({ gt: 0 }),
@@ -269,6 +274,7 @@ router.delete(
  */
 router.post(
   '/:id/yarn',
+  requireEntitlement,
   [
     validateUUID('id'),
     body('yarnId').notEmpty().isUUID(),
@@ -332,6 +338,7 @@ router.delete(
  */
 router.post(
   '/:id/patterns',
+  requireEntitlement,
   [
     validateUUID('id'),
     body('patternId')
@@ -387,6 +394,7 @@ router.delete(
  */
 router.post(
   '/:id/tools',
+  requireEntitlement,
   [
     validateUUID('id'),
     body('toolId').notEmpty().isUUID(),
@@ -421,6 +429,7 @@ router.delete(
  */
 router.post(
   '/:projectId/apply-gauge-adjustment',
+  requireEntitlement,
   [
     validateUUID('projectId'),
     body('pattern_gauge').isObject().withMessage('Pattern gauge is required'),
@@ -611,6 +620,7 @@ router.post(
  */
 router.post(
   '/:projectId/accept-marker-suggestion',
+  requireEntitlement,
   [
     validateUUID('projectId'),
     body('suggestion').isObject().withMessage('Suggestion is required'),

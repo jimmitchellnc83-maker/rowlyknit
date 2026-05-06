@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import db from '../config/database';
 import logger from '../config/logger';
+import { getAppUrl } from '../config/appUrl';
 import emailService from './emailService';
 
 // GDPR Article 15 (data export) + Article 17 (deletion / right to erasure).
@@ -302,7 +303,7 @@ export async function requestAccountDeletion({
     })
     .returning('*');
 
-  const confirmUrl = `${process.env.APP_URL ?? ''}/account/delete/confirm?token=${token}`;
+  const confirmUrl = `${getAppUrl()}/account/delete/confirm?token=${token}`;
   try {
     await emailService.sendAccountDeletionConfirmEmail(
       email,

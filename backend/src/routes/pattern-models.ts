@@ -10,6 +10,7 @@ import { Router } from 'express';
 import { body, query } from 'express-validator';
 import * as patternModelsController from '../controllers/patternModelsController';
 import { authenticate } from '../middleware/auth';
+import { requireEntitlement } from '../middleware/requireEntitlement';
 import { validate, validateUUID } from '../middleware/validator';
 import { asyncHandler } from '../utils/errorHandler';
 
@@ -41,6 +42,7 @@ router.get(
  */
 router.post(
   '/',
+  requireEntitlement,
   [
     body('name').isString().trim().isLength({ min: 1, max: 255 }),
     body('craft').isIn(['knit', 'crochet']),

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { body } from 'express-validator';
 import * as yarnController from '../controllers/yarnController';
 import { authenticate } from '../middleware/auth';
+import { requireEntitlement } from '../middleware/requireEntitlement';
 import { validate, validateUUID, validatePagination, validateSearch } from '../middleware/validator';
 import { asyncHandler } from '../utils/errorHandler';
 
@@ -53,6 +54,7 @@ router.get(
 
 router.post(
   '/',
+  requireEntitlement,
   [
     body('name').trim().notEmpty().isLength({ max: 255 }),
     body('brand').optional().trim(),

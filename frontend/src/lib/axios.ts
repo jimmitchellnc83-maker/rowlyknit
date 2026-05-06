@@ -142,22 +142,15 @@ axios.interceptors.response.use(
       try {
         // Attempt to refresh the access token. The /refresh endpoint
         // reads the httpOnly refresh cookie and writes a fresh access
-        // cookie via Set-Cookie. The body still echoes the access
-        // token so the in-memory copy (used by Socket.IO and any
-        // future Bearer-preferring consumer) stays current.
-        const refreshResponse = await axios.post('/api/auth/refresh', {});
-        const newToken = refreshResponse.data?.data?.accessToken;
+        // cookie via Set-Cookie. The response body is intentionally
+        // empty under cookie-only auth — a 200 means the cookie was
+        // rotated; we don't need to inspect the body to retry.
+        await axios.post('/api/auth/refresh', {});
 
-        if (newToken) {
-          // Update in-memory copy only — does NOT touch localStorage.
-          const { useAuthStore } = await import('../stores/authStore');
-          useAuthStore.getState().setToken(newToken);
-
-          // Retry the original request. The fresh access cookie set
-          // by /refresh travels along automatically because we run
-          // with `withCredentials: true` — no Bearer header needed.
-          return axios(originalRequest);
-        }
+        // Retry the original request. The fresh access cookie set
+        // by /refresh travels along automatically because we run
+        // with `withCredentials: true` — no Bearer header needed.
+        return axios(originalRequest);
       } catch (refreshError) {
         // Refresh failed - clear auth and redirect
         const { useAuthStore } = await import('../stores/authStore');

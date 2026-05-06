@@ -3,6 +3,7 @@ import { body, query } from 'express-validator';
 import multer from 'multer';
 import * as colorPlanningController from '../controllers/colorPlanningController';
 import { authenticate } from '../middleware/auth';
+import { requireEntitlement } from '../middleware/requireEntitlement';
 import { validate, validateUUID } from '../middleware/validator';
 import { asyncHandler } from '../utils/errorHandler';
 
@@ -58,6 +59,7 @@ router.post(
  */
 router.post(
   '/projects/:projectId/color-transitions',
+  requireEntitlement,
   [
     validateUUID('projectId'),
     body('name').optional({ values: 'null' }).isString().isLength({ max: 100 }),
@@ -85,8 +87,13 @@ router.get(
  * @desc    Extract color palette from uploaded image
  * @access  Private
  */
+// `requireEntitlement` runs BEFORE multer so an unentitled request
+// is rejected with 402 before the image is parsed into memory. The
+// controller can persist via `save_palette=true`, so the gate must
+// stand in front of any path that writes durable data.
 router.post(
   '/projects/:projectId/extract-colors-from-image',
+  requireEntitlement,
   upload.single('image'),
   [
     body('num_colors').optional({ values: 'falsy' }).isInt({ min: 2, max: 10 }),
@@ -115,6 +122,7 @@ router.get(
  */
 router.post(
   '/projects/:projectId/colors',
+  requireEntitlement,
   [
     validateUUID('projectId'),
     body('color_name').isString().isLength({ min: 1, max: 100 }),
@@ -142,8 +150,14 @@ router.get(
  * @desc    Generate harmonious color palette
  * @access  Private
  */
+// `requireEntitlement` is required because the controller will
+// persist the generated palette when `save=true`. Pure-compute
+// callers (no save) hit the same gate; that's acceptable since
+// the public entrypoints for palette generation live under
+// `/calculators/*`, not the authenticated API.
 router.post(
   '/color-palette/generate',
+  requireEntitlement,
   [
     body('base_color').isString().matches(/^#[0-9A-Fa-f]{6}$/),
     body('scheme').isIn(['analogous', 'complementary', 'triadic', 'monochromatic', 'split_complementary']),

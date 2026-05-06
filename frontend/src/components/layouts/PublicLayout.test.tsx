@@ -59,7 +59,7 @@ describe('PublicLayout — public nav', () => {
     useAuthStore.setState({
       isAuthenticated: true,
       user: { id: 'u1', email: 'a@b.c', firstName: 'A', lastName: 'B' } as any,
-      accessToken: 't',
+      accessToken: null,
     });
     renderLayout();
     expect(
@@ -72,7 +72,7 @@ describe('PublicLayout — public nav', () => {
     useAuthStore.setState({
       isAuthenticated: true,
       user: { id: 'u1', email: 'a@b.c', firstName: 'A', lastName: 'B' } as any,
-      accessToken: 't',
+      accessToken: null,
     });
     renderLayout();
     const nav = screen.getByRole('navigation', { name: /public/i });

@@ -55,7 +55,7 @@ describe('GaugeCalculator — Sprint 1 Save to Rowly CTA', () => {
     useAuthStore.setState({
       isAuthenticated: true,
       user: { id: 'u1', email: 'a@b.c', firstName: 'A', lastName: 'B' } as any,
-      accessToken: 't',
+      accessToken: null,
     });
     renderPage();
     expect(

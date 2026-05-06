@@ -20,6 +20,8 @@ import emailService from '../services/emailService';
 import { seedExampleDataForUser } from '../services/seedExampleData';
 import { createAuditLog } from '../middleware/auditLog';
 import logger from '../config/logger';
+import { getAppUrl } from '../config/appUrl';
+import { getBillingConfig } from '../config/billing';
 import validator from 'validator';
 
 /**
@@ -81,7 +83,7 @@ export async function register(req: Request, res: Response) {
   // sees a 502 even though the user IS created in the DB. The verification
   // token is persisted, so resend-verification recovers the path if this
   // fails silently.
-  const verificationUrl = `${process.env.APP_URL}/verify-email?token=${verificationToken}`;
+  const verificationUrl = `${getAppUrl()}/verify-email?token=${verificationToken}`;
   void emailService
     .sendWelcomeEmail(email, firstName || 'there', verificationUrl)
     .catch((err) => {
@@ -227,7 +229,14 @@ export async function login(req: Request, res: Response) {
     throw new UnauthorizedError('Invalid email or password');
   }
 
-  const { accessToken, refreshToken } = await issueSession(req, res, user, !!rememberMe, 'user_login');
+  // PR #389 final-pass P2: browser auth is cookie-only. `issueSession`
+  // sets httpOnly access + refresh cookies (same path as before); the
+  // raw token strings are intentionally NOT echoed in the JSON body so
+  // an XSS payload can't read them out of `response.data`. Socket.IO
+  // and the axios refresh interceptor both run cookie-authenticated
+  // (same-origin, withCredentials), so dropping the body fields does
+  // not regress any in-app consumer.
+  await issueSession(req, res, user, !!rememberMe, 'user_login');
 
   res.json({
     success: true,
@@ -241,8 +250,6 @@ export async function login(req: Request, res: Response) {
         emailVerified: user.email_verified,
         preferences: user.preferences,
       },
-      accessToken,
-      refreshToken,
     },
   });
 }
@@ -309,10 +316,14 @@ export async function refreshToken(req: Request, res: Response) {
     path: '/',
   });
 
+  // PR #389 final-pass P2: cookie-only refresh. The raw access token is
+  // not echoed in the body — an XSS payload cannot read it from
+  // `response.data.accessToken`. axios runs `withCredentials: true` so
+  // the new cookie is automatically attached to subsequent requests.
   res.json({
     success: true,
     message: 'Token refreshed successfully',
-    data: { accessToken },
+    data: {},
   });
 }
 
@@ -394,6 +405,33 @@ export async function getProfile(req: Request, res: Response) {
     throw new NotFoundError('User not found');
   }
 
+  // Attach the user's current billing snapshot so the frontend
+  // entitlement helper (`canUsePaidWorkspace`) can read
+  // `user.subscription.status` without a second round-trip. Latest
+  // row by `updated_at` — webhook handlers always touch updated_at.
+  //
+  // Filter by the currently-configured billing provider so a stale
+  // mock row from dev/staging doesn't surface in the production
+  // response after a flip to BILLING_PROVIDER=lemonsqueezy. Mirrors
+  // billingController.getStatus + customerPortalUrl lookup.
+  const cfg = getBillingConfig();
+  const subRow = await db('billing_subscriptions')
+    .where({ user_id: userId, provider: cfg.provider })
+    .orderBy('updated_at', 'desc')
+    .first();
+
+  const subscription = subRow
+    ? {
+        status: subRow.status as string,
+        plan: (subRow.plan ?? null) as 'monthly' | 'annual' | null,
+        trialEndsAt: subRow.trial_ends_at
+          ? new Date(subRow.trial_ends_at).toISOString()
+          : null,
+        renewsAt: subRow.renews_at ? new Date(subRow.renews_at).toISOString() : null,
+        endsAt: subRow.ends_at ? new Date(subRow.ends_at).toISOString() : null,
+      }
+    : null;
+
   res.json({
     success: true,
     data: {
@@ -407,6 +445,7 @@ export async function getProfile(req: Request, res: Response) {
         emailVerified: user.email_verified,
         preferences: user.preferences,
         createdAt: user.created_at,
+        subscription,
       },
     },
   });
@@ -616,7 +655,7 @@ export async function requestPasswordReset(req: Request, res: Response) {
   // reset token is persisted and auditable, so a failed send shouldn't
   // 500 the caller. The success message is intentionally identical on
   // either path to avoid leaking account existence.
-  const resetUrl = `${process.env.APP_URL}/reset-password?token=${resetToken}`;
+  const resetUrl = `${getAppUrl()}/reset-password?token=${resetToken}`;
   try {
     await emailService.sendPasswordResetEmail(
       email,

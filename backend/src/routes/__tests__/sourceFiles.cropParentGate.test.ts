@@ -121,6 +121,20 @@ jest.mock('../../middleware/auth', () => ({
   },
 }));
 
+// PR #389 paywall closure added `requireEntitlement` to
+// POST /:id/crops and POST /:id/crops/:cropId/annotations. Those gates
+// run BEFORE the parent ownership check; this suite is testing the
+// parent gate, not entitlement, so we stub the entitlement helper to
+// always allow. Cross-cutting paywall coverage lives in
+// paywallGateMatrix.test.ts.
+jest.mock('../../utils/entitlement', () => ({
+  __esModule: true,
+  canUsePaidWorkspaceForReq: jest.fn(async () => ({
+    allowed: true,
+    reason: 'active_subscription',
+  })),
+}));
+
 import sourceFilesRouter from '../source-files';
 import { errorHandler } from '../../utils/errorHandler';
 

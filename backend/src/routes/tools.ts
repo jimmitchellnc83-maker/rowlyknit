@@ -3,6 +3,7 @@ import { body } from 'express-validator';
 import * as toolsController from '../controllers/toolsController';
 import * as taxonomyController from '../controllers/toolTaxonomyController';
 import { authenticate } from '../middleware/auth';
+import { requireEntitlement } from '../middleware/requireEntitlement';
 import { validate, validateUUID, validatePagination, validateSearch } from '../middleware/validator';
 import { asyncHandler } from '../utils/errorHandler';
 
@@ -30,8 +31,13 @@ router.get(
   asyncHandler(toolsController.getTool)
 );
 
+// POST /api/tools
+//
+// Tools are durable inventory rows alongside yarn, patterns, and
+// recipients — gating mirrors those routes.
 router.post(
   '/',
+  requireEntitlement,
   [
     body('name').trim().notEmpty().isLength({ max: 255 }),
     body('type').trim().notEmpty(),

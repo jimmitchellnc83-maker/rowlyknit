@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { body } from 'express-validator';
 import * as patternEnhancementsController from '../controllers/patternEnhancementsController';
 import { authenticate } from '../middleware/auth';
+import { requireEntitlement } from '../middleware/requireEntitlement';
 import { validate, validateUUID } from '../middleware/validator';
 import { asyncHandler } from '../utils/errorHandler';
 
@@ -37,6 +38,7 @@ router.get(
  */
 router.post(
   '/patterns/:patternId/sections',
+  requireEntitlement,
   [
     validateUUID('patternId'),
     body('name').trim().notEmpty().isLength({ max: 255 }).escape(),
@@ -101,6 +103,7 @@ router.get(
  */
 router.post(
   '/patterns/:patternId/bookmarks',
+  requireEntitlement,
   [
     validateUUID('patternId'),
     body('projectId').optional({ values: 'null' }).isUUID(),
@@ -181,6 +184,7 @@ router.get(
  */
 router.post(
   '/patterns/:patternId/highlights',
+  requireEntitlement,
   [
     validateUUID('patternId'),
     body('projectId').optional({ values: 'null' }).isUUID(),
@@ -255,6 +259,7 @@ router.get(
  */
 router.post(
   '/patterns/:patternId/annotations',
+  requireEntitlement,
   [
     validateUUID('patternId'),
     body('projectId').optional({ values: 'null' }).isUUID(),

@@ -17,6 +17,15 @@ interface ImportMetaEnv {
    *  Pattern Detail entry button is hidden, so users only see surfaces
    *  backed by real data. */
   readonly VITE_DESIGNER_MAKE_MODE?: string;
+  /** Comma-separated owner email allowlist for the entitlement gate.
+   *  Mirrors the backend `OWNER_EMAIL` so frontend and backend agree
+   *  on who skips the paywall. */
+  readonly VITE_OWNER_EMAIL?: string;
+  /** Pre-launch escape hatch — when 'true' the entitlement gate
+   *  treats every logged-in user as entitled. Mirrors the backend
+   *  `BILLING_PRE_LAUNCH_OPEN`. Production flips this off once the
+   *  trial flow is live. */
+  readonly VITE_BILLING_PRE_LAUNCH_OPEN?: string;
 }
 
 interface ImportMeta {

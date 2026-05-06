@@ -25,6 +25,7 @@ jest.mock('../../config/logger', () => ({
 }));
 
 import {
+  checkBilling,
   checkTransactionalEmail,
   evaluateNodeHeap,
   getLastTransactionalEmailSuccessAt,
@@ -286,5 +287,123 @@ describe('getLastTransactionalEmailSuccessAt', () => {
     expect(result).toBeNull();
     // The /health check itself stays up; the database health row is
     // what surfaces the underlying outage.
+  });
+});
+
+/**
+ * PR #389 final-pass P2 — `/health.checks.billing` and the
+ * `publicLaunchBlocked` boolean give admin / monitoring tooling a
+ * single signal that billing is wired enough for production.
+ */
+describe('checkBilling', () => {
+  const ENV_KEYS = [
+    'BILLING_PROVIDER',
+    'BILLING_PRE_LAUNCH_OPEN',
+    'LEMONSQUEEZY_API_KEY',
+    'LEMONSQUEEZY_WEBHOOK_SECRET',
+    'LEMONSQUEEZY_STORE_ID',
+    'LEMONSQUEEZY_PRODUCT_ID',
+    'LEMONSQUEEZY_MONTHLY_VARIANT_ID',
+    'LEMONSQUEEZY_ANNUAL_VARIANT_ID',
+    'APP_URL',
+    'NODE_ENV',
+  ] as const;
+
+  const original: Partial<Record<(typeof ENV_KEYS)[number], string | undefined>> = {};
+
+  beforeAll(() => {
+    for (const k of ENV_KEYS) original[k] = process.env[k];
+  });
+  afterAll(() => {
+    for (const k of ENV_KEYS) {
+      if (original[k] === undefined) delete process.env[k];
+      else process.env[k] = original[k] as string;
+    }
+  });
+  beforeEach(() => {
+    for (const k of ENV_KEYS) delete process.env[k];
+  });
+
+  function setLemonReady(): void {
+    process.env.BILLING_PROVIDER = 'lemonsqueezy';
+    process.env.LEMONSQUEEZY_API_KEY = 'lsk_test';
+    process.env.LEMONSQUEEZY_WEBHOOK_SECRET = 'whsec_test';
+    process.env.LEMONSQUEEZY_STORE_ID = '1';
+    process.env.LEMONSQUEEZY_PRODUCT_ID = '2';
+    process.env.LEMONSQUEEZY_MONTHLY_VARIANT_ID = '3';
+    process.env.LEMONSQUEEZY_ANNUAL_VARIANT_ID = '4';
+    process.env.APP_URL = 'https://rowlyknit.com';
+  }
+
+  it('passes in production when Lemon Squeezy is fully configured', () => {
+    process.env.NODE_ENV = 'production';
+    setLemonReady();
+    const result = checkBilling();
+    expect(result.status).toBe('pass');
+    expect(result.details!.publicLaunchBlocked).toBe(false);
+    expect(result.details!.provider).toBe('lemonsqueezy');
+    expect(result.details!.providerReady).toBe(true);
+  });
+
+  it('fails in production when LEMONSQUEEZY_* envs are missing', () => {
+    process.env.NODE_ENV = 'production';
+    process.env.BILLING_PROVIDER = 'lemonsqueezy';
+    // APP_URL must be set in production for getBillingConfig to read
+    // the appUrl without throwing — that's a separate config gate
+    // (config/appUrl.ts) and must be satisfied before this check runs.
+    process.env.APP_URL = 'https://rowlyknit.com';
+    // intentionally omit LS envs
+    const result = checkBilling();
+    expect(result.status).toBe('fail');
+    expect(result.details!.publicLaunchBlocked).toBe(true);
+    expect(result.details!.missing).toEqual(
+      expect.arrayContaining(['LEMONSQUEEZY_API_KEY', 'LEMONSQUEEZY_WEBHOOK_SECRET']),
+    );
+  });
+
+  it('fails in production when BILLING_PROVIDER=none', () => {
+    process.env.NODE_ENV = 'production';
+    process.env.APP_URL = 'https://rowlyknit.com';
+    // BILLING_PROVIDER unset → resolves to 'none'
+    const result = checkBilling();
+    expect(result.status).toBe('fail');
+    expect(result.details!.publicLaunchBlocked).toBe(true);
+    expect(result.details!.provider).toBe('none');
+  });
+
+  it('fails in production when BILLING_PROVIDER=mock', () => {
+    process.env.NODE_ENV = 'production';
+    process.env.APP_URL = 'https://rowlyknit.com';
+    process.env.BILLING_PROVIDER = 'mock';
+    const result = checkBilling();
+    expect(result.status).toBe('fail');
+    expect(result.details!.publicLaunchBlocked).toBe(true);
+    expect(result.details!.provider).toBe('mock');
+  });
+
+  it('fails in production when BILLING_PRE_LAUNCH_OPEN=true even with full LS config', () => {
+    process.env.NODE_ENV = 'production';
+    setLemonReady();
+    process.env.BILLING_PRE_LAUNCH_OPEN = 'true';
+    const result = checkBilling();
+    expect(result.status).toBe('fail');
+    expect(result.details!.publicLaunchBlocked).toBe(true);
+    expect(result.message).toMatch(/PRE_LAUNCH_OPEN/);
+  });
+
+  it('warns in dev with mock provider — informational, not a blocker', () => {
+    process.env.NODE_ENV = 'development';
+    process.env.BILLING_PROVIDER = 'mock';
+    const result = checkBilling();
+    expect(result.status).toBe('warn');
+    expect(result.details!.publicLaunchBlocked).toBe(false);
+  });
+
+  it('warns in dev with no provider configured — informational', () => {
+    process.env.NODE_ENV = 'development';
+    const result = checkBilling();
+    expect(result.status).toBe('warn');
+    expect(result.details!.publicLaunchBlocked).toBe(false);
+    expect(result.details!.provider).toBe('none');
   });
 });

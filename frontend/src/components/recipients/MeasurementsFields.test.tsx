@@ -8,7 +8,7 @@ describe('MeasurementsFields', () => {
     useAuthStore.setState({
       isAuthenticated: true,
       user: { id: 'u1', email: 'a@b.c' } as any,
-      accessToken: 'tok',
+      accessToken: null,
     });
   });
 
@@ -94,7 +94,7 @@ describe('MeasurementsFields', () => {
         email: 'a@b.c',
         preferences: { measurements: { lengthDisplayUnit: 'cm' } },
       } as any,
-      accessToken: 'tok',
+      accessToken: null,
     });
     const onChange = vi.fn();
     render(<MeasurementsFields value={{}} onChange={onChange} />);

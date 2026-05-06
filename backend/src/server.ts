@@ -3,6 +3,7 @@ import * as Sentry from '@sentry/node';
 import app from './app';
 import { initializeSocket } from './config/socket';
 import { assertDatabaseReady } from './config/database';
+import { assertAppUrlValid } from './config/appUrl';
 import logger from './config/logger';
 
 // Initialize Sentry (before anything else). When the DSN is unset in
@@ -41,6 +42,19 @@ initializeSocket(httpServer);
 // Postgres. assertDatabaseReady will process.exit(1) on failure outside
 // the test env, mirroring the prior behavior at the right boundary.
 if (process.env.NODE_ENV !== 'test') {
+  // Fail fast in production if APP_URL is missing or invalid. Email
+  // links, checkout redirects, share URLs, and GDPR confirm links all
+  // depend on it; a silent localhost fallback ships broken links to
+  // real users. Throws synchronously → process exits non-zero.
+  try {
+    assertAppUrlValid();
+  } catch (err) {
+    logger.error('APP_URL validation failed at boot', {
+      error: err instanceof Error ? err.message : String(err),
+    });
+    process.exit(1);
+  }
+
   void assertDatabaseReady().then(() => {
     httpServer.listen(PORT, () => {
       logger.info(`🚀 Rowly API server running on port ${PORT}`);
