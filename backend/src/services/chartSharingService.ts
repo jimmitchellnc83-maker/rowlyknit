@@ -7,8 +7,8 @@ import crypto from 'crypto';
 import bcrypt from 'bcrypt';
 import QRCode from 'qrcode';
 import db from '../config/database';
+import { getAppUrl } from '../config/appUrl';
 
-const APP_URL = process.env.APP_URL || 'http://localhost:3000';
 // 12 rounds matches utils/password.ts. Hash format ($2b$12$...) lets us
 // detect legacy SHA256 entries by absence of the "$2" prefix and rehash
 // them lazily on the next successful verify.
@@ -131,7 +131,7 @@ export const createChartShareLink = async (
   // — there was no password UI. The frontend page fetches the JSON
   // endpoint internally and drives the password flow via POST
   // /shared/chart/:token/access (cookie-backed access token).
-  const shareUrl = `${APP_URL}/c/${token}`;
+  const shareUrl = `${getAppUrl()}/c/${token}`;
 
   // Generate QR code
   const qrCode = await QRCode.toDataURL(shareUrl, {
@@ -176,7 +176,7 @@ export const createPatternShareLink = async (
     expires_at: expiresAt,
   });
 
-  const shareUrl = `${APP_URL}/shared/pattern/${token}`;
+  const shareUrl = `${getAppUrl()}/shared/pattern/${token}`;
 
   const qrCode = await QRCode.toDataURL(shareUrl, {
     width: 200,

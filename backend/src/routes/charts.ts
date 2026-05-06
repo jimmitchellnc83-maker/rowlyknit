@@ -6,6 +6,7 @@ import * as chartDetectionController from '../controllers/chartDetectionControll
 import * as chartSharingController from '../controllers/chartSharingController';
 import * as chartSymbolController from '../controllers/chartSymbolController';
 import { authenticate } from '../middleware/auth';
+import { requireEntitlement } from '../middleware/requireEntitlement';
 import { validate, validateUUID } from '../middleware/validator';
 import { asyncHandler } from '../utils/errorHandler';
 
@@ -100,6 +101,7 @@ router.post(
  */
 router.post(
   '/save-detected',
+  requireEntitlement,
   [
     body('detection_id').isUUID().withMessage('Detection ID is required'),
     body('project_id').optional({ values: 'null' }).isUUID(),
@@ -145,6 +147,7 @@ router.get(
  */
 router.post(
   '/symbols',
+  requireEntitlement,
   [
     body('symbol').isString().trim().isLength({ min: 1, max: 10 }),
     body('name').isString().trim().isLength({ min: 1, max: 100 }),
@@ -339,6 +342,7 @@ router.get(
  */
 router.post(
   '/',
+  requireEntitlement,
   [
     body('name').isString().isLength({ min: 1, max: 255 }),
     body('grid').isObject(),
@@ -425,6 +429,7 @@ router.post(
  */
 router.post(
   '/:chartId/duplicate',
+  requireEntitlement,
   validateUUID('chartId'),
   asyncHandler(chartController.duplicate)
 );

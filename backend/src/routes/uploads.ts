@@ -1,6 +1,7 @@
 import express from 'express';
 import * as uploadsController from '../controllers/uploadsController';
 import { authenticate } from '../middleware/auth';
+import { requireEntitlement } from '../middleware/requireEntitlement';
 import { validateUUID } from '../middleware/validator';
 
 const router = express.Router();
@@ -9,8 +10,15 @@ const router = express.Router();
 router.use(authenticate);
 
 // Project photo routes
+//
+// `requireEntitlement` runs BEFORE the multer middleware on every
+// upload route below so an unentitled request never streams bytes to
+// disk. Photos / files are durable workspace artifacts; the gate
+// keeps the paid tier honest while leaving GETs unrestricted so
+// existing photos remain viewable after a trial expires.
 router.post(
   '/projects/:projectId/photos',
+  requireEntitlement,
   validateUUID('projectId'),
   uploadsController.uploadImageMiddleware,
   uploadsController.uploadProjectPhoto
@@ -46,6 +54,7 @@ router.delete(
 // Pattern file routes
 router.post(
   '/patterns/:patternId/files',
+  requireEntitlement,
   validateUUID('patternId'),
   uploadsController.uploadPatternFileMiddleware,
   uploadsController.uploadPatternFile
@@ -74,6 +83,7 @@ router.delete(
 // Yarn photo routes
 router.post(
   '/yarn/:yarnId/photos',
+  requireEntitlement,
   validateUUID('yarnId'),
   uploadsController.uploadImageMiddleware,
   uploadsController.uploadYarnPhoto
@@ -81,6 +91,7 @@ router.post(
 
 router.post(
   '/yarn/:yarnId/photos/from-url',
+  requireEntitlement,
   validateUUID('yarnId'),
   uploadsController.uploadYarnPhotoFromUrl
 );
@@ -114,6 +125,7 @@ router.delete(
 
 router.post(
   '/patterns/:patternId/thumbnail/from-url',
+  requireEntitlement,
   validateUUID('patternId'),
   uploadsController.uploadPatternThumbnailFromUrl
 );

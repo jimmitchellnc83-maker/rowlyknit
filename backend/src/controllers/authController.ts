@@ -20,6 +20,7 @@ import emailService from '../services/emailService';
 import { seedExampleDataForUser } from '../services/seedExampleData';
 import { createAuditLog } from '../middleware/auditLog';
 import logger from '../config/logger';
+import { getAppUrl } from '../config/appUrl';
 import validator from 'validator';
 
 /**
@@ -81,7 +82,7 @@ export async function register(req: Request, res: Response) {
   // sees a 502 even though the user IS created in the DB. The verification
   // token is persisted, so resend-verification recovers the path if this
   // fails silently.
-  const verificationUrl = `${process.env.APP_URL}/verify-email?token=${verificationToken}`;
+  const verificationUrl = `${getAppUrl()}/verify-email?token=${verificationToken}`;
   void emailService
     .sendWelcomeEmail(email, firstName || 'there', verificationUrl)
     .catch((err) => {
@@ -638,7 +639,7 @@ export async function requestPasswordReset(req: Request, res: Response) {
   // reset token is persisted and auditable, so a failed send shouldn't
   // 500 the caller. The success message is intentionally identical on
   // either path to avoid leaking account existence.
-  const resetUrl = `${process.env.APP_URL}/reset-password?token=${resetToken}`;
+  const resetUrl = `${getAppUrl()}/reset-password?token=${resetToken}`;
   try {
     await emailService.sendPasswordResetEmail(
       email,

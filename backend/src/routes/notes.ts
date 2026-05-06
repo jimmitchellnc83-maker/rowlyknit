@@ -45,8 +45,11 @@ router.get(
  * @desc    Create an audio note
  * @access  Private
  */
+// `requireEntitlement` runs BEFORE `uploadAudioMiddleware` so the
+// audio bytes are never streamed to disk for an unentitled request.
 router.post(
   '/projects/:id/audio-notes',
+  requireEntitlement,
   uploadAudioMiddleware,
   [
     validateUUID('id'),
@@ -235,6 +238,7 @@ router.get(
  */
 router.post(
   '/projects/:id/text-notes',
+  requireEntitlement,
   [
     validateUUID('id'),
     body('content').notEmpty().isString().isLength({ max: 50000 }),
@@ -291,6 +295,7 @@ router.get(
 
 router.post(
   '/projects/:id/handwritten-notes',
+  requireEntitlement,
   uploadHandwrittenMiddleware,
   [
     validateUUID('id'),

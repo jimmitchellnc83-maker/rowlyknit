@@ -21,6 +21,8 @@
  * can mutate env between cases. There is no top-level snapshot.
  */
 
+import { getAppUrl } from './appUrl';
+
 export type BillingProviderName = 'lemonsqueezy' | 'mock' | 'none';
 
 export interface LemonSqueezyConfig {
@@ -61,7 +63,9 @@ export type BillingConfig = BillingConfigReady | BillingConfigNotReady;
 
 /**
  * Required env vars for each provider. Kept here so tests can assert
- * against a single source of truth.
+ * against a single source of truth. `APP_URL` is required for any LS
+ * deploy because the checkout success redirect is built off it; a
+ * silent fallback to localhost would land paying customers on dev.
  */
 export const LEMONSQUEEZY_REQUIRED_ENV = [
   'LEMONSQUEEZY_API_KEY',
@@ -70,6 +74,7 @@ export const LEMONSQUEEZY_REQUIRED_ENV = [
   'LEMONSQUEEZY_PRODUCT_ID',
   'LEMONSQUEEZY_MONTHLY_VARIANT_ID',
   'LEMONSQUEEZY_ANNUAL_VARIANT_ID',
+  'APP_URL',
 ] as const;
 
 function readProvider(): BillingProviderName {
@@ -80,7 +85,9 @@ function readProvider(): BillingProviderName {
 }
 
 function readAppUrl(): string {
-  return (process.env.APP_URL || 'http://localhost:5173').replace(/\/$/, '');
+  // Centralised: production with missing APP_URL throws; dev/test
+  // falls back to localhost with a warn log. See config/appUrl.ts.
+  return getAppUrl();
 }
 
 function readPreLaunchOpen(): boolean {

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { body } from 'express-validator';
 import * as recipientsController from '../controllers/recipientsController';
 import { authenticate } from '../middleware/auth';
+import { requireEntitlement } from '../middleware/requireEntitlement';
 import { validate, validateUUID, validatePagination, validateSearch } from '../middleware/validator';
 import { asyncHandler } from '../utils/errorHandler';
 
@@ -32,6 +33,7 @@ router.get(
 
 router.post(
   '/',
+  requireEntitlement,
   [
     body('firstName').trim().notEmpty().isLength({ max: 100 }),
     body('lastName').optional().trim(),

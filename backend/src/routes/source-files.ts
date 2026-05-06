@@ -1,6 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { body, query } from 'express-validator';
 import { authenticate } from '../middleware/auth';
+import { requireEntitlement } from '../middleware/requireEntitlement';
 import { validate, validateUUID } from '../middleware/validator';
 import { asyncHandler, NotFoundError } from '../utils/errorHandler';
 import * as sf from '../controllers/sourceFilesController';
@@ -40,8 +41,16 @@ const verifyCropBelongsToParent = asyncHandler(
 );
 
 // POST /api/source-files
+//
+// `requireEntitlement` runs BEFORE `uploadSourceFileMiddleware` so an
+// unentitled request is rejected with a 402 *before* multer parses the
+// upload body. That means we never write the temp file to disk for a
+// request we're going to reject — important because multer streams
+// directly to a tmp path; running the gate after parse would let an
+// unentitled user fill the disk by repeatedly POSTing PDFs.
 router.post(
   '/',
+  requireEntitlement,
   sf.uploadSourceFileMiddleware,
   [
     body('craft').optional().isIn(['knit', 'crochet']),
@@ -80,6 +89,7 @@ router.delete('/:id', validateUUID('id'), asyncHandler(sf.deleteSourceFile));
 // POST /api/source-files/:id/crops
 router.post(
   '/:id/crops',
+  requireEntitlement,
   [
     validateUUID('id'),
     body('pageNumber').isInt({ min: 1 }),
@@ -144,6 +154,7 @@ router.delete(
 // POST /api/source-files/:id/crops/:cropId/annotations
 router.post(
   '/:id/crops/:cropId/annotations',
+  requireEntitlement,
   [
     validateUUID('id'),
     validateUUID('cropId'),

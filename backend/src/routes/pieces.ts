@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { body } from 'express-validator';
 import * as piecesController from '../controllers/piecesController';
 import { authenticate } from '../middleware/auth';
+import { requireEntitlement } from '../middleware/requireEntitlement';
 import { validate, validateUUID } from '../middleware/validator';
 import { asyncHandler } from '../utils/errorHandler';
 
@@ -24,6 +25,7 @@ router.get(
 
 router.post(
   '/projects/:id/pieces',
+  requireEntitlement,
   [
     validateUUID('id'),
     body('name').trim().notEmpty().isLength({ max: 255 }),

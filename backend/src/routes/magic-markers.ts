@@ -3,6 +3,7 @@ import { body, query } from 'express-validator';
 import * as magicMarkersController from '../controllers/magicMarkersController';
 import * as markerAnalyticsController from '../controllers/markerAnalyticsController';
 import { authenticate } from '../middleware/auth';
+import { requireEntitlement } from '../middleware/requireEntitlement';
 import { validate, validateUUID } from '../middleware/validator';
 import { asyncHandler } from '../utils/errorHandler';
 
@@ -61,6 +62,7 @@ router.get(
  */
 router.post(
   '/projects/:id/magic-markers',
+  requireEntitlement,
   [
     validateUUID('id'),
     body('counterId').optional({ values: 'null' }).isUUID(),

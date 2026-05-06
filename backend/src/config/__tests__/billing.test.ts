@@ -59,6 +59,31 @@ describe('getBillingConfig', () => {
     expect(cfg.missing).toEqual(expect.arrayContaining([...LEMONSQUEEZY_REQUIRED_ENV]));
   });
 
+  it('PR #389 P1 fix — APP_URL is part of LEMONSQUEEZY_REQUIRED_ENV', () => {
+    // The /health endpoint surfaces missing required env as a public
+    // launch blocker. Without APP_URL on this list, a production deploy
+    // could flip BILLING_PROVIDER=lemonsqueezy without APP_URL set and
+    // /health would not flag it — checkout success would silently
+    // redirect to localhost.
+    const { LEMONSQUEEZY_REQUIRED_ENV } = require('../billing');
+    expect(LEMONSQUEEZY_REQUIRED_ENV).toEqual(expect.arrayContaining(['APP_URL']));
+  });
+
+  it('PR #389 P1 fix — APP_URL missing flags lemonsqueezy as not-ready', () => {
+    process.env.BILLING_PROVIDER = 'lemonsqueezy';
+    process.env.LEMONSQUEEZY_API_KEY = 'k';
+    process.env.LEMONSQUEEZY_WEBHOOK_SECRET = 's';
+    process.env.LEMONSQUEEZY_STORE_ID = '1';
+    process.env.LEMONSQUEEZY_PRODUCT_ID = '2';
+    process.env.LEMONSQUEEZY_MONTHLY_VARIANT_ID = '3';
+    process.env.LEMONSQUEEZY_ANNUAL_VARIANT_ID = '4';
+    // APP_URL deliberately NOT set
+    const { getBillingConfig } = require('../billing');
+    const cfg = getBillingConfig();
+    expect(cfg.ready).toBe(false);
+    expect((cfg as any).missing).toContain('APP_URL');
+  });
+
   it('returns ready=true with config object when all LS vars are present', () => {
     process.env.BILLING_PROVIDER = 'lemonsqueezy';
     process.env.LEMONSQUEEZY_API_KEY = 'k';
@@ -67,6 +92,7 @@ describe('getBillingConfig', () => {
     process.env.LEMONSQUEEZY_PRODUCT_ID = '2';
     process.env.LEMONSQUEEZY_MONTHLY_VARIANT_ID = '3';
     process.env.LEMONSQUEEZY_ANNUAL_VARIANT_ID = '4';
+    process.env.APP_URL = 'https://rowlyknit.com';
     const { getBillingConfig } = require('../billing');
     const cfg = getBillingConfig();
     expect(cfg.ready).toBe(true);
@@ -112,6 +138,7 @@ describe('getBillingConfig', () => {
     process.env.LEMONSQUEEZY_PRODUCT_ID = '2';
     process.env.LEMONSQUEEZY_MONTHLY_VARIANT_ID = '3';
     process.env.LEMONSQUEEZY_ANNUAL_VARIANT_ID = '4';
+    process.env.APP_URL = 'https://rowlyknit.com';
     const { isBillingProviderProductionReady } = require('../billing');
     expect(isBillingProviderProductionReady()).toBe(true);
   });

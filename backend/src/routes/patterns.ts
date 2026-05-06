@@ -7,6 +7,7 @@ import * as gaugeAdjustmentController from '../controllers/gaugeAdjustmentContro
 import { listPatternCrops as listPatternCropsHandler } from '../controllers/sourceFilesController';
 import { listQuickKeysHandler } from '../controllers/annotationsController';
 import { authenticate } from '../middleware/auth';
+import { requireEntitlement } from '../middleware/requireEntitlement';
 import { validate, validateUUID, validatePagination, validateSearch } from '../middleware/validator';
 import { asyncHandler } from '../utils/errorHandler';
 
@@ -169,6 +170,7 @@ router.post(
  */
 router.post(
   '/save-imported',
+  requireEntitlement,
   [
     body('importId').isUUID().withMessage('Import ID is required'),
     body('patternData').isObject().withMessage('Pattern data is required'),
@@ -277,6 +279,7 @@ router.get(
  */
 router.post(
   '/',
+  requireEntitlement,
   [
     body('name').trim().notEmpty().isLength({ max: 255 }),
     body('description').optional().trim(),
