@@ -16,14 +16,23 @@
  *
  * Production rules (explicit):
  *   - Owner email allowlist always returns `allowed: true` (so support
- *     paths and the founder smoke flows never get locked out).
+ *     paths and the founder smoke flows never get locked out). The
+ *     allowlist comes from `VITE_OWNER_EMAIL` (comma-separated) — the
+ *     frontend mirror of the backend `OWNER_EMAIL` env var. There is
+ *     NO hardcoded founder email fallback: shipping a literal email in
+ *     the bundle would leak PII to anyone who downloaded the JS, and
+ *     it would silently keep the founder logged in even when the env
+ *     var is intentionally cleared (e.g. handoff to a new owner).
  *   - `user.subscription.status` of `'active'` or `'trialing'` returns
  *     `allowed: true`. Today neither value is ever set — Sprint 2 wires
  *     the LS webhook to populate this column. Until then the only
- *     production-allowed path is `'owner'`.
- *   - `VITE_PRE_LAUNCH_OPEN=true` opens access to all logged-in users,
- *     intended ONLY for dev / staging / preview environments. The
- *     production env explicitly does NOT set this.
+ *     production-allowed paths are owner / pre-launch.
+ *   - `VITE_BILLING_PRE_LAUNCH_OPEN=true` opens access to all
+ *     logged-in users. Mirrors the backend `BILLING_PRE_LAUNCH_OPEN`
+ *     so the two surfaces agree. Intended for dev / staging / preview
+ *     environments AND the brief window between deploying the billing
+ *     surface and provisioning the real provider; production must
+ *     flip this to `false` once the trial flow is live.
  *
  * The result's `reason` string is meant for debug overlays + analytics
  * (`upgrade_prompt_shown` props) — not user-facing copy. UI components
@@ -31,7 +40,7 @@
  * save destination picker.
  */
 
-const OWNER_EMAILS_RAW = (import.meta.env.VITE_OWNER_EMAILS as
+const OWNER_EMAILS_RAW = (import.meta.env.VITE_OWNER_EMAIL as
   | string
   | undefined) ?? '';
 
@@ -39,16 +48,8 @@ const OWNER_EMAILS = OWNER_EMAILS_RAW.split(',')
   .map((s) => s.trim().toLowerCase())
   .filter(Boolean);
 
-/**
- * Built-in fallback so the founder is never locked out by a missing
- * env var. Codepath: in production we set `VITE_OWNER_EMAILS` and this
- * fallback is redundant; in dev / first-run we want owner access to
- * "just work" without bootstrap config.
- */
-const BUILTIN_OWNER = 'jimmitchellnc83@gmail.com';
-
 const PRE_LAUNCH_OPEN =
-  (import.meta.env.VITE_PRE_LAUNCH_OPEN as string | undefined) === 'true';
+  (import.meta.env.VITE_BILLING_PRE_LAUNCH_OPEN as string | undefined) === 'true';
 
 export type EntitlementReason =
   | 'unauthenticated'
@@ -57,7 +58,8 @@ export type EntitlementReason =
   | 'active_subscription'
   | 'trialing'
   | 'pre_launch_open'
-  | 'no_active_subscription';
+  | 'no_active_subscription'
+  | 'no_subscription';
 
 export interface EntitlementResult {
   allowed: boolean;
@@ -101,7 +103,7 @@ export function canUsePaidWorkspace(
   }
 
   const email = user.email.toLowerCase();
-  if (OWNER_EMAILS.includes(email) || email === BUILTIN_OWNER) {
+  if (OWNER_EMAILS.includes(email)) {
     return { allowed: true, reason: 'owner' };
   }
 
@@ -120,8 +122,9 @@ export function canUsePaidWorkspace(
   }
 
   // Pre-launch escape hatch — dev/staging only. Production must not
-  // set VITE_PRE_LAUNCH_OPEN=true. The presence of this flag is the
-  // explicit, code-visible "you're bypassing the paywall" signal.
+  // set VITE_BILLING_PRE_LAUNCH_OPEN=true once trials are live. The
+  // presence of this flag is the explicit, code-visible "you're
+  // bypassing the paywall" signal.
   if (PRE_LAUNCH_OPEN) {
     return { allowed: true, reason: 'pre_launch_open' };
   }

@@ -81,6 +81,7 @@ export class MockBillingProvider implements BillingProviderAdapter {
         endsAt: attributes.ends_at ? new Date(attributes.ends_at) : null,
         customerPortalUrl: attributes?.urls?.customer_portal ?? null,
         updatePaymentMethodUrl: attributes?.urls?.update_payment_method ?? null,
+        providerUpdatedAt: attributes.updated_at ? new Date(attributes.updated_at) : null,
       };
     }
 

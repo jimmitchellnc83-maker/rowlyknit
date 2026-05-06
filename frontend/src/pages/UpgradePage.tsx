@@ -22,6 +22,19 @@
  * Lemon Squeezy variants — copy here just has to match them. If the
  * owner changes the prices in LS, this file is the only spot to
  * update.
+ *
+ * GO-LIVE CHECKLIST — pricing drift risk:
+ *   The `$12/mo` and `$80/yr` literals below MUST match the variant
+ *   prices configured in the Lemon Squeezy dashboard. If they ever
+ *   diverge a customer would see one price on the page and a
+ *   different one at checkout. Two ways to mitigate:
+ *     - Manual: every time the owner changes a price in LS, also
+ *       update the strings in PRICING_MONTHLY/PRICING_ANNUAL below
+ *       (the only canonical strings) and ship a deploy.
+ *     - Automated: add a startup ping that fetches each variant via
+ *       the LS API and asserts the `unit_price` matches what we
+ *       advertise. Out of scope for this PR; track in the launch
+ *       backlog.
  */
 
 import { useEffect, useState } from 'react';
@@ -38,6 +51,33 @@ import {
   startCheckout,
 } from '../lib/billing';
 import { trackEvent } from '../lib/analytics';
+
+/**
+ * Map Lemon Squeezy / normalised status enums to human copy. The raw
+ * value (`on_trial`, `past_due`, etc.) leaked into the active banner
+ * before this fix — readers saw "Trial: on_trial" and were confused.
+ */
+function humanStatusLabel(status: string | null): string {
+  switch (status) {
+    case 'on_trial':
+      return 'Free trial';
+    case 'active':
+      return 'Active';
+    case 'paused':
+      return 'Paused';
+    case 'past_due':
+      return 'Past due';
+    case 'unpaid':
+      return 'Unpaid';
+    case 'cancelled':
+    case 'canceled':
+      return 'Cancelled';
+    case 'expired':
+      return 'Expired';
+    default:
+      return status ? status.replace(/_/g, ' ') : 'Unknown';
+  }
+}
 
 const FEATURES = [
   'Save calculator results to projects, patterns, yarn stash, or Make Mode reminders.',
@@ -63,6 +103,13 @@ export default function UpgradePage() {
   const [busy, setBusy] = useState<'monthly' | 'annual' | 'portal' | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  // Depend on `user?.id` rather than the full `user` object so we
+  // don't re-fetch billing status every time a transient field
+  // (avatar URL, last_seen, etc.) on the auth store mutates. The
+  // /api/billing/status response only changes when the *identity*
+  // changes, which the id captures uniquely.
+  const userId = user?.id;
+  const userEmail = user?.email;
   useEffect(() => {
     if (!isAuthenticated) {
       setStatus(null);
@@ -79,12 +126,13 @@ export default function UpgradePage() {
         // 503 with BILLING_NOT_AVAILABLE is expected pre-provisioning;
         // we still want to show a coherent message, not a toast.
         if (err.code === 'BILLING_NOT_AVAILABLE') {
+          const fallback = canUsePaidWorkspace({ email: userEmail });
           setStatus({
             provider: 'none',
             providerReady: false,
             preLaunchOpen: false,
-            entitled: canUsePaidWorkspace(user).allowed,
-            reason: canUsePaidWorkspace(user).reason,
+            entitled: fallback.allowed,
+            reason: fallback.reason,
             plan: null,
             status: null,
             trialEndsAt: null,
@@ -102,7 +150,7 @@ export default function UpgradePage() {
     return () => {
       cancelled = true;
     };
-  }, [isAuthenticated, user]);
+  }, [isAuthenticated, userId, userEmail]);
 
   const ownerEntitled =
     canUsePaidWorkspace(user).reason === 'owner' ||
@@ -199,8 +247,7 @@ export default function UpgradePage() {
             <div>
               <p className="font-semibold">You&apos;re on Rowly Maker.</p>
               <p className="mt-1">
-                {status.status === 'on_trial' ? 'Trial' : 'Status'}:{' '}
-                <strong>{status.status}</strong>
+                <strong>{humanStatusLabel(status.status)}</strong>
                 {status.plan ? ` · ${status.plan} plan` : ''}.{' '}
                 {status.trialEndsAt && `Trial ends ${new Date(status.trialEndsAt).toLocaleDateString()}. `}
                 {status.renewsAt && `Renews ${new Date(status.renewsAt).toLocaleDateString()}.`}

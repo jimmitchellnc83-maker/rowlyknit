@@ -231,6 +231,64 @@ describe('POST /api/billing/portal', () => {
 
     expect(res.status).toHaveBeenCalledWith(404);
   });
+
+  it('filters by configured provider — mock rows do not leak through when provider=lemonsqueezy', async () => {
+    // PR #389 review fix. The `where()` query in `portal` must scope
+    // to `cfg.provider` so a stale mock-provider row from a prior
+    // smoke test doesn't satisfy a production lookup. We verify the
+    // builder receives the provider in its where filter.
+    process.env.BILLING_PROVIDER = 'lemonsqueezy';
+    process.env.LEMONSQUEEZY_API_KEY = 'k';
+    process.env.LEMONSQUEEZY_WEBHOOK_SECRET = 's';
+    process.env.LEMONSQUEEZY_STORE_ID = '1';
+    process.env.LEMONSQUEEZY_PRODUCT_ID = '2';
+    process.env.LEMONSQUEEZY_MONTHLY_VARIANT_ID = '3';
+    process.env.LEMONSQUEEZY_ANNUAL_VARIANT_ID = '4';
+
+    const whereSpy = jest.fn().mockReturnThis();
+    dbMock.mockReturnValueOnce({
+      where: whereSpy,
+      orderBy: jest.fn().mockReturnThis(),
+      first: jest.fn().mockResolvedValue(null),
+    });
+
+    const req = { user: { userId: 'u' } } as unknown as Request;
+    const res = makeRes();
+    await portal(req, res);
+
+    expect(whereSpy).toHaveBeenCalledWith({
+      user_id: 'u',
+      provider: 'lemonsqueezy',
+    });
+  });
+});
+
+describe('GET /api/billing/status — provider filter', () => {
+  it('scopes the customer-portal-URL lookup to the configured provider', async () => {
+    process.env.BILLING_PROVIDER = 'mock';
+    mockCanUse.mockResolvedValueOnce({
+      allowed: true,
+      reason: 'trialing',
+      subscription: null,
+    });
+    const whereSpy = jest.fn().mockReturnThis();
+    dbMock.mockReturnValueOnce({
+      where: whereSpy,
+      orderBy: jest.fn().mockReturnThis(),
+      first: jest.fn().mockResolvedValue({
+        customer_portal_url: 'https://example.test/portal/mock-1',
+      }),
+    });
+
+    const req = { user: { userId: 'user-x', email: 'a@b.c' } } as unknown as Request;
+    const res = makeRes();
+    await getStatus(req, res);
+
+    expect(whereSpy).toHaveBeenCalledWith({
+      user_id: 'user-x',
+      provider: 'mock',
+    });
+  });
 });
 
 describe('POST /api/billing/lemonsqueezy/webhook', () => {

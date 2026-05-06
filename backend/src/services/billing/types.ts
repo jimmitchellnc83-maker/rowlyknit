@@ -78,6 +78,14 @@ export interface NormalizedSubscription {
   endsAt: Date | null;
   customerPortalUrl: string | null;
   updatePaymentMethodUrl: string | null;
+  /**
+   * Provider-side `updated_at` timestamp from the webhook payload.
+   * Used as the out-of-order guard: an incoming event whose
+   * `providerUpdatedAt` is older than the row we already have must not
+   * overwrite newer state. Null when the provider didn't include one;
+   * in that case the upsert falls through (best-effort).
+   */
+  providerUpdatedAt: Date | null;
 }
 
 export interface NormalizedCustomer {

@@ -41,6 +41,13 @@ export interface PersistedSubscription {
   update_payment_method_url: string | null;
   created_at: Date;
   updated_at: Date;
+  /**
+   * Provider-side `updated_at` snapshot for the most recent merge.
+   * Used as the out-of-order guard on subsequent webhooks. Nullable
+   * because legacy rows predate migration #081 and some webhook
+   * envelopes omit the timestamp entirely.
+   */
+  updated_at_provider: Date | null;
 }
 
 export interface BillingStatusForUser {
@@ -242,11 +249,60 @@ export class BillingService {
       });
   }
 
+  /**
+   * Upsert a subscription row with out-of-order webhook protection.
+   *
+   * Lemon Squeezy delivers webhooks at-least-once and does not
+   * guarantee order across retries — a delayed retry of an earlier
+   * `subscription_active` could land AFTER `subscription_cancelled`,
+   * which would resurrect a cancelled user. Guard:
+   *
+   *   1. Fetch the existing row's `updated_at_provider`.
+   *   2. If both timestamps are present and the incoming one is
+   *      strictly older, no-op (log so an operator sees it).
+   *   3. Otherwise, merge as before and write the new
+   *      `updated_at_provider`.
+   *
+   * Missing-timestamp policy: if either side lacks a provider
+   * timestamp we fall through to the merge. That preserves the
+   * pre-#081 behaviour for legacy rows and avoids dropping a
+   * legitimate event whose envelope happens to omit `updated_at`.
+   * Exact replays remain idempotent because `(provider, event_id)`
+   * dedupe in `billing_events` runs ahead of this method.
+   */
   private async upsertSubscription(
     userId: string,
     sub: NormalizedSubscription,
   ): Promise<void> {
     const now = new Date();
+
+    if (sub.providerUpdatedAt) {
+      const existing = await db('billing_subscriptions')
+        .where({
+          provider: this.provider.name,
+          provider_subscription_id: sub.providerSubscriptionId,
+        })
+        .first<{ updated_at_provider: Date | null; status: NormalizedStatus } | undefined>(
+          'updated_at_provider',
+          'status',
+        );
+
+      if (
+        existing?.updated_at_provider &&
+        new Date(existing.updated_at_provider).getTime() > sub.providerUpdatedAt.getTime()
+      ) {
+        logger.warn('Billing webhook out-of-order — older provider update ignored', {
+          provider: this.provider.name,
+          providerSubscriptionId: sub.providerSubscriptionId,
+          existingProviderUpdatedAt: existing.updated_at_provider,
+          incomingProviderUpdatedAt: sub.providerUpdatedAt,
+          existingStatus: existing.status,
+          incomingStatus: sub.status,
+        });
+        return;
+      }
+    }
+
     await db('billing_subscriptions')
       .insert({
         user_id: userId,
@@ -264,6 +320,7 @@ export class BillingService {
         update_payment_method_url: sub.updatePaymentMethodUrl,
         created_at: now,
         updated_at: now,
+        updated_at_provider: sub.providerUpdatedAt,
       })
       .onConflict(['provider', 'provider_subscription_id'])
       .merge({
@@ -279,6 +336,7 @@ export class BillingService {
         customer_portal_url: sub.customerPortalUrl,
         update_payment_method_url: sub.updatePaymentMethodUrl,
         updated_at: now,
+        updated_at_provider: sub.providerUpdatedAt,
       });
   }
 }

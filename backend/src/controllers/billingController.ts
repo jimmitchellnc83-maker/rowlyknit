@@ -52,12 +52,17 @@ export async function getStatus(req: Request, res: Response): Promise<void> {
   const cfg = getBillingConfig();
   const result = await canUsePaidWorkspaceForReq(req);
 
-  // If the user has a billing row, surface the portal URL too.
+  // If the user has a billing row for the CURRENT provider, surface
+  // the portal URL too. Filtering by provider matters: a user who
+  // tested via the mock provider in dev/staging shouldn't have a
+  // mock portal URL leak into the production response when we later
+  // flip BILLING_PROVIDER=lemonsqueezy. Conversely, if the platform
+  // ever swaps providers, we read the latest row for the active one.
   let customerPortalUrl: string | null = null;
   const userId = req.user?.userId;
   if (userId) {
     const sub = await db('billing_subscriptions')
-      .where({ user_id: userId })
+      .where({ user_id: userId, provider: cfg.provider })
       .orderBy('updated_at', 'desc')
       .first('customer_portal_url');
     customerPortalUrl = sub?.customer_portal_url ?? null;
@@ -156,9 +161,13 @@ export async function checkoutAnnual(req: Request, res: Response): Promise<void>
  * having a session, but every subscription event carries one.
  */
 export async function portal(req: Request, res: Response): Promise<void> {
+  const cfg = getBillingConfig();
   const userId = req.user!.userId;
+  // Match getStatus: only return a portal URL stored under the
+  // currently-configured provider so a stale mock URL from a prior
+  // smoke test never reaches the production response.
   const sub = await db('billing_subscriptions')
-    .where({ user_id: userId })
+    .where({ user_id: userId, provider: cfg.provider })
     .orderBy('updated_at', 'desc')
     .first('customer_portal_url');
 
@@ -213,9 +222,10 @@ export async function lemonSqueezyWebhook(req: Request, res: Response): Promise<
     return;
   }
 
-  const signature =
-    (req.headers['x-signature'] as string | undefined) ??
-    (req.headers['X-Signature'.toLowerCase()] as string | undefined);
+  // Express lowercases all incoming header names, so `x-signature` is
+  // the only form that ever exists on `req.headers`. The earlier dual
+  // lookup against `X-Signature`.toLowerCase() was a dead branch.
+  const signature = req.headers['x-signature'] as string | undefined;
   if (!service.verifyWebhook(rawBody, signature)) {
     logger.warn('Webhook signature invalid', { provider: service.providerName });
     res.status(401).json({

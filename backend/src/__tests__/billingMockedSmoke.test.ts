@@ -76,11 +76,22 @@ function dbMockFn(table: string): any {
           },
         }),
       }),
-      where: () => ({
+      where: (filter: any) => ({
+        // Direct first() — the pre-merge out-of-order lookup in
+        // BillingService.upsertSubscription. Returns the row keyed by
+        // (provider, provider_subscription_id) when both are in the
+        // filter, or null.
+        first: async (..._cols: string[]) => {
+          if (filter?.provider && filter?.provider_subscription_id) {
+            const key = `${filter.provider}:${filter.provider_subscription_id}`;
+            return inMemorySubs.get(key) ?? null;
+          }
+          return null;
+        },
         orderBy: () => ({
           first: async () => {
-            // Last set on userSubLatest wins; the test only ever
-            // writes for one user so this is enough.
+            // The user-scoped "latest subscription" lookup. The smoke
+            // tests only write for one user, so the last value wins.
             return Array.from(userSubLatest.values()).pop() ?? null;
           },
         }),
@@ -121,7 +132,18 @@ describe('billing mocked smoke — webhook → entitlement', () => {
     inMemorySubs.clear();
     inMemoryCustomers.clear();
     userSubLatest = new Map();
+    monotonic = Date.UTC(2026, 4, 6, 10, 0, 0);
   });
+
+  // Each call increments a monotonic timestamp so the out-of-order
+  // guard in upsertSubscription accepts the second/third events as
+  // strictly newer than the first. Tests that need to override the
+  // timestamp pass `updated_at` directly via overrides.
+  let monotonic = Date.UTC(2026, 4, 6, 10, 0, 0);
+  function nextMonotonicTs(): string {
+    monotonic += 60_000;
+    return new Date(monotonic).toISOString();
+  }
 
   function buildLSEvent(eventName: string, status: string, overrides: any = {}) {
     return {
@@ -142,6 +164,7 @@ describe('billing mocked smoke — webhook → entitlement', () => {
           renews_at: '2026-07-01T00:00:00Z',
           ends_at: null,
           user_email: 'smoke@example.com',
+          updated_at: overrides.updated_at ?? nextMonotonicTs(),
           urls: {
             customer_portal: 'https://lemon.test/portal/smoke',
             update_payment_method: 'https://lemon.test/pay/smoke',
@@ -241,6 +264,53 @@ describe('billing mocked smoke — webhook → entitlement', () => {
 
     const status = await service.getBillingStatusForUser('user-smoke-1');
     expect(status.subscription?.status).toBe('cancelled');
+    expect(status.isActive).toBe(false);
+  });
+
+  it('subscription_resumed flips a cancelled user back to active', async () => {
+    // `subscription_resumed` lands when a user clicks "resume" inside
+    // the LS customer portal during their cancellation grace period.
+    // The status payload comes back as `active` and the entitlement
+    // gate must allow them in again.
+    const provider = new LemonSqueezyProvider(cfg);
+    const service = new BillingService(provider);
+
+    await service.ingestWebhookEvent(
+      service.parseWebhook(
+        signedDelivery(buildLSEvent('subscription_cancelled', 'cancelled', { webhook_id: 'wh_a' })).body,
+      ),
+    );
+    await service.ingestWebhookEvent(
+      service.parseWebhook(
+        signedDelivery(buildLSEvent('subscription_resumed', 'active', { webhook_id: 'wh_b' })).body,
+      ),
+    );
+
+    const status = await service.getBillingStatusForUser('user-smoke-1');
+    expect(status.subscription?.status).toBe('active');
+    expect(status.isActive).toBe(true);
+  });
+
+  it('subscription_expired denies entitlement', async () => {
+    // `subscription_expired` is the terminal state — LS sends this
+    // when a cancellation finally hits ends_at. The row should land
+    // with `status=expired` and the gate must fail closed.
+    const provider = new LemonSqueezyProvider(cfg);
+    const service = new BillingService(provider);
+
+    await service.ingestWebhookEvent(
+      service.parseWebhook(
+        signedDelivery(buildLSEvent('subscription_created', 'active', { webhook_id: 'wh_a' })).body,
+      ),
+    );
+    await service.ingestWebhookEvent(
+      service.parseWebhook(
+        signedDelivery(buildLSEvent('subscription_expired', 'expired', { webhook_id: 'wh_b' })).body,
+      ),
+    );
+
+    const status = await service.getBillingStatusForUser('user-smoke-1');
+    expect(status.subscription?.status).toBe('expired');
     expect(status.isActive).toBe(false);
   });
 });

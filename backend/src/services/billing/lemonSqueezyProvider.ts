@@ -142,14 +142,18 @@ export class LemonSqueezyProvider implements BillingProviderAdapter {
     if (!eventName) throw new Error('Lemon Squeezy webhook: missing event_name');
 
     // `meta.webhook_id` is per-delivery (idempotency key in retries).
-    // Fall back to `data.id` + event name + timestamp if upstream
-    // didn't include one (older webhooks). This is best-effort: a
-    // missing key means we can't dedupe a true replay, but the rest
-    // of the handler is still safe.
+    // Fall back to a deterministic SHA-256 of the raw body when neither
+    // `webhook_id` nor `event_id` was supplied — this preserves
+    // idempotency across retries (same body → same hash) without the
+    // wall-clock noise from `Date.now()` that previously broke replay
+    // dedupe in tests and on a clock-skewed retry.
     const eventId = String(
       meta.webhook_id ??
         meta.event_id ??
-        `${eventName}:${data?.id ?? 'unknown'}:${attributes?.updated_at ?? Date.now()}`,
+        `${eventName}:${data?.id ?? 'unknown'}:sha256:${crypto
+          .createHash('sha256')
+          .update(rawBody)
+          .digest('hex')}`,
     );
 
     const customData = meta.custom_data ?? {};
@@ -171,6 +175,7 @@ export class LemonSqueezyProvider implements BillingProviderAdapter {
         endsAt: parseDate(attributes.ends_at),
         customerPortalUrl: attributes?.urls?.customer_portal ?? null,
         updatePaymentMethodUrl: attributes?.urls?.update_payment_method ?? null,
+        providerUpdatedAt: parseDate(attributes.updated_at),
       };
 
       if (attributes.customer_id) {

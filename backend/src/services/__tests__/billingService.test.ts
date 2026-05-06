@@ -150,6 +150,7 @@ describe('BillingService.ingestWebhookEvent — idempotency', () => {
         endsAt: null,
         customerPortalUrl: 'https://x',
         updatePaymentMethodUrl: null,
+        providerUpdatedAt: new Date('2026-05-06T10:00:00Z'),
       },
       customer: { providerCustomerId: 'cust-1', email: 'u@x.test' },
       raw: { fixture: true },
