@@ -34,12 +34,37 @@ export const SLOT_DEFS: readonly SlotDef[] = [
 
 const REAL_SLOT_ID = /^[0-9]{6,}$/;
 
-function readEnv(envName: string): string | undefined {
+type EnvReader = (envName: string) => string | undefined;
+
+const defaultEnvReader: EnvReader = (envName) => {
   // Vite's `import.meta.env` is statically replaced at build time. We
   // look the value up from the literal record to avoid any `process.env`
   // shenanigans in the SSR path.
   const env = (import.meta as unknown as { env?: Record<string, string | undefined> }).env ?? {};
   return env[envName];
+};
+
+let envReader: EnvReader = defaultEnvReader;
+
+function readEnv(envName: string): string | undefined {
+  return envReader(envName);
+}
+
+/**
+ * Test-only escape hatch. Vitest 4 + Vite 7 give each module its own
+ * `import.meta.env` object, so a test mutating its own `import.meta.env`
+ * does NOT affect what this module sees. This hook lets tests inject a
+ * deterministic reader so the env-var → slot-id wiring can be exercised
+ * end-to-end against a rendered `<ins data-ad-slot>`. Production code
+ * never calls this.
+ */
+export function __setEnvReaderForTests(reader: EnvReader): void {
+  envReader = reader;
+}
+
+/** Test-only: restore the default `import.meta.env`-backed reader. */
+export function __resetEnvReaderForTests(): void {
+  envReader = defaultEnvReader;
 }
 
 /**

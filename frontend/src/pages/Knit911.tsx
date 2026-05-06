@@ -8,6 +8,7 @@ import {
   type Knit911Topic,
 } from '../data/knit911';
 import PublicAdSection from '../components/ads/PublicAdSection';
+import { getAdSlotId } from '../components/ads/adsenseSlots';
 
 export default function Knit911() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -195,7 +196,7 @@ export default function Knit911() {
         .
       </footer>
 
-      <PublicAdSection slot="rowly-knit911" testId="public-ad-knit911" />
+      <PublicAdSection slot={getAdSlotId('knit911')} testId="public-ad-knit911" />
     </div>
   );
 }

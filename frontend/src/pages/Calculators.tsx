@@ -5,6 +5,7 @@ import { useAuthStore } from '../stores/authStore';
 import { useSeo } from '../hooks/useSeo';
 import { trackEvent } from '../lib/analytics';
 import PublicAdSection from '../components/ads/PublicAdSection';
+import { getAdSlotId } from '../components/ads/adsenseSlots';
 
 interface CalculatorLink {
   title: string;
@@ -171,7 +172,7 @@ export default function Calculators() {
         </section>
       ) : null}
 
-      <PublicAdSection slot="rowly-calculators-index" testId="public-ad-calculators-index" />
+      <PublicAdSection slot={getAdSlotId('calculators-index')} testId="public-ad-calculators-index" />
     </div>
   );
 }

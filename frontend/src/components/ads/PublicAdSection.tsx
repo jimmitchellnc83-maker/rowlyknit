@@ -10,11 +10,12 @@ import PublicAdSlot from './PublicAdSlot';
  * `<PublicAdSection />` into the wrong place is a no-op rather than a
  * policy violation. See `adRoutes.ts` for the allowlist.
  *
- * Provisioning note (2026-05-06): the `slot` ids below are placeholders.
- * The founder needs to create matching ad units in the AdSense dashboard
- * and either edit these defaults or supply the real id at the call
- * site. Until then the `<ins>` renders empty — which is fine, AdSense
- * just doesn't fill it.
+ * Slot id sourcing: callers must pass the slot prop as
+ * `getAdSlotId('<tool>')` from `adsenseSlots.ts` so the operator's
+ * `VITE_ADSENSE_SLOT_<TOOL>` env var (when set to a real numeric id)
+ * flows through to the rendered `<ins data-ad-slot>`. The
+ * `noHardcodedRowlySlots` regression test fails if a page ever ships a
+ * hardcoded placeholder like `rowly-gauge` as a JSX prop literal again.
  */
 export default function PublicAdSection({
   slot = 'rowly-public-default',

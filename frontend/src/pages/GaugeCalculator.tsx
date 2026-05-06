@@ -20,6 +20,7 @@ import { useMeasurementPrefs } from '../hooks/useMeasurementPrefs';
 import { trackEvent } from '../lib/analytics';
 import SaveToRowlyCTA from '../components/calculators/SaveToRowlyCTA';
 import PublicAdSection from '../components/ads/PublicAdSection';
+import { getAdSlotId } from '../components/ads/adsenseSlots';
 import type { ToolResult, GaugeResult } from '../lib/toolResult';
 import { PUBLIC_TOOLS } from '../lib/publicTools';
 
@@ -526,7 +527,7 @@ export default function GaugeCalculator() {
         </ul>
       </section>
 
-      <PublicAdSection slot="rowly-gauge" testId="public-ad-gauge" />
+      <PublicAdSection slot={getAdSlotId('gauge')} testId="public-ad-gauge" />
     </div>
   );
 }

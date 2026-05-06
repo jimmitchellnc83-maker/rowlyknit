@@ -25,6 +25,7 @@ import SaveToRowlyCTA from '../components/calculators/SaveToRowlyCTA';
 import type { ToolResult, YardageResult } from '../lib/toolResult';
 import { PUBLIC_TOOLS } from '../lib/publicTools';
 import PublicAdSection from '../components/ads/PublicAdSection';
+import { getAdSlotId } from '../components/ads/adsenseSlots';
 
 const FAQS: Array<{ q: string; a: string }> = [
   {
@@ -326,7 +327,7 @@ export default function YardageCalculator() {
           </li>
         </ul>
       </section>
-      <PublicAdSection slot="rowly-yardage" testId="public-ad-yardage" />
+      <PublicAdSection slot={getAdSlotId('yardage')} testId="public-ad-yardage" />
     </div>
   );
 }

@@ -13,6 +13,7 @@ import SaveToRowlyCTA from '../components/calculators/SaveToRowlyCTA';
 import type { ToolResult, RowRepeatResult } from '../lib/toolResult';
 import { PUBLIC_TOOLS } from '../lib/publicTools';
 import PublicAdSection from '../components/ads/PublicAdSection';
+import { getAdSlotId } from '../components/ads/adsenseSlots';
 
 const FAQS: Array<{ q: string; a: string }> = [
   {
@@ -241,7 +242,7 @@ export default function RowRepeatCalculator() {
           </li>
         </ul>
       </section>
-      <PublicAdSection slot="rowly-row-repeat" testId="public-ad-row-repeat" />
+      <PublicAdSection slot={getAdSlotId('row-repeat')} testId="public-ad-row-repeat" />
     </div>
   );
 }
