@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { FiGrid, FiChevronRight, FiLock } from 'react-icons/fi';
 import { useAuthStore } from '../stores/authStore';
 import { useSeo } from '../hooks/useSeo';
+import PublicAdSection from '../components/ads/PublicAdSection';
 
 interface CalculatorLink {
   title: string;
@@ -164,6 +165,8 @@ export default function Calculators() {
           </Link>
         </section>
       ) : null}
+
+      <PublicAdSection slot="rowly-calculators-index" testId="public-ad-calculators-index" />
     </div>
   );
 }

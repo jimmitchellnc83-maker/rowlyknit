@@ -37,6 +37,7 @@ import Profile from './pages/Profile';
 import Stats from './pages/Stats';
 import Help from './pages/Help';
 import AdminUsage from './pages/AdminUsage';
+import AdminBusinessDashboard from './pages/AdminBusinessDashboard';
 import PublicProjectPage from './pages/PublicProjectPage';
 import PublicSharedChart from './pages/PublicSharedChart';
 import Login from './pages/auth/Login';
@@ -237,6 +238,7 @@ function App() {
         <Route path="/stats" element={<Stats />} />
         <Route path="/help" element={<Help />} />
         <Route path="/admin/usage" element={<ErrorBoundary><AdminUsage /></ErrorBoundary>} />
+        <Route path="/admin/business" element={<ErrorBoundary><AdminBusinessDashboard /></ErrorBoundary>} />
       </Route>
 
       {/* 404 */}

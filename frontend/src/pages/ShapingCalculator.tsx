@@ -12,6 +12,7 @@ import { trackEvent } from '../lib/analytics';
 import SaveToRowlyCTA from '../components/calculators/SaveToRowlyCTA';
 import type { ToolResult, ShapingResult } from '../lib/toolResult';
 import { PUBLIC_TOOLS } from '../lib/publicTools';
+import PublicAdSection from '../components/ads/PublicAdSection';
 
 const FAQS: Array<{ q: string; a: string }> = [
   {
@@ -257,6 +258,7 @@ export default function ShapingCalculator() {
           </li>
         </ul>
       </section>
+      <PublicAdSection slot="rowly-shaping" testId="public-ad-shaping" />
     </div>
   );
 }

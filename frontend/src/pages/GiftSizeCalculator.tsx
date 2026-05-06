@@ -19,6 +19,7 @@ import { useSeo } from '../hooks/useSeo';
 import { useMeasurementPrefs } from '../hooks/useMeasurementPrefs';
 import { trackEvent } from '../lib/analytics';
 import SaveToRowlyCTA from '../components/calculators/SaveToRowlyCTA';
+import PublicAdSection from '../components/ads/PublicAdSection';
 import type { ToolResult, SizeResult } from '../lib/toolResult';
 import { PUBLIC_TOOLS } from '../lib/publicTools';
 
@@ -488,6 +489,7 @@ export default function GiftSizeCalculator() {
         </ul>
       </section>
 
+      <PublicAdSection slot="rowly-size" testId="public-ad-size" />
     </div>
   );
 }
