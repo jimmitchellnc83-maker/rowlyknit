@@ -14,6 +14,32 @@ vi.mock('../lib/billing', () => ({
   fetchBillingStatus: vi.fn(),
   startCheckout: vi.fn(),
   fetchPortalUrl: vi.fn(),
+  // PR #389 closure pass 2: humanStatusLabel was hoisted from
+  // UpgradePage into lib/billing so AccountBillingPage could share it.
+  // Mocking the module wholesale means we must re-export the helper or
+  // the page renders `undefined` and the active-banner crash bubbles
+  // up here. Mirror the production switch one-for-one.
+  humanStatusLabel: (status: string | null) => {
+    switch (status) {
+      case 'on_trial':
+        return 'Free trial';
+      case 'active':
+        return 'Active';
+      case 'paused':
+        return 'Paused';
+      case 'past_due':
+        return 'Past due';
+      case 'unpaid':
+        return 'Unpaid';
+      case 'cancelled':
+      case 'canceled':
+        return 'Cancelled';
+      case 'expired':
+        return 'Expired';
+      default:
+        return status ? status.replace(/_/g, ' ') : 'Unknown';
+    }
+  },
   BillingError: class BillingError extends Error {
     code: string;
     status: number;

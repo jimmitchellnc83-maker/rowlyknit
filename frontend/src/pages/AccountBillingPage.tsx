@@ -22,6 +22,7 @@ import {
   BillingStatus,
   fetchBillingStatus,
   fetchPortalUrl,
+  humanStatusLabel,
 } from '../lib/billing';
 
 export default function AccountBillingPage() {
@@ -37,6 +38,13 @@ export default function AccountBillingPage() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [portalBusy, setPortalBusy] = useState(false);
 
+  // Depend on the stable identity bits of `user` rather than the whole
+  // object. Re-rendering parent components can mint a new `user`
+  // reference every render even when nothing relevant changed (e.g. a
+  // store update that touches an unrelated slice). The stale-closure
+  // protection from `cancelled` is still in place.
+  const userId = user?.id;
+  const userEmail = user?.email;
   useEffect(() => {
     let cancelled = false;
     fetchBillingStatus()
@@ -71,7 +79,8 @@ export default function AccountBillingPage() {
     return () => {
       cancelled = true;
     };
-  }, [user]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId, userEmail]);
 
   const handlePortal = async () => {
     setErrorMsg(null);
@@ -139,7 +148,7 @@ export default function AccountBillingPage() {
           <dl className="grid grid-cols-2 gap-4 text-sm">
             <div>
               <dt className="text-gray-500">Status</dt>
-              <dd className="font-semibold">{status.status}</dd>
+              <dd className="font-semibold">{humanStatusLabel(status.status)}</dd>
             </div>
             <div>
               <dt className="text-gray-500">Plan</dt>

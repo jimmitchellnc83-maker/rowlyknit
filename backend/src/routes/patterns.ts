@@ -150,11 +150,17 @@ router.post(
 
 /**
  * @route   POST /api/patterns/import-from-url
- * @desc    Extract pattern content from a blog URL
- * @access  Private
+ * @desc    Extract pattern content from a blog URL. Performs an outbound
+ *          fetch and writes a `pattern_imports` row with the raw HTML.
+ * @access  Private (paid workspace)
+ *
+ * `requireEntitlement` runs BEFORE the controller so an unentitled
+ * request never triggers `safeAxios` outbound traffic and never inserts
+ * the `pattern_imports` row. Mirrors `save-imported` below.
  */
 router.post(
   '/import-from-url',
+  requireEntitlement,
   [
     body('url').trim().notEmpty().isURL({ protocols: ['http', 'https'] })
       .withMessage('A valid URL is required'),

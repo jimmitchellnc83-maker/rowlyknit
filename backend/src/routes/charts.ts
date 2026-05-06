@@ -44,10 +44,17 @@ router.use(authenticate);
 /**
  * @route   POST /api/charts/detect-from-image
  * @desc    Detect chart from uploaded image
- * @access  Private
+ * @access  Private (paid workspace)
+ *
+ * `requireEntitlement` runs BEFORE `upload.single('image')` so an
+ * unentitled request is rejected with 402 *before* multer parses the
+ * multipart body into memory storage. We also never insert the
+ * `detected_charts` pending row for an unentitled request, since the
+ * controller is unreachable. Mirrors the source-files upload pattern.
  */
 router.post(
   '/detect-from-image',
+  requireEntitlement,
   upload.single('image'),
   [body('project_id').optional({ values: 'null' }).isUUID()],
   validate,
@@ -78,11 +85,13 @@ router.get(
 
 /**
  * @route   POST /api/charts/detection/:detectionId/correct
- * @desc    Apply corrections to detected chart
- * @access  Private
+ * @desc    Apply corrections to detected chart (mutates detected_charts.grid +
+ *          detected_charts.corrections — durable workspace state).
+ * @access  Private (paid workspace)
  */
 router.post(
   '/detection/:detectionId/correct',
+  requireEntitlement,
   [
     validateUUID('detectionId'),
     body('corrections').isArray().withMessage('Corrections must be an array'),

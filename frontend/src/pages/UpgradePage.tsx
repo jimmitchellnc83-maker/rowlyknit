@@ -48,36 +48,10 @@ import {
   BillingStatus,
   fetchBillingStatus,
   fetchPortalUrl,
+  humanStatusLabel,
   startCheckout,
 } from '../lib/billing';
 import { trackEvent } from '../lib/analytics';
-
-/**
- * Map Lemon Squeezy / normalised status enums to human copy. The raw
- * value (`on_trial`, `past_due`, etc.) leaked into the active banner
- * before this fix — readers saw "Trial: on_trial" and were confused.
- */
-function humanStatusLabel(status: string | null): string {
-  switch (status) {
-    case 'on_trial':
-      return 'Free trial';
-    case 'active':
-      return 'Active';
-    case 'paused':
-      return 'Paused';
-    case 'past_due':
-      return 'Past due';
-    case 'unpaid':
-      return 'Unpaid';
-    case 'cancelled':
-    case 'canceled':
-      return 'Cancelled';
-    case 'expired':
-      return 'Expired';
-    default:
-      return status ? status.replace(/_/g, ' ') : 'Unknown';
-  }
-}
 
 const FEATURES = [
   'Save calculator results to projects, patterns, yarn stash, or Make Mode reminders.',

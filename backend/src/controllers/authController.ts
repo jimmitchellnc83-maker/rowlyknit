@@ -21,6 +21,7 @@ import { seedExampleDataForUser } from '../services/seedExampleData';
 import { createAuditLog } from '../middleware/auditLog';
 import logger from '../config/logger';
 import { getAppUrl } from '../config/appUrl';
+import { getBillingConfig } from '../config/billing';
 import validator from 'validator';
 
 /**
@@ -399,8 +400,14 @@ export async function getProfile(req: Request, res: Response) {
   // entitlement helper (`canUsePaidWorkspace`) can read
   // `user.subscription.status` without a second round-trip. Latest
   // row by `updated_at` — webhook handlers always touch updated_at.
+  //
+  // Filter by the currently-configured billing provider so a stale
+  // mock row from dev/staging doesn't surface in the production
+  // response after a flip to BILLING_PROVIDER=lemonsqueezy. Mirrors
+  // billingController.getStatus + customerPortalUrl lookup.
+  const cfg = getBillingConfig();
   const subRow = await db('billing_subscriptions')
-    .where({ user_id: userId })
+    .where({ user_id: userId, provider: cfg.provider })
     .orderBy('updated_at', 'desc')
     .first();
 

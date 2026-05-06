@@ -3,6 +3,7 @@ import rateLimit from 'express-rate-limit';
 import RedisStore from 'rate-limit-redis';
 import { redisClient } from '../config/redis';
 import { authenticate } from '../middleware/auth';
+import { requireEntitlement } from '../middleware/requireEntitlement';
 import { asyncHandler } from '../utils/errorHandler';
 import * as ravelryController from '../controllers/ravelryController';
 import * as ravelryOAuthController from '../controllers/ravelryOAuthController';
@@ -50,18 +51,18 @@ router.get('/patterns/:id', asyncHandler(ravelryController.getPattern));
 // User's favorited patterns on Ravelry
 router.get('/favorites', asyncHandler(ravelryController.getFavorites));
 
-// Bulk stash import — one page per call, client-driven pagination
-router.post('/stash/import', asyncHandler(ravelryController.importStashPage));
-
-// Bulk projects import — one page per call, client-driven pagination
-router.post('/projects/import', asyncHandler(ravelryController.importProjectsPage));
-
-// Bulk favorited-yarns import — mirrors favorites into yarn table as wishlist rows
-router.post('/favorites/yarns/import', asyncHandler(ravelryController.importFavoriteYarnsPage));
-
-// Bookmarks: mirrors Ravelry queue + library into a unified table
-router.post('/queue/import', asyncHandler(ravelryController.importQueuePage));
-router.post('/library/import', asyncHandler(ravelryController.importLibraryPage));
+// Bulk imports — each call inserts up to a page-worth of durable rows
+// (yarn / projects / wishlist yarn / bookmarks). Gate before the
+// service runs so an unentitled user can't trigger the outbound
+// Ravelry fetch + DB writes that follow.
+//
+// Read endpoints (search, single-yarn fetch, oauth status) stay
+// open because they don't write durable workspace rows.
+router.post('/stash/import', requireEntitlement, asyncHandler(ravelryController.importStashPage));
+router.post('/projects/import', requireEntitlement, asyncHandler(ravelryController.importProjectsPage));
+router.post('/favorites/yarns/import', requireEntitlement, asyncHandler(ravelryController.importFavoriteYarnsPage));
+router.post('/queue/import', requireEntitlement, asyncHandler(ravelryController.importQueuePage));
+router.post('/library/import', requireEntitlement, asyncHandler(ravelryController.importLibraryPage));
 router.get('/bookmarks', asyncHandler(ravelryController.listBookmarks));
 
 // Reference data endpoints (Basic Auth)

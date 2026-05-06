@@ -1,372 +1,337 @@
 /**
- * PR #389 P1 closure — paywall coverage matrix.
+ * PR #389 P1 closure pass 2 — paywall coverage matrix as a STATIC ROUTE
+ * SCAN against real route files.
  *
- * The Codex review found that `requireEntitlement` was only mounted on
- * three routes (`POST /projects`, `POST /projects/:id/memos`,
- * `POST /projects/:id/structured-memos`). The fix expanded coverage to
- * every authenticated CREATE endpoint that produces durable workspace
- * value (yarn, patterns, charts, source files + crops + annotations,
- * recipients, pieces, panels, counters, color plans, magic markers,
- * pattern enhancements, uploads, notes, sessions, and the project
- * sub-resource creates).
+ * Pass 1 (PR #389) used a stub Express app that mounted
+ * `requireEntitlement` itself, then asserted the stub returned 402 for
+ * unentitled callers. That proved the middleware's behavior in
+ * isolation but did NOT prove that any real `routes/*.ts` file
+ * actually mounts the middleware in front of its create handlers — a
+ * regression that removed `requireEntitlement` from a route would not
+ * fail the test, because the test never read the route file.
  *
- * Two layers prove this:
+ * Codex flagged that as false confidence. This pass replaces the stub
+ * with a string-level scan of the actual route source files:
  *
- *   1. `routes/__tests__/projectsCreate.entitlementGate.test.ts`
- *      already exists for `POST /api/projects` (the canonical test).
+ *   For each gated `(file, method, path)` in the matrix:
+ *     1. Read `backend/src/routes/<file>` from disk.
+ *     2. Find the `router.<method>(<path>, ...)` declaration block by
+ *        counting balanced parens from the opening `(`.
+ *     3. Assert the captured block contains the literal token
+ *        `requireEntitlement` AND that token appears BEFORE the
+ *        first `asyncHandler(` reference.
+ *     4. For routes that also mount multer (file-upload routes), assert
+ *        `requireEntitlement` appears BEFORE the multer middleware
+ *        reference too — so multer never streams an unentitled upload
+ *        to disk / memory.
+ *     5. Assert each gated file imports `requireEntitlement` from
+ *        `../middleware/requireEntitlement` so we don't get a runtime
+ *        ReferenceError after a refactor.
  *
- *   2. THIS file is a route-table sweep. It iterates one representative
- *      sample per gated route file, mounts a stub Express app that
- *      mirrors the real route's `requireEntitlement` placement, and
- *      asserts:
- *        - unentitled → 402 PAYMENT_REQUIRED
- *        - entitled   → controller is invoked (200/201)
+ * If a future PR removes `requireEntitlement` from a real route, the
+ * scan over THAT file will fail. If a refactor reorders middleware so
+ * the gate runs after multer, the multer-before assertion fires.
  *
- *      The middleware itself is mocked so we don't need a real billing
- *      service — the contract is "the gate is wired ahead of the
- *      controller", which is exactly what we want to lock in. A future
- *      route refactor that drops the gate would fail the matching row
- *      in this matrix.
- *
- * Why a single matrix file rather than one test per route: the same
- * (request, mock, expect) pattern repeats 30+ times. Inlining one row
- * per gated route keeps the assertions visible without a forest of
- * boilerplate; the matrix array is the single source of truth that a
- * reviewer can scan against routes/*.ts.
- *
- * Public/unauthenticated routes are NOT covered here — they're proven
- * to NOT mount the gate by their absence from the matrix and are
- * sanity-checked in the existing projectsCreate test's
- * "public calculator routes" describe block.
+ * The matrix lower-bound assertion at the bottom catches the symmetric
+ * mistake: adding a new gated route file but forgetting to register a
+ * matrix row.
  */
 
-import express from 'express';
-import request from 'supertest';
-import { errorHandler } from '../../utils/errorHandler';
-import { requireEntitlement } from '../../middleware/requireEntitlement';
+import fs from 'fs';
+import path from 'path';
 
-const mockCanUse = jest.fn();
-jest.mock('../../utils/entitlement', () => ({
-  canUsePaidWorkspaceForReq: (...args: any[]) => mockCanUse(...args),
-  __esModule: true,
-}));
+const ROUTES_DIR = path.resolve(__dirname, '..');
 
-jest.mock('../../config/logger', () => ({
-  __esModule: true,
-  default: { info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() },
-}));
-
-interface GatedCase {
-  /** Route file the gate lives in. */
+interface GatedRoute {
+  /** Basename inside backend/src/routes/. */
   file: string;
-  /** HTTP verb. */
-  method: 'POST' | 'PUT' | 'PATCH';
-  /** URL pattern as Express sees it. Should match the real route 1:1. */
-  path: string;
-  /** Body to send so the request reaches the controller when entitled. */
-  body?: Record<string, unknown>;
-  /** Status code on the entitled path. */
-  successStatus: number;
+  /** HTTP verb as written in the route file (lowercase preferred). */
+  method: 'post' | 'put' | 'patch';
+  /**
+   * The path string passed to `router.METHOD(...)` in the source file,
+   * NOT the full /api/... URL. Must match the file 1:1.
+   */
+  pathInFile: string;
+  /**
+   * Optional: when set, assert `requireEntitlement` appears in the
+   * route declaration BEFORE this literal token. Used for upload
+   * routes so multer can never run on an unentitled request.
+   */
+  multerToken?: string;
+  /**
+   * Optional human description for the matrix; surfaced in the it.each
+   * test name so a regression failure is self-documenting.
+   */
+  note?: string;
 }
 
-/**
- * The matrix. Adding a new gated route to a routes/*.ts file means
- * adding a row here so the gate's wiring is locked in. Tests below
- * iterate this list.
- */
-const GATED: GatedCase[] = [
+const GATED: GatedRoute[] = [
   // routes/yarn.ts
-  { file: 'yarn.ts', method: 'POST', path: '/api/yarn', body: { name: 'Stash' }, successStatus: 201 },
+  { file: 'yarn.ts', method: 'post', pathInFile: '/' },
 
   // routes/patterns.ts
+  { file: 'patterns.ts', method: 'post', pathInFile: '/' },
+  { file: 'patterns.ts', method: 'post', pathInFile: '/save-imported' },
   {
     file: 'patterns.ts',
-    method: 'POST',
-    path: '/api/patterns',
-    body: { name: 'Sweater' },
-    successStatus: 201,
-  },
-  {
-    file: 'patterns.ts',
-    method: 'POST',
-    path: '/api/patterns/save-imported',
-    body: { importId: '00000000-0000-4000-8000-000000000001', patternData: { name: 'X' } },
-    successStatus: 201,
+    method: 'post',
+    pathInFile: '/import-from-url',
+    note: 'outbound fetch + pattern_imports row write',
   },
 
   // routes/pattern-models.ts
-  {
-    file: 'pattern-models.ts',
-    method: 'POST',
-    path: '/api/pattern-models',
-    body: { name: 'Canon', craft: 'knit' },
-    successStatus: 201,
-  },
+  { file: 'pattern-models.ts', method: 'post', pathInFile: '/' },
 
   // routes/charts.ts
+  { file: 'charts.ts', method: 'post', pathInFile: '/' },
+  { file: 'charts.ts', method: 'post', pathInFile: '/symbols' },
+  { file: 'charts.ts', method: 'post', pathInFile: '/save-detected' },
+  { file: 'charts.ts', method: 'post', pathInFile: '/:chartId/duplicate' },
   {
     file: 'charts.ts',
-    method: 'POST',
-    path: '/api/charts',
-    body: { name: 'Chart 1', grid: { rows: [] } },
-    successStatus: 201,
+    method: 'post',
+    pathInFile: '/detect-from-image',
+    multerToken: 'upload.single',
+    note: 'multer-before-gate would let unentitled callers buffer image to memory',
   },
   {
     file: 'charts.ts',
-    method: 'POST',
-    path: '/api/charts/symbols',
-    body: { symbol: 'X', name: 'X-stitch' },
-    successStatus: 201,
-  },
-  {
-    file: 'charts.ts',
-    method: 'POST',
-    path: '/api/charts/save-detected',
-    body: { detection_id: '00000000-0000-4000-8000-000000000010' },
-    successStatus: 201,
-  },
-  {
-    file: 'charts.ts',
-    method: 'POST',
-    path: '/api/charts/00000000-0000-4000-8000-000000000020/duplicate',
-    successStatus: 201,
+    method: 'post',
+    pathInFile: '/detection/:detectionId/correct',
+    note: 'mutates detected_charts.grid + corrections',
   },
 
   // routes/source-files.ts
   {
     file: 'source-files.ts',
-    method: 'POST',
-    path: '/api/source-files/00000000-0000-4000-8000-000000000030/crops',
-    body: {
-      pageNumber: 1,
-      cropX: 0.1,
-      cropY: 0.1,
-      cropWidth: 0.5,
-      cropHeight: 0.5,
-    },
-    successStatus: 201,
+    method: 'post',
+    pathInFile: '/',
+    multerToken: 'sf.uploadSourceFileMiddleware',
+    note: 'multer streams PDFs to disk — gate must run first',
   },
+  { file: 'source-files.ts', method: 'post', pathInFile: '/:id/crops' },
+  { file: 'source-files.ts', method: 'post', pathInFile: '/:id/crops/:cropId/annotations' },
+
+  // routes/tools.ts
+  { file: 'tools.ts', method: 'post', pathInFile: '/' },
 
   // routes/recipients.ts
-  {
-    file: 'recipients.ts',
-    method: 'POST',
-    path: '/api/recipients',
-    body: { firstName: 'Aunt' },
-    successStatus: 201,
-  },
+  { file: 'recipients.ts', method: 'post', pathInFile: '/' },
 
   // routes/pieces.ts
-  {
-    file: 'pieces.ts',
-    method: 'POST',
-    path: '/api/pieces/projects/00000000-0000-4000-8000-000000000040/pieces',
-    body: { name: 'Front' },
-    successStatus: 201,
-  },
+  { file: 'pieces.ts', method: 'post', pathInFile: '/projects/:id/pieces' },
 
   // routes/panels.ts
-  {
-    file: 'panels.ts',
-    method: 'POST',
-    path: '/api/panels/projects/00000000-0000-4000-8000-000000000050/panel-groups',
-    body: { name: 'Group A' },
-    successStatus: 201,
-  },
+  { file: 'panels.ts', method: 'post', pathInFile: '/projects/:id/panel-groups' },
 
   // routes/counters.ts
-  {
-    file: 'counters.ts',
-    method: 'POST',
-    path: '/api/counters/projects/00000000-0000-4000-8000-000000000060/counters',
-    body: { name: 'Row counter' },
-    successStatus: 201,
-  },
-  {
-    file: 'counters.ts',
-    method: 'POST',
-    path: '/api/counters/projects/00000000-0000-4000-8000-000000000060/counter-links',
-    body: {
-      sourceCounterId: '00000000-0000-4000-8000-000000000061',
-      targetCounterId: '00000000-0000-4000-8000-000000000062',
-      triggerCondition: { every: 1 },
-      action: { type: 'increment' },
-    },
-    successStatus: 201,
-  },
+  { file: 'counters.ts', method: 'post', pathInFile: '/projects/:id/counters' },
+  { file: 'counters.ts', method: 'post', pathInFile: '/projects/:id/counter-links' },
 
   // routes/color-planning.ts
-  {
-    file: 'color-planning.ts',
-    method: 'POST',
-    path: '/api/color-planning/projects/00000000-0000-4000-8000-000000000070/colors',
-    body: { color_name: 'Red', hex_code: '#ff0000' },
-    successStatus: 201,
-  },
-  {
-    file: 'color-planning.ts',
-    method: 'POST',
-    path: '/api/color-planning/projects/00000000-0000-4000-8000-000000000070/color-transitions',
-    body: { color_sequence: [] },
-    successStatus: 201,
-  },
+  { file: 'color-planning.ts', method: 'post', pathInFile: '/projects/:projectId/colors' },
+  { file: 'color-planning.ts', method: 'post', pathInFile: '/projects/:projectId/color-transitions' },
 
   // routes/magic-markers.ts
-  {
-    file: 'magic-markers.ts',
-    method: 'POST',
-    path: '/api/magic-markers/projects/00000000-0000-4000-8000-000000000080/magic-markers',
-    body: { name: 'Decrease', alertMessage: 'k2tog' },
-    successStatus: 201,
-  },
+  { file: 'magic-markers.ts', method: 'post', pathInFile: '/projects/:id/magic-markers' },
 
   // routes/pattern-enhancements.ts
-  {
-    file: 'pattern-enhancements.ts',
-    method: 'POST',
-    path: '/api/pattern-enhancements/patterns/00000000-0000-4000-8000-000000000090/sections',
-    body: { name: 'Body' },
-    successStatus: 201,
-  },
-  {
-    file: 'pattern-enhancements.ts',
-    method: 'POST',
-    path: '/api/pattern-enhancements/patterns/00000000-0000-4000-8000-000000000090/bookmarks',
-    body: { name: 'Page 4', pageNumber: 4 },
-    successStatus: 201,
-  },
+  { file: 'pattern-enhancements.ts', method: 'post', pathInFile: '/patterns/:patternId/sections' },
+  { file: 'pattern-enhancements.ts', method: 'post', pathInFile: '/patterns/:patternId/bookmarks' },
 
   // routes/notes.ts
-  {
-    file: 'notes.ts',
-    method: 'POST',
-    path: '/api/notes/projects/00000000-0000-4000-8000-0000000000a0/text-notes',
-    body: { content: 'A reminder' },
-    successStatus: 201,
-  },
+  { file: 'notes.ts', method: 'post', pathInFile: '/projects/:id/text-notes' },
 
   // routes/sessions.ts
-  {
-    file: 'sessions.ts',
-    method: 'POST',
-    path: '/api/sessions/projects/00000000-0000-4000-8000-0000000000b0/sessions/start',
-    successStatus: 201,
-  },
-  {
-    file: 'sessions.ts',
-    method: 'POST',
-    path: '/api/sessions/projects/00000000-0000-4000-8000-0000000000b0/milestones',
-    body: { name: 'Halfway' },
-    successStatus: 201,
-  },
+  { file: 'sessions.ts', method: 'post', pathInFile: '/projects/:id/sessions/start' },
+  { file: 'sessions.ts', method: 'post', pathInFile: '/projects/:id/milestones' },
 
-  // routes/projects.ts (nested creates)
+  // routes/projects.ts (top-level + nested creates)
+  { file: 'projects.ts', method: 'post', pathInFile: '/' },
+  { file: 'projects.ts', method: 'post', pathInFile: '/:id/duplicate' },
+  { file: 'projects.ts', method: 'post', pathInFile: '/:id/yarn' },
+  { file: 'projects.ts', method: 'post', pathInFile: '/:id/patterns' },
+  { file: 'projects.ts', method: 'post', pathInFile: '/:id/tools' },
+  { file: 'projects.ts', method: 'post', pathInFile: '/:id/join-layouts' },
+  { file: 'projects.ts', method: 'post', pathInFile: '/:id/blank-pages' },
+
+  // routes/ravelry.ts (bulk imports — each writes durable rows)
   {
-    file: 'projects.ts',
-    method: 'POST',
-    path: '/api/projects/00000000-0000-4000-8000-0000000000c0/duplicate',
-    successStatus: 201,
+    file: 'ravelry.ts',
+    method: 'post',
+    pathInFile: '/stash/import',
+    note: 'Ravelry stash import — bulk yarn rows',
   },
   {
-    file: 'projects.ts',
-    method: 'POST',
-    path: '/api/projects/00000000-0000-4000-8000-0000000000c0/yarn',
-    body: { yarnId: '00000000-0000-4000-8000-0000000000c1' },
-    successStatus: 201,
+    file: 'ravelry.ts',
+    method: 'post',
+    pathInFile: '/projects/import',
+    note: 'Ravelry projects import — bulk project rows',
   },
   {
-    file: 'projects.ts',
-    method: 'POST',
-    path: '/api/projects/00000000-0000-4000-8000-0000000000c0/patterns',
-    body: { patternId: '00000000-0000-4000-8000-0000000000c2' },
-    successStatus: 201,
+    file: 'ravelry.ts',
+    method: 'post',
+    pathInFile: '/favorites/yarns/import',
+    note: 'Ravelry favourited-yarns import — wishlist yarn rows',
   },
   {
-    file: 'projects.ts',
-    method: 'POST',
-    path: '/api/projects/00000000-0000-4000-8000-0000000000c0/tools',
-    body: { toolId: '00000000-0000-4000-8000-0000000000c3' },
-    successStatus: 201,
+    file: 'ravelry.ts',
+    method: 'post',
+    pathInFile: '/queue/import',
+    note: 'Ravelry queue import — bulk bookmark rows',
   },
   {
-    file: 'projects.ts',
-    method: 'POST',
-    path: '/api/projects/00000000-0000-4000-8000-0000000000c0/join-layouts',
-    body: { name: 'Join' },
-    successStatus: 201,
-  },
-  {
-    file: 'projects.ts',
-    method: 'POST',
-    path: '/api/projects/00000000-0000-4000-8000-0000000000c0/blank-pages',
-    body: { width: 800, height: 600 },
-    successStatus: 201,
+    file: 'ravelry.ts',
+    method: 'post',
+    pathInFile: '/library/import',
+    note: 'Ravelry library import — bulk bookmark rows',
   },
 ];
 
 /**
- * Build a stub app where the test's path mounts `requireEntitlement`
- * before a controller spy. Mirrors the real route's middleware order
- * exactly enough for the gate's wiring to be exercised.
+ * Cache file reads — most files have multiple matrix entries.
  */
-function buildStubApp(c: GatedCase, controllerSpy: jest.Mock) {
-  const app = express();
-  app.use(express.json());
-  app.use((req, _res, next) => {
-    (req as any).user = { userId: 'user-1', email: 'a@b.test' };
-    next();
-  });
-
-  const verb = c.method.toLowerCase() as 'post' | 'put' | 'patch';
-  // No validators in the stub — we want to confirm the gate runs
-  // before any further middleware. The real validators are tested
-  // separately (e.g. projects.yarnNegativeValidator.test.ts).
-  app[verb](c.path, requireEntitlement, (req, res) => {
-    controllerSpy(req, res);
-    res.status(c.successStatus).json({ success: true });
-  });
-  app.use(errorHandler);
-  return app;
+const fileCache = new Map<string, string>();
+function readRouteFile(file: string): string {
+  let cached = fileCache.get(file);
+  if (cached === undefined) {
+    cached = fs.readFileSync(path.join(ROUTES_DIR, file), 'utf8');
+    fileCache.set(file, cached);
+  }
+  return cached;
 }
 
-describe('paywall gate matrix — every gated route returns 402 for unentitled, 2xx for entitled', () => {
-  beforeEach(() => {
-    mockCanUse.mockReset();
-  });
+/**
+ * Find the full text of `router.METHOD('PATH', ...)` declaration by
+ * counting balanced parentheses from the opening paren after the verb.
+ *
+ * Returns the captured body (everything between the opening and closing
+ * parens, exclusive) so callers don't need to strip the call signature
+ * before searching for tokens.
+ */
+function extractRouteBody(
+  fileContent: string,
+  method: GatedRoute['method'],
+  pathInFile: GatedRoute['pathInFile'],
+): string | null {
+  // Quote-style varies — match single, double, or backtick quotes. The
+  // path itself is escaped for regex literal use.
+  const escapedPath = pathInFile.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const opener = new RegExp(
+    String.raw`router\.${method}\s*\(\s*(['"\`])${escapedPath}\1`,
+    'g',
+  );
+  const m = opener.exec(fileContent);
+  if (!m) return null;
 
-  it.each(GATED)(
-    '$file → $method $path is gated by requireEntitlement',
-    async (c) => {
-      const controllerSpy = jest.fn();
-      const app = buildStubApp(c, controllerSpy);
+  // Walk from m.index forward, find the first `(` (the call open),
+  // then count parens to find its match.
+  let i = m.index;
+  while (i < fileContent.length && fileContent[i] !== '(') i++;
+  if (i >= fileContent.length) return null;
 
-      // 1. Unentitled — must 402 and never reach the controller.
-      mockCanUse.mockResolvedValueOnce({
-        allowed: false,
-        reason: 'no_subscription',
-      });
-      const denied = await request(app)
-        [c.method.toLowerCase() as 'post' | 'put' | 'patch'](c.path)
-        .send(c.body ?? {});
-      expect(denied.status).toBe(402);
-      expect(denied.body.error).toBe('PAYMENT_REQUIRED');
-      expect(controllerSpy).not.toHaveBeenCalled();
+  const openParenIdx = i;
+  let depth = 0;
+  for (; i < fileContent.length; i++) {
+    const c = fileContent[i];
+    if (c === '(') depth++;
+    else if (c === ')') {
+      depth--;
+      if (depth === 0) {
+        return fileContent.substring(openParenIdx + 1, i);
+      }
+    }
+  }
+  return null;
+}
 
-      // 2. Entitled — must reach the controller.
-      mockCanUse.mockResolvedValueOnce({ allowed: true, reason: 'active_subscription' });
-      const allowed = await request(app)
-        [c.method.toLowerCase() as 'post' | 'put' | 'patch'](c.path)
-        .send(c.body ?? {});
-      expect(allowed.status).toBe(c.successStatus);
-      expect(controllerSpy).toHaveBeenCalledTimes(1);
+const uniqueGatedFiles = Array.from(new Set(GATED.map((g) => g.file)));
+
+describe('paywall gate matrix — static scan of real route files', () => {
+  it.each(uniqueGatedFiles)(
+    '%s imports requireEntitlement from ../middleware/requireEntitlement',
+    (file) => {
+      const content = readRouteFile(file);
+      // Allow any named-import form. Whitespace inside the brace
+      // clause is tolerated; the path string is what we anchor on.
+      expect(content).toMatch(/from\s+['"]\.\.\/middleware\/requireEntitlement['"]/);
+      expect(content).toContain('requireEntitlement');
     },
   );
 
-  it('asserts the matrix length matches the real route count to catch silent additions', () => {
-    // Sanity: if a future PR adds a new gated route but forgets to add
-    // a row here, this test still passes — but the new route would not
-    // be locked in. The lower bound is enforced explicitly so adding
-    // a new gated route requires updating this matrix.
-    expect(GATED.length).toBeGreaterThanOrEqual(27);
+  it.each(GATED)(
+    '$file: $method $pathInFile mounts requireEntitlement before asyncHandler',
+    (route) => {
+      const content = readRouteFile(route.file);
+      const body = extractRouteBody(content, route.method, route.pathInFile);
+
+      // 1. Route must exist as written in the matrix. Failure here means
+      //    the path/method drifted — update the matrix to match.
+      if (body === null) {
+        throw new Error(
+          `Could not locate router.${route.method}('${route.pathInFile}', ...) in routes/${route.file}. ` +
+            'Did the path or method change? Update the matrix to match.',
+        );
+      }
+
+      // 2. The gate must be present in the route's argument list.
+      const gateIdx = body.indexOf('requireEntitlement');
+      if (gateIdx < 0) {
+        throw new Error(
+          `routes/${route.file} → ${route.method.toUpperCase()} ${route.pathInFile} ` +
+            'is missing requireEntitlement. Re-add the middleware before the controller. ' +
+            (route.note ? `Why this route is gated: ${route.note}.` : ''),
+        );
+      }
+
+      // 3. The gate must run BEFORE the asyncHandler-wrapped controller.
+      const handlerIdx = body.indexOf('asyncHandler(');
+      if (handlerIdx <= 0) {
+        throw new Error(
+          `Expected asyncHandler(...) in router.${route.method}('${route.pathInFile}', ...). ` +
+            'This scanner assumes all gated routes wrap their controllers in asyncHandler.',
+        );
+      }
+      if (gateIdx > handlerIdx) {
+        throw new Error(
+          `routes/${route.file} → ${route.method.toUpperCase()} ${route.pathInFile} ` +
+            'mounts requireEntitlement AFTER asyncHandler — gate must run before the controller.',
+        );
+      }
+
+      // 4. For upload routes, the gate must also precede multer so
+      //    unentitled requests never hit memory/disk.
+      if (route.multerToken) {
+        const multerIdx = body.indexOf(route.multerToken);
+        if (multerIdx <= 0) {
+          throw new Error(
+            `Expected '${route.multerToken}' inside router.${route.method}('${route.pathInFile}', ...). ` +
+              'If the multer middleware was renamed, update the matrix.',
+          );
+        }
+        if (gateIdx > multerIdx) {
+          throw new Error(
+            `routes/${route.file} → ${route.method.toUpperCase()} ${route.pathInFile} ` +
+              `mounts requireEntitlement AFTER ${route.multerToken} — multer would buffer/disk-write ` +
+              'an unentitled upload before the gate fires.',
+          );
+        }
+      }
+
+      // 5. Sanity asserts (so the test still appears in the green list
+      //    when everything is in order).
+      expect(gateIdx).toBeGreaterThanOrEqual(0);
+      expect(gateIdx).toBeLessThan(handlerIdx);
+    },
+  );
+
+  it('matrix size enforces lower bound — adding new gated routes requires updating this file', () => {
+    // Was 27 in pass 1. Pass 2 adds chart detect-from-image, chart
+    // correct, patterns import-from-url, tools, and 5 Ravelry imports
+    // = +9. The lower bound here doubles as a "did you forget to add a
+    // row?" signal — adding a new gated route to a routes/*.ts file
+    // means appending to GATED above. This assertion catches the
+    // symmetric mistake of adding the gate without locking it in.
+    expect(GATED.length).toBeGreaterThanOrEqual(36);
   });
 });

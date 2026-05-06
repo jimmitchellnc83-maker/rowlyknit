@@ -86,3 +86,35 @@ export async function fetchPortalUrl(): Promise<PortalResponse> {
     throw toBillingError(err);
   }
 }
+
+/**
+ * Map Lemon Squeezy / normalised status enums to human copy. Both
+ * UpgradePage (banner copy) and AccountBillingPage (status row) consume
+ * this — keep them in sync via the shared function rather than two
+ * parallel switch statements that drift.
+ *
+ * Raw values like `on_trial`, `past_due` leaked into the UI before this
+ * was hoisted. Calling this function gates the raw value out of the
+ * DOM.
+ */
+export function humanStatusLabel(status: string | null): string {
+  switch (status) {
+    case 'on_trial':
+      return 'Free trial';
+    case 'active':
+      return 'Active';
+    case 'paused':
+      return 'Paused';
+    case 'past_due':
+      return 'Past due';
+    case 'unpaid':
+      return 'Unpaid';
+    case 'cancelled':
+    case 'canceled':
+      return 'Cancelled';
+    case 'expired':
+      return 'Expired';
+    default:
+      return status ? status.replace(/_/g, ' ') : 'Unknown';
+  }
+}

@@ -241,7 +241,7 @@ describe('billing mocked smoke — webhook → entitlement', () => {
     expect(status.isActive).toBe(false);
   });
 
-  it('subscription_cancelled with future ends_at keeps user active until ends_at', async () => {
+  it('subscription_cancelled marks user as not entitled even when ends_at lies in the future (Rowly does not grant LS-style grace)', async () => {
     const provider = new LemonSqueezyProvider(cfg);
     const service = new BillingService(provider);
 
