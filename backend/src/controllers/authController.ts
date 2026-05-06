@@ -394,6 +394,27 @@ export async function getProfile(req: Request, res: Response) {
     throw new NotFoundError('User not found');
   }
 
+  // Attach the user's current billing snapshot so the frontend
+  // entitlement helper (`canUsePaidWorkspace`) can read
+  // `user.subscription.status` without a second round-trip. Latest
+  // row by `updated_at` — webhook handlers always touch updated_at.
+  const subRow = await db('billing_subscriptions')
+    .where({ user_id: userId })
+    .orderBy('updated_at', 'desc')
+    .first();
+
+  const subscription = subRow
+    ? {
+        status: subRow.status as string,
+        plan: (subRow.plan ?? null) as 'monthly' | 'annual' | null,
+        trialEndsAt: subRow.trial_ends_at
+          ? new Date(subRow.trial_ends_at).toISOString()
+          : null,
+        renewsAt: subRow.renews_at ? new Date(subRow.renews_at).toISOString() : null,
+        endsAt: subRow.ends_at ? new Date(subRow.ends_at).toISOString() : null,
+      }
+    : null;
+
   res.json({
     success: true,
     data: {
@@ -407,6 +428,7 @@ export async function getProfile(req: Request, res: Response) {
         emailVerified: user.email_verified,
         preferences: user.preferences,
         createdAt: user.created_at,
+        subscription,
       },
     },
   });

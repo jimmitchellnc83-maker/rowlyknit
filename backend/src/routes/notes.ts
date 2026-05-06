@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { body } from 'express-validator';
 import * as notesController from '../controllers/notesController';
 import { authenticate } from '../middleware/auth';
+import { requireEntitlement } from '../middleware/requireEntitlement';
 import { validate, validateUUID } from '../middleware/validator';
 import { asyncHandler } from '../utils/errorHandler';
 import { uploadAudioMiddleware, uploadHandwrittenMiddleware } from '../controllers/uploadsController';
@@ -143,6 +144,7 @@ router.get(
 
 router.post(
   '/projects/:id/memos',
+  requireEntitlement,
   [
     validateUUID('id'),
     body('templateType').notEmpty().isIn(ALLOWED_TEMPLATE_TYPES),
@@ -154,6 +156,7 @@ router.post(
 );
 router.post(
   '/projects/:id/structured-memos',
+  requireEntitlement,
   [
     validateUUID('id'),
     body('templateType').notEmpty().isIn(ALLOWED_TEMPLATE_TYPES),

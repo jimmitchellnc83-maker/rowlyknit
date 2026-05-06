@@ -77,10 +77,16 @@ export interface UserLike {
   subscription?: {
     status?:
       | 'active'
+      | 'on_trial'
       | 'trialing'
       | 'paused'
+      | 'past_due'
+      | 'unpaid'
+      | 'cancelled'
       | 'canceled'
       | 'expired'
+      | 'unknown'
+      | string
       | null;
   } | null;
   /** Reserved for Sprint 2 admin role. */
@@ -103,11 +109,15 @@ export function canUsePaidWorkspace(
     return { allowed: true, reason: 'admin' };
   }
 
-  // Sprint 2 plug-in point — the only place a billing provider ever
+  // Billing plug-in point — the only place a billing provider ever
   // touches the UI. Read-only: the webhook is what writes this.
+  // `on_trial` is the Lemon Squeezy normalised value; `trialing` is
+  // accepted as a synonym for forwards-compat with other providers.
   const sub = user.subscription?.status ?? null;
   if (sub === 'active') return { allowed: true, reason: 'active_subscription' };
-  if (sub === 'trialing') return { allowed: true, reason: 'trialing' };
+  if (sub === 'on_trial' || sub === 'trialing') {
+    return { allowed: true, reason: 'trialing' };
+  }
 
   // Pre-launch escape hatch — dev/staging only. Production must not
   // set VITE_PRE_LAUNCH_OPEN=true. The presence of this flag is the

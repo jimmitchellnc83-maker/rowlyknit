@@ -89,6 +89,16 @@ describe('canUsePaidWorkspace', () => {
     ).toEqual({ allowed: true, reason: 'trialing' });
   });
 
+  it('returns trialing when subscription.status is on_trial (LS normalized)', async () => {
+    const { canUsePaidWorkspace } = await loadFresh();
+    expect(
+      canUsePaidWorkspace({
+        email: 'trial@rowly.test',
+        subscription: { status: 'on_trial' },
+      }),
+    ).toEqual({ allowed: true, reason: 'trialing' });
+  });
+
   it('denies canceled / expired / paused subscriptions without owner role', async () => {
     const { canUsePaidWorkspace } = await loadFresh();
     for (const status of ['canceled', 'expired', 'paused', null] as const) {

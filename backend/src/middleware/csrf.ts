@@ -72,6 +72,11 @@ export function conditionalCsrf(req: Request, res: Response, next: NextFunction)
     '/api/auth/forgot-password',
     '/api/auth/reset-password',
     '/api/csrf-token',
+    // Billing webhooks are signed with an HMAC + the provider's secret,
+    // not the CSRF cookie — providers can't fetch /api/csrf-token from
+    // their side, and the HMAC verification in billingController is the
+    // proof-of-origin we rely on instead.
+    '/api/billing/lemonsqueezy/webhook',
     // Public shared content. Recipients of a shared link are anonymous
     // visitors with no existing __csrf cookie, so we can't require the
     // double-submit token here. Abuse is bounded by the /shared/* rate

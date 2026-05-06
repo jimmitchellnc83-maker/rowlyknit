@@ -56,6 +56,9 @@ import calculatorsSsrRoutes from './routes/calculators-ssr';
 import abbreviationsRoutes from './routes/abbreviations';
 import gdprRoutes from './routes/gdpr';
 import sourceFilesRoutes from './routes/source-files';
+import billingRoutes from './routes/billing';
+import * as billingController from './controllers/billingController';
+import { asyncHandler } from './utils/errorHandler';
 
 // Create Express app
 const app: Application = express();
@@ -94,6 +97,19 @@ app.use(cors({
   },
   credentials: true,
 }));
+
+// Billing webhook MUST receive the raw request body so we can verify
+// the HMAC signature byte-for-byte. Register it BEFORE express.json so
+// the JSON parser doesn't drain the stream first. The route's own
+// `express.raw({type:'*\/*'})` parser is what populates `req.body` as a
+// Buffer; we mount this single endpoint here, and the rest of the
+// billing surface (status / checkout / portal) lives on the regular
+// `/api/billing/*` mount further down with normal JSON parsing.
+app.post(
+  '/api/billing/lemonsqueezy/webhook',
+  express.raw({ type: '*/*', limit: '1mb' }),
+  asyncHandler(billingController.lemonSqueezyWebhook),
+);
 
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
@@ -182,6 +198,7 @@ app.use('/api/users', userExamplesRoutes);
 app.use('/api/abbreviations', abbreviationsRoutes);
 app.use('/api/gdpr', gdprRoutes);
 app.use('/api/source-files', sourceFilesRoutes);
+app.use('/api/billing', billingRoutes);
 app.use('/shared', sharedRoutes); // Public shared content routes
 app.use('/', ogRenderRoutes); // Server-side OG meta for /p/:slug
 app.use('/', calculatorsSsrRoutes); // Server-side JSON-LD for /calculators

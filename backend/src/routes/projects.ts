@@ -9,6 +9,7 @@ import * as sourceFilesController from '../controllers/sourceFilesController';
 import * as markerStateController from '../controllers/markerStateController';
 import * as joinLayoutController from '../controllers/joinLayoutController';
 import { authenticate } from '../middleware/auth';
+import { requireEntitlement } from '../middleware/requireEntitlement';
 import { validate, validateUUID, validatePagination, validateSearch } from '../middleware/validator';
 import { asyncHandler } from '../utils/errorHandler';
 
@@ -71,6 +72,7 @@ router.get(
  */
 router.post(
   '/',
+  requireEntitlement,
   [
     body('name').trim().notEmpty().isLength({ max: 255 }),
     body('description').optional().trim(),

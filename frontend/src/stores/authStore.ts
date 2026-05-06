@@ -45,6 +45,30 @@ interface UserPreferences {
   };
 }
 
+/**
+ * Subscription snapshot returned by `/api/auth/profile` — derived from
+ * the latest `billing_subscriptions` row for this user. The frontend
+ * `canUsePaidWorkspace` helper reads `subscription.status` to gate
+ * paid-workspace operations. `null` when the user has never started a
+ * checkout (the gate falls back to owner / pre-launch-open paths).
+ */
+export interface UserSubscription {
+  status:
+    | 'on_trial'
+    | 'active'
+    | 'paused'
+    | 'past_due'
+    | 'unpaid'
+    | 'cancelled'
+    | 'expired'
+    | 'unknown'
+    | string;
+  plan: 'monthly' | 'annual' | null;
+  trialEndsAt: string | null;
+  renewsAt: string | null;
+  endsAt: string | null;
+}
+
 interface User {
   id: string;
   email: string;
@@ -52,6 +76,7 @@ interface User {
   lastName: string;
   emailVerified: boolean;
   preferences?: UserPreferences;
+  subscription?: UserSubscription | null;
 }
 
 interface AuthState {
