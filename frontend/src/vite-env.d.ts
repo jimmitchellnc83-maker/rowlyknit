@@ -26,6 +26,21 @@ interface ImportMetaEnv {
    *  `BILLING_PRE_LAUNCH_OPEN`. Production flips this off once the
    *  trial flow is live. */
   readonly VITE_BILLING_PRE_LAUNCH_OPEN?: string;
+  /** AdSense ad-unit slot ids per approved public route. Vite bakes
+   *  these into the JS bundle at build time, so changing them on the
+   *  droplet without a frontend rebuild has NO effect. The backend
+   *  reads the matching `ADSENSE_SLOT_<TOOL>` (no `VITE_` prefix)
+   *  for the dashboard readiness check; both halves must be set to
+   *  the SAME numeric ad-unit id provisioned in the AdSense
+   *  dashboard. See `frontend/src/components/ads/adsenseSlots.ts`. */
+  readonly VITE_ADSENSE_SLOT_CALCULATORS_INDEX?: string;
+  readonly VITE_ADSENSE_SLOT_GAUGE?: string;
+  readonly VITE_ADSENSE_SLOT_SIZE?: string;
+  readonly VITE_ADSENSE_SLOT_YARDAGE?: string;
+  readonly VITE_ADSENSE_SLOT_ROW_REPEAT?: string;
+  readonly VITE_ADSENSE_SLOT_SHAPING?: string;
+  readonly VITE_ADSENSE_SLOT_GLOSSARY?: string;
+  readonly VITE_ADSENSE_SLOT_KNIT911?: string;
 }
 
 interface ImportMeta {

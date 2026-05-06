@@ -14,11 +14,18 @@ const router = Router();
  *          attached the controller records the user_id, otherwise the
  *          row is anonymous (user_id NULL).
  *
- * Mounted under `/shared/*` so it inherits the public-shared rate
- * limit AND skips the `authenticate` middleware that gates every
- * `/api/*` route. The dedicated `publicAnalyticsLimiter` adds a
- * second-tier per-IP cap on top of `publicSharedLimiter` because this
- * route is much higher-volume than chart/project shares.
+ * Mount order matters: `app.ts` mounts this router on
+ * `/shared/analytics` BEFORE the broader `app.use('/shared/',
+ * publicSharedLimiter)`, so the analytics endpoint does NOT inherit
+ * the 60/min `publicSharedLimiter`. Instead it carries its own
+ * dedicated `publicAnalyticsLimiter` (120/min/IP, applied at the
+ * router level below) — public tool views are higher-volume than
+ * chart/project shares, and a single 60/min ceiling shared with the
+ * other `/shared/*` routes would blackout legit telemetry from a hot
+ * page. The mount-order pin lives in
+ * `backend/src/__tests__/sharedAnalyticsMountOrder.test.ts`. The
+ * `authenticate` middleware that gates `/api/*` is also bypassed by
+ * design — public surfaces fire telemetry pre-login.
  */
 router.post(
   '/event',

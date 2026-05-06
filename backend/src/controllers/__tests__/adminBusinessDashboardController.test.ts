@@ -81,6 +81,11 @@ const ENV_KEYS = [
   'ADSENSE_SLOT_SHAPING',
   'ADSENSE_SLOT_GLOSSARY',
   'ADSENSE_SLOT_KNIT911',
+  // Frontend-asset path override used by inspectAdSenseAssets to
+  // verify deployed bundle contents. Tests use a tmp dir to simulate
+  // a deployed dist so they can exercise both "bundle agrees" and
+  // "namespace mismatch" branches honestly.
+  'FRONTEND_INDEX_PATH',
 ];
 
 let originalEnv: Record<string, string | undefined>;
@@ -607,17 +612,43 @@ describe('GET /api/admin/business-dashboard handler', () => {
     expect(adsenseTask.reason).toMatch(/Placeholder|placeholder|provision/);
   });
 
-  it('AdSense readiness slotsConfigured=true requires every approved tool to have a real numeric slot id', async () => {
+  it('AdSense readiness slotsConfigured=true requires both backend env real AND deployed frontend bundle to contain those values', async () => {
     process.env.NODE_ENV = 'development';
-    // Real-looking 10-digit AdSense slot ids on every tool.
-    process.env.ADSENSE_SLOT_CALCULATORS_INDEX = '1234567890';
-    process.env.ADSENSE_SLOT_GAUGE = '1234567891';
-    process.env.ADSENSE_SLOT_SIZE = '1234567892';
-    process.env.ADSENSE_SLOT_YARDAGE = '1234567893';
-    process.env.ADSENSE_SLOT_ROW_REPEAT = '1234567894';
-    process.env.ADSENSE_SLOT_SHAPING = '1234567895';
-    process.env.ADSENSE_SLOT_GLOSSARY = '1234567896';
-    process.env.ADSENSE_SLOT_KNIT911 = '1234567897';
+    const slotIds: Record<string, string> = {
+      ADSENSE_SLOT_CALCULATORS_INDEX: '1234567890',
+      ADSENSE_SLOT_GAUGE: '1234567891',
+      ADSENSE_SLOT_SIZE: '1234567892',
+      ADSENSE_SLOT_YARDAGE: '1234567893',
+      ADSENSE_SLOT_ROW_REPEAT: '1234567894',
+      ADSENSE_SLOT_SHAPING: '1234567895',
+      ADSENSE_SLOT_GLOSSARY: '1234567896',
+      ADSENSE_SLOT_KNIT911: '1234567897',
+    };
+    for (const [k, v] of Object.entries(slotIds)) process.env[k] = v;
+
+    // Stand up a tmp "dist" mirror that contains the configured numeric
+    // ids in a JS bundle file — what Vite would have baked in if the
+    // operator also set the matching VITE_ADSENSE_SLOT_<TOOL> values
+    // and rebuilt the frontend.
+    const fs = require('fs') as typeof import('fs');
+    const os = require('os') as typeof import('os');
+    const pathMod = require('path') as typeof import('path');
+    const tmp = fs.mkdtempSync(pathMod.join(os.tmpdir(), 'rowly-adsense-'));
+    fs.mkdirSync(pathMod.join(tmp, 'assets'));
+    fs.writeFileSync(pathMod.join(tmp, 'index.html'), '<html></html>');
+    // One bundle file containing all 8 ids verbatim — Vite literal-replaces
+    // import.meta.env.VITE_* at build time, so each value lands in the
+    // built JS as a string literal the backend can grep for.
+    fs.writeFileSync(
+      pathMod.join(tmp, 'assets', 'index-test.js'),
+      Object.values(slotIds).map((v) => `var x="${v}";`).join('\n'),
+    );
+    fs.writeFileSync(
+      pathMod.join(tmp, 'ads.txt'),
+      'google.com, pub-9472587145183950, DIRECT, f08c47fec0942fa0',
+    );
+    process.env.FRONTEND_INDEX_PATH = pathMod.join(tmp, 'index.html');
+
     programDbMock({
       tablesExist: { billing_subscriptions: true, blog_posts: false },
       perTable: { 'billing_subscriptions:groupBy': [[]] },
@@ -625,8 +656,18 @@ describe('GET /api/admin/business-dashboard handler', () => {
     const res = makeRes();
     await getBusinessDashboard({} as Request, res);
     const a = res.__json.data.contentAndSEO.adsense;
+    expect(a.backendEnvAllConfigured).toBe(true);
+    expect(a.bundleInspectable).toBe(true);
+    expect(a.slotsAgreeWithBundle).toBe(true);
     expect(a.slotsConfigured).toBe(true);
     expect(a.placeholderSlots).toEqual([]);
+    expect(a.slotsMissingFromBundle).toEqual([]);
+    // Every per-tool agreement entry reports foundInBundle:true.
+    expect(a.bundleAgreement.length).toBe(8);
+    for (const r of a.bundleAgreement) {
+      expect(r.foundInBundle).toBe(true);
+      expect(r.viteEnvName).toBe(`VITE_${r.envName}`);
+    }
   });
 
   it('AdSense readiness slotsConfigured stays false if even one slot is missing or placeholder-shaped', async () => {
@@ -648,6 +689,104 @@ describe('GET /api/admin/business-dashboard handler', () => {
     await getBusinessDashboard({} as Request, res);
     const a = res.__json.data.contentAndSEO.adsense;
     expect(a.slotsConfigured).toBe(false);
+    expect(a.backendEnvAllConfigured).toBe(false);
     expect(a.placeholderSlots).toContain('knit911');
+  });
+
+  // ─── Env namespace fix: backend env without matching VITE_* ─────────
+  it('AdSense readiness slotsConfigured=false when backend env is real but frontend bundle does NOT carry the values (namespace mismatch)', async () => {
+    process.env.NODE_ENV = 'development';
+    // Operator set the backend env but forgot to set the matching
+    // VITE_ADSENSE_SLOT_<TOOL> values (or didn't rebuild the frontend
+    // after setting them). The bundle ships either placeholder ids or
+    // an entirely different number.
+    const slotIds: Record<string, string> = {
+      ADSENSE_SLOT_CALCULATORS_INDEX: '1234567890',
+      ADSENSE_SLOT_GAUGE: '1234567891',
+      ADSENSE_SLOT_SIZE: '1234567892',
+      ADSENSE_SLOT_YARDAGE: '1234567893',
+      ADSENSE_SLOT_ROW_REPEAT: '1234567894',
+      ADSENSE_SLOT_SHAPING: '1234567895',
+      ADSENSE_SLOT_GLOSSARY: '1234567896',
+      ADSENSE_SLOT_KNIT911: '1234567897',
+    };
+    for (const [k, v] of Object.entries(slotIds)) process.env[k] = v;
+
+    const fs = require('fs') as typeof import('fs');
+    const os = require('os') as typeof import('os');
+    const pathMod = require('path') as typeof import('path');
+    const tmp = fs.mkdtempSync(pathMod.join(os.tmpdir(), 'rowly-adsense-mismatch-'));
+    fs.mkdirSync(pathMod.join(tmp, 'assets'));
+    fs.writeFileSync(pathMod.join(tmp, 'index.html'), '<html></html>');
+    // The deployed bundle ships the placeholder strings — what would
+    // happen if the operator never set the VITE_* envs at frontend
+    // build time. None of the configured numeric ids appear here.
+    fs.writeFileSync(
+      pathMod.join(tmp, 'assets', 'index-stale.js'),
+      'var x="rowly-gauge"; var y="rowly-size";',
+    );
+    process.env.FRONTEND_INDEX_PATH = pathMod.join(tmp, 'index.html');
+
+    programDbMock({
+      tablesExist: { billing_subscriptions: true, blog_posts: false },
+      perTable: { 'billing_subscriptions:groupBy': [[]] },
+    });
+    const res = makeRes();
+    await getBusinessDashboard({} as Request, res);
+    const a = res.__json.data.contentAndSEO.adsense;
+
+    // Backend env on its own is "configured", but the bundle disagrees.
+    expect(a.backendEnvAllConfigured).toBe(true);
+    expect(a.bundleInspectable).toBe(true);
+    expect(a.slotsAgreeWithBundle).toBe(false);
+    // Therefore the dashboard refuses to report slotsConfigured.
+    expect(a.slotsConfigured).toBe(false);
+    expect(a.publicAdsEnabled).toBe(false);
+    // Every tool surfaces in slotsMissingFromBundle because nothing
+    // matched.
+    expect(a.slotsMissingFromBundle.length).toBe(8);
+    expect(a.slotsMissingFromBundle).toEqual(
+      expect.arrayContaining(['gauge', 'size', 'calculators-index', 'knit911']),
+    );
+
+    // Owner task explains the gap and names BOTH env namespaces in
+    // the suggested action so the operator knows what to set on each
+    // side and that a frontend rebuild is required.
+    const adsenseTask = res.__json.data.ownerTasks.find((t: any) => t.id === 'adsense');
+    expect(adsenseTask.status).not.toBe('done');
+    expect(adsenseTask.suggestedAction).toMatch(/VITE_ADSENSE_SLOT_/);
+    expect(adsenseTask.suggestedAction).toMatch(/rebuild/i);
+  });
+
+  it('AdSense readiness slotsConfigured=false when only frontend VITE_* values are set (backend env empty)', async () => {
+    // This is the "frontend-only" half of the namespace fix: even if
+    // a Vite-baked bundle ships real numeric ids, the dashboard has
+    // no way to know about them without the matching backend
+    // ADSENSE_SLOT_<TOOL> env vars. Without backend env we treat it
+    // as unconfigured — same outcome as no env at all.
+    process.env.NODE_ENV = 'development';
+    // Pretend the bundle has values for every tool…
+    const fs = require('fs') as typeof import('fs');
+    const os = require('os') as typeof import('os');
+    const pathMod = require('path') as typeof import('path');
+    const tmp = fs.mkdtempSync(pathMod.join(os.tmpdir(), 'rowly-adsense-frontend-only-'));
+    fs.mkdirSync(pathMod.join(tmp, 'assets'));
+    fs.writeFileSync(pathMod.join(tmp, 'index.html'), '<html></html>');
+    fs.writeFileSync(
+      pathMod.join(tmp, 'assets', 'index-fe.js'),
+      'var x="9999999990"; var y="9999999991";', // numeric, but backend doesn't know about these
+    );
+    process.env.FRONTEND_INDEX_PATH = pathMod.join(tmp, 'index.html');
+
+    programDbMock({
+      tablesExist: { billing_subscriptions: true, blog_posts: false },
+      perTable: { 'billing_subscriptions:groupBy': [[]] },
+    });
+    const res = makeRes();
+    await getBusinessDashboard({} as Request, res);
+    const a = res.__json.data.contentAndSEO.adsense;
+    expect(a.backendEnvAllConfigured).toBe(false);
+    expect(a.slotsConfigured).toBe(false);
+    expect(a.publicAdsEnabled).toBe(false);
   });
 });
