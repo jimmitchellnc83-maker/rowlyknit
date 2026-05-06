@@ -7,6 +7,7 @@ import * as chartSharingController from '../controllers/chartSharingController';
 import * as chartSymbolController from '../controllers/chartSymbolController';
 import { authenticate } from '../middleware/auth';
 import { requireEntitlement } from '../middleware/requireEntitlement';
+import { uploadLimiter } from '../middleware/rateLimiter';
 import { validate, validateUUID } from '../middleware/validator';
 import { asyncHandler } from '../utils/errorHandler';
 
@@ -46,15 +47,18 @@ router.use(authenticate);
  * @desc    Detect chart from uploaded image
  * @access  Private (paid workspace)
  *
- * `requireEntitlement` runs BEFORE `upload.single('image')` so an
- * unentitled request is rejected with 402 *before* multer parses the
- * multipart body into memory storage. We also never insert the
- * `detected_charts` pending row for an unentitled request, since the
- * controller is unreachable. Mirrors the source-files upload pattern.
+ * Order: authenticate (router.use above) → requireEntitlement →
+ * uploadLimiter → multer → controller. `requireEntitlement` runs first
+ * so an unentitled request is rejected with 402 *before* multer parses
+ * the multipart body into memory. `uploadLimiter` runs second so an
+ * authed-and-entitled user can't fill memory via repeated detection
+ * POSTs — same blast radius as the source-files upload route, same
+ * mitigation. Mirrors `routes/source-files.ts:55-58` exactly.
  */
 router.post(
   '/detect-from-image',
   requireEntitlement,
+  uploadLimiter,
   upload.single('image'),
   [body('project_id').optional({ values: 'null' }).isUUID()],
   validate,

@@ -7,11 +7,17 @@ import {
   getBillingConfig,
   LEMONSQUEEZY_REQUIRED_ENV,
 } from '../config/billing';
+import { PRICING_USD, ANNUAL_AS_MONTHLY_USD } from '../config/pricing';
 import {
   checkBilling,
   checkTransactionalEmail,
   getLastTransactionalEmailSuccessAt,
 } from '../utils/healthCheck';
+import {
+  ADSENSE_SLOT_ENV_BY_TOOL,
+  buildSlotConfigReport,
+  allAdSenseSlotsConfigured,
+} from '../config/adsenseSlots';
 
 /**
  * Owner-only business command center — `/api/admin/business-dashboard`.
@@ -246,15 +252,14 @@ async function buildLaunchReadiness() {
 /**
  * Revenue stats. Reads `billing_subscriptions` + `billing_events`.
  *
- * MRR formula: any subscription whose normalised status is 'active' or
- * 'on_trial' counts. We assume monthly = $12, annual = $99/12 = $8.25/mo.
- * Pricing is hardcoded today (matches the surface in
- * `frontend/src/pages/UpgradePage.tsx`) — when the variant API returns a
- * price we'll switch to the live value. Until then this is "best
- * estimate" and we tell the operator that out loud.
+ * MRR formula: any subscription whose normalised status is 'active'
+ * counts. Trial subs aren't revenue yet (LS doesn't charge during
+ * trial). Pricing constants live in `config/pricing.ts` and are
+ * mirrored on the frontend in `lib/pricing.ts` — both must match the
+ * configured Lemon Squeezy variant prices.
  */
-const PRICE_USD_MONTHLY = 12;
-const PRICE_USD_ANNUAL = 99;
+const PRICE_USD_MONTHLY = PRICING_USD.monthly;
+const PRICE_USD_ANNUAL = PRICING_USD.annual;
 
 async function buildRevenue() {
   const cfg = getBillingConfig();
@@ -323,8 +328,10 @@ async function buildRevenue() {
   }
 
   // MRR/ARR — recurring revenue from `active` only. Trial subs aren't
-  // revenue yet (LS doesn't charge during trial).
-  const monthlyRevenueUsd = monthlySubscribers * PRICE_USD_MONTHLY + annualSubscribers * (PRICE_USD_ANNUAL / 12);
+  // revenue yet (LS doesn't charge during trial). Annual is amortised
+  // to its monthly equivalent via the shared `ANNUAL_AS_MONTHLY_USD`
+  // constant so the math here can't drift from the page price.
+  const monthlyRevenueUsd = monthlySubscribers * PRICE_USD_MONTHLY + annualSubscribers * ANNUAL_AS_MONTHLY_USD;
   const mrrUsd = Math.round(monthlyRevenueUsd * 100) / 100;
   const arrUsd = Math.round(mrrUsd * 12 * 100) / 100;
 
@@ -466,6 +473,7 @@ async function buildUsers() {
  * read from `users.created_at` and `billing_subscriptions` directly.
  */
 async function buildFunnel() {
+  const cfg = getBillingConfig();
   const usageTable = await tableExists('usage_events');
   const billingTable = await tableExists('billing_subscriptions');
 
@@ -508,19 +516,24 @@ async function buildFunnel() {
   );
 
   // Paid conversions — distinct users who acquired an active subscription
-  // in the window. Reads from billing_subscriptions.
+  // in the window. Reads from billing_subscriptions, scoped to the
+  // CURRENT provider so mock/dev/old-provider rows can't inflate the
+  // production funnel after a provider switch (e.g. swapping `mock` →
+  // `lemonsqueezy`). Mirrors the same `provider: cfg.provider` filter
+  // we use everywhere else in this controller (revenue counts, latest
+  // billing event, failed payments) for consistency.
   let paidConversions7d = 0;
   let paidConversions30d = 0;
   if (billingTable) {
     paidConversions7d = await safeRawCount(async () =>
       db('billing_subscriptions')
-        .where({ status: 'active' })
+        .where({ status: 'active', provider: cfg.provider })
         .whereRaw(`created_at >= NOW() - INTERVAL '7 days'`)
         .countDistinct<{ count: string }[]>('user_id as count'),
     );
     paidConversions30d = await safeRawCount(async () =>
       db('billing_subscriptions')
-        .where({ status: 'active' })
+        .where({ status: 'active', provider: cfg.provider })
         .whereRaw(`created_at >= NOW() - INTERVAL '30 days'`)
         .countDistinct<{ count: string }[]>('user_id as count'),
     );
@@ -736,8 +749,9 @@ async function buildProductUsage() {
 /**
  * Inspect the deployed frontend assets for AdSense readiness signals
  * we can verify from the backend:
- *   - script tag with the right `client=` parameter inside the served
- *     `index.html` (we look in two paths the deploy script puts it in).
+ *   - the AdSense loader hook is wired into the build (we grep the
+ *     built JS bundle for the script src constant — `index.html` no
+ *     longer ships the tag because we route-scope the load).
  *   - `ads.txt` present in the same static-assets tree, with the
  *     expected `google.com, pub-..., DIRECT, ...` line.
  *
@@ -760,21 +774,48 @@ function inspectAdSenseAssets() {
 
   let scriptPresent = false;
   let scriptSource: string | null = null;
+  // The hook injects the script lazily so it never appears in
+  // `index.html`. Probe the built JS bundle in `frontend/dist/assets/*`
+  // for the publisher constant + the `adsbygoogle.js` URL. In dev there
+  // is no `dist`; we fall back to the source `useAdSenseScript.ts`
+  // which is the canonical place that builds the URL.
+  const bundleCandidates: string[] = [];
   for (const p of candidatePaths) {
+    if (!p) continue;
+    bundleCandidates.push(path.join(path.dirname(p), 'assets'));
+  }
+  bundleCandidates.push(
+    path.resolve(__dirname, '../../../frontend/dist/assets'),
+    path.resolve(__dirname, '../../../frontend/src/components/ads'),
+  );
+  for (const dir of bundleCandidates) {
     try {
-      if (!fs.existsSync(p)) continue;
-      const html = fs.readFileSync(p, 'utf8');
-      if (html.includes(`pagead2.googlesyndication.com/pagead/js/adsbygoogle.js`)
-          && html.includes(ADSENSE_PUBLISHER_ID)) {
-        scriptPresent = true;
-        scriptSource = p;
-        break;
+      if (!fs.existsSync(dir)) continue;
+      const stat = fs.statSync(dir);
+      if (!stat.isDirectory()) continue;
+      const files = fs.readdirSync(dir).filter((f) => /\.(js|tsx|ts)$/.test(f));
+      for (const f of files) {
+        const full = path.join(dir, f);
+        try {
+          const text = fs.readFileSync(full, 'utf8');
+          if (
+            text.includes('pagead2.googlesyndication.com/pagead/js/adsbygoogle.js') &&
+            text.includes(ADSENSE_PUBLISHER_ID)
+          ) {
+            scriptPresent = true;
+            scriptSource = full;
+            break;
+          }
+        } catch {
+          // Skip unreadable files.
+        }
       }
-      // Even if the script is missing we know the source path — useful for
-      // the operator when scriptPresent === false.
-      scriptSource = p;
+      if (scriptPresent) break;
+      // Even if the script reference is missing we know we probed a
+      // real assets dir — surface that for the operator.
+      scriptSource = dir;
     } catch (err: any) {
-      logger.warn('adsense script inspection failed', { path: p, error: err?.message });
+      logger.warn('adsense bundle inspection failed', { path: dir, error: err?.message });
     }
   }
 
@@ -806,6 +847,12 @@ function inspectAdSenseAssets() {
     }
   }
 
+  const slotConfig = buildSlotConfigReport();
+  const slotsConfigured = allAdSenseSlotsConfigured();
+  const placeholderSlots = slotConfig
+    .filter((s) => !s.configured)
+    .map((s) => s.tool);
+
   return {
     publisherId: ADSENSE_PUBLISHER_ID,
     scriptPresent,
@@ -814,7 +861,15 @@ function inspectAdSenseAssets() {
     adsTxtValid,
     adsTxtSource,
     adsTxtContents,
-    publicAdsEnabled: scriptPresent && adsTxtValid, // both halves must be live
+    // "ready" only when ALL three halves are live: script tag, valid
+    // ads.txt line, AND every approved ad unit has a real (non-
+    // placeholder) slot id provisioned via env. Anything less and the
+    // dashboard would falsely tell the operator AdSense is earning
+    // money when slots are still empty rectangles.
+    slotsConfigured,
+    placeholderSlots,
+    slotConfig,
+    publicAdsEnabled: scriptPresent && adsTxtValid && slotsConfigured,
     landingPageAdsEnabled: false, // policy: never
     appAdsEnabled: false,         // policy: never
     approvedAdRoutes: [...ADSENSE_APPROVED_ROUTES],
@@ -984,28 +1039,43 @@ async function buildOwnerTasks(launch: Awaited<ReturnType<typeof buildLaunchRead
         },
   );
 
-  // 6. AdSense setup — three signals: script tag in index.html,
-  //    ads.txt present, ads.txt has the right canonical line.
+  // 6. AdSense setup — four signals: script tag served on approved
+  //    routes, ads.txt present, ads.txt has the right canonical line,
+  //    AND every approved ad unit has a real (non-placeholder) slot id
+  //    provisioned via env. The slot check is what stops this task
+  //    from going green while the page still renders empty `rowly-*`
+  //    placeholder slots.
   const a = content.adsense;
-  if (a.scriptPresent && a.adsTxtValid) {
+  if (a.scriptPresent && a.adsTxtValid && a.slotsConfigured) {
     tasks.push({
       id: 'adsense',
       label: 'AdSense set up after public tools are discoverable',
       status: 'done',
-      reason: `Script tag + ads.txt both live for ${a.publisherId}.`,
+      reason: `Script tag + ads.txt + all ${Object.keys(ADSENSE_SLOT_ENV_BY_TOOL).length} ad-unit slot ids live for ${a.publisherId}.`,
       suggestedAction: 'No action needed.',
     });
   } else {
     const reasons: string[] = [];
-    if (!a.scriptPresent) reasons.push('AdSense loader script missing from index.html');
+    if (!a.scriptPresent) reasons.push('AdSense loader script not detected on approved routes');
     if (!a.adsTxtPresent) reasons.push('/ads.txt not served');
     else if (!a.adsTxtValid) reasons.push('/ads.txt does not include the expected google.com line');
+    if (!a.slotsConfigured) {
+      const missingEnvs = a.placeholderSlots
+        .map((tool: string) => ADSENSE_SLOT_ENV_BY_TOOL[tool])
+        .filter(Boolean);
+      reasons.push(
+        `Placeholder slot ids still in use for: ${a.placeholderSlots.join(', ')}; provision real ad units and set ${missingEnvs.join(', ')}`,
+      );
+    }
     tasks.push({
       id: 'adsense',
       label: 'AdSense set up after public tools are discoverable',
-      status: content.adsenseConfigured ? 'not_started' : 'not_started',
+      status: 'not_started',
       reason: reasons.join('; ') || 'AdSense readiness signals not detected.',
-      suggestedAction: 'Confirm the AdSense script is in index.html and that /ads.txt serves the canonical google.com publisher line.',
+      suggestedAction:
+        a.slotsConfigured
+          ? 'Confirm the AdSense script loads on approved routes and /ads.txt serves the canonical google.com publisher line.'
+          : 'Create real ad units in the AdSense dashboard for each approved tool route and set the ADSENSE_SLOT_<TOOL> env vars on the production droplet.',
     });
   }
 

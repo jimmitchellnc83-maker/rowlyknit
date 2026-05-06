@@ -262,15 +262,15 @@ export default function GaugeCalculator() {
   // the original `Calculator Used` event is preserved (dashboards key
   // off it) alongside the new generic `public_tool_*` events.
   useEffect(() => {
-    trackEvent('public_tool_viewed', { toolId: 'gauge' });
+    trackEvent('public_tool_viewed', { toolId: 'gauge', route: '/calculators/gauge' });
   }, []);
   const trackedRef = useRef(false);
   useEffect(() => {
     if (result && !trackedRef.current) {
       trackedRef.current = true;
       trackEvent('Calculator Used', { calculator: 'gauge', status: result.status });
-      trackEvent('public_tool_used', { toolId: 'gauge', status: result.status });
-      trackEvent('public_tool_result_generated', { toolId: 'gauge' });
+      trackEvent('public_tool_used', { toolId: 'gauge', route: '/calculators/gauge', status: result.status });
+      trackEvent('public_tool_result_generated', { toolId: 'gauge', route: '/calculators/gauge' });
     }
   }, [result]);
 

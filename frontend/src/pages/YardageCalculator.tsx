@@ -106,14 +106,14 @@ export default function YardageCalculator() {
   }, [garment, yarnWeight, size, skeinYards]);
 
   useEffect(() => {
-    trackEvent('public_tool_viewed', { toolId: 'yardage' });
+    trackEvent('public_tool_viewed', { toolId: 'yardage', route: '/calculators/yardage' });
   }, []);
   const trackedRef = useRef(false);
   useEffect(() => {
     if (result && !trackedRef.current) {
       trackedRef.current = true;
-      trackEvent('public_tool_used', { toolId: 'yardage', garment, yarnWeight, size });
-      trackEvent('public_tool_result_generated', { toolId: 'yardage' });
+      trackEvent('public_tool_used', { toolId: 'yardage', route: '/calculators/yardage', garment, yarnWeight, size });
+      trackEvent('public_tool_result_generated', { toolId: 'yardage', route: '/calculators/yardage' });
     }
   }, [result, garment, yarnWeight, size]);
 

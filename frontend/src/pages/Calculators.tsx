@@ -1,7 +1,9 @@
+import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { FiGrid, FiChevronRight, FiLock } from 'react-icons/fi';
 import { useAuthStore } from '../stores/authStore';
 import { useSeo } from '../hooks/useSeo';
+import { trackEvent } from '../lib/analytics';
 import PublicAdSection from '../components/ads/PublicAdSection';
 
 interface CalculatorLink {
@@ -59,6 +61,9 @@ const CALCULATORS: CalculatorLink[] = [
 
 export default function Calculators() {
   const { isAuthenticated } = useAuthStore();
+  useEffect(() => {
+    trackEvent('public_tool_viewed', { toolId: 'index', route: '/calculators' });
+  }, []);
   useSeo({
     title: 'Free Knitting Calculators — Gauge, Yarn Substitution, Sizing | Rowly',
     description:

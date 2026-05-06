@@ -147,6 +147,9 @@ interface DashboardResponse {
         adsTxtValid: boolean;
         adsTxtSource: string | null;
         adsTxtContents: string | null;
+        slotsConfigured: boolean;
+        placeholderSlots: string[];
+        slotConfig: Array<{ tool: string; envName: string; configured: boolean; value: string | null }>;
         publicAdsEnabled: boolean;
         landingPageAdsEnabled: boolean;
         appAdsEnabled: boolean;
@@ -732,7 +735,7 @@ export default function AdminBusinessDashboard() {
             {content.adsense.publisherId}
           </code>
         </div>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
           <StatCard
             label="Script present"
             value={content.adsense.scriptPresent ? 'yes' : 'no'}
@@ -750,6 +753,16 @@ export default function AdminBusinessDashboard() {
             value={content.adsense.adsTxtValid ? 'yes' : 'no'}
             tone={content.adsense.adsTxtValid ? 'good' : 'warn'}
             hint={content.adsense.expectedAdsTxtLine}
+          />
+          <StatCard
+            label="Slot ids configured"
+            value={content.adsense.slotsConfigured ? 'yes' : 'no'}
+            tone={content.adsense.slotsConfigured ? 'good' : 'warn'}
+            hint={
+              content.adsense.placeholderSlots.length > 0
+                ? `Still placeholder: ${content.adsense.placeholderSlots.join(', ')}`
+                : 'All approved tools have real numeric slot ids.'
+            }
           />
           <StatCard
             label="Public ads enabled"
