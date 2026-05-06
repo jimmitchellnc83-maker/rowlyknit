@@ -734,75 +734,140 @@ async function buildProductUsage() {
 }
 
 /**
+ * Internal HTTP fetch with a tight timeout. Used by the AdSense readiness
+ * probe to read `index.html` and `ads.txt` from the frontend nginx
+ * container — the backend can't read frontend's filesystem (different
+ * Docker image, different mount layout), but it CAN reach
+ * `http://frontend/...` over the docker-compose network.
+ *
+ * Returns `{ ok, status, body }` on any HTTP response (including 4xx /
+ * 5xx, which we want the caller to interpret), or `null` on network
+ * error / timeout / refused-connection. The dashboard must never hang
+ * on a probe — 2s caps each fetch.
+ */
+async function fetchInternal(url: string, timeoutMs = 2000): Promise<{ ok: boolean; status: number; body: string } | null> {
+  // Native fetch is available on Node ≥18 (the backend image runs Node 20).
+  // AbortController gives us the timeout.
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { signal: ac.signal });
+    const body = await res.text();
+    return { ok: res.ok, status: res.status, body };
+  } catch (err: any) {
+    logger.warn('adsense internal probe failed', { url, error: err?.message });
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
  * Inspect the deployed frontend assets for AdSense readiness signals
  * we can verify from the backend:
  *   - script tag with the right `client=` parameter inside the served
- *     `index.html` (we look in two paths the deploy script puts it in).
- *   - `ads.txt` present in the same static-assets tree, with the
- *     expected `google.com, pub-..., DIRECT, ...` line.
+ *     `index.html`
+ *   - `ads.txt` present, with the expected `google.com, pub-..., DIRECT, ...` line.
  *
- * Pure side-effect-free reads, swallowed errors. If neither file is
- * present we report the readiness flags as `false` rather than throwing
- * — a transient missing volume mount shouldn't take the dashboard
- * offline.
+ * Production layout: the frontend is its own Docker container
+ * (`rowly_frontend`) reachable on the compose network as
+ * `http://frontend`. The backend image has no frontend assets on disk,
+ * so we MUST go over HTTP for prod readiness. `FRONTEND_INTERNAL_URL`
+ * lets ops override the host (defaults to `http://frontend`).
+ *
+ * Dev / test layout: no docker network. We fall back to reading the
+ * repo's own `frontend/` tree from disk — `frontend/index.html` and
+ * `frontend/public/ads.txt` for source-of-truth dev probes, and
+ * `frontend/dist/*` if the user has run a build.
+ *
+ * Either path can mark `scriptPresent` / `adsTxtValid` true. If both
+ * fail (no docker network AND no repo tree) we honestly report all
+ * three readiness flags as false rather than throwing — the dashboard
+ * stays up, the operator sees the gap.
  */
-function inspectAdSenseAssets() {
-  // The deployed nginx container mounts the frontend build at one of
-  // these paths depending on environment. We try them in order; the
-  // first that exists wins. In dev the source `index.html` lives in
-  // `frontend/index.html` relative to repo root.
-  const candidatePaths = [
+async function inspectAdSenseAssets() {
+  const internalBase = (process.env.FRONTEND_INTERNAL_URL || 'http://frontend').replace(/\/$/, '');
+
+  let scriptPresent = false;
+  let scriptSource: string | null = null;
+  let adsTxtPresent = false;
+  let adsTxtValid = false;
+  let adsTxtSource: string | null = null;
+  let adsTxtContents: string | null = null;
+
+  // ── 1. HTTP probe over the docker-compose network ────────────────
+  const indexResp = await fetchInternal(`${internalBase}/index.html`);
+  // Some nginx setups serve the SPA shell on `/` rather than
+  // `/index.html` — try the bare root if the explicit index miss.
+  const fallbackIndex = indexResp?.ok ? indexResp : await fetchInternal(`${internalBase}/`);
+  if (fallbackIndex?.ok && typeof fallbackIndex.body === 'string') {
+    if (
+      fallbackIndex.body.includes('pagead2.googlesyndication.com/pagead/js/adsbygoogle.js')
+      && fallbackIndex.body.includes(ADSENSE_PUBLISHER_ID)
+    ) {
+      scriptPresent = true;
+      scriptSource = `${internalBase}/index.html`;
+    }
+  }
+
+  const adsResp = await fetchInternal(`${internalBase}/ads.txt`);
+  if (adsResp?.ok && typeof adsResp.body === 'string') {
+    adsTxtPresent = true;
+    adsTxtSource = `${internalBase}/ads.txt`;
+    adsTxtContents = adsResp.body.trim();
+    adsTxtValid = adsResp.body
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .includes(ADSENSE_EXPECTED_ADS_TXT);
+  }
+
+  // ── 2. Disk fallback (dev/test, or prod with no docker network) ──
+  // Only run if the HTTP probe didn't already mark each signal true,
+  // so prod's authoritative HTTP reading isn't shadowed by stale build
+  // artifacts on disk.
+  const diskCandidates = [
     process.env.FRONTEND_INDEX_PATH,
     '/usr/share/nginx/html/index.html',
     path.resolve(__dirname, '../../../frontend/dist/index.html'),
     path.resolve(__dirname, '../../../frontend/index.html'),
   ].filter((p): p is string => Boolean(p));
 
-  let scriptPresent = false;
-  let scriptSource: string | null = null;
-  for (const p of candidatePaths) {
-    try {
-      if (!fs.existsSync(p)) continue;
-      const html = fs.readFileSync(p, 'utf8');
-      if (html.includes(`pagead2.googlesyndication.com/pagead/js/adsbygoogle.js`)
-          && html.includes(ADSENSE_PUBLISHER_ID)) {
-        scriptPresent = true;
-        scriptSource = p;
-        break;
+  if (!scriptPresent) {
+    for (const p of diskCandidates) {
+      try {
+        if (!fs.existsSync(p)) continue;
+        const html = fs.readFileSync(p, 'utf8');
+        if (html.includes('pagead2.googlesyndication.com/pagead/js/adsbygoogle.js') && html.includes(ADSENSE_PUBLISHER_ID)) {
+          scriptPresent = true;
+          scriptSource = p;
+          break;
+        }
+        if (!scriptSource) scriptSource = p;
+      } catch (err: any) {
+        logger.warn('adsense script disk probe failed', { path: p, error: err?.message });
       }
-      // Even if the script is missing we know the source path — useful for
-      // the operator when scriptPresent === false.
-      scriptSource = p;
-    } catch (err: any) {
-      logger.warn('adsense script inspection failed', { path: p, error: err?.message });
     }
   }
 
-  // ads.txt — same probe set with `index.html` swapped for `ads.txt`.
-  const adsTxtCandidates = candidatePaths.map((p) => path.join(path.dirname(p), 'ads.txt'));
-  // Also try `frontend/public/ads.txt` for dev (vite serves /public via root).
-  adsTxtCandidates.push(path.resolve(__dirname, '../../../frontend/public/ads.txt'));
-
-  let adsTxtPresent = false;
-  let adsTxtValid = false;
-  let adsTxtSource: string | null = null;
-  let adsTxtContents: string | null = null;
-  for (const p of adsTxtCandidates) {
-    try {
-      if (!fs.existsSync(p)) continue;
-      const txt = fs.readFileSync(p, 'utf8');
-      adsTxtPresent = true;
-      adsTxtSource = p;
-      adsTxtContents = txt.trim();
-      // Validity check: at least one line equals the canonical AdSense
-      // line (whitespace-tolerant).
-      adsTxtValid = txt
-        .split(/\r?\n/)
-        .map((line) => line.trim())
-        .includes(ADSENSE_EXPECTED_ADS_TXT);
-      break;
-    } catch (err: any) {
-      logger.warn('adsense ads.txt inspection failed', { path: p, error: err?.message });
+  if (!adsTxtValid) {
+    const adsTxtDiskCandidates = diskCandidates.map((p) => path.join(path.dirname(p), 'ads.txt'));
+    adsTxtDiskCandidates.push(path.resolve(__dirname, '../../../frontend/public/ads.txt'));
+    for (const p of adsTxtDiskCandidates) {
+      try {
+        if (!fs.existsSync(p)) continue;
+        const txt = fs.readFileSync(p, 'utf8');
+        adsTxtPresent = true;
+        if (!adsTxtSource) adsTxtSource = p;
+        if (!adsTxtContents) adsTxtContents = txt.trim();
+        if (txt.split(/\r?\n/).map((line) => line.trim()).includes(ADSENSE_EXPECTED_ADS_TXT)) {
+          adsTxtValid = true;
+          adsTxtSource = p;
+          adsTxtContents = txt.trim();
+          break;
+        }
+      } catch (err: any) {
+        logger.warn('adsense ads.txt disk probe failed', { path: p, error: err?.message });
+      }
     }
   }
 
@@ -841,7 +906,7 @@ async function buildContentAndSEO() {
   // AdSense readiness — read from the actual built assets (script in
   // index.html + ads.txt presence + line validity) rather than just an
   // env var. This is the readiness card the founder reads.
-  const adsense = inspectAdSenseAssets();
+  const adsense = await inspectAdSenseAssets();
   // Legacy env-var fallback kept for the owner-task derivation: if the
   // built script isn't visible from this process (different deploy
   // layout), the env var is a manual override that still says "yes,
