@@ -19,12 +19,18 @@ export default function PublicLayout() {
           >
             Rowly
           </Link>
-          <nav className="flex items-center gap-2 md:gap-4">
+          <nav aria-label="Public" className="flex items-center gap-1 md:gap-3">
             <Link
               to="/calculators"
-              className="hidden text-sm font-medium text-gray-700 hover:text-purple-600 dark:text-gray-300 dark:hover:text-purple-400 sm:inline"
+              className="px-2 py-2 text-sm font-medium text-gray-700 hover:text-purple-600 rounded-md hover:bg-gray-100 dark:text-gray-300 dark:hover:text-purple-400 dark:hover:bg-gray-700/50 md:px-3"
             >
-              Calculators
+              Tools
+            </Link>
+            <Link
+              to="/help/glossary"
+              className="hidden px-3 py-2 text-sm font-medium text-gray-700 hover:text-purple-600 rounded-md hover:bg-gray-100 dark:text-gray-300 dark:hover:text-purple-400 dark:hover:bg-gray-700/50 md:inline-flex"
+            >
+              Glossary
             </Link>
             <ThemeToggle />
             {isAuthenticated ? (
@@ -38,7 +44,7 @@ export default function PublicLayout() {
               <>
                 <Link
                   to="/login"
-                  className="hidden text-sm font-medium text-gray-700 hover:text-purple-600 dark:text-gray-300 dark:hover:text-purple-400 sm:inline"
+                  className="hidden text-sm font-medium text-gray-700 hover:text-purple-600 dark:text-gray-300 dark:hover:text-purple-400 sm:inline-flex sm:px-3 sm:py-2"
                 >
                   Sign in
                 </Link>
