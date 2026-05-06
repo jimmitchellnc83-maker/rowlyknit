@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { FiActivity, FiUsers, FiAlertTriangle } from 'react-icons/fi';
+import { FiActivity, FiUsers, FiAlertTriangle, FiArrowRight } from 'react-icons/fi';
 import { useSeo } from '../hooks/useSeo';
 
 type DayWindow = 7 | 14 | 30 | 90;
@@ -68,12 +68,25 @@ export default function AdminUsage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Usage analytics</h1>
-        <p className="mt-1 max-w-2xl text-sm text-gray-600 dark:text-gray-400">
-          Server-side event rollup from the <code className="rounded bg-gray-100 px-1 text-xs dark:bg-gray-800">usage_events</code> table.
-          Sorted by unique users so a single enthusiast firing 500 events doesn&apos;t fake out a keep/cut decision.
-        </p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Usage analytics</h1>
+          <p className="mt-1 max-w-2xl text-sm text-gray-600 dark:text-gray-400">
+            Server-side event rollup from the <code className="rounded bg-gray-100 px-1 text-xs dark:bg-gray-800">usage_events</code> table.
+            Sorted by unique users so a single enthusiast firing 500 events doesn&apos;t fake out a keep/cut decision.
+          </p>
+        </div>
+        {/* Sister-dashboard link. The business command center reads this
+            same usage_events surface plus billing/users/launch — it's
+            the founder's daily pane. We point at it from here so /admin/usage
+            stops being the hidden default landing for "where's the data". */}
+        <Link
+          to="/admin/business"
+          data-testid="admin-business-link"
+          className="inline-flex min-h-[44px] items-center gap-1 self-start rounded border border-purple-300 bg-purple-50 px-3 text-sm font-medium text-purple-800 hover:bg-purple-100 dark:border-purple-800 dark:bg-purple-900/30 dark:text-purple-200 dark:hover:bg-purple-900/50"
+        >
+          Business dashboard <FiArrowRight className="h-4 w-4" />
+        </Link>
       </div>
 
       <div className="flex items-center gap-2 text-sm">

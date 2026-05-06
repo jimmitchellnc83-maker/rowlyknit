@@ -57,6 +57,7 @@ import abbreviationsRoutes from './routes/abbreviations';
 import gdprRoutes from './routes/gdpr';
 import sourceFilesRoutes from './routes/source-files';
 import billingRoutes from './routes/billing';
+import adminBusinessDashboardRoutes from './routes/admin-business-dashboard';
 import * as billingController from './controllers/billingController';
 import { asyncHandler } from './utils/errorHandler';
 
@@ -199,6 +200,7 @@ app.use('/api/abbreviations', abbreviationsRoutes);
 app.use('/api/gdpr', gdprRoutes);
 app.use('/api/source-files', sourceFilesRoutes);
 app.use('/api/billing', billingRoutes);
+app.use('/api/admin', adminBusinessDashboardRoutes); // Owner-only business dashboard
 app.use('/shared', sharedRoutes); // Public shared content routes
 app.use('/', ogRenderRoutes); // Server-side OG meta for /p/:slug
 app.use('/', calculatorsSsrRoutes); // Server-side JSON-LD for /calculators

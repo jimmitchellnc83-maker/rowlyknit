@@ -34,6 +34,18 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
+
+    <!-- Google AdSense site script. The script LOADS site-wide so the
+         AdSense crawler can verify the publisher relationship, but ad
+         SLOTS are gated by `PublicAdSlot` which only renders on the
+         allowlisted public content/tool pages (see
+         frontend/src/components/ads/PublicAdSlot.tsx). The landing
+         page and the entire authenticated app intentionally render no
+         ad slots — Google's policies forbid ads on pages with private
+         user content or behind a login. -->
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9472587145183950"
+            crossorigin="anonymous"></script>
+
     <title>Rowly - Knitting Project Manager</title>
   </head>
   <body>

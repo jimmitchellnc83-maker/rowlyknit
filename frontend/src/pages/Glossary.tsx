@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { FiSearch, FiX, FiArrowLeft } from 'react-icons/fi';
 import { useSeo } from '../hooks/useSeo';
+import PublicAdSection from '../components/ads/PublicAdSection';
 
 type Craft = 'knit' | 'crochet' | 'tunisian' | 'loom-knit';
 
@@ -397,6 +398,8 @@ export default function Glossary() {
         </a>
         .
       </footer>
+
+      <PublicAdSection slot="rowly-glossary" testId="public-ad-glossary" />
     </div>
   );
 }
