@@ -24,10 +24,54 @@ export type NormalizedStatus =
   | 'expired'
   | 'unknown';
 
+/**
+ * Statuses that are unconditionally entitled — no date check needed.
+ * `cancelled` is NOT in this set: it gets a separate
+ * `isEntitledNow` decision because access is conditional on
+ * `ends_at` still being in the future.
+ */
 export const ENTITLED_STATUSES: ReadonlySet<NormalizedStatus> = new Set([
   'on_trial',
   'active',
 ]);
+
+/**
+ * Single source of truth for the Rowly entitlement policy. Callers in
+ * both the entitlement util and the billing service consult this; the
+ * frontend mirror in `frontend/src/lib/entitlement.ts` implements the
+ * same rules (kept in sync by the entitlement test suites on both
+ * sides).
+ *
+ * Policy:
+ *   - `active`     → entitled
+ *   - `on_trial`   → entitled
+ *   - `cancelled`  → entitled iff `ends_at` is a parseable timestamp
+ *                    strictly in the future (LS-style cancellation
+ *                    grace: user keeps access through the period they
+ *                    already paid for, then the next webhook flips
+ *                    them to `expired`).
+ *   - `cancelled` with no / past `ends_at` → not entitled (we have no
+ *                    proof of paid-through coverage; fail closed).
+ *   - everything else (`expired`, `past_due`, `unpaid`, `paused`,
+ *                    `unknown`) → not entitled.
+ *
+ * `now` is injectable so tests can pin the clock without touching
+ * `Date.now`. Production callers leave it as the default.
+ */
+export function isEntitledNow(
+  status: NormalizedStatus | string | null | undefined,
+  endsAt: Date | string | null | undefined,
+  now: Date = new Date(),
+): boolean {
+  if (status === 'on_trial' || status === 'active') return true;
+  if (status === 'cancelled') {
+    if (!endsAt) return false;
+    const ts = endsAt instanceof Date ? endsAt.getTime() : Date.parse(endsAt);
+    if (Number.isNaN(ts)) return false;
+    return ts > now.getTime();
+  }
+  return false;
+}
 
 export interface CheckoutInput {
   userId: string;

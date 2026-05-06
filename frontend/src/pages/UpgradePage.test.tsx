@@ -16,10 +16,12 @@ vi.mock('../lib/billing', () => ({
   fetchPortalUrl: vi.fn(),
   // PR #389 closure pass 2: humanStatusLabel was hoisted from
   // UpgradePage into lib/billing so AccountBillingPage could share it.
+  // PR #389 P2 cancelled-grace: signature now accepts an `endsAt` so a
+  // cancelled+future-ends_at user reads "Access until <date>".
   // Mocking the module wholesale means we must re-export the helper or
   // the page renders `undefined` and the active-banner crash bubbles
   // up here. Mirror the production switch one-for-one.
-  humanStatusLabel: (status: string | null) => {
+  humanStatusLabel: (status: string | null, endsAt: string | null = null) => {
     switch (status) {
       case 'on_trial':
         return 'Free trial';
@@ -32,8 +34,12 @@ vi.mock('../lib/billing', () => ({
       case 'unpaid':
         return 'Unpaid';
       case 'cancelled':
-      case 'canceled':
-        return 'Cancelled';
+      case 'canceled': {
+        if (!endsAt) return 'Cancelled';
+        const ts = Date.parse(endsAt);
+        if (Number.isNaN(ts) || ts <= Date.now()) return 'Cancelled';
+        return `Access until ${new Date(ts).toLocaleDateString()}`;
+      }
       case 'expired':
         return 'Expired';
       default:

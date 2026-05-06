@@ -18,9 +18,12 @@ import { ENTITLED_STATUSES } from '../services/billing/types';
  *   - `pre_launch_open`        — BILLING_PRE_LAUNCH_OPEN=true escape
  *                                 hatch (dev/staging or pre-billing
  *                                 production rollout)
- *   - `active_subscription`    — billing_subscriptions row with status
- *                                 in ENTITLED_STATUSES (active)
+ *   - `active_subscription`    — billing_subscriptions row with
+ *                                 status=active
  *   - `trialing`               — same row but status=on_trial
+ *   - `cancelled_grace`        — status=cancelled but ends_at is in
+ *                                 the future; user keeps access
+ *                                 through the paid-through period
  *   - `no_active_subscription` — has billing rows but none entitled
  *   - `no_subscription`        — never transacted
  *
@@ -33,6 +36,7 @@ export type EntitlementReason =
   | 'pre_launch_open'
   | 'active_subscription'
   | 'trialing'
+  | 'cancelled_grace'
   | 'no_active_subscription'
   | 'no_subscription';
 
@@ -120,11 +124,11 @@ export async function canUsePaidWorkspace(args: {
   };
 
   if (status.isActive) {
-    return {
-      allowed: true,
-      reason: sub.status === 'on_trial' ? 'trialing' : 'active_subscription',
-      subscription: summary,
-    };
+    let reason: EntitlementReason;
+    if (sub.status === 'on_trial') reason = 'trialing';
+    else if (sub.status === 'cancelled') reason = 'cancelled_grace';
+    else reason = 'active_subscription';
+    return { allowed: true, reason, subscription: summary };
   }
 
   return {

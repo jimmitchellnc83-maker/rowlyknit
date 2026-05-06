@@ -16,7 +16,13 @@ vi.mock('axios', () => {
 });
 
 import axios from 'axios';
-import { fetchBillingStatus, startCheckout, fetchPortalUrl, BillingError } from '../billing';
+import {
+  fetchBillingStatus,
+  startCheckout,
+  fetchPortalUrl,
+  BillingError,
+  humanStatusLabel,
+} from '../billing';
 
 const mockedGet = axios.get as unknown as ReturnType<typeof vi.fn>;
 const mockedPost = axios.post as unknown as ReturnType<typeof vi.fn>;
@@ -116,5 +122,53 @@ describe('fetchPortalUrl', () => {
     const result = await fetchPortalUrl();
     expect(mockedPost).toHaveBeenCalledWith('/api/billing/portal');
     expect(result.portalUrl).toBe('https://lemon.test/portal/x');
+  });
+});
+
+describe('humanStatusLabel', () => {
+  // PR #389 P2 cancelled-grace policy. The label switch was hoisted
+  // into lib/billing in pass 2 so AccountBillingPage and UpgradePage
+  // share it. The new endsAt argument lets a cancelled-with-future
+  // subscription read "Access until <date>" rather than implying
+  // active renewal — the reviewer flagged this as a SaaS-expectation
+  // gap.
+  const NOW = new Date('2026-05-06T12:00:00Z');
+
+  it('returns "Active" for active', () => {
+    expect(humanStatusLabel('active')).toBe('Active');
+  });
+
+  it('returns "Free trial" for on_trial', () => {
+    expect(humanStatusLabel('on_trial')).toBe('Free trial');
+  });
+
+  it('returns "Cancelled" for cancelled when endsAt is null', () => {
+    expect(humanStatusLabel('cancelled', null, NOW)).toBe('Cancelled');
+  });
+
+  it('returns "Cancelled" for cancelled when endsAt is in the past', () => {
+    const past = new Date(NOW.getTime() - 24 * 60 * 60 * 1000).toISOString();
+    expect(humanStatusLabel('cancelled', past, NOW)).toBe('Cancelled');
+  });
+
+  it('returns "Access until <date>" for cancelled when endsAt is in the future', () => {
+    const future = new Date(NOW.getTime() + 14 * 24 * 60 * 60 * 1000);
+    const expected = `Access until ${future.toLocaleDateString()}`;
+    expect(humanStatusLabel('cancelled', future.toISOString(), NOW)).toBe(expected);
+    // US spelling parity — LS sometimes serializes both.
+    expect(humanStatusLabel('canceled', future.toISOString(), NOW)).toBe(expected);
+  });
+
+  it('returns "Cancelled" for cancelled when endsAt is unparseable', () => {
+    expect(humanStatusLabel('cancelled', 'not-a-date', NOW)).toBe('Cancelled');
+  });
+
+  it('returns "Expired" for expired regardless of endsAt', () => {
+    const future = new Date(NOW.getTime() + 86_400_000).toISOString();
+    expect(humanStatusLabel('expired', future, NOW)).toBe('Expired');
+  });
+
+  it('returns "Unknown" for null status', () => {
+    expect(humanStatusLabel(null)).toBe('Unknown');
   });
 });

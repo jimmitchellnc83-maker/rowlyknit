@@ -96,8 +96,17 @@ export async function fetchPortalUrl(): Promise<PortalResponse> {
  * Raw values like `on_trial`, `past_due` leaked into the UI before this
  * was hoisted. Calling this function gates the raw value out of the
  * DOM.
+ *
+ * `endsAt` is consulted only for `cancelled` / `canceled` so the UI
+ * can render "Access until <date>" rather than implying renewal. The
+ * cancelled-with-no-grace and cancelled-after-ends_at cases fall back
+ * to the bare "Cancelled" label.
  */
-export function humanStatusLabel(status: string | null): string {
+export function humanStatusLabel(
+  status: string | null,
+  endsAt: string | null = null,
+  now: Date = new Date(),
+): string {
   switch (status) {
     case 'on_trial':
       return 'Free trial';
@@ -110,8 +119,12 @@ export function humanStatusLabel(status: string | null): string {
     case 'unpaid':
       return 'Unpaid';
     case 'cancelled':
-    case 'canceled':
-      return 'Cancelled';
+    case 'canceled': {
+      if (!endsAt) return 'Cancelled';
+      const ts = Date.parse(endsAt);
+      if (Number.isNaN(ts) || ts <= now.getTime()) return 'Cancelled';
+      return `Access until ${new Date(ts).toLocaleDateString()}`;
+    }
     case 'expired':
       return 'Expired';
     default:

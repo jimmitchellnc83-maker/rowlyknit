@@ -97,14 +97,36 @@ describe('BillingService.getBillingStatusForUser', () => {
     expect((await svc.getBillingStatusForUser('u')).isActive).toBe(true);
   });
 
-  it.each(['paused', 'past_due', 'unpaid', 'cancelled', 'expired'])(
+  it.each(['paused', 'past_due', 'unpaid', 'expired'])(
     'returns isActive=false for status=%s',
     async (status) => {
-      builderState.firstResults = [{ status }];
+      builderState.firstResults = [{ status, ends_at: null }];
       const svc = new BillingService(new MockBillingProvider());
       expect((await svc.getBillingStatusForUser('u')).isActive).toBe(false);
     },
   );
+
+  // PR #389 P2 cancelled-grace policy. `cancelled` is now conditional
+  // on `ends_at` being in the future — see types.ts/isEntitledNow.
+  it('returns isActive=true for status=cancelled with ends_at in the future', async () => {
+    const futureEndsAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
+    builderState.firstResults = [{ status: 'cancelled', ends_at: futureEndsAt }];
+    const svc = new BillingService(new MockBillingProvider());
+    expect((await svc.getBillingStatusForUser('u')).isActive).toBe(true);
+  });
+
+  it('returns isActive=false for status=cancelled with ends_at in the past', async () => {
+    const pastEndsAt = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    builderState.firstResults = [{ status: 'cancelled', ends_at: pastEndsAt }];
+    const svc = new BillingService(new MockBillingProvider());
+    expect((await svc.getBillingStatusForUser('u')).isActive).toBe(false);
+  });
+
+  it('returns isActive=false for status=cancelled with null ends_at', async () => {
+    builderState.firstResults = [{ status: 'cancelled', ends_at: null }];
+    const svc = new BillingService(new MockBillingProvider());
+    expect((await svc.getBillingStatusForUser('u')).isActive).toBe(false);
+  });
 });
 
 describe('BillingService.ingestWebhookEvent — idempotency', () => {

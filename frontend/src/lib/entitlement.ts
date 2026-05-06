@@ -27,6 +27,12 @@
  *     `allowed: true`. Today neither value is ever set — Sprint 2 wires
  *     the LS webhook to populate this column. Until then the only
  *     production-allowed paths are owner / pre-launch.
+ *   - `user.subscription.status === 'cancelled'` keeps `allowed: true`
+ *     while `endsAt` is in the future (the LS-style "you keep access
+ *     through what you've already paid for" grace). Falls to denied
+ *     once `endsAt` lapses — at which point LS sends
+ *     `subscription_expired` and the row's `status` flips to
+ *     `expired`. Mirrors the backend `isEntitledNow` policy.
  *   - `VITE_BILLING_PRE_LAUNCH_OPEN=true` opens access to all
  *     logged-in users. Mirrors the backend `BILLING_PRE_LAUNCH_OPEN`
  *     so the two surfaces agree. Intended for dev / staging / preview
@@ -57,6 +63,7 @@ export type EntitlementReason =
   | 'admin'
   | 'active_subscription'
   | 'trialing'
+  | 'cancelled_grace'
   | 'pre_launch_open'
   | 'no_active_subscription'
   | 'no_subscription';
@@ -73,8 +80,10 @@ export interface EntitlementResult {
 export interface UserLike {
   email?: string | null;
   /**
-   * Sprint 2 plug-in point. Lemon Squeezy webhook will keep this
-   * synced via the `users` table; nothing populates it today.
+   * Sprint 2 plug-in point. Lemon Squeezy webhook keeps this synced
+   * via the `users` table. `endsAt` is consulted only when status is
+   * `cancelled` — it's the paid-through date and gates the grace
+   * window.
    */
   subscription?: {
     status?:
@@ -90,13 +99,32 @@ export interface UserLike {
       | 'unknown'
       | string
       | null;
+    endsAt?: string | null;
   } | null;
   /** Reserved for Sprint 2 admin role. */
   role?: 'owner' | 'admin' | 'user' | null;
 }
 
+/**
+ * Frontend mirror of the backend `isEntitledNow` policy. Pure helper —
+ * exported so the AccountBillingPage can branch on the cancelled-grace
+ * state for copy purposes without re-implementing the date check.
+ *
+ * `now` is injectable so tests can pin the clock.
+ */
+export function cancelledGraceActive(
+  endsAt: string | null | undefined,
+  now: Date = new Date(),
+): boolean {
+  if (!endsAt) return false;
+  const ts = Date.parse(endsAt);
+  if (Number.isNaN(ts)) return false;
+  return ts > now.getTime();
+}
+
 export function canUsePaidWorkspace(
   user: UserLike | null | undefined,
+  now: Date = new Date(),
 ): EntitlementResult {
   if (!user || !user.email) {
     return { allowed: false, reason: 'unauthenticated' };
@@ -119,6 +147,15 @@ export function canUsePaidWorkspace(
   if (sub === 'active') return { allowed: true, reason: 'active_subscription' };
   if (sub === 'on_trial' || sub === 'trialing') {
     return { allowed: true, reason: 'trialing' };
+  }
+
+  // Cancelled-grace: the user has cancelled but still has paid-through
+  // access until `endsAt`. Once `endsAt` is in the past, LS sends
+  // `subscription_expired` and the row's status flips — we fall
+  // through to the denial branch below.
+  if ((sub === 'cancelled' || sub === 'canceled')
+      && cancelledGraceActive(user.subscription?.endsAt, now)) {
+    return { allowed: true, reason: 'cancelled_grace' };
   }
 
   // Pre-launch escape hatch — dev/staging only. Production must not

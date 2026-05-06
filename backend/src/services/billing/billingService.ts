@@ -4,7 +4,7 @@ import {
   BillingProviderAdapter,
   CheckoutInput,
   CheckoutResult,
-  ENTITLED_STATUSES,
+  isEntitledNow,
   NormalizedStatus,
   NormalizedSubscription,
   NormalizedWebhookEvent,
@@ -56,7 +56,16 @@ export interface BillingStatusForUser {
    * the user has never transacted.
    */
   subscription: PersistedSubscription | null;
-  /** Convenience boolean: the row's `status` is in ENTITLED_STATUSES. */
+  /**
+   * "Is this user currently entitled to paid-workspace access?"
+   *
+   * Driven by `isEntitledNow(status, ends_at)` — `active` and
+   * `on_trial` are unconditional, `cancelled` is true iff `ends_at` is
+   * still in the future (LS-style grace through the paid period),
+   * everything else is false. Renamed-in-spirit from "isActive" to
+   * make it clear the boolean is the entitlement decision, not just
+   * a status-set membership check.
+   */
   isActive: boolean;
 }
 
@@ -95,7 +104,7 @@ export class BillingService {
 
     const subscription = row ?? null;
     const isActive = subscription
-      ? ENTITLED_STATUSES.has(subscription.status)
+      ? isEntitledNow(subscription.status, subscription.ends_at)
       : false;
 
     return { subscription, isActive };

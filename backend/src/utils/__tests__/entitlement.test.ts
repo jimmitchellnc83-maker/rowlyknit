@@ -134,7 +134,7 @@ describe('canUsePaidWorkspace', () => {
     expect(result.reason).toBe('active_subscription');
   });
 
-  it.each(['cancelled', 'expired', 'past_due', 'unpaid'])(
+  it.each(['expired', 'past_due', 'unpaid', 'paused'])(
     'denies status=%s with reason=no_active_subscription',
     async (status) => {
       process.env.BILLING_PROVIDER = 'mock';
@@ -150,4 +150,70 @@ describe('canUsePaidWorkspace', () => {
       expect(result.reason).toBe('no_active_subscription');
     },
   );
+
+  // PR #389 P2 cancelled-grace policy. The service layer pre-computes
+  // `isActive` via isEntitledNow; the entitlement helper just maps it
+  // to the right reason string. cancelled+future → reason=cancelled_grace.
+  it('allows status=cancelled with ends_at in the future (reason=cancelled_grace)', async () => {
+    process.env.BILLING_PROVIDER = 'mock';
+    const futureEndsAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
+    mockGetBillingService.mockReturnValue(
+      fakeService({
+        subscription: {
+          status: 'cancelled',
+          plan: 'monthly',
+          trial_ends_at: null,
+          renews_at: null,
+          ends_at: futureEndsAt,
+        },
+        isActive: true,
+      }),
+    );
+    const { canUsePaidWorkspace } = require('../entitlement');
+    const result = await canUsePaidWorkspace({ userId: 'u', email: 'a@b.c' });
+    expect(result.allowed).toBe(true);
+    expect(result.reason).toBe('cancelled_grace');
+    expect(result.subscription?.endsAt).toBe(futureEndsAt.toISOString());
+  });
+
+  it('denies status=cancelled with ends_at in the past', async () => {
+    process.env.BILLING_PROVIDER = 'mock';
+    const pastEndsAt = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    mockGetBillingService.mockReturnValue(
+      fakeService({
+        subscription: {
+          status: 'cancelled',
+          plan: 'monthly',
+          trial_ends_at: null,
+          renews_at: null,
+          ends_at: pastEndsAt,
+        },
+        isActive: false,
+      }),
+    );
+    const { canUsePaidWorkspace } = require('../entitlement');
+    const result = await canUsePaidWorkspace({ userId: 'u', email: 'a@b.c' });
+    expect(result.allowed).toBe(false);
+    expect(result.reason).toBe('no_active_subscription');
+  });
+
+  it('denies status=cancelled with null ends_at', async () => {
+    process.env.BILLING_PROVIDER = 'mock';
+    mockGetBillingService.mockReturnValue(
+      fakeService({
+        subscription: {
+          status: 'cancelled',
+          plan: 'monthly',
+          trial_ends_at: null,
+          renews_at: null,
+          ends_at: null,
+        },
+        isActive: false,
+      }),
+    );
+    const { canUsePaidWorkspace } = require('../entitlement');
+    const result = await canUsePaidWorkspace({ userId: 'u', email: 'a@b.c' });
+    expect(result.allowed).toBe(false);
+    expect(result.reason).toBe('no_active_subscription');
+  });
 });

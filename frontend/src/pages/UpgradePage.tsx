@@ -219,12 +219,20 @@ export default function UpgradePage() {
           <div className="flex items-start gap-3">
             <FiCheck className="mt-0.5 h-5 w-5 flex-shrink-0" />
             <div>
-              <p className="font-semibold">You&apos;re on Rowly Maker.</p>
+              <p className="font-semibold">
+                {status.reason === 'cancelled_grace'
+                  ? 'Your Rowly Maker subscription is cancelled but still active.'
+                  : "You're on Rowly Maker."}
+              </p>
               <p className="mt-1">
-                <strong>{humanStatusLabel(status.status)}</strong>
+                <strong>{humanStatusLabel(status.status, status.endsAt)}</strong>
                 {status.plan ? ` · ${status.plan} plan` : ''}.{' '}
                 {status.trialEndsAt && `Trial ends ${new Date(status.trialEndsAt).toLocaleDateString()}. `}
-                {status.renewsAt && `Renews ${new Date(status.renewsAt).toLocaleDateString()}.`}
+                {/* Suppress "Renews" copy during cancelled-grace — there is no renewal. */}
+                {status.reason !== 'cancelled_grace' && status.renewsAt &&
+                  `Renews ${new Date(status.renewsAt).toLocaleDateString()}.`}
+                {status.reason === 'cancelled_grace' && status.endsAt &&
+                  `Access until ${new Date(status.endsAt).toLocaleDateString()}.`}
               </p>
               <button
                 type="button"
@@ -238,7 +246,7 @@ export default function UpgradePage() {
                 ) : (
                   <FiExternalLink className="h-4 w-4" />
                 )}
-                Manage billing
+                {status.reason === 'cancelled_grace' ? 'Resume subscription' : 'Manage billing'}
               </button>
             </div>
           </div>

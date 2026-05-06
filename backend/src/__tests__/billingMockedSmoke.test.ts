@@ -162,7 +162,10 @@ describe('billing mocked smoke — webhook → entitlement', () => {
           status,
           trial_ends_at: status === 'on_trial' ? '2026-06-01T00:00:00Z' : null,
           renews_at: '2026-07-01T00:00:00Z',
-          ends_at: null,
+          // `ends_at` is overridable so cancelled-grace cases can drive
+          // the date check. Default null preserves prior behaviour for
+          // active/trial/past_due fixtures.
+          ends_at: overrides.ends_at ?? null,
           user_email: 'smoke@example.com',
           updated_at: overrides.updated_at ?? nextMonotonicTs(),
           urls: {
@@ -241,7 +244,13 @@ describe('billing mocked smoke — webhook → entitlement', () => {
     expect(status.isActive).toBe(false);
   });
 
-  it('subscription_cancelled marks user as not entitled even when ends_at lies in the future (Rowly does not grant LS-style grace)', async () => {
+  it('subscription_cancelled with ends_at in the FUTURE keeps the user entitled (cancelled-grace)', async () => {
+    // PR #389 P2 fix: Rowly used to deny cancelled subscriptions
+    // immediately, even when LS still considered them paid-through.
+    // Reviewer flagged this as a normal-SaaS-expectation gap. New
+    // policy: status=cancelled with ends_at>now keeps access until
+    // ends_at. The `subscription_expired` event (covered below) is
+    // what eventually lapses the user.
     const provider = new LemonSqueezyProvider(cfg);
     const service = new BillingService(provider);
 
@@ -251,19 +260,77 @@ describe('billing mocked smoke — webhook → entitlement', () => {
       ),
     );
 
-    // LS sends `subscription_cancelled` with status=`cancelled`. Per
-    // spec the user should NOT be entitled (we treat cancelled as
-    // ended for entitlement purposes). The provider gives the user
-    // until ends_at to use the sub via LS's own grace; Rowly's gate
-    // is binary.
+    // Pin ends_at well into the future so the test isn't time-fragile.
+    const futureEndsAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
     await service.ingestWebhookEvent(
       service.parseWebhook(
-        signedDelivery(buildLSEvent('subscription_cancelled', 'cancelled', { webhook_id: 'wh_b' })).body,
+        signedDelivery(
+          buildLSEvent('subscription_cancelled', 'cancelled', {
+            webhook_id: 'wh_b',
+            ends_at: futureEndsAt,
+          }),
+        ).body,
       ),
     );
 
     const status = await service.getBillingStatusForUser('user-smoke-1');
     expect(status.subscription?.status).toBe('cancelled');
+    expect(status.subscription?.ends_at).toEqual(new Date(futureEndsAt));
+    expect(status.isActive).toBe(true);
+  });
+
+  it('subscription_cancelled with ends_at in the PAST denies entitlement', async () => {
+    const provider = new LemonSqueezyProvider(cfg);
+    const service = new BillingService(provider);
+
+    await service.ingestWebhookEvent(
+      service.parseWebhook(
+        signedDelivery(buildLSEvent('subscription_created', 'active', { webhook_id: 'wh_a' })).body,
+      ),
+    );
+
+    // ends_at in the past — paid-through window has lapsed even though
+    // the row's status is still `cancelled` (the `subscription_expired`
+    // event flip may not have arrived yet).
+    const pastEndsAt = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    await service.ingestWebhookEvent(
+      service.parseWebhook(
+        signedDelivery(
+          buildLSEvent('subscription_cancelled', 'cancelled', {
+            webhook_id: 'wh_b',
+            ends_at: pastEndsAt,
+          }),
+        ).body,
+      ),
+    );
+
+    const status = await service.getBillingStatusForUser('user-smoke-1');
+    expect(status.subscription?.status).toBe('cancelled');
+    expect(status.isActive).toBe(false);
+  });
+
+  it('subscription_cancelled with NULL ends_at denies entitlement (no proof of paid-through)', async () => {
+    const provider = new LemonSqueezyProvider(cfg);
+    const service = new BillingService(provider);
+
+    await service.ingestWebhookEvent(
+      service.parseWebhook(
+        signedDelivery(buildLSEvent('subscription_created', 'active', { webhook_id: 'wh_a' })).body,
+      ),
+    );
+
+    // No ends_at on the cancellation payload — fail closed.
+    await service.ingestWebhookEvent(
+      service.parseWebhook(
+        signedDelivery(
+          buildLSEvent('subscription_cancelled', 'cancelled', { webhook_id: 'wh_b' }),
+        ).body,
+      ),
+    );
+
+    const status = await service.getBillingStatusForUser('user-smoke-1');
+    expect(status.subscription?.status).toBe('cancelled');
+    expect(status.subscription?.ends_at).toBeNull();
     expect(status.isActive).toBe(false);
   });
 

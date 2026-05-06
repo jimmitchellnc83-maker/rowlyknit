@@ -144,11 +144,24 @@ export default function AccountBillingPage() {
       )}
 
       {status?.entitled && status.reason !== 'owner' && status.reason !== 'pre_launch_open' && (
-        <Card title="You're on Rowly Maker" data-testid="account-billing-active">
+        <Card
+          title={
+            status.reason === 'cancelled_grace'
+              ? 'Cancelled — access continues until your paid-through date'
+              : "You're on Rowly Maker"
+          }
+          data-testid="account-billing-active"
+        >
+          {status.reason === 'cancelled_grace' && (
+            <p className="text-gray-600 dark:text-gray-400">
+              Your subscription is cancelled and will not renew. You keep full access to Rowly
+              Maker until {status.endsAt ? new Date(status.endsAt).toLocaleDateString() : 'your paid-through date'}.
+            </p>
+          )}
           <dl className="grid grid-cols-2 gap-4 text-sm">
             <div>
               <dt className="text-gray-500">Status</dt>
-              <dd className="font-semibold">{humanStatusLabel(status.status)}</dd>
+              <dd className="font-semibold">{humanStatusLabel(status.status, status.endsAt)}</dd>
             </div>
             <div>
               <dt className="text-gray-500">Plan</dt>
@@ -160,7 +173,8 @@ export default function AccountBillingPage() {
                 <dd>{new Date(status.trialEndsAt).toLocaleDateString()}</dd>
               </div>
             )}
-            {status.renewsAt && (
+            {/* Hide "Renews" for cancelled grace — there is no renewal. */}
+            {status.renewsAt && status.reason !== 'cancelled_grace' && (
               <div>
                 <dt className="text-gray-500">Renews</dt>
                 <dd>{new Date(status.renewsAt).toLocaleDateString()}</dd>
@@ -168,7 +182,9 @@ export default function AccountBillingPage() {
             )}
             {status.endsAt && (
               <div>
-                <dt className="text-gray-500">Ends</dt>
+                <dt className="text-gray-500">
+                  {status.reason === 'cancelled_grace' ? 'Access until' : 'Ends'}
+                </dt>
                 <dd>{new Date(status.endsAt).toLocaleDateString()}</dd>
               </div>
             )}
@@ -181,7 +197,7 @@ export default function AccountBillingPage() {
             data-testid="account-billing-portal"
           >
             {portalBusy ? <FiLoader className="h-4 w-4 animate-spin" /> : <FiExternalLink className="h-4 w-4" />}
-            Manage billing
+            {status.reason === 'cancelled_grace' ? 'Resume subscription' : 'Manage billing'}
           </button>
         </Card>
       )}

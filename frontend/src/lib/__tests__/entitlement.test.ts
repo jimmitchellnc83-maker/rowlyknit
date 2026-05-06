@@ -125,9 +125,9 @@ describe('canUsePaidWorkspace', () => {
     ).toEqual({ allowed: true, reason: 'trialing' });
   });
 
-  it('denies canceled / expired / paused subscriptions without owner role', async () => {
+  it('denies expired / paused / null subscriptions without owner role', async () => {
     const { canUsePaidWorkspace } = await loadFresh();
-    for (const status of ['canceled', 'expired', 'paused', null] as const) {
+    for (const status of ['expired', 'paused', null] as const) {
       expect(
         canUsePaidWorkspace({
           email: 'lapsed@rowly.test',
@@ -135,6 +135,77 @@ describe('canUsePaidWorkspace', () => {
         }),
       ).toEqual({ allowed: false, reason: 'no_active_subscription' });
     }
+  });
+
+  // PR #389 P2 cancelled-grace policy. Mirrors the backend
+  // `isEntitledNow` helper. The frontend can apply the date check
+  // locally because `endsAt` is part of the user.subscription snapshot
+  // returned by /api/auth/profile.
+  describe('cancelled-grace policy', () => {
+    const NOW = new Date('2026-05-06T12:00:00Z');
+
+    it('keeps access for status=cancelled when endsAt is in the future', async () => {
+      const { canUsePaidWorkspace } = await loadFresh();
+      const future = new Date('2026-06-01T00:00:00Z').toISOString();
+      expect(
+        canUsePaidWorkspace(
+          { email: 'grace@rowly.test', subscription: { status: 'cancelled', endsAt: future } },
+          NOW,
+        ),
+      ).toEqual({ allowed: true, reason: 'cancelled_grace' });
+    });
+
+    it('also accepts the US-spelling status=canceled', async () => {
+      const { canUsePaidWorkspace } = await loadFresh();
+      const future = new Date('2026-06-01T00:00:00Z').toISOString();
+      expect(
+        canUsePaidWorkspace(
+          { email: 'grace@rowly.test', subscription: { status: 'canceled', endsAt: future } },
+          NOW,
+        ),
+      ).toEqual({ allowed: true, reason: 'cancelled_grace' });
+    });
+
+    it('denies status=cancelled when endsAt is in the past', async () => {
+      const { canUsePaidWorkspace } = await loadFresh();
+      const past = new Date('2026-04-01T00:00:00Z').toISOString();
+      expect(
+        canUsePaidWorkspace(
+          { email: 'lapsed@rowly.test', subscription: { status: 'cancelled', endsAt: past } },
+          NOW,
+        ),
+      ).toEqual({ allowed: false, reason: 'no_active_subscription' });
+    });
+
+    it('denies status=cancelled when endsAt is null', async () => {
+      const { canUsePaidWorkspace } = await loadFresh();
+      expect(
+        canUsePaidWorkspace(
+          { email: 'lapsed@rowly.test', subscription: { status: 'cancelled', endsAt: null } },
+          NOW,
+        ),
+      ).toEqual({ allowed: false, reason: 'no_active_subscription' });
+    });
+
+    it('denies status=cancelled when endsAt is missing entirely', async () => {
+      const { canUsePaidWorkspace } = await loadFresh();
+      expect(
+        canUsePaidWorkspace(
+          { email: 'lapsed@rowly.test', subscription: { status: 'cancelled' } },
+          NOW,
+        ),
+      ).toEqual({ allowed: false, reason: 'no_active_subscription' });
+    });
+
+    it('cancelledGraceActive helper applies the date check directly', async () => {
+      const { cancelledGraceActive } = await loadFresh();
+      const future = new Date(NOW.getTime() + 24 * 60 * 60 * 1000).toISOString();
+      const past = new Date(NOW.getTime() - 24 * 60 * 60 * 1000).toISOString();
+      expect(cancelledGraceActive(future, NOW)).toBe(true);
+      expect(cancelledGraceActive(past, NOW)).toBe(false);
+      expect(cancelledGraceActive(null, NOW)).toBe(false);
+      expect(cancelledGraceActive('not-a-date', NOW)).toBe(false);
+    });
   });
 
   it('denies a vanilla logged-in user when no env override is set', async () => {
