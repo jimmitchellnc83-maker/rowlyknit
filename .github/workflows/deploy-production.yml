@@ -14,11 +14,20 @@ name: Deploy to Production
 #                      (loud-fail by design — silent fallback to noop
 #                      would let signup / password reset appear to work
 #                      while no mail is delivered).
+#   OWNER_EMAIL      — Comma-separated owner allowlist for requireOwner
+#                      middleware. Mapped to backend OWNER_EMAIL by
+#                      scripts/provision-email-env.sh on every deploy.
+#                      Empty value => deploy aborts (losing this
+#                      silently breaks /admin/business with 403 "Owner
+#                      access only" — has happened twice when manual
+#                      .env edits got eaten by the managed-section
+#                      awk truncation on the next deploy).
 #
 # What this does on the droplet:
 #   1. Pull latest main into the live tree (/home/user/rowlyknit)
-#   2. Provision email env from RESEND_API_KEY (provision-email-env.sh)
-#      — must run BEFORE step 3 so docker compose re-reads the env_file
+#   2. Provision deploy env from RESEND_API_KEY + OWNER_EMAIL
+#      (provision-email-env.sh) — must run BEFORE step 3 so docker
+#      compose re-reads the env_file
 #   3. Run scripts/deploy-production.sh — the same OOM-safe docker compose
 #      rebuild we run by hand (stops frontend container to free RAM, builds
 #      backend+frontend, brings everything back up, internal health check,
@@ -52,6 +61,7 @@ jobs:
         uses: appleboy/ssh-action@v1.2.0
         env:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          OWNER_EMAIL: ${{ secrets.OWNER_EMAIL }}
         with:
           host: ${{ secrets.PROD_SSH_HOST }}
           username: ${{ secrets.PROD_SSH_USER }}
@@ -59,10 +69,11 @@ jobs:
           port: ${{ secrets.PROD_SSH_PORT || 22 }}
           script_stop: true
           command_timeout: 30m
-          # Forward RESEND_API_KEY into the remote shell so
-          # provision-email-env.sh can map it to backend EMAIL_API_KEY
-          # without ever materialising the value in the workflow logs.
-          envs: RESEND_API_KEY
+          # Forward RESEND_API_KEY + OWNER_EMAIL into the remote shell
+          # so provision-email-env.sh can map them to backend EMAIL_API_KEY
+          # / OWNER_EMAIL without ever materialising the values in the
+          # workflow logs.
+          envs: RESEND_API_KEY,OWNER_EMAIL
           script: |
             set -euo pipefail
             cd /home/user/rowlyknit
@@ -71,7 +82,7 @@ jobs:
             git fetch origin main
             git reset --hard origin/main
 
-            echo "==> provisioning email env from RESEND_API_KEY GitHub secret…"
+            echo "==> provisioning deploy env from GitHub secrets…"
             bash scripts/provision-email-env.sh
 
             echo "==> docker compose build + up + internal health (deploy-production.sh)…"
