@@ -20,6 +20,7 @@ import { useMeasurementPrefs } from '../hooks/useMeasurementPrefs';
 import { trackEvent } from '../lib/analytics';
 import SaveToRowlyCTA from '../components/calculators/SaveToRowlyCTA';
 import PublicAdSection from '../components/ads/PublicAdSection';
+import { getAdSlotId } from '../components/ads/adsenseSlots';
 import type { ToolResult, GaugeResult } from '../lib/toolResult';
 import { PUBLIC_TOOLS } from '../lib/publicTools';
 
@@ -262,15 +263,15 @@ export default function GaugeCalculator() {
   // the original `Calculator Used` event is preserved (dashboards key
   // off it) alongside the new generic `public_tool_*` events.
   useEffect(() => {
-    trackEvent('public_tool_viewed', { toolId: 'gauge' });
+    trackEvent('public_tool_viewed', { toolId: 'gauge', route: '/calculators/gauge' });
   }, []);
   const trackedRef = useRef(false);
   useEffect(() => {
     if (result && !trackedRef.current) {
       trackedRef.current = true;
       trackEvent('Calculator Used', { calculator: 'gauge', status: result.status });
-      trackEvent('public_tool_used', { toolId: 'gauge', status: result.status });
-      trackEvent('public_tool_result_generated', { toolId: 'gauge' });
+      trackEvent('public_tool_used', { toolId: 'gauge', route: '/calculators/gauge', status: result.status });
+      trackEvent('public_tool_result_generated', { toolId: 'gauge', route: '/calculators/gauge' });
     }
   }, [result]);
 
@@ -526,7 +527,7 @@ export default function GaugeCalculator() {
         </ul>
       </section>
 
-      <PublicAdSection slot="rowly-gauge" testId="public-ad-gauge" />
+      <PublicAdSection slot={getAdSlotId('gauge')} testId="public-ad-gauge" />
     </div>
   );
 }

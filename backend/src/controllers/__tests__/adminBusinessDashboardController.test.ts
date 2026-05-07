@@ -72,6 +72,20 @@ const ENV_KEYS = [
   'EMAIL_PROVIDER',
   'EMAIL_API_KEY',
   'ADSENSE_PUBLISHER_ID',
+  // AdSense slot ids per approved tool route — `config/adsenseSlots.ts`.
+  'ADSENSE_SLOT_CALCULATORS_INDEX',
+  'ADSENSE_SLOT_GAUGE',
+  'ADSENSE_SLOT_SIZE',
+  'ADSENSE_SLOT_YARDAGE',
+  'ADSENSE_SLOT_ROW_REPEAT',
+  'ADSENSE_SLOT_SHAPING',
+  'ADSENSE_SLOT_GLOSSARY',
+  'ADSENSE_SLOT_KNIT911',
+  // Frontend-asset path override used by inspectAdSenseAssets to
+  // verify deployed bundle contents. Tests use a tmp dir to simulate
+  // a deployed dist so they can exercise both "bundle agrees" and
+  // "namespace mismatch" branches honestly.
+  'FRONTEND_INDEX_PATH',
 ];
 
 let originalEnv: Record<string, string | undefined>;
@@ -315,9 +329,14 @@ describe('GET /api/admin/business-dashboard handler', () => {
     expect(r.pastDueSubscriptions).toBe(1);
     expect(r.monthlySubscribers).toBe(5); // 4 active + 1 past_due
     expect(r.annualSubscribers).toBe(2);
-    // MRR = 5 * 12 + 2 * (99/12) = 60 + 16.5 = 76.5
-    expect(r.mrrUsd).toBeCloseTo(76.5, 2);
-    expect(r.arrUsd).toBeCloseTo(76.5 * 12, 2);
+    // MRR = 5 * 12 + 2 * (80/12) = 60 + 13.33 = 73.33
+    // Pricing comes from `backend/src/config/pricing.ts` (annual = $80).
+    // The controller rounds MRR to 2 decimal places, then ARR is
+    // computed as the rounded MRR × 12, so the comparison must tolerate
+    // a small rounding delta (e.g. 880 vs 879.96).
+    const expectedMrr = Math.round((60 + 2 * (80 / 12)) * 100) / 100;
+    expect(r.mrrUsd).toBeCloseTo(expectedMrr, 2);
+    expect(r.arrUsd).toBeCloseTo(expectedMrr * 12, 2);
     expect(r.failedPaymentCount).toBe(2);
     expect(r.latestBillingEventAt).toBe('2026-05-01T12:00:00.000Z');
     expect(r.trialToPaidConversionRate).not.toBeNull();
@@ -501,5 +520,273 @@ describe('GET /api/admin/business-dashboard handler', () => {
     expect(support.status).toBe('done');
     expect(support.reason).toContain('help@rowlyknit.com');
     delete process.env.SUPPORT_EMAIL;
+  });
+
+  // ─── Fix #1: pricing centralised + annual = $80 ─────────────────────
+  it('revenue.pricing.annualUsd is 80 (not 99) and MRR math matches the page price', async () => {
+    process.env.NODE_ENV = 'development';
+    process.env.BILLING_PROVIDER = 'lemonsqueezy';
+    process.env.APP_URL = 'http://localhost:3000';
+    process.env.LEMONSQUEEZY_API_KEY = 'k';
+    process.env.LEMONSQUEEZY_WEBHOOK_SECRET = 's';
+    process.env.LEMONSQUEEZY_STORE_ID = '1';
+    process.env.LEMONSQUEEZY_PRODUCT_ID = '2';
+    process.env.LEMONSQUEEZY_MONTHLY_VARIANT_ID = '3';
+    process.env.LEMONSQUEEZY_ANNUAL_VARIANT_ID = '4';
+    programDbMock({
+      tablesExist: { billing_subscriptions: true, billing_events: true, blog_posts: false },
+      perTable: {
+        'billing_subscriptions:groupBy': [
+          [
+            // 1 active annual sub → MRR should be 80/12, not 99/12
+            { status: 'active', plan: 'annual', count: '1' },
+          ],
+        ],
+      },
+    });
+    const res = makeRes();
+    await getBusinessDashboard({} as Request, res);
+    const r = res.__json.data.revenue;
+    expect(r.pricing.annualUsd).toBe(80);
+    expect(r.pricing.monthlyUsd).toBe(12);
+    // 1 annual sub → MRR exactly $80/12 ≈ 6.67
+    expect(r.mrrUsd).toBeCloseTo(80 / 12, 2);
+  });
+
+  // ─── Fix #5: paid conversions are scoped to the configured provider ─
+  it('paidConversions are scoped to the configured billing provider', async () => {
+    // We can't directly assert the where clause shape from outside the
+    // mock, so we configure the mock so the .where(provider:cfg.provider)
+    // call yields a count, while the same query without provider filter
+    // would yield more. The mock can't differentiate by where clause
+    // — instead, prove the controller imports cfg.provider and reaches
+    // into the funnel section for the count.
+    process.env.NODE_ENV = 'development';
+    process.env.BILLING_PROVIDER = 'lemonsqueezy';
+    process.env.APP_URL = 'http://localhost:3000';
+    process.env.LEMONSQUEEZY_API_KEY = 'k';
+    process.env.LEMONSQUEEZY_WEBHOOK_SECRET = 's';
+    process.env.LEMONSQUEEZY_STORE_ID = '1';
+    process.env.LEMONSQUEEZY_PRODUCT_ID = '2';
+    process.env.LEMONSQUEEZY_MONTHLY_VARIANT_ID = '3';
+    process.env.LEMONSQUEEZY_ANNUAL_VARIANT_ID = '4';
+    // Static-scan: read the controller file from disk and assert the
+    // funnel block sets provider on the paidConversions queries. This
+    // guarantees a future refactor can't drop the filter without the
+    // test catching it — even though the mock doesn't check where args.
+    const fs = require('fs');
+    const path = require('path');
+    const file = fs.readFileSync(
+      path.resolve(__dirname, '../adminBusinessDashboardController.ts'),
+      'utf8',
+    );
+    // Locate the buildFunnel function and assert the provider filter is
+    // applied on both 7d and 30d paid-conversion queries.
+    const funnelBody = file.slice(file.indexOf('async function buildFunnel'));
+    expect(funnelBody).toContain("status: 'active', provider: cfg.provider");
+    // Two queries (7d + 30d) — both must use the provider filter.
+    const matches = funnelBody.match(/status:\s*'active',\s*provider:\s*cfg\.provider/g);
+    expect(matches).not.toBeNull();
+    expect(matches!.length).toBeGreaterThanOrEqual(2);
+  });
+
+  // ─── Fix #3: AdSense readiness requires real slot IDs ───────────────
+  it('AdSense readiness reports slotsConfigured=false while placeholder ids are in use', async () => {
+    process.env.NODE_ENV = 'development';
+    // Don't set any ADSENSE_SLOT_* env vars — every slot is a placeholder.
+    programDbMock({
+      tablesExist: { billing_subscriptions: true, blog_posts: false },
+      perTable: { 'billing_subscriptions:groupBy': [[]] },
+    });
+    const res = makeRes();
+    await getBusinessDashboard({} as Request, res);
+    const a = res.__json.data.contentAndSEO.adsense;
+    expect(a.slotsConfigured).toBe(false);
+    expect(Array.isArray(a.placeholderSlots)).toBe(true);
+    expect(a.placeholderSlots.length).toBeGreaterThan(0);
+    // publicAdsEnabled requires script + ads.txt + slotsConfigured.
+    expect(a.publicAdsEnabled).toBe(false);
+    // Owner task reflects the gap.
+    const adsenseTask = res.__json.data.ownerTasks.find((t: any) => t.id === 'adsense');
+    expect(adsenseTask.status).not.toBe('done');
+    expect(adsenseTask.reason).toMatch(/Placeholder|placeholder|provision/);
+  });
+
+  it('AdSense readiness slotsConfigured=true requires both backend env real AND deployed frontend bundle to contain those values', async () => {
+    process.env.NODE_ENV = 'development';
+    const slotIds: Record<string, string> = {
+      ADSENSE_SLOT_CALCULATORS_INDEX: '1234567890',
+      ADSENSE_SLOT_GAUGE: '1234567891',
+      ADSENSE_SLOT_SIZE: '1234567892',
+      ADSENSE_SLOT_YARDAGE: '1234567893',
+      ADSENSE_SLOT_ROW_REPEAT: '1234567894',
+      ADSENSE_SLOT_SHAPING: '1234567895',
+      ADSENSE_SLOT_GLOSSARY: '1234567896',
+      ADSENSE_SLOT_KNIT911: '1234567897',
+    };
+    for (const [k, v] of Object.entries(slotIds)) process.env[k] = v;
+
+    // Stand up a tmp "dist" mirror that contains the configured numeric
+    // ids in a JS bundle file — what Vite would have baked in if the
+    // operator also set the matching VITE_ADSENSE_SLOT_<TOOL> values
+    // and rebuilt the frontend.
+    const fs = require('fs') as typeof import('fs');
+    const os = require('os') as typeof import('os');
+    const pathMod = require('path') as typeof import('path');
+    const tmp = fs.mkdtempSync(pathMod.join(os.tmpdir(), 'rowly-adsense-'));
+    fs.mkdirSync(pathMod.join(tmp, 'assets'));
+    fs.writeFileSync(pathMod.join(tmp, 'index.html'), '<html></html>');
+    // One bundle file containing all 8 ids verbatim — Vite literal-replaces
+    // import.meta.env.VITE_* at build time, so each value lands in the
+    // built JS as a string literal the backend can grep for.
+    fs.writeFileSync(
+      pathMod.join(tmp, 'assets', 'index-test.js'),
+      Object.values(slotIds).map((v) => `var x="${v}";`).join('\n'),
+    );
+    fs.writeFileSync(
+      pathMod.join(tmp, 'ads.txt'),
+      'google.com, pub-9472587145183950, DIRECT, f08c47fec0942fa0',
+    );
+    process.env.FRONTEND_INDEX_PATH = pathMod.join(tmp, 'index.html');
+
+    programDbMock({
+      tablesExist: { billing_subscriptions: true, blog_posts: false },
+      perTable: { 'billing_subscriptions:groupBy': [[]] },
+    });
+    const res = makeRes();
+    await getBusinessDashboard({} as Request, res);
+    const a = res.__json.data.contentAndSEO.adsense;
+    expect(a.backendEnvAllConfigured).toBe(true);
+    expect(a.bundleInspectable).toBe(true);
+    expect(a.slotsAgreeWithBundle).toBe(true);
+    expect(a.slotsConfigured).toBe(true);
+    expect(a.placeholderSlots).toEqual([]);
+    expect(a.slotsMissingFromBundle).toEqual([]);
+    // Every per-tool agreement entry reports foundInBundle:true.
+    expect(a.bundleAgreement.length).toBe(8);
+    for (const r of a.bundleAgreement) {
+      expect(r.foundInBundle).toBe(true);
+      expect(r.viteEnvName).toBe(`VITE_${r.envName}`);
+    }
+  });
+
+  it('AdSense readiness slotsConfigured stays false if even one slot is missing or placeholder-shaped', async () => {
+    process.env.NODE_ENV = 'development';
+    // 7 of 8 real, one still a `rowly-*` placeholder.
+    process.env.ADSENSE_SLOT_CALCULATORS_INDEX = '1234567890';
+    process.env.ADSENSE_SLOT_GAUGE = '1234567891';
+    process.env.ADSENSE_SLOT_SIZE = '1234567892';
+    process.env.ADSENSE_SLOT_YARDAGE = '1234567893';
+    process.env.ADSENSE_SLOT_ROW_REPEAT = '1234567894';
+    process.env.ADSENSE_SLOT_SHAPING = '1234567895';
+    process.env.ADSENSE_SLOT_GLOSSARY = '1234567896';
+    process.env.ADSENSE_SLOT_KNIT911 = 'rowly-knit911'; // placeholder!
+    programDbMock({
+      tablesExist: { billing_subscriptions: true, blog_posts: false },
+      perTable: { 'billing_subscriptions:groupBy': [[]] },
+    });
+    const res = makeRes();
+    await getBusinessDashboard({} as Request, res);
+    const a = res.__json.data.contentAndSEO.adsense;
+    expect(a.slotsConfigured).toBe(false);
+    expect(a.backendEnvAllConfigured).toBe(false);
+    expect(a.placeholderSlots).toContain('knit911');
+  });
+
+  // ─── Env namespace fix: backend env without matching VITE_* ─────────
+  it('AdSense readiness slotsConfigured=false when backend env is real but frontend bundle does NOT carry the values (namespace mismatch)', async () => {
+    process.env.NODE_ENV = 'development';
+    // Operator set the backend env but forgot to set the matching
+    // VITE_ADSENSE_SLOT_<TOOL> values (or didn't rebuild the frontend
+    // after setting them). The bundle ships either placeholder ids or
+    // an entirely different number.
+    const slotIds: Record<string, string> = {
+      ADSENSE_SLOT_CALCULATORS_INDEX: '1234567890',
+      ADSENSE_SLOT_GAUGE: '1234567891',
+      ADSENSE_SLOT_SIZE: '1234567892',
+      ADSENSE_SLOT_YARDAGE: '1234567893',
+      ADSENSE_SLOT_ROW_REPEAT: '1234567894',
+      ADSENSE_SLOT_SHAPING: '1234567895',
+      ADSENSE_SLOT_GLOSSARY: '1234567896',
+      ADSENSE_SLOT_KNIT911: '1234567897',
+    };
+    for (const [k, v] of Object.entries(slotIds)) process.env[k] = v;
+
+    const fs = require('fs') as typeof import('fs');
+    const os = require('os') as typeof import('os');
+    const pathMod = require('path') as typeof import('path');
+    const tmp = fs.mkdtempSync(pathMod.join(os.tmpdir(), 'rowly-adsense-mismatch-'));
+    fs.mkdirSync(pathMod.join(tmp, 'assets'));
+    fs.writeFileSync(pathMod.join(tmp, 'index.html'), '<html></html>');
+    // The deployed bundle ships the placeholder strings — what would
+    // happen if the operator never set the VITE_* envs at frontend
+    // build time. None of the configured numeric ids appear here.
+    fs.writeFileSync(
+      pathMod.join(tmp, 'assets', 'index-stale.js'),
+      'var x="rowly-gauge"; var y="rowly-size";',
+    );
+    process.env.FRONTEND_INDEX_PATH = pathMod.join(tmp, 'index.html');
+
+    programDbMock({
+      tablesExist: { billing_subscriptions: true, blog_posts: false },
+      perTable: { 'billing_subscriptions:groupBy': [[]] },
+    });
+    const res = makeRes();
+    await getBusinessDashboard({} as Request, res);
+    const a = res.__json.data.contentAndSEO.adsense;
+
+    // Backend env on its own is "configured", but the bundle disagrees.
+    expect(a.backendEnvAllConfigured).toBe(true);
+    expect(a.bundleInspectable).toBe(true);
+    expect(a.slotsAgreeWithBundle).toBe(false);
+    // Therefore the dashboard refuses to report slotsConfigured.
+    expect(a.slotsConfigured).toBe(false);
+    expect(a.publicAdsEnabled).toBe(false);
+    // Every tool surfaces in slotsMissingFromBundle because nothing
+    // matched.
+    expect(a.slotsMissingFromBundle.length).toBe(8);
+    expect(a.slotsMissingFromBundle).toEqual(
+      expect.arrayContaining(['gauge', 'size', 'calculators-index', 'knit911']),
+    );
+
+    // Owner task explains the gap and names BOTH env namespaces in
+    // the suggested action so the operator knows what to set on each
+    // side and that a frontend rebuild is required.
+    const adsenseTask = res.__json.data.ownerTasks.find((t: any) => t.id === 'adsense');
+    expect(adsenseTask.status).not.toBe('done');
+    expect(adsenseTask.suggestedAction).toMatch(/VITE_ADSENSE_SLOT_/);
+    expect(adsenseTask.suggestedAction).toMatch(/rebuild/i);
+  });
+
+  it('AdSense readiness slotsConfigured=false when only frontend VITE_* values are set (backend env empty)', async () => {
+    // This is the "frontend-only" half of the namespace fix: even if
+    // a Vite-baked bundle ships real numeric ids, the dashboard has
+    // no way to know about them without the matching backend
+    // ADSENSE_SLOT_<TOOL> env vars. Without backend env we treat it
+    // as unconfigured — same outcome as no env at all.
+    process.env.NODE_ENV = 'development';
+    // Pretend the bundle has values for every tool…
+    const fs = require('fs') as typeof import('fs');
+    const os = require('os') as typeof import('os');
+    const pathMod = require('path') as typeof import('path');
+    const tmp = fs.mkdtempSync(pathMod.join(os.tmpdir(), 'rowly-adsense-frontend-only-'));
+    fs.mkdirSync(pathMod.join(tmp, 'assets'));
+    fs.writeFileSync(pathMod.join(tmp, 'index.html'), '<html></html>');
+    fs.writeFileSync(
+      pathMod.join(tmp, 'assets', 'index-fe.js'),
+      'var x="9999999990"; var y="9999999991";', // numeric, but backend doesn't know about these
+    );
+    process.env.FRONTEND_INDEX_PATH = pathMod.join(tmp, 'index.html');
+
+    programDbMock({
+      tablesExist: { billing_subscriptions: true, blog_posts: false },
+      perTable: { 'billing_subscriptions:groupBy': [[]] },
+    });
+    const res = makeRes();
+    await getBusinessDashboard({} as Request, res);
+    const a = res.__json.data.contentAndSEO.adsense;
+    expect(a.backendEnvAllConfigured).toBe(false);
+    expect(a.slotsConfigured).toBe(false);
+    expect(a.publicAdsEnabled).toBe(false);
   });
 });

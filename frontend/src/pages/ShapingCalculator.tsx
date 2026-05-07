@@ -13,6 +13,7 @@ import SaveToRowlyCTA from '../components/calculators/SaveToRowlyCTA';
 import type { ToolResult, ShapingResult } from '../lib/toolResult';
 import { PUBLIC_TOOLS } from '../lib/publicTools';
 import PublicAdSection from '../components/ads/PublicAdSection';
+import { getAdSlotId } from '../components/ads/adsenseSlots';
 
 const FAQS: Array<{ q: string; a: string }> = [
   {
@@ -74,14 +75,14 @@ export default function ShapingCalculator() {
   }, [startStitches, endStitches, totalRows]);
 
   useEffect(() => {
-    trackEvent('public_tool_viewed', { toolId: 'shaping' });
+    trackEvent('public_tool_viewed', { toolId: 'shaping', route: '/calculators/shaping' });
   }, []);
   const trackedRef = useRef(false);
   useEffect(() => {
     if (result && !trackedRef.current) {
       trackedRef.current = true;
-      trackEvent('public_tool_used', { toolId: 'shaping', shapingType: result.shapingType });
-      trackEvent('public_tool_result_generated', { toolId: 'shaping' });
+      trackEvent('public_tool_used', { toolId: 'shaping', route: '/calculators/shaping', shapingType: result.shapingType });
+      trackEvent('public_tool_result_generated', { toolId: 'shaping', route: '/calculators/shaping' });
     }
   }, [result]);
 
@@ -258,7 +259,7 @@ export default function ShapingCalculator() {
           </li>
         </ul>
       </section>
-      <PublicAdSection slot="rowly-shaping" testId="public-ad-shaping" />
+      <PublicAdSection slot={getAdSlotId('shaping')} testId="public-ad-shaping" />
     </div>
   );
 }

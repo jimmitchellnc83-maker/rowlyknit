@@ -20,6 +20,7 @@ import { useMeasurementPrefs } from '../hooks/useMeasurementPrefs';
 import { trackEvent } from '../lib/analytics';
 import SaveToRowlyCTA from '../components/calculators/SaveToRowlyCTA';
 import PublicAdSection from '../components/ads/PublicAdSection';
+import { getAdSlotId } from '../components/ads/adsenseSlots';
 import type { ToolResult, SizeResult } from '../lib/toolResult';
 import { PUBLIC_TOOLS } from '../lib/publicTools';
 
@@ -205,15 +206,15 @@ export default function GiftSizeCalculator() {
   // the original `Calculator Used` event is preserved (dashboards key
   // off it) alongside the new generic `public_tool_*` events.
   useEffect(() => {
-    trackEvent('public_tool_viewed', { toolId: 'size' });
+    trackEvent('public_tool_viewed', { toolId: 'size', route: '/calculators/size' });
   }, []);
   const trackedRef = useRef(false);
   useEffect(() => {
     if (result && !trackedRef.current) {
       trackedRef.current = true;
       trackEvent('Calculator Used', { calculator: 'size', fit });
-      trackEvent('public_tool_used', { toolId: 'size', fit });
-      trackEvent('public_tool_result_generated', { toolId: 'size' });
+      trackEvent('public_tool_used', { toolId: 'size', route: '/calculators/size', fit });
+      trackEvent('public_tool_result_generated', { toolId: 'size', route: '/calculators/size' });
     }
   }, [result, fit]);
 
@@ -489,7 +490,7 @@ export default function GiftSizeCalculator() {
         </ul>
       </section>
 
-      <PublicAdSection slot="rowly-size" testId="public-ad-size" />
+      <PublicAdSection slot={getAdSlotId('size')} testId="public-ad-size" />
     </div>
   );
 }

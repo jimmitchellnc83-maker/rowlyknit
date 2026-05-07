@@ -1,6 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { ADSENSE_PUBLISHER_ID, isApprovedAdRoute } from './adRoutes';
+import { isRealSlotId } from './adsenseSlots';
+import { useAdSenseScript } from './useAdSenseScript';
 
 declare global {
   interface Window {
@@ -12,8 +14,10 @@ interface PublicAdSlotProps {
   /**
    * The AdSense ad-unit slot id. Each placement on the page should have
    * its own unique slot id (provisioned via the AdSense dashboard).
-   * For the initial rollout we use a single shared "responsive" slot
-   * across calculator pages — the operator can split this later.
+   * Anything that doesn't match the real-id pattern is treated as a
+   * placeholder — the `<ins>` still renders, but we don't push to
+   * `adsbygoogle` (which would log a 400 to the console without ever
+   * filling the slot).
    */
   slot: string;
   /** Optional className passed through to the wrapper for layout control. */
@@ -38,13 +42,18 @@ interface PublicAdSlotProps {
  * policy that drives it. The landing page and the authenticated app
  * never get ads even if a developer drops this component in by mistake.
  *
- * The site script loads from `index.html` regardless of route, so this
- * component only has to deal with two concerns:
+ * The site script is injected lazily by `useAdSenseScript` only on
+ * approved routes — see that hook for the rationale (loading the script
+ * site-wide would put a third-party request on every landing / auth /
+ * app page even though no slot is ever filled there).
+ *
+ * Component responsibilities:
  *   1. Render an `<ins>` element that AdSense can fill.
- *   2. Push the slot into `window.adsbygoogle` once on mount, but only
- *      after the route guard passes. If `adsbygoogle` isn't loaded yet
- *      (slow network, ad-blocker), the push is a no-op and we silently
- *      degrade — same as Google's recommended snippet.
+ *   2. On approved routes with a real slot id, push into
+ *      `window.adsbygoogle` so AdSense's loader picks the slot up.
+ *   3. Suppress the push for placeholder slot ids (`rowly-*`) so a
+ *      page doesn't generate console errors before the operator
+ *      provisions real ad units.
  */
 export default function PublicAdSlot({
   slot,
@@ -58,9 +67,16 @@ export default function PublicAdSlot({
   const pushedRef = useRef(false);
 
   const allowed = isApprovedAdRoute(pathname);
+  const realSlot = isRealSlotId(slot);
+
+  // Inject the AdSense site script — but only on approved routes.
+  // The hook is a no-op on every other route, so /, /dashboard,
+  // /admin/* etc. never load `adsbygoogle.js`.
+  useAdSenseScript(allowed && realSlot);
 
   useEffect(() => {
     if (!allowed) return;
+    if (!realSlot) return; // Skip push for placeholder ids.
     if (pushedRef.current) return;
     if (typeof window === 'undefined') return;
     try {
@@ -73,7 +89,7 @@ export default function PublicAdSlot({
       // An ad-blocker / CSP / network failure throws here. We swallow —
       // the slot stays empty, the rest of the page renders normally.
     }
-  }, [allowed]);
+  }, [allowed, realSlot]);
 
   if (!allowed) return null;
 

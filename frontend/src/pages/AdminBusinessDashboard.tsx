@@ -147,6 +147,21 @@ interface DashboardResponse {
         adsTxtValid: boolean;
         adsTxtSource: string | null;
         adsTxtContents: string | null;
+        slotsConfigured: boolean;
+        backendEnvAllConfigured: boolean;
+        placeholderSlots: string[];
+        slotConfig: Array<{ tool: string; envName: string; configured: boolean; value: string | null }>;
+        bundleInspectable: boolean;
+        bundleInspectedDir: string | null;
+        slotsAgreeWithBundle: boolean | null;
+        slotsMissingFromBundle: string[];
+        bundleAgreement: Array<{
+          tool: string;
+          envName: string;
+          viteEnvName: string;
+          expected: string | null;
+          foundInBundle: boolean | null;
+        }>;
         publicAdsEnabled: boolean;
         landingPageAdsEnabled: boolean;
         appAdsEnabled: boolean;
@@ -732,7 +747,7 @@ export default function AdminBusinessDashboard() {
             {content.adsense.publisherId}
           </code>
         </div>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
           <StatCard
             label="Script present"
             value={content.adsense.scriptPresent ? 'yes' : 'no'}
@@ -750,6 +765,44 @@ export default function AdminBusinessDashboard() {
             value={content.adsense.adsTxtValid ? 'yes' : 'no'}
             tone={content.adsense.adsTxtValid ? 'good' : 'warn'}
             hint={content.adsense.expectedAdsTxtLine}
+          />
+          <StatCard
+            label="Slot ids configured"
+            value={content.adsense.slotsConfigured ? 'yes' : 'no'}
+            tone={content.adsense.slotsConfigured ? 'good' : 'warn'}
+            hint={
+              content.adsense.placeholderSlots.length > 0
+                ? `Still placeholder: ${content.adsense.placeholderSlots.join(', ')}`
+                : content.adsense.slotsAgreeWithBundle === false
+                  ? `Backend env real, but frontend bundle ships different ids for: ${content.adsense.slotsMissingFromBundle.join(', ')} — set the matching VITE_ADSENSE_SLOT_<TOOL> and rebuild.`
+                  : content.adsense.slotsAgreeWithBundle === null
+                    ? 'Backend env real, but the deployed frontend bundle could not be inspected to confirm matching VITE_* values were baked in.'
+                    : 'All approved tools have real numeric slot ids and the deployed bundle agrees.'
+            }
+          />
+          <StatCard
+            label="FE bundle agrees"
+            value={
+              content.adsense.slotsAgreeWithBundle === true
+                ? 'yes'
+                : content.adsense.slotsAgreeWithBundle === false
+                  ? 'no'
+                  : 'unknown'
+            }
+            tone={
+              content.adsense.slotsAgreeWithBundle === true
+                ? 'good'
+                : content.adsense.slotsAgreeWithBundle === false
+                  ? 'bad'
+                  : 'warn'
+            }
+            hint={
+              content.adsense.bundleInspectable
+                ? content.adsense.slotsAgreeWithBundle === false
+                  ? `Mismatch: ${content.adsense.slotsMissingFromBundle.join(', ')}`
+                  : 'Backend ADSENSE_SLOT_<TOOL> values found in the deployed JS bundle.'
+                : 'No frontend assets inspected — set FRONTEND_INDEX_PATH or check the deploy layout.'
+            }
           />
           <StatCard
             label="Public ads enabled"

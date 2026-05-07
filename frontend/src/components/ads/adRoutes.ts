@@ -15,8 +15,13 @@
  *   - DO NOT show ads on auth, upgrade, billing, account, or checkout pages.
  *   - Ads are allowed only on public content/tool pages listed below.
  *
- * The site script loads in `index.html` regardless of route so AdSense's
- * crawler can verify the publisher; only the SLOTS are gated.
+ * The site script is NOT loaded from `index.html`. It is injected
+ * lazily by `useAdSenseScript` when (and only when) a `PublicAdSlot`
+ * mounts on a route in `APPROVED_AD_ROUTES` with a real (non-placeholder)
+ * slot id. The hook is a no-op on every other route, so `/`, the entire
+ * authenticated app, `/admin/*`, and the auth/upgrade/billing surfaces
+ * never load `adsbygoogle.js` — only the SLOTS are gated, and the
+ * script load itself is route-scoped on top.
  */
 
 export const ADSENSE_PUBLISHER_ID = 'ca-pub-9472587145183950';

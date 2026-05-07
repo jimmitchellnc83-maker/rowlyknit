@@ -52,6 +52,11 @@ import {
   startCheckout,
 } from '../lib/billing';
 import { trackEvent } from '../lib/analytics';
+import { PRICING_USD } from '../lib/pricing';
+
+const PRICE_MONTHLY_LABEL = `$${PRICING_USD.monthly}`;
+const PRICE_ANNUAL_LABEL = `$${PRICING_USD.annual}`;
+const ANNUAL_SAVINGS_LABEL = `$${PRICING_USD.monthly * 12 - PRICING_USD.annual}`;
 
 const FEATURES = [
   'Save calculator results to projects, patterns, yarn stash, or Make Mode reminders.',
@@ -64,13 +69,20 @@ const FEATURES = [
 
 export default function UpgradePage() {
   useSeo({
-    title: 'Rowly Maker — knitting workspace ($12/mo or $80/yr, 30-day trial)',
-    description:
-      'Rowly Maker turns calculator results into project plans, gauge logs, and shaping reminders. $12/month or $80/year with a 30-day trial.',
+    title: `Rowly Maker — knitting workspace (${PRICE_MONTHLY_LABEL}/mo or ${PRICE_ANNUAL_LABEL}/yr, 30-day trial)`,
+    description: `Rowly Maker turns calculator results into project plans, gauge logs, and shaping reminders. ${PRICE_MONTHLY_LABEL}/month or ${PRICE_ANNUAL_LABEL}/year with a 30-day trial.`,
     canonicalPath: '/upgrade',
   });
 
   const { user, isAuthenticated } = useAuthStore();
+
+  // Fire `upgrade_page_viewed` once per mount so the dashboard funnel
+  // can compute the upgrade-page → checkout-start conversion. Plausible
+  // also gets the event; the first-party endpoint is what populates
+  // `usage_events` for /admin/business.
+  useEffect(() => {
+    trackEvent('upgrade_page_viewed');
+  }, []);
 
   const [status, setStatus] = useState<BillingStatus | null>(null);
   const [loadingStatus, setLoadingStatus] = useState(false);
@@ -142,7 +154,11 @@ export default function UpgradePage() {
 
     setBusy(plan);
     try {
+      // Dashboard funnel reads `checkout_started`; keep the legacy
+      // `upgrade_checkout_started` event firing for any Plausible goals
+      // that already key off it.
       trackEvent('upgrade_checkout_started', { plan });
+      trackEvent('checkout_started', { plan });
       const result = await startCheckout(plan);
       // Hand off to the provider — full-page navigation, the URL
       // contains a one-time token so we don't open in a new tab.
@@ -275,7 +291,7 @@ export default function UpgradePage() {
         <PricingCard
           plan="monthly"
           title="Monthly"
-          price="$12"
+          price={PRICE_MONTHLY_LABEL}
           cadence="per month"
           tagline="Try Rowly Maker month-to-month."
           loading={loadingStatus}
@@ -289,9 +305,9 @@ export default function UpgradePage() {
         <PricingCard
           plan="annual"
           title="Annual"
-          price="$80"
+          price={PRICE_ANNUAL_LABEL}
           cadence="per year"
-          tagline="Save $64 vs. monthly. Best value."
+          tagline={`Save ${ANNUAL_SAVINGS_LABEL} vs. monthly. Best value.`}
           highlight
           loading={loadingStatus}
           loggedIn={isAuthenticated}

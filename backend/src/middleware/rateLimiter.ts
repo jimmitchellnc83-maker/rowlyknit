@@ -357,6 +357,31 @@ export const publicSharedLimiter = rateLimit({
 });
 
 /**
+ * Public analytics ingest limiter — keyed by IP so an anonymous browser
+ * sending a flurry of `public_tool_viewed` events can't drown the
+ * `usage_events` table. 120/minute is enough for an aggressive normal
+ * user (page view + result generation + save click + nav between
+ * tools) but caps an obvious abuser well before the table notices.
+ *
+ * The endpoint itself is no-op-on-failure, so this limiter is the
+ * primary protection against floods, not a fallback.
+ */
+export const publicAnalyticsLimiter = rateLimit({
+  store: new RedisStore({
+    sendCommand: ((...args: any[]) => redisClient.call(args[0], ...args.slice(1))) as any,
+  }),
+  windowMs: 60000,
+  max: parseInt(process.env.PUBLIC_ANALYTICS_RATE_LIMIT_MAX || '120'),
+  message: {
+    success: false,
+    message: 'Too many analytics events, please try again later',
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => `public-analytics:${req.ip || 'unknown'}`,
+});
+
+/**
  * Stricter limiter for POST /shared/chart/:token/access — the password-
  * verification endpoint. Without this, the only protection on a protected
  * share is the 60/min/IP `publicSharedLimiter`, which allows ~3.6k

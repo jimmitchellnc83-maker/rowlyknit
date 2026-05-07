@@ -67,7 +67,7 @@ function makeData(overrides: Record<string, any> = {}) {
       churnRate: null,
       failedPaymentCount: 0,
       latestBillingEventAt: null,
-      pricing: { monthlyUsd: 12, annualUsd: 99 },
+      pricing: { monthlyUsd: 12, annualUsd: 80 },
     },
     users: {
       wired: true,
@@ -146,7 +146,16 @@ function makeData(overrides: Record<string, any> = {}) {
         adsTxtValid: true,
         adsTxtSource: '/usr/share/nginx/html/ads.txt',
         adsTxtContents: 'google.com, pub-9472587145183950, DIRECT, f08c47fec0942fa0',
-        publicAdsEnabled: true,
+        slotsConfigured: false,
+        backendEnvAllConfigured: false,
+        placeholderSlots: ['gauge', 'size', 'yardage', 'row-repeat', 'shaping', 'glossary', 'knit911', 'calculators-index'],
+        slotConfig: [],
+        bundleInspectable: false,
+        bundleInspectedDir: null,
+        slotsAgreeWithBundle: null,
+        slotsMissingFromBundle: [],
+        bundleAgreement: [],
+        publicAdsEnabled: false,
         landingPageAdsEnabled: false,
         appAdsEnabled: false,
         approvedAdRoutes: [
@@ -389,6 +398,19 @@ describe('AdminBusinessDashboard — AdSense readiness card', () => {
     expect(screen.getByText(/off \(per policy\)/i)).toBeInTheDocument();
   });
 
+  it('renders "Slot ids configured: no" when the API reports placeholder slots', async () => {
+    renderPage();
+    await screen.findByText(/Launch blockers/i);
+    // The default `makeData()` payload reports `slotsConfigured: false`
+    // with placeholderSlots populated — this is the honest state at
+    // launch.
+    const card = await screen.findByTestId('adsense-readiness-card');
+    expect(card).toHaveTextContent(/Slot ids configured/i);
+    // The hint surfaces the placeholder list verbatim so the operator
+    // knows exactly which env vars to set.
+    expect(card).toHaveTextContent(/Still placeholder/i);
+  });
+
   it('flags POLICY VIOLATION if the API ever reports landing/app ads enabled', async () => {
     const get = axios.get as unknown as ReturnType<typeof vi.fn>;
     get.mockImplementationOnce(() =>
@@ -411,6 +433,15 @@ describe('AdminBusinessDashboard — AdSense readiness card', () => {
                 adsTxtValid: true,
                 adsTxtSource: '/dist/ads.txt',
                 adsTxtContents: 'google.com, pub-9472587145183950, DIRECT, f08c47fec0942fa0',
+                slotsConfigured: true,
+                backendEnvAllConfigured: true,
+                placeholderSlots: [],
+                slotConfig: [],
+                bundleInspectable: true,
+                bundleInspectedDir: '/dist/assets',
+                slotsAgreeWithBundle: true,
+                slotsMissingFromBundle: [],
+                bundleAgreement: [],
                 publicAdsEnabled: true,
                 landingPageAdsEnabled: true,  // <- regression
                 appAdsEnabled: false,

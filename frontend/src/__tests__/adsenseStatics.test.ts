@@ -1,10 +1,16 @@
 /**
  * Static-asset pins for AdSense.
  *
- * The deploy pipeline serves `frontend/index.html` and
- * `frontend/public/ads.txt` through nginx. Both must contain the right
- * AdSense markers; both are verified here so a typo in one PR doesn't
- * silently break ad delivery.
+ * The deploy pipeline serves `frontend/index.html`,
+ * `frontend/public/ads.txt`, and the bundled JS through nginx. The
+ * AdSense script is no longer in `index.html` (it's injected by
+ * `useAdSenseScript` only on approved routes). We verify:
+ *   - `index.html` does NOT carry the AdSense `<script>` tag.
+ *   - `useAdSenseScript.ts` carries the canonical publisher id +
+ *     `adsbygoogle.js` URL — that's the one and only place the FE
+ *     loads the third-party script.
+ *   - `public/ads.txt` still contains the publisher attribution line
+ *     (independent of the script load location).
  */
 
 import { describe, it, expect } from 'vitest';
@@ -14,11 +20,24 @@ import * as path from 'node:path';
 const FRONTEND_ROOT = path.resolve(__dirname, '../..');
 
 describe('AdSense static assets', () => {
-  it('index.html loads the AdSense script with the right publisher id', () => {
+  it('index.html does NOT include the AdSense script tag (route-scoped via useAdSenseScript)', () => {
     const html = fs.readFileSync(path.join(FRONTEND_ROOT, 'index.html'), 'utf8');
-    expect(html).toContain('pagead2.googlesyndication.com/pagead/js/adsbygoogle.js');
-    expect(html).toContain('client=ca-pub-9472587145183950');
-    expect(html).toContain('crossorigin="anonymous"');
+    expect(html).not.toContain('pagead2.googlesyndication.com/pagead/js/adsbygoogle.js');
+  });
+
+  it('useAdSenseScript.ts loads the AdSense script with the right publisher id', () => {
+    const hookSrc = fs.readFileSync(
+      path.join(FRONTEND_ROOT, 'src', 'components', 'ads', 'useAdSenseScript.ts'),
+      'utf8',
+    );
+    expect(hookSrc).toContain('pagead2.googlesyndication.com/pagead/js/adsbygoogle.js');
+    expect(hookSrc).toContain('client=');
+    // Real id comes from adRoutes.ts:
+    const adRoutesSrc = fs.readFileSync(
+      path.join(FRONTEND_ROOT, 'src', 'components', 'ads', 'adRoutes.ts'),
+      'utf8',
+    );
+    expect(adRoutesSrc).toContain('ca-pub-9472587145183950');
   });
 
   it('public/ads.txt contains the canonical google.com line', () => {

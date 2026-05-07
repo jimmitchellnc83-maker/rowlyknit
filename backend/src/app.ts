@@ -58,6 +58,7 @@ import gdprRoutes from './routes/gdpr';
 import sourceFilesRoutes from './routes/source-files';
 import billingRoutes from './routes/billing';
 import adminBusinessDashboardRoutes from './routes/admin-business-dashboard';
+import publicAnalyticsRoutes from './routes/public-analytics';
 import * as billingController from './controllers/billingController';
 import { asyncHandler } from './utils/errorHandler';
 
@@ -143,6 +144,15 @@ app.use(conditionalCsrf);
 // Audit logging
 app.use(auditMiddleware);
 
+// Public first-party analytics intake mounts BEFORE the broader
+// `/shared/` rate limiter. The router applies its own
+// `publicAnalyticsLimiter` (120/min/IP) on POST /event — without this
+// ordering, the 60/min `publicSharedLimiter` below would always trip
+// first and the dedicated 120/min cap would be dead code. See M1 fix
+// for PR #390 and the matching app-routing pin in
+// `__tests__/sharedAnalyticsMountOrder.test.ts`.
+app.use('/shared/analytics', publicAnalyticsRoutes); // First-party usage events from public surfaces
+
 // Rate limiting
 app.use('/api/', apiLimiter);
 app.use('/shared/', publicSharedLimiter);
@@ -201,6 +211,9 @@ app.use('/api/gdpr', gdprRoutes);
 app.use('/api/source-files', sourceFilesRoutes);
 app.use('/api/billing', billingRoutes);
 app.use('/api/admin', adminBusinessDashboardRoutes); // Owner-only business dashboard
+// Note: /shared/analytics is mounted earlier in the chain (before
+// publicSharedLimiter) so its dedicated 120/min cap takes precedence
+// over the default 60/min. Keeping the comment here as a breadcrumb.
 app.use('/shared', sharedRoutes); // Public shared content routes
 app.use('/', ogRenderRoutes); // Server-side OG meta for /p/:slug
 app.use('/', calculatorsSsrRoutes); // Server-side JSON-LD for /calculators

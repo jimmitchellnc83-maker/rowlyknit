@@ -4,6 +4,7 @@ import axios from 'axios';
 import { FiSearch, FiX, FiArrowLeft } from 'react-icons/fi';
 import { useSeo } from '../hooks/useSeo';
 import PublicAdSection from '../components/ads/PublicAdSection';
+import { getAdSlotId } from '../components/ads/adsenseSlots';
 
 type Craft = 'knit' | 'crochet' | 'tunisian' | 'loom-knit';
 
@@ -399,7 +400,7 @@ export default function Glossary() {
         .
       </footer>
 
-      <PublicAdSection slot="rowly-glossary" testId="public-ad-glossary" />
+      <PublicAdSection slot={getAdSlotId('glossary')} testId="public-ad-glossary" />
     </div>
   );
 }
